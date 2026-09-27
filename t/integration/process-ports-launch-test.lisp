@@ -100,15 +100,16 @@ that expected otherwise never leaks it."
 
   (it "reports a missing helper as unavailable, naming the helper"
     (with-temporary-directory (directory)
-      (call-with-launcher-environment
-       directory
-       (lambda ()
-         (destructuring-bind (kind message program)
-             (launch (production-ports) (list "/bin/sleep" "30")
-                     (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
-           (expect kind :to-be :unavailable)
-           (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
-           (expect program :to-equal "cl-process-kit-spawn"))))))
+      (let ((sleep-path (program-on-path "sleep")))
+        (call-with-launcher-environment
+         directory
+         (lambda ()
+           (destructuring-bind (kind message program)
+               (launch (production-ports) (list sleep-path "30")
+                       (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
+             (expect kind :to-be :unavailable)
+             (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
+             (expect program :to-equal "cl-process-kit-spawn")))))))
 
   (it "reports a program path that is not executable as unavailable"
     (with-temporary-directory (directory)
@@ -126,33 +127,35 @@ that expected otherwise never leaks it."
 
   (it "reports a helper that cannot be executed as unavailable for the program"
     (with-temporary-directory (directory)
-      (let ((garbage (merge-pathnames "garbage" directory)))
+      (let ((garbage (merge-pathnames "garbage" directory))
+            (sleep-path (program-on-path "sleep")))
         (make-executable garbage (make-string 16 :initial-element (code-char 0)))
         (call-with-launcher-environment
          directory
          (lambda ()
            (destructuring-bind (kind message program)
-               (launch (production-ports) (list "/bin/sleep" "30")
+               (launch (production-ports) (list sleep-path "30")
                        (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
              (expect kind :to-be :unavailable)
-             (expect (starts-with-p "cannot start /bin/sleep: " message) :to-be t)
-             (expect program :to-equal "/bin/sleep")))
+             (expect (starts-with-p (format nil "cannot start ~A: " sleep-path) message) :to-be t)
+             (expect program :to-equal sleep-path)))
          :override (uiop:native-namestring garbage)))))
 
   (it "refuses a bg log that was swapped for a symlink, starting nothing"
     (with-temporary-directory (directory)
       (let ((garbage (merge-pathnames "garbage" directory))
             (log (merge-pathnames "bg-1.log" directory))
-            (target (merge-pathnames "elsewhere" directory)))
+            (target (merge-pathnames "elsewhere" directory))
+            (sleep-path (program-on-path "sleep")))
         (make-executable garbage (make-string 16 :initial-element (code-char 0)))
         (sb-posix:symlink (uiop:native-namestring target) (uiop:native-namestring log))
         (call-with-launcher-environment
          directory
          (lambda ()
-           (expect (starts-with-p "starting /bin/sleep failed: "
+           (expect (starts-with-p (format nil "starting ~A failed: " sleep-path)
                                   (port-error-message
                                    (lambda ()
-                                     (launch (production-ports) (list "/bin/sleep" "30")
+                                     (launch (production-ports) (list sleep-path "30")
                                              log (merge-pathnames "bg-1.exit" directory)))))
                    :to-be t))
          :override (uiop:native-namestring garbage))
@@ -169,7 +172,7 @@ that expected otherwise never leaks it."
         (unwind-protect
              (progn
                (call-port ports 'aitools.process.application::process-ports-launch-detached
-                          (list "/bin/sleep" "30") log (merge-pathnames "bg-1.exit" directory)
+                          (list (program-on-path "sleep") "30") log (merge-pathnames "bg-1.exit" directory)
                           :on-started (lambda (started) (setf pid started))
                           :on-unavailable (lambda (message program) (error "~A: ~A" program message)))
                (expect (call-port ports 'aitools.process.application::process-ports-group-alive-p pid) :to-be t)

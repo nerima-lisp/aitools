@@ -136,7 +136,7 @@
   (put ws "f.txt" "x" :mode #o640)
   (expect (string-left-trim "0" (jget (run-ok ws '("info" "f.txt")) "mode"))
           :to-equal (string-trim '(#\Newline)
-                                 (oracle ws '("stat") "stat -f %Lp f.txt 2>/dev/null || stat -c %a f.txt" (format nil "640~%")))))
+                                 (oracle ws '("stat") "stat -c %a f.txt 2>/dev/null || stat -f %Lp f.txt" (format nil "640~%")))))
 
 (define-row-case (5 "file --mime-type is info's mime" :foreign ("file")) (ws)
   (put ws "f.txt" (format nil "plain text~%"))

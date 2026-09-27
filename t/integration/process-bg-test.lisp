@@ -192,7 +192,7 @@ child reads aitools's package-qualified symbols only after loading them."
   (it "cannot stop a process aitools did not start, by pid or by a forged record"
     (with-temporary-directory (root)
       (let* ((state (state-directory root))
-             (bystander (process-kit:spawn "/bin/sleep" (list "30")))
+             (bystander (process-kit:spawn (program-on-path "sleep") (list "30")))
              (pid (process-kit:process-id bystander))
              (started nil))
         (unwind-protect

@@ -58,6 +58,23 @@ whichever stream the command wrote."
 (defun sh (script)
   (list "sh" "-c" script))
 
+(defun program-on-path (name)
+  "The absolute path of the first executable NAME in an absolute $PATH
+directory, for a spec that must name a program by path: the Nix build sandbox
+has no /bin/sleep, only coreutils on PATH. The path is not resolved through
+symlinks, so a multi-call binary still sees NAME as its argv[0]."
+  (or (loop for directory in (uiop:split-string (or (uiop:getenv "PATH") "") :separator ":")
+            for candidate = (and (plusp (length directory))
+                                 (char= (char directory 0) #\/)
+                                 (uiop:native-namestring
+                                  (merge-pathnames name (uiop:ensure-directory-pathname directory))))
+            when (and candidate
+                      (uiop:file-exists-p candidate)
+                      (not (uiop:directory-exists-p candidate))
+                      (eql 0 (ignore-errors (sb-posix:access candidate sb-posix:x-ok))))
+              return candidate)
+      (error "~A is not on PATH" name)))
+
 ;;; ------------------------------------------------------------------ run
 
 (describe "aitools run (integration)"
@@ -241,7 +258,12 @@ directory the workspace host reports) and a sibling state directory."
   (it "waits for a line that a child writes to a file later"
     (with-temporary-directory (directory)
       (let ((path (uiop:native-namestring (merge-pathnames "app.log" directory))))
-        (process-kit:spawn "/bin/sh" (list "-c" (format nil "sleep 0.3; echo booting > '~A'; echo ready on 8080 >> '~A'" path path)))
+        ;; SPAWN with no :ENVIRONMENT gives the child an empty environment, so
+        ;; sh falls back to its built-in PATH; in the Nix build sandbox no
+        ;; directory on it holds `sleep`, the sleep failed, and the lines were
+        ;; written at once. The child gets this process's environment.
+        (process-kit:spawn "/bin/sh" (list "-c" (format nil "sleep 0.3; echo booting > '~A'; echo ready on 8080 >> '~A'" path path))
+                           :environment (sb-ext:posix-environ))
         (multiple-value-bind (code envelope)
             (invoke (list "wait" "--file" path "--pattern" "^ready" "--timeout" "10s"))
           (expect code :to-be 0)

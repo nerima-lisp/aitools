@@ -129,15 +129,18 @@
           (expect (every (lambda (octet) (= octet 7)) octets) :to-be t)))))
 
   (it "reports the root directory as / and any other directory without a trailing slash"
-    (let ((previous (sb-posix:getcwd))
-          (host (aitools.workspace.infrastructure:make-host-workspace-host :getenv (constantly nil))))
-      (unwind-protect
-           (progn
-             (sb-posix:chdir "/")
-             (expect (aitools.workspace.application:host-current-directory host) :to-equal "/")
-             (sb-posix:chdir "/usr/")
-             (expect (aitools.workspace.application:host-current-directory host) :to-equal "/usr"))
-        (sb-posix:chdir previous))))
+    ;; The non-root directory is a scratch directory, not a system one: the
+    ;; Nix build sandbox has no /usr.
+    (with-scratch-directory (scratch)
+      (let ((previous (sb-posix:getcwd))
+            (host (aitools.workspace.infrastructure:make-host-workspace-host :getenv (constantly nil))))
+        (unwind-protect
+             (progn
+               (sb-posix:chdir "/")
+               (expect (aitools.workspace.application:host-current-directory host) :to-equal "/")
+               (sb-posix:chdir (concatenate 'string scratch "/"))
+               (expect (aitools.workspace.application:host-current-directory host) :to-equal scratch))
+          (sb-posix:chdir previous)))))
 
   (it "refuses a host port that is not a function"
     (expect (handler-case (aitools.workspace.application:make-workspace-host

@@ -166,6 +166,11 @@
 
       root = ./.;
 
+      # mkLispSource keeps only .asd and .lisp files; the skill contract spec
+      # (t/integration/skill-contract-test.lisp) reads SKILL.md from the
+      # source tree at test time.
+      sourceInclude = [ ./skills/aitools/SKILL.md ];
+
       meta = {
         description = "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends.";
         homepage = "https://github.com/nerima-lisp/aitools";

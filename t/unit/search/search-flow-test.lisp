@@ -199,9 +199,13 @@
       (expect (search "ghp_" text) :to-be nil)))
 
   (it "skips a file as regex-limit once the run's cumulative regex budget is spent"
-    ;; The per-call step budget resets per line; a zero run budget stands in
-    ;; for a cumulative overrun and must stop the file, not the whole command.
-    (let ((aitools.search.application::*search-regex-budget-seconds* 0))
+    ;; The per-call step budget resets per line; a run budget already spent
+    ;; stands in for a cumulative overrun and must stop the file, not the
+    ;; whole command. It is negative, not zero: a zero budget puts the
+    ;; deadline at the current tick, and SBCL's Linux clock is
+    ;; CLOCK_MONOTONIC_COARSE, which can still read that same tick when the
+    ;; matcher checks it, so the deadline would not yet be past.
+    (let ((aitools.search.application::*search-regex-budget-seconds* -1))
       (multiple-value-bind (kind fields)
           (search-in (list (list "/w/a.txt" "hit here")) :patterns '("hit"))
         (expect kind :to-be :ok)

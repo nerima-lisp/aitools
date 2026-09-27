@@ -292,7 +292,7 @@ trees, then compare the two trees entry by entry."
 
 (define-row-case (29 "mktemp's empty private file is mktemp's" :foreign ("mktemp")) (ws)
   (let* ((expected (oracle ws '("mktemp" "stat")
-                           "f=$(mktemp) && { stat -f '%Lp %z' \"$f\" 2>/dev/null || stat -c '%a %s' \"$f\"; } && rm \"$f\""
+                           "f=$(mktemp) && { stat -c '%a %s' \"$f\" 2>/dev/null || stat -f '%Lp %z' \"$f\"; } && rm \"$f\""
                            (format nil "600 0~%")))
          (path (jget (run-ok ws '("mktemp")) "path"))
          (stat (sb-posix:stat path)))
