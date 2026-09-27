@@ -65,19 +65,18 @@ character by character under TEST."
                  (setf (aref table code) (logior (aref table code) kind))))))
       (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
                               aitools.data:*redaction-slack-prefixes*))
-        (mark (char prefix 0) +literal-candidate+))
+        (when (plusp (length prefix))
+          (mark (char prefix 0) +literal-candidate+)))
       (dolist (prefix aitools.data:*redaction-aws-key-prefixes*)
-        (mark (char prefix 0) +aws-candidate+))
+        (when (plusp (length prefix))
+          (mark (char prefix 0) +aws-candidate+)))
       (dolist (name aitools.data:*redaction-secret-key-names*)
-        (mark (char-upcase (char name 0)) +assignment-candidate+)
-        (mark (char-downcase (char name 0)) +assignment-candidate+))
+        (when (plusp (length name))
+          (mark (char-upcase (char name 0)) +assignment-candidate+)
+          (mark (char-downcase (char name 0)) +assignment-candidate+)))
       (mark #\b +bearer-candidate+)
       (mark #\B +bearer-candidate+))
     table))
-
-(declaim (type (simple-array (unsigned-byte 8) (128)) +redaction-candidate-first-char+))
-(defparameter +redaction-candidate-first-char+ (%redaction-candidate-table)
-  "First characters of configured redaction patterns and the Bearer scheme.")
 
 (defun %collect-token-spans (text spans)
   "Left-to-right, single pass over the simple-string TEXT. Push onto SPANS one
@@ -87,7 +86,7 @@ scanners did (their union under %MERGE-SPANS is order-independent). Return the
 extended list."
   (declare (type simple-string text))
   (let ((n (length text))
-        (table +redaction-candidate-first-char+)
+        (table (%redaction-candidate-table))
         (literals (append aitools.data:*redaction-literal-prefixes*
                           aitools.data:*redaction-slack-prefixes*))
         (aws-prefixes aitools.data:*redaction-aws-key-prefixes*)
@@ -96,14 +95,16 @@ extended list."
     (declare (type fixnum n aws-body) (type (simple-array (unsigned-byte 8) (128)) table))
     (labels ((try-literal (j)
                (dolist (prefix literals)
-                 (when (and (%string-at-p prefix text j #'char=)
+                 (when (and (plusp (length prefix))
+                            (%string-at-p prefix text j #'char=)
                             (%boundary-before-p text j))
                    (let* ((body (+ j (length prefix)))
                           (end (%scan-token-run-end text body)))
                      (when (> end body) (push (cons j end) spans))))))
              (try-aws (j)
                (dolist (prefix aws-prefixes)
-                 (when (and (%string-at-p prefix text j #'char=)
+                 (when (and (plusp (length prefix))
+                            (%string-at-p prefix text j #'char=)
                             (%boundary-before-p text j))
                    (let* ((body-start (+ j (length prefix)))
                           (end (+ body-start aws-body)))
@@ -121,7 +122,8 @@ extended list."
                    (when (> end token-start) (push (cons token-start end) spans)))))
              (try-assignment (j c)
                (dolist (key-name key-names)
-                 (when (and (char-equal (char key-name 0) c)
+                 (when (and (plusp (length key-name))
+                            (char-equal (char key-name 0) c)
                             (%string-at-p key-name text j #'char-equal)
                             (%word-boundary-match-p text j (length key-name)))
                    (let ((index (+ j (length key-name))))
@@ -345,8 +347,9 @@ each replaced by the literal string \"[REDACTED_SECRET]\"."
 case-insensitively; `_` and other non-alphanumerics separate words, so
 GITHUB_TOKEN and DB_PASSWORD match and TOKENIZER_PATH does not."
   (loop for key in aitools.data:*redaction-secret-key-names*
-        thereis (loop with start = 0
-                      for found = (search key name :start2 start :test #'char-equal)
-                      while found
-                      thereis (%word-boundary-match-p name found (length key))
-                      do (setf start (1+ found)))))
+        thereis (and (plusp (length key))
+                     (loop with start = 0
+                           for found = (search key name :start2 start :test #'char-equal)
+                           while found
+                           thereis (%word-boundary-match-p name found (length key))
+                           do (setf start (1+ found))))))

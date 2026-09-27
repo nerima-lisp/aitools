@@ -111,11 +111,24 @@
       (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
               :to-equal "value [REDACTED_SECRET] end")))
 
-  (it "dispatches a newly configured prefix without a scanner branch"
-    (let* ((aitools.data:*redaction-literal-prefixes*
-             (cons "zzt-" aitools.data:*redaction-literal-prefixes*))
-           (aitools.protocol.domain::+redaction-candidate-first-char+
-             (aitools.protocol.domain::%redaction-candidate-table)))
+  (it "ignores empty configured patterns while retaining valid ones"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (cons "" aitools.data:*redaction-literal-prefixes*))
+          (aitools.data:*redaction-slack-prefixes*
+            (cons "" aitools.data:*redaction-slack-prefixes*))
+          (aitools.data:*redaction-aws-key-prefixes*
+            (cons "" aitools.data:*redaction-aws-key-prefixes*))
+          (aitools.data:*redaction-secret-key-names*
+            (cons "" aitools.data:*redaction-secret-key-names*)))
+      (expect (redact-secrets "good ghp_abc AKIAIOSFODNN7EXAMPLE password=top-secret")
+              :to-equal "good [REDACTED_SECRET] [REDACTED_SECRET] password=[REDACTED_SECRET]")))
+
+  (it "dispatches a prefix added to the live configuration"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (copy-list aitools.data:*redaction-literal-prefixes*)))
+      (expect (redact-secrets "value zzt-abc123 end")
+              :to-equal "value zzt-abc123 end")
+      (push "zzt-" aitools.data:*redaction-literal-prefixes*)
       (expect (redact-secrets "value zzt-abc123 end")
               :to-equal "value [REDACTED_SECRET] end")))
 

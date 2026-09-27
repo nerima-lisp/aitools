@@ -74,9 +74,9 @@ export their own symbols.
 
 Secret format prefixes and assignment key names live in
 `data/domain/protocol/redaction-patterns-data.lisp`. The protocol matcher
-derives its first-character dispatch table from those values when the system
-loads. Add a pattern there and cover its masking behavior in the protocol
-tests; no scanner branch needs a matching edit.
+derives its first-character dispatch table from those values for each masking
+scan. Add a pattern there and cover its masking behavior in the protocol tests;
+live configuration changes take effect without a scanner branch edit.
 
 ### The structure test
 
