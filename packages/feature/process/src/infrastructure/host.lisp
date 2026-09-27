@@ -123,6 +123,29 @@ symlink or a guessed name planted at the temp path is refused, not written."
 
 ;;; -------------------------------------------------------------- signals
 
+(defvar *launched-supervisors* (make-hash-table)
+  "PID -> process-kit handle of each bg supervisor this process launched and
+has not yet seen terminate. The supervisor is this process's child, so only
+this process can reap it.")
+
+(defvar *launched-supervisors-lock* (cl-concurrent-kit:make-lock :name "aitools bg supervisors"))
+
+(defun %remember-supervisor (handle)
+  (cl-concurrent-kit:with-lock-held (*launched-supervisors-lock*)
+    (setf (gethash (process-kit:process-id handle) *launched-supervisors*) handle)))
+
+(defun %reap-launched-supervisor (pid)
+  "Reap PID if it is a supervisor this process launched and it has exited.
+On Linux kill(2) still reaches a zombie, so an unreaped supervisor keeps its
+group reported alive for as long as this process runs (a `batch` that starts
+and stops a bg process, or a test), and SBCL's asynchronous SIGCHLD reaping
+is not guaranteed to have run by then."
+  (let ((handle (cl-concurrent-kit:with-lock-held (*launched-supervisors-lock*)
+                  (gethash pid *launched-supervisors*))))
+    (when (and handle (process-kit:process-try-wait handle))
+      (cl-concurrent-kit:with-lock-held (*launched-supervisors-lock*)
+        (remhash pid *launched-supervisors*)))))
+
 (defun %group-alive-p (pid)
   "True while process group PID (the bg supervisor's own group) still has a
 member this user may signal, and PID itself, if it still exists, still leads
@@ -132,10 +155,17 @@ still the original one. A PID reused by an unrelated process after the whole
 group ended would have to lead its own session too to pass; that residual
 window is accepted because aitools has no portable process start time to
 compare instead."
-  (and (handler-case (progn (sb-posix:kill (- pid) 0) t)
-         (sb-posix:syscall-error () nil))
-       (handler-case (= (sb-posix:getsid pid) pid)
-         (sb-posix:syscall-error () t))))
+  (%reap-launched-supervisor pid)
+  (let ((alive (and (handler-case (progn (sb-posix:kill (- pid) 0) t)
+                      (sb-posix:syscall-error () nil))
+                    (handler-case (= (sb-posix:getsid pid) pid)
+                      (sb-posix:syscall-error () t)))))
+    ;; Darwin already answers EPERM for a group whose last member is exiting
+    ;; or a zombie, so the supervisor may still be unreaped after a "gone"
+    ;; answer; reap it now if it is already waitable, else on a later probe.
+    (unless alive
+      (%reap-launched-supervisor pid))
+    alive))
 
 (defun %signal-group (pid signal)
   (and (%group-alive-p pid)
