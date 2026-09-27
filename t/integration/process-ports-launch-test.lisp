@@ -161,20 +161,44 @@ that expected otherwise never leaks it."
          :override (uiop:native-namestring garbage))
         (expect (probe-file target) :to-be nil)))))
 
+(defun call-without-sigchld-reaping (function)
+  "Call FUNCTION with SBCL's SIGCHLD handler replaced by the default action, so
+no exited child is reaped behind FUNCTION's back. On Linux kill(2) counts an
+unreaped zombie as a live group member, so a run where SBCL's asynchronous
+reaping lags reports a signalled group alive; this makes that condition
+deterministic on every host."
+  (sb-sys:enable-interrupt sb-unix:sigchld :default)
+  (unwind-protect (funcall function)
+    (sb-sys:enable-interrupt sb-unix:sigchld #'sb-unix::sigchld-handler)))
+
+(defun launch-running-sleeper (ports directory on-started)
+  "Launch `sleep 30` through the production launch port, calling ON-STARTED
+with the supervisor's PID, and return once the target runs. The target starts
+as `sh -c 'echo ready; exec sleep 30'`; the `ready` line in the bg log means
+the supervisor has finished forking it. On Darwin a group signal sent while
+that fork is in progress can miss the new child (an escaped `sleep` was seen
+keeping the group alive), so a spec that signals the group waits for this."
+  (let ((log (merge-pathnames "bg-1.log" directory)))
+    (call-port ports 'aitools.process.application::process-ports-create-file-exclusive log "")
+    (call-port ports 'aitools.process.application::process-ports-launch-detached
+               (list (program-on-path "sh") "-c" "echo ready; exec \"$0\" 30" (program-on-path "sleep"))
+               log (merge-pathnames "bg-1.exit" directory)
+               :on-started on-started
+               :on-unavailable (lambda (message program) (error "~A: ~A" program message)))
+    (unless (loop repeat 500
+                  when (search "ready" (uiop:read-file-string log)) return t
+                  do (sleep 0.02))
+      (error "the bg target never wrote its ready line to ~A" log))))
+
 (describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))
     "aitools process production ports: process groups (integration; skipped without the cl-process-kit-spawn trampoline)"
   (it "sees a started group alive, signals it, and then reports it gone"
     (with-temporary-directory (directory)
-      (let* ((ports (production-ports))
-             (log (merge-pathnames "bg-1.log" directory))
-             (pid nil))
-        (call-port ports 'aitools.process.application::process-ports-create-file-exclusive log "")
+      (let ((ports (production-ports))
+            (pid nil))
         (unwind-protect
              (progn
-               (call-port ports 'aitools.process.application::process-ports-launch-detached
-                          (list (program-on-path "sleep") "30") log (merge-pathnames "bg-1.exit" directory)
-                          :on-started (lambda (started) (setf pid started))
-                          :on-unavailable (lambda (message program) (error "~A: ~A" program message)))
+               (launch-running-sleeper ports directory (lambda (started) (setf pid started)))
                (expect (call-port ports 'aitools.process.application::process-ports-group-alive-p pid) :to-be t)
                ;; A signal number the kernel rejects is an I/O failure, not "gone".
                (expect (starts-with-p (format nil "signalling process group ~D failed: " pid)
@@ -190,4 +214,26 @@ that expected otherwise never leaks it."
                              do (sleep 0.02))
                        :to-be t)
                (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be nil))
+          (when pid (kill-group pid))))))
+
+  (it "reaps the supervisor it launched, so its zombie never keeps the group alive"
+    (with-temporary-directory (directory)
+      (let ((ports (production-ports))
+            (pid nil))
+        (unwind-protect
+             (call-without-sigchld-reaping
+              (lambda ()
+                (launch-running-sleeper ports directory (lambda (started) (setf pid started)))
+                (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be t)
+                ;; With nothing else reaping, the supervisor's PID disappears
+                ;; only if the port's own probes reap it; an unreaped zombie
+                ;; answers kill(2) on it (and, on Linux, on its group).
+                (expect (loop repeat 500
+                              unless (or (call-port ports 'aitools.process.application::process-ports-group-alive-p pid)
+                                         (handler-case (progn (sb-posix:kill pid 0) t)
+                                           (sb-posix:syscall-error (condition)
+                                             (/= (sb-posix:syscall-errno condition) sb-posix:esrch))))
+                                return t
+                              do (sleep 0.02))
+                        :to-be t)))
           (when pid (kill-group pid)))))))

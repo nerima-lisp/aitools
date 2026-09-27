@@ -1,7 +1,7 @@
 ---
 name: aitools
 description: This skill should be used when reading, searching, or editing files in a workspace and the `aitools` binary is available. Use it instead of cat, head, tail, grep, rg, find, ls, sed, perl, awk, sort, diff, jq, tar, unzip, base64, date, ps, env, and read-only git for file and text work, because aitools returns one JSON object per call, guards every write with a hash or count, journals writes for undo, masks secrets in output, and refuses writes outside the workspace. Use it for multi-file changes that must land together (tx, batch --atomic), for running a program without a shell (run, bg, wait), and whenever a shell habit would parse text output by hand.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # aitools

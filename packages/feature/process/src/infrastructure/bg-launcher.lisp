@@ -113,4 +113,5 @@ when it contains a slash, else searched in $PATH. NIL when not executable."
                  ((or file-error stream-error sb-posix:syscall-error process-kit:process-error) (condition)
                    (error 'aitools.process.application:process-port-error
                           :message (format nil "starting ~A failed: ~A" (first argv) condition))))))
+         (%remember-supervisor handle)
          (funcall on-started (process-kit:process-id handle)))))))
