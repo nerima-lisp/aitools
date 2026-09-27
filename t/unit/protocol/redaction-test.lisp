@@ -105,6 +105,29 @@
     (expect (redact-secrets "key sk-abcdEF1234567890abcdEF12 next") :to-equal "key [REDACTED_SECRET] next")
     (expect (redact-secrets "slack xoxb-1234-5678-abcdefTOKEN (bot)") :to-equal "slack [REDACTED_SECRET] (bot)"))
 
+  (it "masks every configured literal and Slack prefix"
+    (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
+                            aitools.data:*redaction-slack-prefixes*))
+      (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
+              :to-equal "value [REDACTED_SECRET] end")))
+
+  (it "dispatches a newly configured prefix without a scanner branch"
+    (let* ((aitools.data:*redaction-literal-prefixes*
+             (cons "zzt-" aitools.data:*redaction-literal-prefixes*))
+           (aitools.protocol.domain::+redaction-candidate-first-char+
+             (aitools.protocol.domain::%redaction-candidate-table)))
+      (expect (redact-secrets "value zzt-abc123 end")
+              :to-equal "value [REDACTED_SECRET] end")))
+
+  (it-property "masking a literal token is idempotent for generated token bodies"
+      ((body (gen-string :min-length 1 :max-length 30 :alphabet "abc123_-./+=")))
+    (multiple-value-bind (once count)
+        (redact-secrets (format nil "key sk-~A end" body))
+      (multiple-value-bind (twice extra) (redact-secrets once)
+        (expect count :to-be 1)
+        (expect extra :to-be 0)
+        (expect twice :to-equal once))))
+
   (it "masks a Bearer token whatever the case of the scheme"
     (multiple-value-bind (text count) (redact-secrets "authorization: bearer abc123DEF456 rest")
       (expect count :to-be 1)

@@ -52,15 +52,32 @@ character by character under TEST."
          (loop for k fixnum below len
                always (funcall test (char needle k) (schar text (+ start k)))))))
 
-(declaim (type (simple-array bit (128)) +redaction-candidate-first-char+))
-(defparameter +redaction-candidate-first-char+
-  (let ((table (make-array 128 :element-type 'bit :initial-element 0)))
-    (loop for ch across "gsxaAbBcCpPtTS" do (setf (sbit table (char-code ch)) 1))
-    table)
-  "The ASCII characters that can begin a redaction match: literal/Slack
-prefixes (g, s, x), an AWS id (A), a Bearer token (b/B), and any secret
-key name's first letter in either case. The single pass skips every other
-character in O(1) and only dispatches to a matcher at a candidate index.")
+(defconstant +literal-candidate+ 1)
+(defconstant +aws-candidate+ 2)
+(defconstant +bearer-candidate+ 4)
+(defconstant +assignment-candidate+ 8)
+
+(defun %redaction-candidate-table ()
+  (let ((table (make-array 128 :element-type '(unsigned-byte 8) :initial-element 0)))
+    (flet ((mark (character kind)
+             (let ((code (char-code character)))
+               (when (< code 128)
+                 (setf (aref table code) (logior (aref table code) kind))))))
+      (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
+                              aitools.data:*redaction-slack-prefixes*))
+        (mark (char prefix 0) +literal-candidate+))
+      (dolist (prefix aitools.data:*redaction-aws-key-prefixes*)
+        (mark (char prefix 0) +aws-candidate+))
+      (dolist (name aitools.data:*redaction-secret-key-names*)
+        (mark (char-upcase (char name 0)) +assignment-candidate+)
+        (mark (char-downcase (char name 0)) +assignment-candidate+))
+      (mark #\b +bearer-candidate+)
+      (mark #\B +bearer-candidate+))
+    table))
+
+(declaim (type (simple-array (unsigned-byte 8) (128)) +redaction-candidate-first-char+))
+(defparameter +redaction-candidate-first-char+ (%redaction-candidate-table)
+  "First characters of configured redaction patterns and the Bearer scheme.")
 
 (defun %collect-token-spans (text spans)
   "Left-to-right, single pass over the simple-string TEXT. Push onto SPANS one
@@ -76,7 +93,7 @@ extended list."
         (aws-prefixes aitools.data:*redaction-aws-key-prefixes*)
         (aws-body aitools.data:*redaction-aws-key-body-length*)
         (key-names aitools.data:*redaction-secret-key-names*))
-    (declare (type fixnum n aws-body) (type (simple-array bit (128)) table))
+    (declare (type fixnum n aws-body) (type (simple-array (unsigned-byte 8) (128)) table))
     (labels ((try-literal (j)
                (dolist (prefix literals)
                  (when (and (%string-at-p prefix text j #'char=)
@@ -124,13 +141,12 @@ extended list."
             do (let* ((c (schar text i))
                       (code (char-code c)))
                  (declare (type fixnum code))
-                 (when (and (< code 128) (= 1 (sbit table code)))
-                   (case c
-                     ((#\g #\x) (try-literal i))
-                     ((#\s) (try-literal i) (try-assignment i c))
-                     ((#\A) (try-aws i) (try-assignment i c))
-                     ((#\b #\B) (try-bearer i))
-                     (t (try-assignment i c))))
+                 (when (< code 128)
+                   (let ((kind (aref table code)))
+                     (when (logtest +literal-candidate+ kind) (try-literal i))
+                     (when (logtest +aws-candidate+ kind) (try-aws i))
+                     (when (logtest +bearer-candidate+ kind) (try-bearer i))
+                     (when (logtest +assignment-candidate+ kind) (try-assignment i c))))
                  (incf i))))
     spans))
 

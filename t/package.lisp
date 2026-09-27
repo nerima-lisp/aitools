@@ -18,7 +18,7 @@
 
 (in-package #:aitools/test)
 
-(defparameter *minimum-executed-specs* 2850
+(defparameter *minimum-executed-specs* 2853
   "Fewer specs than this actually running (passed, failed or errored; not
 skipped or todo) fails the run: a load order mistake or a suite-wide skip
 must not read as a green run. Raise it when specs are added.")
