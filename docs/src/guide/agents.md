@@ -123,8 +123,9 @@ and repairs that name `tx rebase` or a re-read. See
 An agent that calls a shell command name by habit gets `argument.invalid`
 with `repairs` naming the aitools command to use instead. The repairs come
 from `aitools.data:*correspondence-table*`
-(`data/domain/protocol/correspondence-table-data.lisp`), and the table below
-is generated from the same data:
+(`data/domain/protocol/correspondence-table-data.lisp`). The table below
+summarizes the current command capabilities, including the more specific
+command to use when a shell operation has its own aitools command:
 
 <!-- BEGIN GENERATED: correspondence -->
 | Shell command | aitools command | What it does |
@@ -139,15 +140,22 @@ is generated from the same data:
 | `sort`, `uniq`, `tac`, `shuf` | `aitools transform` | Reorder, dedupe, reverse, or shuffle lines in place. |
 | `tr`, `dos2unix`, `expand`, `unexpand`, `fold`, `fmt` | `aitools transform` | Apply a line-level text transform. |
 | `iconv`, `nkf` | `aitools transcode` | Convert a file's text encoding. |
-| `cp`, `mv`, `rm`, `rmdir` | `aitools copy` | Copy, move, or delete a file or empty directory. |
-| `mkdir`, `chmod`, `ln`, `touch`, `mktemp` | `aitools mkdir` | Create a directory, change mode, link, touch, or make a temp path. |
+| `cp` | `aitools copy` | Copy a file or directory. |
+| `mv` | `aitools move` | Move or rename a file or directory. |
+| `rm`, `rmdir` | `aitools delete` | Delete a file or empty directory. |
+| `mkdir` | `aitools mkdir` | Create a directory. |
+| `chmod` | `aitools chmod` | Change file permissions. |
+| `ln` | `aitools link` | Create a symbolic link. |
+| `touch` | `aitools touch` | Set a file's modification time. |
+| `mktemp` | `aitools mktemp` | Create a private temporary path. |
 | `jq` | `aitools json get` | Read, query, or edit JSON. |
 | `tar`, `unzip`, `zcat`, `gzip`, `zip` | `aitools archive list` | List, read, extract, or create an archive. |
 | `git` | `aitools git status` | Read-only git status, log, diff, blame, or show. |
 | `uname`, `whoami`, `hostname`, `nproc` | `aitools sys info` | Read system information. |
 | `env` | `aitools sys env` | Read environment variables, with secrets masked. |
 | `which` | `aitools sys tools` | Check whether an external tool is available. |
-| `ps`, `lsof` | `aitools sys procs` | List processes or listening ports. |
+| `ps` | `aitools sys procs` | List processes. |
+| `lsof` | `aitools sys ports` | List listening TCP sockets. |
 | `date` | `aitools time now` | Read or convert the current or a given time. |
 | `base64`, `xxd` | `aitools util encode` | Encode or decode bytes. |
 | `bc`, `expr` | `aitools util calc` | Evaluate an arithmetic expression. |

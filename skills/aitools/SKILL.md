@@ -20,7 +20,7 @@ first, then on `error.code`. The exit codes come from `data/domain/protocol/erro
 
 - 0: `status:"ok"`. `run` also exits 0 whenever the child started, even on timeout; the child's own status
   is the `exit_code`, `signal`, and `timed_out` fields.
-- 3: `status:"partial"`. A read was cut at a limit (`--max-lines`, `--limit`, `--max-bytes`, `run --grep-limit`).
+- 3: `status:"partial"`. A result was cut at a command-specific limit: `read --max-lines`, search/find/table/archive limits such as `--limit`, `json get --max-bytes`, or `run --grep-limit`.
   The output is a valid prefix with `truncated:true`; `next_commands` holds the invocation that continues it.
   Writes never exit 3.
 - 2: the file is not in the state the call assumed: `selection.no-match`, `selection.ambiguous`,
@@ -413,15 +413,22 @@ aitools git diff --output stat
 | sort, uniq, tac, shuf | `aitools transform --op sort, unique, reverse, shuffle` |
 | tr, dos2unix, expand, unexpand, fold, fmt | `aitools transform --op OP` (upper, lower, eol-lf, tabs-to-spaces, spaces-to-tabs, wrap, reflow) |
 | iconv, nkf | `aitools transcode --from ENC --to ENC` |
-| cp, mv, rm, rmdir | `aitools copy`, `aitools move`, `aitools delete` |
-| mkdir, chmod, ln, touch, mktemp | `aitools mkdir`, `aitools chmod`, `aitools link`, `aitools touch`, `aitools mktemp` |
+| cp | `aitools copy` |
+| mv | `aitools move` |
+| rm, rmdir | `aitools delete` |
+| mkdir | `aitools mkdir` |
+| chmod | `aitools chmod` |
+| ln | `aitools link` |
+| touch | `aitools touch` |
+| mktemp | `aitools mktemp` |
 | jq | `aitools json get`, `select`, `diff` to read; `json set`, `delete`, `merge`, `patch`, `fmt` to write |
 | tar, unzip, zcat, gzip, zip | `aitools archive list`, `read`, `extract`, `create` |
 | git (read-only) | `aitools git status`, `log`, `diff`, `blame`, `show` |
 | uname, whoami, hostname, nproc | `aitools sys info` |
 | env | `aitools sys env` (secret-named values masked) |
 | which | `aitools sys tools NAME...` |
-| ps, lsof | `aitools sys procs PATTERN`, `aitools sys ports` |
+| ps | `aitools sys procs` |
+| lsof | `aitools sys ports` |
 | date | `aitools time now`, `convert`, `diff` |
 | base64, xxd | `aitools util encode`, `decode`; `aitools read --as hex` for a dump |
 | bc, expr | `aitools util calc` |
@@ -514,4 +521,3 @@ Confirm the result and keep a way back.
 - Avoid: Shell text tools for file work when an aitools command covers it.
 - Avoid: Writing [REDACTED_SECRET] or writing outside the workspace, into .git/, or into the state directory.
 - Avoid: Reading standard input implicitly; pass --stdin only when input is piped.
-

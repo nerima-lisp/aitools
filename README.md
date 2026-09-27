@@ -18,6 +18,8 @@ The source for that site lives in [docs/src/](docs/src/).
 ## Quick Start
 
 ```sh
+# After `nix build` in the Install section below:
+export PATH="$PWD/result/bin:$PATH"
 aitools schema                                 # every command with a summary
 aitools read src/app.lisp --range 1:40         # lines 1-40, with the file hash
 aitools search 'defun build-' src              # grouped matches with context

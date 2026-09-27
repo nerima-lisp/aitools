@@ -7,6 +7,7 @@ From a checkout:
 ```sh
 nix build                    # -> ./result/bin/aitools
 ./result/bin/aitools --version
+export PATH="$PWD/result/bin:$PATH"
 ```
 
 ```json
@@ -14,7 +15,9 @@ nix build                    # -> ./result/bin/aitools
 ```
 
 `nix run . -- --version` runs it without creating the `result` link. The
-examples below call it as `aitools`.
+`export` above makes the built binary available as `aitools` for the examples
+below; alternatively, prefix each command with `./result/bin/` or use
+`nix run . --`.
 
 ## List the commands
 
