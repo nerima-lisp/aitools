@@ -1,0 +1,13 @@
+t/unit/protocol/redaction-flow-test.lisp:generic-api-key:6
+t/unit/protocol/redaction-flow-test.lisp:private-key:106
+t/unit/protocol/redaction-flow-test.lisp:private-key:123
+t/unit/protocol/redaction-flow-test.lisp:private-key:24
+t/unit/protocol/redaction-flow-test.lisp:private-key:38
+t/unit/protocol/redaction-flow-test.lisp:private-key:96
+t/unit/protocol/redaction-test.lisp:generic-api-key:234
+t/unit/protocol/redaction-test.lisp:generic-api-key:28
+t/unit/protocol/redaction-test.lisp:github-oauth:101
+t/unit/protocol/redaction-test.lisp:private-key:11
+t/unit/protocol/redaction-test.lisp:private-key:168
+t/unit/protocol/redaction-test.lisp:private-key:180
+t/unit/protocol/redaction-test.lisp:private-key:275
