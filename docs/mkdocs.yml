@@ -1,0 +1,57 @@
+site_name: aitools
+site_description: An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends.
+site_url: https://nerima-lisp.github.io/aitools/
+repo_url: https://github.com/nerima-lisp/aitools
+repo_name: nerima-lisp/aitools
+edit_uri: edit/main/docs/src/
+
+docs_dir: src
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Guide:
+      - Using aitools from an agent: guide/agents.md
+  - Reference:
+      - Commands: reference/commands.md
+      - JSON output: reference/json-schema.md
+      - Errors and exit codes: reference/errors.md
+      - Transactions: reference/transactions.md
+      - Architecture: reference/architecture.md
+      - Benchmarks: reference/benchmarks.md
+  - Project:
+      - Development: project/development.md
