@@ -10,7 +10,7 @@ nix build                    # -> ./result/bin/aitools
 ```
 
 ```json
-{"schema_version":1,"status":"ok","command":"version","name":"aitools","version":"0.1.0"}
+{"schema_version":1,"status":"ok","command":"version","name":"aitools","version":"0.1.1"}
 ```
 
 `nix run . -- --version` runs it without creating the `result` link. The
