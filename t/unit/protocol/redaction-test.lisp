@@ -132,6 +132,14 @@
       (expect (redact-secrets "value zzt-abc123 end")
               :to-equal "value [REDACTED_SECRET] end")))
 
+  (it "dispatches Unicode patterns added to the live configuration"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (cons "秘密-" aitools.data:*redaction-literal-prefixes*))
+          (aitools.data:*redaction-secret-key-names*
+            (cons "秘密" aitools.data:*redaction-secret-key-names*)))
+      (expect (redact-secrets "秘密-abc123 秘密=top-secret")
+              :to-equal "[REDACTED_SECRET] 秘密=[REDACTED_SECRET]")))
+
   (it-property "masking a literal token is idempotent for generated token bodies"
       ((body (gen-string :min-length 1 :max-length 30 :alphabet "abc123_-./+=")))
     (multiple-value-bind (once count)
