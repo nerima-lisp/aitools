@@ -153,7 +153,10 @@ supervisor's process group, so this probe must not require the supervisor PID
 itself to remain a session leader. A PID reused by an unrelated process after
 the whole group ended can still create a residual window because aitools has
 no portable process start time to compare; the recorded process group is the
-only identity available after the supervisor exits."
+only identity available after the supervisor exits. A failed getsid falls
+back to true: on Darwin a zombie leader still answers kill(pid, 0) while
+getsid answers ESRCH, so nil would report a group with surviving descendants
+as gone."
   (%reap-launched-supervisor pid)
   (let* ((group-alive (handler-case (progn (sb-posix:kill (- pid) 0) t)
                         (sb-posix:syscall-error () nil)))
@@ -162,7 +165,7 @@ only identity available after the supervisor exits."
          (alive (and group-alive
                      (or (not leader-alive)
                          (handler-case (= (sb-posix:getsid pid) pid)
-                           (sb-posix:syscall-error () nil))))))
+                           (sb-posix:syscall-error () t))))))
     ;; Darwin already answers EPERM for a group whose last member is exiting
     ;; or a zombie, so the supervisor may still be unreaped after a "gone"
     ;; answer; reap it now if it is already waitable, else on a later probe.
