@@ -1,10 +1,11 @@
 # Benchmarks
 
 This page records only measurements that were taken, with the conditions
-they were taken under. The repository includes a committed allocation
-benchmark suite; no sb-sprof profile of the commands has been recorded, and
-the cost of writing the intent record for a single-file write has not been
-measured.
+they were taken under. The repository has no committed timing benchmark
+suite; the test suite includes one allocation check, described under
+[Allocation](#allocation). No sb-sprof profile of the commands has been
+recorded, and the cost of writing the intent record for a single-file write
+has not been measured.
 
 ## Startup
 

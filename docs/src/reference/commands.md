@@ -67,9 +67,10 @@ the root by its absolute real path; see [JSON output](json-schema.md#reads).
 - **Input** comes from command-specific sources such as `--content`,
   `--content-file`, or `--stdin`. aitools reads standard input only when
   `--stdin` is given. For content-input writes, `--stdin-data <text>` supplies
-  the same payload inline; the journal records this as `--stdin`. These are
-  separate interfaces: commands that accept `--stdin` do not necessarily
-  accept `--stdin-data`, and vice versa.
+  the same payload inline; the journal records this as `--stdin`. Every
+  command that accepts `--stdin-data` also accepts `--stdin`, but not the
+  reverse: `search`, the `util` commands, and `batch` read `--stdin` and have
+  no `--stdin-data`.
 - **Writes** accept `--dry-run` (validate and show the diff, write nothing)
   and `--tx <tx>` (stage the write in a transaction), except where the
   argument table omits them. Every write returns the shape described in
@@ -2178,7 +2179,7 @@ fails with `argument.invalid`; an unregistered command name fails with
 |---|---|
 | `search --encoding <name>` | `read` and `table read` take `--encoding`. |
 | `json select --stdin` | `json select` reads a file argument only. |
-| A benchmark suite | None is committed. See [Benchmarks](benchmarks.md) for what was measured. |
+| A timing benchmark suite | None is committed. See [Benchmarks](benchmarks.md) for what was measured. |
 
 ## Schemas match the parser
 

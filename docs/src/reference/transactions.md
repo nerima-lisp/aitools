@@ -38,7 +38,7 @@ Each tx lives in `<state>/<workspace-id>/tx/<tx-id>/` (see
 
 - `index.json`: for each path, `base` (the disk state when the tx first
   touched it) and `staged` (its state inside the tx).
-- `meta.json`: the transaction's name and other transaction metadata.
+- `meta.json`: the tx id, its `--name` label, and its creation time.
 - `ops.jsonl` (or `ops.<generation>.jsonl` after a rebase): one record per
   operation, with its `tx_op`, argv, and the paths it changed.
 - `reads.json`: the read set, described below.
@@ -52,8 +52,11 @@ an atomic rename, not appended in place (`%save-tx` in
 is the operation's commit point: it records the last applied `tx_op`, and
 the ops log records beyond it are ignored, so a crash in the middle of an
 operation leaves the tx as it was after the previous operation. `tx drop`
-replaces `index.json` first, then rewrites the current ops log. Rebase writes a
-new generation log and updates the tx metadata/index to use it.
+replaces `index.json` first, then rewrites the current ops log. `tx rebase`
+writes its records to the next generation's log, `ops.<n>.jsonl`; the
+`index.json` rename, which records that generation as `ops_generation`,
+switches the tx to it, and the previous log is then deleted. `meta.json` is
+not rewritten.
 
 ## Reads and writes inside a tx
 
