@@ -11,7 +11,7 @@
   :author "takeokunn <bararararatty@gmail.com>"
   :maintainer "takeokunn <bararararatty@gmail.com>"
   :license "MIT"
-  :version "0.1.1"
+  :version "0.1.2"
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
@@ -356,7 +356,7 @@
   :author "takeokunn <bararararatty@gmail.com>"
   :maintainer "takeokunn <bararararatty@gmail.com>"
   :license "MIT"
-  :version "0.1.1"
+  :version "0.1.2"
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
@@ -421,7 +421,7 @@
   :author "takeokunn <bararararatty@gmail.com>"
   :maintainer "takeokunn <bararararatty@gmail.com>"
   :license "MIT"
-  :version "0.1.1"
+  :version "0.1.2"
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
