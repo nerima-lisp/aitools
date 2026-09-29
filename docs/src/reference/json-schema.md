@@ -193,9 +193,11 @@ Each match becomes `[REDACTED_SECRET]`, and the envelope gains a top-level
 {"schema_version":1,"status":"ok","command":"read","mode":"text","path":"cfg.env","start_line":1,"lines":["api_key=[REDACTED_SECRET]","[REDACTED_SECRET]"],"total_lines":2,"hash":"02886ad6...","truncated":false,"encoding_errors":0,"approx_tokens":11,"redactions":2}
 ```
 
-Object keys are not masked. Values such as git SHAs, UUIDs, and other long
-identifiers are not masked, because the mask matches formats rather than
-randomness.
+Object keys are masked by the same patterns as string values, so a key
+that contains a token or an assignment such as `api_key=<value>` is masked.
+A key that is only a secret-sounding name, such as `password`, is not.
+Values such as git SHAs, UUIDs, and other long identifiers are not masked,
+because the mask matches formats rather than randomness.
 
 `read --as hex` and `archive read --as hex` mask secrets in the hex dump too.
 Before rendering, the byte window is widened out to the surrounding line

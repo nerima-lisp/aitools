@@ -64,20 +64,22 @@ the root by its absolute real path; see [JSON output](json-schema.md#reads).
   `--expect-hash <hash>` guards only the first target of a write. When a
   write touches a second file, such as `move-lines --to` with a
   position-based selector, that file needs its own `<path>=<hash>`.
-- **Input** comes from `--content`, `--content-file`, or `--stdin`. aitools
-  reads standard input only when `--stdin` is given. `--stdin-data <text>`
-  passes the `--stdin` payload inline; the journal records `--stdin` writes
-  this way. `--stdin` and `--stdin-data` come as a pair: every command that
-  accepts one accepts the other, and only the content-input writes have them
-  (`edit`, `insert`, `replace`, `apply`, `write`, `json set`, `json merge`,
-  `json patch`, `table set`), not every write.
+- **Input** comes from command-specific sources such as `--content`,
+  `--content-file`, or `--stdin`. aitools reads standard input only when
+  `--stdin` is given. For content-input writes, `--stdin-data <text>` supplies
+  the same payload inline; the journal records this as `--stdin`. Every
+  command that accepts `--stdin-data` also accepts `--stdin`, but not the
+  reverse: `search`, the `util` commands, and `batch` read `--stdin` and have
+  no `--stdin-data`.
 - **Writes** accept `--dry-run` (validate and show the diff, write nothing)
   and `--tx <tx>` (stage the write in a transaction), except where the
   argument table omits them. Every write returns the shape described in
   [JSON output](json-schema.md#write-output).
-- **Limits** (`--limit`, `--max-lines`, `--max-bytes`) cut a read result to
-  `status:"partial"` with exit code 3 and a `next_commands` entry that
-  continues the read.
+- **Limits** are command-specific: `read --max-lines` and list-like commands
+  such as `search` or `find` use `--limit`; `json get --max-bytes` limits a
+  rendered JSON value. When more data remains, the response becomes
+  `status:"partial"` with exit code 3 and a `next_commands` entry where the
+  command supports paging.
 - **Durations** are `<n>ms`, `<n>s`, `<n>m`, `<n>h`, or `<n>d`. **Sizes** are
   `<n>`, `<n>KiB`, `<n>MiB`, or `<n>GiB`. `<n>` is written in ASCII digits,
   optionally with a decimal fraction; a sign, whitespace, or a digit from
@@ -2177,7 +2179,7 @@ fails with `argument.invalid`; an unregistered command name fails with
 |---|---|
 | `search --encoding <name>` | `read` and `table read` take `--encoding`. |
 | `json select --stdin` | `json select` reads a file argument only. |
-| A benchmark suite | None is committed. See [Benchmarks](benchmarks.md) for what was measured. |
+| A timing benchmark suite | None is committed. See [Benchmarks](benchmarks.md) for what was measured. |
 
 ## Schemas match the parser
 

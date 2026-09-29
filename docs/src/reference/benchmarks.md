@@ -1,9 +1,11 @@
 # Benchmarks
 
 This page records only measurements that were taken, with the conditions
-they were taken under. The repository has no committed benchmark suite, no
-sb-sprof profile of the commands has been recorded, and the cost of writing
-the intent record for a single-file write has not been measured.
+they were taken under. The repository has no committed timing benchmark
+suite; the test suite includes one allocation check, described under
+[Allocation](#allocation). No sb-sprof profile of the commands has been
+recorded, and the cost of writing the intent record for a single-file write
+has not been measured.
 
 ## Startup
 
@@ -48,7 +50,8 @@ cons cell per line would add about 1.6 MB. It runs for these cases:
   `needle --output count`, `needle --output matches`
 - `[0-9]{5}`, a pattern with no required literal, so every line reaches the
   regex engine
-- the per-file matcher alone, with a 4,096-byte limit
+- the per-file matcher alone, comparing 1,000 and 100,000 non-matching lines;
+  the allocation difference must stay below 4,096 bytes
 
 To run the suite, including this file, see
 [Development](../project/development.md#running-the-tests).
