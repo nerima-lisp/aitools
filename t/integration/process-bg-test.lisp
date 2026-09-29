@@ -177,6 +177,27 @@ child reads aitools's package-qualified symbols only after loading them."
           (kill-group polite-pid)
           (kill-group stubborn-pid)))))
 
+  (it "stops a descendant after its target exits but leaves the group alive"
+    (with-temporary-directory (root)
+      (let* ((envelope (start-bg root "sh" "-c" "sleep 30 & exit 0"))
+             (id (value envelope "id"))
+             (pid (value envelope "pid"))
+             (exit-path (merge-pathnames (format nil "bg/~A.exit" id)
+                                         (state-directory root))))
+        (unwind-protect
+             (progn
+               (expect (loop repeat 500
+                             when (probe-file exit-path) return t
+                             do (sleep 0.02))
+                       :to-be t)
+               (multiple-value-bind (code stopped)
+                   (invoke (list "bg" "stop" id "--grace" "100ms")
+                           :state-directory (state-directory root))
+                 (expect code :to-be 0)
+                 (expect (value stopped "stopped") :to-be t))
+               (expect (wait-for-group-gone pid) :to-be t))
+          (kill-group pid)))))
+
   (it "reports a bg exit to wait --exit and bg status"
     (with-temporary-directory (root)
       (let* ((state (state-directory root))

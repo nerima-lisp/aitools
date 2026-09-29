@@ -69,21 +69,23 @@ against the ID grammar before it is used in any path."
           (values (or exit-code signal) exit-code signal)))))
 
 (defun %bg-state (ports directory record)
-  "(VALUES RUNNING EXIT-CODE SIGNAL) for RECORD. The supervisor's exit file
-is authoritative; the liveness probe is consulted only while it is absent,
-and the file is read again after a negative probe because the supervisor may
-have written it in between. A group that is gone without an exit file was
-killed by a signal together with its supervisor, so the signal `bg stop`
-recorded is the best available answer (NIL when something else killed it)."
+  "(VALUES RUNNING EXIT-CODE SIGNAL) for RECORD. A surviving process group is
+reported as running even when the supervisor has already written its exit
+file, because a target may leave descendants in that group. Once the group is
+gone, the exit file is authoritative; it is read again after a negative probe
+because the supervisor may have written it in between. A group that is gone
+without an exit file was killed by a signal together with its supervisor, so
+the signal `bg stop` recorded is the best available answer (NIL when something
+else killed it)."
   (let ((id (aitools.process.domain:bg-record-id record)))
-    (multiple-value-bind (found exit-code signal) (%read-exit-status ports directory id)
-      (cond (found (values nil exit-code signal))
-            ((funcall (process-ports-group-alive-p ports) (aitools.process.domain:bg-record-pid record))
-             (values t nil nil))
-            (t (multiple-value-bind (found exit-code signal) (%read-exit-status ports directory id)
-                 (if found
-                     (values nil exit-code signal)
-                     (values nil nil (aitools.process.domain:bg-record-stop-signal record)))))))))
+    (if (funcall (process-ports-group-alive-p ports) (aitools.process.domain:bg-record-pid record))
+        (values t nil nil)
+        (multiple-value-bind (found exit-code signal) (%read-exit-status ports directory id)
+          (cond (found (values nil exit-code signal))
+                (t (multiple-value-bind (found exit-code signal) (%read-exit-status ports directory id)
+                     (if found
+                         (values nil exit-code signal)
+                         (values nil nil (aitools.process.domain:bg-record-stop-signal record))))))))))
 
 ;;; ------------------------------------------------------------ bg start
 
