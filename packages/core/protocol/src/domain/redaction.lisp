@@ -52,15 +52,30 @@ character by character under TEST."
          (loop for k fixnum below len
                always (funcall test (char needle k) (schar text (+ start k)))))))
 
-(declaim (type (simple-array bit (128)) +redaction-candidate-first-char+))
-(defparameter +redaction-candidate-first-char+
-  (let ((table (make-array 128 :element-type 'bit :initial-element 0)))
-    (loop for ch across "gsxaAbBcCpPtTS" do (setf (sbit table (char-code ch)) 1))
-    table)
-  "The ASCII characters that can begin a redaction match: literal/Slack
-prefixes (g, s, x), an AWS id (A), a Bearer token (b/B), and any secret
-key name's first letter in either case. The single pass skips every other
-character in O(1) and only dispatches to a matcher at a candidate index.")
+(defconstant +literal-candidate+ 1)
+(defconstant +aws-candidate+ 2)
+(defconstant +bearer-candidate+ 4)
+(defconstant +assignment-candidate+ 8)
+
+(defun %redaction-candidate-table ()
+  (let ((table (make-hash-table :test #'eql)))
+    (flet ((mark (character kind)
+             (setf (gethash character table)
+                   (logior (gethash character table 0) kind))))
+      (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
+                              aitools.data:*redaction-slack-prefixes*))
+        (when (plusp (length prefix))
+          (mark (char prefix 0) +literal-candidate+)))
+      (dolist (prefix aitools.data:*redaction-aws-key-prefixes*)
+        (when (plusp (length prefix))
+          (mark (char prefix 0) +aws-candidate+)))
+      (dolist (name aitools.data:*redaction-secret-key-names*)
+        (when (plusp (length name))
+          (mark (char-upcase (char name 0)) +assignment-candidate+)
+          (mark (char-downcase (char name 0)) +assignment-candidate+)))
+      (mark #\b +bearer-candidate+)
+      (mark #\B +bearer-candidate+))
+    table))
 
 (defun %collect-token-spans (text spans)
   "Left-to-right, single pass over the simple-string TEXT. Push onto SPANS one
@@ -70,23 +85,25 @@ scanners did (their union under %MERGE-SPANS is order-independent). Return the
 extended list."
   (declare (type simple-string text))
   (let ((n (length text))
-        (table +redaction-candidate-first-char+)
+        (table (%redaction-candidate-table))
         (literals (append aitools.data:*redaction-literal-prefixes*
                           aitools.data:*redaction-slack-prefixes*))
         (aws-prefixes aitools.data:*redaction-aws-key-prefixes*)
         (aws-body aitools.data:*redaction-aws-key-body-length*)
         (key-names aitools.data:*redaction-secret-key-names*))
-    (declare (type fixnum n aws-body) (type (simple-array bit (128)) table))
+    (declare (type fixnum n aws-body) (type hash-table table))
     (labels ((try-literal (j)
                (dolist (prefix literals)
-                 (when (and (%string-at-p prefix text j #'char=)
+                 (when (and (plusp (length prefix))
+                            (%string-at-p prefix text j #'char=)
                             (%boundary-before-p text j))
                    (let* ((body (+ j (length prefix)))
                           (end (%scan-token-run-end text body)))
                      (when (> end body) (push (cons j end) spans))))))
              (try-aws (j)
                (dolist (prefix aws-prefixes)
-                 (when (and (%string-at-p prefix text j #'char=)
+                 (when (and (plusp (length prefix))
+                            (%string-at-p prefix text j #'char=)
                             (%boundary-before-p text j))
                    (let* ((body-start (+ j (length prefix)))
                           (end (+ body-start aws-body)))
@@ -104,7 +121,8 @@ extended list."
                    (when (> end token-start) (push (cons token-start end) spans)))))
              (try-assignment (j c)
                (dolist (key-name key-names)
-                 (when (and (char-equal (char key-name 0) c)
+                 (when (and (plusp (length key-name))
+                            (char-equal (char key-name 0) c)
                             (%string-at-p key-name text j #'char-equal)
                             (%word-boundary-match-p text j (length key-name)))
                    (let ((index (+ j (length key-name))))
@@ -122,15 +140,11 @@ extended list."
       (loop with i fixnum = 0
             while (< i n)
             do (let* ((c (schar text i))
-                      (code (char-code c)))
-                 (declare (type fixnum code))
-                 (when (and (< code 128) (= 1 (sbit table code)))
-                   (case c
-                     ((#\g #\x) (try-literal i))
-                     ((#\s) (try-literal i) (try-assignment i c))
-                     ((#\A) (try-aws i) (try-assignment i c))
-                     ((#\b #\B) (try-bearer i))
-                     (t (try-assignment i c))))
+                      (kind (gethash c table 0)))
+                 (when (logtest +literal-candidate+ kind) (try-literal i))
+                 (when (logtest +aws-candidate+ kind) (try-aws i))
+                 (when (logtest +bearer-candidate+ kind) (try-bearer i))
+                 (when (logtest +assignment-candidate+ kind) (try-assignment i c))
                  (incf i))))
     spans))
 
@@ -329,8 +343,9 @@ each replaced by the literal string \"[REDACTED_SECRET]\"."
 case-insensitively; `_` and other non-alphanumerics separate words, so
 GITHUB_TOKEN and DB_PASSWORD match and TOKENIZER_PATH does not."
   (loop for key in aitools.data:*redaction-secret-key-names*
-        thereis (loop with start = 0
-                      for found = (search key name :start2 start :test #'char-equal)
-                      while found
-                      thereis (%word-boundary-match-p name found (length key))
-                      do (setf start (1+ found)))))
+        thereis (and (plusp (length key))
+                     (loop with start = 0
+                           for found = (search key name :start2 start :test #'char-equal)
+                           while found
+                           thereis (%word-boundary-match-p name found (length key))
+                           do (setf start (1+ found))))))

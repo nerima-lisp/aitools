@@ -105,6 +105,50 @@
     (expect (redact-secrets "key sk-abcdEF1234567890abcdEF12 next") :to-equal "key [REDACTED_SECRET] next")
     (expect (redact-secrets "slack xoxb-1234-5678-abcdefTOKEN (bot)") :to-equal "slack [REDACTED_SECRET] (bot)"))
 
+  (it "masks every configured literal and Slack prefix"
+    (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
+                            aitools.data:*redaction-slack-prefixes*))
+      (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
+              :to-equal "value [REDACTED_SECRET] end")))
+
+  (it "ignores empty configured patterns while retaining valid ones"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (cons "" aitools.data:*redaction-literal-prefixes*))
+          (aitools.data:*redaction-slack-prefixes*
+            (cons "" aitools.data:*redaction-slack-prefixes*))
+          (aitools.data:*redaction-aws-key-prefixes*
+            (cons "" aitools.data:*redaction-aws-key-prefixes*))
+          (aitools.data:*redaction-secret-key-names*
+            (cons "" aitools.data:*redaction-secret-key-names*)))
+      (expect (redact-secrets "good ghp_abc AKIAIOSFODNN7EXAMPLE password=top-secret")
+              :to-equal "good [REDACTED_SECRET] [REDACTED_SECRET] password=[REDACTED_SECRET]")))
+
+  (it "dispatches a prefix added to the live configuration"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (copy-list aitools.data:*redaction-literal-prefixes*)))
+      (expect (redact-secrets "value zzt-abc123 end")
+              :to-equal "value zzt-abc123 end")
+      (push "zzt-" aitools.data:*redaction-literal-prefixes*)
+      (expect (redact-secrets "value zzt-abc123 end")
+              :to-equal "value [REDACTED_SECRET] end")))
+
+  (it "dispatches Unicode patterns added to the live configuration"
+    (let ((aitools.data:*redaction-literal-prefixes*
+            (cons "秘密-" aitools.data:*redaction-literal-prefixes*))
+          (aitools.data:*redaction-secret-key-names*
+            (cons "秘密" aitools.data:*redaction-secret-key-names*)))
+      (expect (redact-secrets "秘密-abc123 秘密=top-secret")
+              :to-equal "[REDACTED_SECRET] 秘密=[REDACTED_SECRET]")))
+
+  (it-property "masking a literal token is idempotent for generated token bodies"
+      ((body (gen-string :min-length 1 :max-length 30 :alphabet "abc123_-./+=")))
+    (multiple-value-bind (once count)
+        (redact-secrets (format nil "key sk-~A end" body))
+      (multiple-value-bind (twice extra) (redact-secrets once)
+        (expect count :to-be 1)
+        (expect extra :to-be 0)
+        (expect twice :to-equal once))))
+
   (it "masks a Bearer token whatever the case of the scheme"
     (multiple-value-bind (text count) (redact-secrets "authorization: bearer abc123DEF456 rest")
       (expect count :to-be 1)

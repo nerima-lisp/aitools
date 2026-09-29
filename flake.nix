@@ -54,7 +54,7 @@
     };
 
     cl-codec-kit = {
-      url = "github:nerima-lisp/cl-codec-kit/v0.5.0";
+      url = "github:nerima-lisp/cl-codec-kit/v0.6.0";
       flake = false;
     };
 
@@ -91,7 +91,7 @@
     # list below -- flattening these into aitools's own list would not reach
     # a nested build.
     cl-date-kit = {
-      url = "github:nerima-lisp/cl-date-kit/v1.0.0";
+      url = "github:nerima-lisp/cl-date-kit/v1.1.1";
       flake = false;
     };
 
@@ -113,7 +113,7 @@
     # Consumed for its `lib` output (`mkLintCheck`), which a `flake = false`
     # source tree cannot provide.
     paredit-cli = {
-      url = "github:nerima-lisp/paredit-cli/v1.5.0";
+      url = "github:nerima-lisp/paredit-cli/v1.6.3";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

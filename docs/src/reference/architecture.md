@@ -72,6 +72,12 @@ Each context/layer pair is one package, `aitools.<context>.<layer>`
 package, filled by `data/<layer>/<context>/*-data.lisp` files that each
 export their own symbols.
 
+Secret format prefixes and assignment key names live in
+`data/domain/protocol/redaction-patterns-data.lisp`. The protocol matcher
+derives its first-character dispatch table from those values for each masking
+scan. Add a pattern there and cover its masking behavior in the protocol tests;
+live configuration changes take effect without a scanner branch edit.
+
 ### The structure test
 
 `t/integration/structure-test.lisp` enforces the table. For every
