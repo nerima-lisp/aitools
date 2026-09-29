@@ -323,6 +323,11 @@
         programPath = "aitools";
       };
 
+      # The full integration and e2e suite exceeds cl-nix-forge's 600-second
+      # default on aarch64-darwin. Keep the test gate bounded, but allow the
+      # supported Darwin build to finish without weakening any assertions.
+      timeoutSeconds = 1800;
+
       docs.root = ./docs;
 
       # ONE treefmt evaluation drives both `nix fmt` and `checks.formatting`.
