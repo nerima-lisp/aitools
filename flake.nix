@@ -414,6 +414,7 @@
           testCheck = ctx.generated.checks.default.overrideAttrs (old: {
             CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
             AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
+            AITOOLS_DARWIN_PS = "${ctx.pkgs.darwin.ps}/bin/ps";
             TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
               ctx.pkgs.git
@@ -423,6 +424,7 @@
               ctx.pkgs.perl
               ctx.pkgs.which
               ctx.pkgs.procps
+              ctx.pkgs.darwin.ps
               ctx.pkgs.lsof
               ctx.pkgs.util-linux
               ctx.pkgs.openssl
@@ -471,7 +473,8 @@
             coverage = ctx.generated.checks.default.overrideAttrs (old: {
               AITOOLS_COVERAGE = "1";
               CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
-              AITOOLS_E2E_BINARY = "${ctx.generated.packages.aitools}/bin/aitools";
+              AITOOLS_E2E_BINARY = "${ctx.generated.packages.default}/bin/aitools";
+              AITOOLS_DARWIN_PS = "${ctx.pkgs.darwin.ps}/bin/ps";
               TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                 ctx.pkgs.git
@@ -481,6 +484,7 @@
                 ctx.pkgs.perl
                 ctx.pkgs.which
                 ctx.pkgs.procps
+                ctx.pkgs.darwin.ps
                 ctx.pkgs.lsof
                 ctx.pkgs.util-linux
                 ctx.pkgs.openssl
