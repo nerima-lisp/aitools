@@ -460,35 +460,35 @@
         in
         {
           checks = {
-          # Structural parse gate over every Lisp source in the filtered
-          # tree: fails if any .lisp/.asd file is not a balanced S-expression
-          # document, catching an unbalanced components.sexp-driven file
-          # before ASDF fails to load the system with a confusing error.
-          paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
-            inherit (ctx) src;
-            name = "aitools-paredit-lint";
-          };
-          coverage = ctx.generated.checks.default.overrideAttrs (old: {
-            AITOOLS_COVERAGE = "1";
-            CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
-            AITOOLS_E2E_BINARY = "${ctx.generated.packages.aitools}/bin/aitools";
-            TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
-            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
-              ctx.pkgs.git
-              ctx.pkgs.zip
-              ctx.pkgs.unzip
-              ctx.pkgs.jq
-              ctx.pkgs.perl
-              ctx.pkgs.which
-              ctx.pkgs.procps
-              ctx.pkgs.lsof
-              ctx.pkgs.util-linux
-              ctx.pkgs.openssl
-              ctx.pkgs.inetutils
-              ctx.pkgs.getconf
-              ctx.pkgs.tzdata
-            ];
-          });
+            # Structural parse gate over every Lisp source in the filtered
+            # tree: fails if any .lisp/.asd file is not a balanced S-expression
+            # document, catching an unbalanced components.sexp-driven file
+            # before ASDF fails to load the system with a confusing error.
+            paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
+              inherit (ctx) src;
+              name = "aitools-paredit-lint";
+            };
+            coverage = ctx.generated.checks.default.overrideAttrs (old: {
+              AITOOLS_COVERAGE = "1";
+              CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
+              AITOOLS_E2E_BINARY = "${ctx.generated.packages.aitools}/bin/aitools";
+              TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+                ctx.pkgs.git
+                ctx.pkgs.zip
+                ctx.pkgs.unzip
+                ctx.pkgs.jq
+                ctx.pkgs.perl
+                ctx.pkgs.which
+                ctx.pkgs.procps
+                ctx.pkgs.lsof
+                ctx.pkgs.util-linux
+                ctx.pkgs.openssl
+                ctx.pkgs.inetutils
+                ctx.pkgs.getconf
+                ctx.pkgs.tzdata
+              ];
+            });
           };
         };
     };
