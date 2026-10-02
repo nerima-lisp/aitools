@@ -33,12 +33,24 @@
      :inherit-configuration)))
 
 (defun run-coverage (root)
+  (asdf:load-system "cl-weave")
+  (uiop:symbol-call "CL-WEAVE" "REQUIRE-COVERAGE-SUPPORT")
+  (proclaim
+   (list 'optimize
+         (list (find-symbol "STORE-COVERAGE-DATA" "SB-COVER") 3)))
+  (when (find-package "AITOOLS.DATA")
+    (delete-package "AITOOLS.DATA"))
+  (asdf:load-system "aitools" :force t)
+  (asdf:load-system "aitools/cli" :force t)
+  (asdf:load-system "aitools/test")
+  (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
+        60000)
   (let* ((include (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES" "aitools"))
          (passed (uiop:symbol-call "CL-WEAVE" "RUN-ALL"
                   :reporter :json
                   :coverage t
-                  :coverage-output "coverage.json"
-                  :coverage-report-directory "coverage"
+                  :coverage-output (merge-pathnames "coverage.json" root)
+                  :coverage-report-directory (merge-pathnames "coverage/" root)
                   :coverage-include-pathnames include
                   :coverage-minimum-expression 0
                   :coverage-minimum-branch 0
@@ -57,8 +69,8 @@
                                      (max 1 (getf statistics :branch-total))))))
       (unless (and (>= expression-percentage (getf baseline :expression))
                    (>= branch-percentage (getf baseline :branch))
-                   (probe-file "coverage.json")
-                   (probe-file "coverage/cover-index.html"))
+                   (probe-file (merge-pathnames "coverage.json" root))
+                   (probe-file (merge-pathnames "coverage/cover-index.html" root)))
         (error "aitools coverage is below baseline or has no report artifact"))
       (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
               (getf statistics :expression-covered)
@@ -70,17 +82,18 @@
   (configure-local-source-registry root)
   (handler-case
       (progn
-        (asdf:load-system "aitools")
-        (asdf:load-system "aitools/test")
-        ;; Keep the suite's explicit policy checks in AITOOLS/TEST:RUN-TESTS,
-        ;; while preventing the framework's per-spec default from aborting a
-        ;; deliberately long integration or e2e case.
-        (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
-              60000)
         (if (uiop:getenv "AITOOLS_COVERAGE")
             (run-coverage root)
-            (unless (uiop:symbol-call :aitools/test :run-tests)
-              (error "aitools self test suite failed."))))
+            (progn
+              (asdf:load-system "aitools")
+              (asdf:load-system "aitools/test")
+              ;; Keep the suite's explicit policy checks in AITOOLS/TEST:RUN-TESTS,
+              ;; while preventing the framework's per-spec default from aborting a
+              ;; deliberately long integration or e2e case.
+              (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
+                    60000)
+              (unless (uiop:symbol-call :aitools/test :run-tests)
+                (error "aitools self test suite failed.")))))
     (error (condition)
       (format *error-output* "~&aitools tests failed: ~A~%" condition)
       (uiop:quit 1)))

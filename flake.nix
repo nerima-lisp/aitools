@@ -411,22 +411,7 @@
             program = "${delivered}/bin/aitools";
             inherit (ctx.generated.apps.default) meta;
           };
-        in
-        {
-          packages.default = delivered;
-          apps.default = deliveredApp;
-          apps.aitools = deliveredApp;
-          # AITOOLS_E2E_BINARY makes t/e2e exercise the delivered package
-          # instead of building its own copy in the sandbox.
-          # git, zip and unzip are the oracles the gitignore-parity, vcs,
-          # archive-interop and e2e tests compare against; the rest back the
-          # correspondence-table e2e oracles (jq for json/table; perl for the
-          # invisible/normalize/blame rows; which/ps/lsof/getconf/uuidgen/
-          # hostname/openssl for the sys and util rows). Without them each of
-          # those specs reports a counted skip instead of comparing aitools
-          # against the real tool. TZDIR points the time-zone specs at tzdata's
-          # zoneinfo so the --tz rows resolve Asia/Tokyo in the sandbox.
-          checks.default = ctx.generated.checks.default.overrideAttrs (old: {
+          testCheck = ctx.generated.checks.default.overrideAttrs (old: {
             CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
             AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
             TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
@@ -446,6 +431,22 @@
               ctx.pkgs.tzdata
             ];
           });
+        in
+        {
+          packages.default = delivered;
+          apps.default = deliveredApp;
+          apps.aitools = deliveredApp;
+          # AITOOLS_E2E_BINARY makes t/e2e exercise the delivered package
+          # instead of building its own copy in the sandbox.
+          # git, zip and unzip are the oracles the gitignore-parity, vcs,
+          # archive-interop and e2e tests compare against; the rest back the
+          # correspondence-table e2e oracles (jq for json/table; perl for the
+          # invisible/normalize/blame rows; which/ps/lsof/getconf/uuidgen/
+          # hostname/openssl for the sys and util rows). Without them each of
+          # those specs reports a counted skip instead of comparing aitools
+          # against the real tool. TZDIR points the time-zone specs at tzdata's
+          # zoneinfo so the --tz rows resolve Asia/Tokyo in the sandbox.
+          checks.default = testCheck;
         };
 
       extraOutputs = ctx: {
@@ -458,8 +459,24 @@
             inherit (ctx) src;
             name = "aitools-paredit-lint";
           };
-          coverage = ctx.generated.checks.default.overrideAttrs (_old: {
+          coverage = ctx.generated.checks.default.overrideAttrs (old: {
             AITOOLS_COVERAGE = "1";
+            AITOOLS_E2E_BINARY = "${ctx.generated.packages.aitools}/bin/aitools";
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+              ctx.pkgs.git
+              ctx.pkgs.zip
+              ctx.pkgs.unzip
+              ctx.pkgs.jq
+              ctx.pkgs.perl
+              ctx.pkgs.which
+              ctx.pkgs.procps
+              ctx.pkgs.lsof
+              ctx.pkgs.util-linux
+              ctx.pkgs.openssl
+              ctx.pkgs.inetutils
+              ctx.pkgs.getconf
+              ctx.pkgs.tzdata
+            ];
           });
         };
       };
