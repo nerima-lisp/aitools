@@ -449,8 +449,17 @@
           checks.default = testCheck;
         };
 
-      extraOutputs = ctx: {
-        checks = {
+      extraOutputs =
+        ctx:
+        let
+          spawnTrampoline = ctx.pkgs.runCommandCC "cl-process-kit-spawn" { } ''
+            mkdir -p $out/bin
+            $CC -std=c11 -O2 -Wall -Wextra -Werror ${cl-process-kit}/native/spawn.c \
+              -o $out/bin/cl-process-kit-spawn
+          '';
+        in
+        {
+          checks = {
           # Structural parse gate over every Lisp source in the filtered
           # tree: fails if any .lisp/.asd file is not a balanced S-expression
           # document, catching an unbalanced components.sexp-driven file
@@ -461,7 +470,9 @@
           };
           coverage = ctx.generated.checks.default.overrideAttrs (old: {
             AITOOLS_COVERAGE = "1";
+            CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
             AITOOLS_E2E_BINARY = "${ctx.generated.packages.aitools}/bin/aitools";
+            TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
               ctx.pkgs.git
               ctx.pkgs.zip
@@ -478,7 +489,7 @@
               ctx.pkgs.tzdata
             ];
           });
+          };
         };
-      };
     };
 }
