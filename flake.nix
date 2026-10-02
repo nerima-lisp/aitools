@@ -414,7 +414,7 @@
           testCheck = ctx.generated.checks.default.overrideAttrs (old: {
             CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
             AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
-            AITOOLS_DARWIN_PS = "${ctx.pkgs.darwin.ps}/bin/ps";
+            AITOOLS_DARWIN_PS = if ctx.system == "aarch64-darwin" then "${ctx.pkgs.darwin.ps}/bin/ps" else "";
             TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
               ctx.pkgs.git
@@ -424,7 +424,9 @@
               ctx.pkgs.perl
               ctx.pkgs.which
               ctx.pkgs.procps
+            ] ++ ctx.pkgs.lib.optionals (ctx.system == "aarch64-darwin") [
               ctx.pkgs.darwin.ps
+            ] ++ [
               ctx.pkgs.lsof
               ctx.pkgs.util-linux
               ctx.pkgs.openssl
@@ -474,7 +476,7 @@
               AITOOLS_COVERAGE = "1";
               CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
               AITOOLS_E2E_BINARY = "${ctx.generated.packages.default}/bin/aitools";
-              AITOOLS_DARWIN_PS = "${ctx.pkgs.darwin.ps}/bin/ps";
+              AITOOLS_DARWIN_PS = if ctx.system == "aarch64-darwin" then "${ctx.pkgs.darwin.ps}/bin/ps" else "";
               TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                 ctx.pkgs.git
@@ -484,7 +486,9 @@
                 ctx.pkgs.perl
                 ctx.pkgs.which
                 ctx.pkgs.procps
+              ] ++ ctx.pkgs.lib.optionals (ctx.system == "aarch64-darwin") [
                 ctx.pkgs.darwin.ps
+              ] ++ [
                 ctx.pkgs.lsof
                 ctx.pkgs.util-linux
                 ctx.pkgs.openssl
