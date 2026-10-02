@@ -301,6 +301,28 @@ line."
                                      (gethash (context-package-name context layer) nicknames))))))))
     (sort violations #'string<)))
 
+(defun %contains-form-p (form predicate)
+  (or (funcall predicate form)
+      (and (consp form)
+           (some (lambda (item) (%contains-form-p item predicate)) form))))
+
+(defun process-run-timeout-violations (root)
+  "Return source locations of PROCESS-KIT:RUN forms without :TIMEOUT.
+Detached background spawning is implemented through a different API and is
+therefore not part of this gate."
+  (let ((violations '())
+        (pathnames (directory (merge-pathnames "packages/**/src/**/*.lisp" root))))
+    (dolist (pathname pathnames (sort violations #'string<))
+      (let* ((text (uiop:read-file-string pathname))
+             (stripped (%strip-prose text)))
+        (dolist (start (%form-positions stripped "process-kit:run"))
+          (let ((form (%read-form-at text start)))
+            (unless (or (eq form :unreadable)
+                        (%contains-form-p form (lambda (item) (eq item :timeout))))
+              (push (format nil "~A:~D: PROCESS-KIT:RUN requires :TIMEOUT"
+                            (enough-namestring pathname root) (%line-at text start))
+                    violations))))))))
+
 ;;; --------------------------------------------------------------- tests
 
 (defun repository-root ()
@@ -351,4 +373,11 @@ line."
             :to-equal '("packages/core/store/src/infrastructure/bad.lisp:5: JSON-KIT:PARSE, which store/infrastructure may not depend on")))
 
   (it "passes on a domain file using only what its layer allows"
-    (expect (fixture-violations "clean-domain") :to-equal nil)))
+    (expect (fixture-violations "clean-domain") :to-equal nil))
+
+  (it "requires an explicit timeout on every process invocation"
+    (expect (process-run-timeout-violations (repository-root)) :to-equal nil)
+    (expect (process-run-timeout-violations
+             (merge-pathnames "t/integration/fixtures/violation-missing-timeout/"
+                              (asdf:system-source-directory "aitools/test")))
+            :to-equal '("packages/feature/process/src/infrastructure/bad.lisp:4: PROCESS-KIT:RUN requires :TIMEOUT"))))

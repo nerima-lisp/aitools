@@ -12,11 +12,26 @@
   (:use #:cl)
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave
-                #:it #:it-each #:expect #:expect-not #:signals #:run-all
-                #:with-soft-assertions #:defmatcher #:before-each)
-  (:export #:run-tests))
+                #:it #:it-each #:describe-each #:it-property #:gen-string
+                #:expect #:expect-not #:expect-poll #:signals #:run-all
+                #:with-soft-assertions #:defmatcher #:before-each
+                #:gen-boolean #:gen-character #:gen-integer #:gen-keyword
+                #:gen-list #:gen-map #:gen-member #:gen-one-of #:gen-tuple
+                #:gen-vector #:gen-such-that)
+  (:export #:run-tests
+           #:describe #:it #:it-each #:describe-each #:it-property
+           #:expect #:expect-not #:expect-poll #:signals #:run-all
+           #:with-soft-assertions #:defmatcher #:before-each
+           #:gen-string #:gen-boolean #:gen-character #:gen-integer
+           #:gen-keyword #:gen-list #:gen-map #:gen-member #:gen-one-of
+           #:gen-tuple #:gen-vector #:gen-such-that))
 
 (in-package #:aitools/test)
+
+(defparameter cl-weave:*default-timeout-ms* 30000
+  "Bound every cl-weave spec to 30 seconds unless it declares a tighter limit.
+The limit covers a single spec, while external-process helpers retain their
+own operation-specific budgets.")
 
 (defparameter *minimum-executed-specs* 2853
   "Fewer specs than this actually running (passed, failed or errored; not
@@ -36,8 +51,6 @@ must not read as a green run. Raise it when specs are added.")
     (:skip "no zoneinfo database on this host" "host zoneinfo check; the Nix sandbox has none")
     (:skip "skipped without the cl-process-kit-spawn trampoline"
      "bg needs the native spawn helper" "CL_PROCESS_KIT_SPAWN")
-    (:todo "stays flat in N for a pattern without a required literal"
-     "search allocation gate, pending an allocation-free cl-regex-kit engine")
     (:skip "oracle unavailable"
      "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip. A wholesale e2e skip still trips *minimum-executed-specs*.")))
 

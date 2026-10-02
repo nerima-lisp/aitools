@@ -6,6 +6,43 @@
 ;;;; docs/src/reference/architecture.md for the system layout.
 (in-package #:asdf-user)
 
+;; Context systems live in their own ASDF files under packages/.  ASDF's
+;; source registry does not discover this repository's two-level layout, so
+;; the aggregate system registers those definitions before referring to them.
+(let ((root (make-pathname :name nil :type nil :defaults *load-truename*)))
+  (dolist (pathname (directory (merge-pathnames "packages/*/*/*.asd" root)))
+    (load pathname)))
+
+(defsystem "aitools/data"
+  :description "Static data tables shared by all library contexts."
+  :pathname "data/"
+  :components
+  ((:file "package")
+   (:file "domain/protocol/error-catalog-data")
+   (:file "domain/protocol/redaction-patterns-data")
+   (:file "domain/protocol/command-placement-data")
+   (:file "domain/protocol/correspondence-table-data")
+   (:file "domain/protocol/selector-options-data")
+   (:file "domain/workspace/builtin-excludes-data")
+   (:file "domain/text/cp932-data")
+   (:file "domain/text/euc-jp-data")
+   (:file "domain/text/mime-data")
+   (:file "domain/text/language-data")
+   (:file "domain/search/build-files-data")
+   (:file "presentation/search/command-schema-data")
+   (:file "presentation/inspect/command-schema-data")
+   (:file "presentation/inspect/format-command-schema-data")
+   (:file "presentation/inspect/archive-command-schema-data")
+   (:file "presentation/journal/command-schema-data")
+   (:file "application/edit/command-spec-data")
+   (:file "presentation/process/command-schema-data")
+   (:file "presentation/vcs/command-schema-data")
+   (:file "domain/env/tools-data")
+   (:file "domain/util/util-tables-data")
+   (:file "presentation/util/command-schema-data")
+   (:file "presentation/env/command-schema-data")
+   (:file "presentation/edit/command-schema-data")))
+
 (defsystem "aitools"
   :description "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends: JSON-only output, crash-safe writes, and a built-in undo history."
   :author "takeokunn <bararararatty@gmail.com>"
@@ -15,340 +52,24 @@
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
-  ;; Every context's domain/application/infrastructure layer, and the pure
-  ;; and effectful kits any of them may depend on (the layer table in
-  ;; docs/src/reference/architecture.md). Never cl-cli -- that is
-  ;; "aitools/cli" alone, below.
-  :depends-on ("cl-json-kit" "cl-regex-kit" "cl-codec-kit"
-               "cl-host-kit" "cl-boundary-kit" "cl-concurrent-kit" "cl-process-kit" "cl-vcs-kit")
+  :depends-on ("aitools/data"
+               "aitools/core/kernel"
+               "aitools/core/protocol"
+               "aitools/core/workspace"
+               "aitools/core/text"
+               "aitools/core/store"
+               "aitools/feature/search"
+               "aitools/feature/inspect"
+               "aitools/feature/journal"
+               "aitools/feature/edit"
+               "aitools/feature/process"
+               "aitools/feature/vcs"
+               "aitools/feature/env"
+               "aitools/feature/util")
   :pathname "."
   :around-compile (lambda (next)
                     (let ((*package* (or (find-package "AITOOLS") *package*)))
                       (funcall next)))
-  ;; The data module comes first: data/package.lisp, then every context's
-  ;; :DATA file in module order. Each is loaded before the library
-  ;; components so a context's domain layer can reference the AITOOLS.DATA
-  ;; specials the data file interns.
-  :components ((:module "data"
-                :pathname "data/"
-                :components ((:file "package")
-                             (:file "domain/protocol/error-catalog-data")
-                             (:file "domain/protocol/redaction-patterns-data")
-                             (:file "domain/protocol/command-placement-data")
-                             (:file "domain/protocol/correspondence-table-data")
-                             (:file "domain/protocol/selector-options-data")
-                             (:file "domain/workspace/builtin-excludes-data")
-                             (:file "domain/text/cp932-data")
-                             (:file "domain/text/euc-jp-data")
-                             (:file "domain/text/mime-data")
-                             (:file "domain/text/language-data")
-                             (:file "domain/search/build-files-data")
-                             (:file "presentation/search/command-schema-data")
-                             (:file "presentation/inspect/command-schema-data")
-                             (:file "presentation/inspect/format-command-schema-data")
-                             (:file "presentation/inspect/archive-command-schema-data")
-                             (:file "presentation/journal/command-schema-data")
-                             (:file "application/edit/command-spec-data")
-                             (:file "presentation/process/command-schema-data")
-                             (:file "presentation/vcs/command-schema-data")
-                             (:file "domain/env/tools-data")
-                             (:file "domain/util/util-tables-data")
-                             (:file "presentation/util/command-schema-data")
-                             (:file "presentation/env/command-schema-data")
-                             (:file "presentation/edit/command-schema-data")))
-               ;; Library modules follow the data module. The module order is
-               ;; also the load order of the components a context
-               ;; contributes: a later context's domain layer may depend on
-               ;; an earlier core context's domain/application (the layer
-               ;; table in docs/src/reference/architecture.md), and among
-               ;; features a context loads after every context whose application package it calls -- journal
-               ;; before edit (edit registers its tx replayers with journal
-               ;; at load time), inspect before edit and vcs (they reuse its
-               ;; selector resolution), edit before util (`util decode --to`
-               ;; uses edit's write pipeline). Each module is rooted at its
-               ;; context's own src/ directory.
-               (:module "core-kernel"
-                :pathname "packages/core/kernel/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/path")
-                             (:file "domain/selector")
-                             (:file "domain/guard")
-                             (:file "domain/duration")
-                             (:file "domain/size")
-                             (:file "domain/digest")
-                             (:file "domain/token-estimate")
-                             (:file "domain/unified-diff")
-                             (:file "domain/unified-diff-patch")
-                             (:file "domain/json")))
-               (:module "core-protocol"
-                :pathname "packages/core/protocol/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/error-catalog")
-                             (:file "domain/redaction")
-                             (:file "domain/shell-words")
-                             (:file "domain/command-placement")
-                             (:file "domain/envelope")
-                             (:file "domain/schema-model")
-                             (:file "application/package")
-                             (:file "application/command-result")
-                             (:file "application/command-registry")
-                             (:file "application/redaction-flow")
-                             (:file "application/schema-flow")
-                             (:file "application/unknown-name")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/json-writer")))
-               (:module "core-workspace"
-                :pathname "packages/core/workspace/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/path-syntax")
-                             (:file "domain/entry")
-                             (:file "domain/wildmatch")
-                             (:file "domain/gitignore")
-                             (:file "domain/builtin-excludes")
-                             (:file "domain/glob")
-                             (:file "domain/git-config")
-                             (:file "domain/git-index")
-                             (:file "domain/repository")
-                             (:file "domain/boundary")
-                             (:file "application/package")
-                             (:file "application/host")
-                             (:file "application/real-path")
-                             (:file "application/root")
-                             (:file "application/boundary")
-                             (:file "application/ignore-context")
-                             (:file "application/scan")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/host")
-                             (:file "infrastructure/ordered-mapper")
-                             (:file "infrastructure/boundaries")))
-               (:module "core-text"
-                :pathname "packages/core/text/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/binary")
-                             (:file "domain/layout")
-                             (:file "domain/line-index")
-                             (:file "domain/utf8")
-                             (:file "domain/charset")
-                             (:file "domain/encoding-guess")
-                             (:file "domain/mime")
-                             (:file "domain/normalize")
-                             (:file "domain/lines")
-                             (:file "domain/language")
-                             (:file "domain/codec-conditions")
-                             (:file "domain/archive-model")
-                             (:file "domain/codec-crc32")
-                             (:file "domain/codec-deflate")
-                             (:file "domain/codec-gzip")
-                             (:file "domain/codec-zip")
-                             (:file "domain/codec-tar")
-                             (:file "domain/archive-data")
-                             (:file "domain/archive-format")
-                             (:file "application/package")
-                             (:file "application/source")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/host-source")
-                             (:file "infrastructure/boundaries")))
-               (:module "core-store"
-                :pathname "packages/core/store/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/entry-state")
-                             (:file "domain/layout")
-                             (:file "domain/change")
-                             (:file "domain/plan")
-                             (:file "domain/journal")
-                             (:file "domain/intent")
-                             (:file "domain/tx-model")
-                             (:file "domain/changes-json")
-                             (:file "application/package")
-                             (:file "application/port")
-                             (:file "application/lock")
-                             (:file "application/files")
-                             (:file "application/journal")
-                             (:file "application/blobs")
-                             (:file "application/view")
-                             (:file "application/write-completion")
-                             (:file "application/write-preparation")
-                             (:file "application/write-protocol")
-                             (:file "application/recovery")
-                             (:file "application/undo")
-                             (:file "application/tx")
-                             (:file "application/tx-stage")
-                             (:file "application/tx-commit")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/posix-syscall")
-                             (:file "infrastructure/posix-file-io")
-                             (:file "infrastructure/posix-io")))
-               (:module "feature-search"
-                :pathname "packages/feature/search/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/bytes")
-                             (:file "domain/json")
-                             (:file "domain/matcher")
-                             (:file "domain/results")
-                             (:file "domain/find")
-                             (:file "domain/code")
-                             (:file "domain/overview")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/session")
-                             (:file "application/search-flow")
-                             (:file "application/find-flow")
-                             (:file "application/code-flow")
-                             (:file "application/overview-flow")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/ports")))
-               (:module "feature-inspect"
-                :pathname "packages/feature/inspect/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/json-values")
-                             (:file "domain/lines")
-                             (:file "domain/pattern")
-                             (:file "domain/similarity")
-                             (:file "domain/lisp-scan")
-                             (:file "domain/outline")
-                             (:file "domain/selection")
-                             (:file "domain/read-render")
-                             (:file "domain/file-facts")
-                             (:file "domain/diff")
-                             (:file "domain/json-query")
-                             (:file "domain/table")
-                             (:file "domain/table-build")
-                             (:file "domain/table-query")
-                             (:file "domain/table-agg")
-                             (:file "domain/archive")
-                             (:file "domain/snapshot")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/context")
-                             (:file "application/files")
-                             (:file "application/selector")
-                             (:file "application/read-flow")
-                             (:file "application/info-flow")
-                             (:file "application/check-flow")
-                             (:file "application/diff-flow")
-                             (:file "application/json-flows")
-                             (:file "application/table-flows")
-                             (:file "application/table-agg-flows")
-                             (:file "application/archive-flows")
-                             (:file "application/snapshot-flows")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/ports")))
-               (:module "feature-journal"
-                :pathname "packages/feature/journal/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/command-line")
-                             (:file "domain/render")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/replayers")
-                             (:file "application/common")
-                             (:file "application/history-flow")
-                             (:file "application/undo-flow")
-                             (:file "application/tx-flows")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/ports")))
-               (:module "feature-edit"
-                :pathname "packages/feature/edit/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/refusal")
-                             (:file "domain/document")
-                             (:file "domain/old-match")
-                             (:file "domain/template")
-                             (:file "domain/transform")
-                             (:file "domain/json-doc")
-                             (:file "domain/regex")
-                             (:file "domain/table")
-                             (:file "domain/split")
-                             (:file "domain/archive-plan")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/command-spec")
-                             (:file "application/write-plan")
-                             (:file "application/write-guards")
-                             (:file "application/pipeline")
-                             (:file "application/input")
-                             (:file "application/scan")
-                             (:file "application/edit-flows")
-                             (:file "application/replace-flows")
-                             (:file "application/apply-flows")
-                             (:file "application/line-flows")
-                             (:file "application/content-flows")
-                             (:file "application/file-flows")
-                             (:file "application/mktemp")
-                             (:file "application/json-flows")
-                             (:file "application/archive-flows")
-                             (:file "application/commands")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/ports")))
-               (:module "feature-process"
-                :pathname "packages/feature/process/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/json-values")
-                             (:file "domain/shell-words")
-                             (:file "domain/line-pattern")
-                             (:file "domain/terminal-text")
-                             (:file "domain/output-report")
-                             (:file "domain/process-outcome")
-                             (:file "domain/bg-record")
-                             (:file "domain/log-slice")
-                             (:file "domain/wait-condition")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/common")
-                             (:file "application/run-flow")
-                             (:file "application/bg-flow")
-                             (:file "application/wait-flow")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/host")
-                             (:file "infrastructure/runner")
-                             (:file "infrastructure/bg-launcher")
-                             (:file "infrastructure/ports")))
-               (:module "feature-vcs"
-                :pathname "packages/feature/vcs/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/render")
-                             (:file "domain/paths")
-                             (:file "domain/status")
-                             (:file "domain/log")
-                             (:file "domain/blame")
-                             (:file "domain/diff")
-                             (:file "domain/blob")
-                             (:file "application/package")
-                             (:file "application/port")
-                             (:file "application/flows")
-                             (:file "application/blame-show-flows")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/git-port")))
-               (:module "feature-env"
-                :pathname "packages/feature/env/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/civil-time")
-                             (:file "domain/time-input")
-                             (:file "domain/posix-tz")
-                             (:file "domain/tzif")
-                             (:file "domain/host-parsers")
-                             (:file "domain/host-values")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/time-flows")
-                             (:file "application/sys-flows")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/production-ports")))
-               (:module "feature-util"
-                :pathname "packages/feature/util/src/"
-                :components ((:file "domain/package")
-                             (:file "domain/codec")
-                             (:file "domain/text-stats")
-                             (:file "domain/calc")
-                             (:file "domain/uuid")
-                             (:file "domain/random-string")
-                             (:file "application/package")
-                             (:file "application/ports")
-                             (:file "application/input")
-                             (:file "application/flows")
-                             (:file "infrastructure/package")
-                             (:file "infrastructure/os-random")
-                             (:file "infrastructure/ports"))))
   :in-order-to ((test-op (test-op "aitools/test"))))
 
 (defsystem "aitools/cli"
@@ -437,7 +158,12 @@
                              (:module "support"
                               :pathname "support/"
                               :components ((:file "package")
-                                           (:file "json-assertions")))
+                                           (:file "json-assertions")
+                                           (:file "files")
+                                           (:file "tools")
+                                           (:file "workspace")
+                                           (:file "cli")
+                                           (:file "envelope-matchers")))
                              (:file "unit/kernel/package")
                              (:file "unit/kernel/path-test")
                              (:file "unit/kernel/selector-test")
