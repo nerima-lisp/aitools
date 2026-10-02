@@ -38,7 +38,7 @@ jobs:
       # (checks.formatting), so unformatted Nix or an unbalanced .lisp file
       # fails CI here.
       - name: Check flake
-        run: nix flake check --print-build-logs
+        run: nix flake check --max-jobs 1 --print-build-logs
 
       # Catches stray conflict markers and whitespace errors that compile fine.
       - name: Check diff hygiene
