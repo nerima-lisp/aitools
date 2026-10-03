@@ -22,6 +22,29 @@ plist/alist the flow built; for :ERROR, (:CODE :MESSAGE :CANDIDATES
   (kind nil :type (member :ok :partial :error) :read-only t)
   (fields nil :type list :read-only t))
 
+(defun normalize-command-continuations (&rest continuations)
+  "Return the canonical keyword continuation plist.
+
+A single list argument is accepted so callers can pass through an existing
+keyword plist. Positional continuation arguments are rejected at this public
+boundary; command flows use one contract."
+  (when (and (= (length continuations) 1)
+             (listp (first continuations)))
+    (setf continuations (first continuations)))
+  (cond
+    ((and (evenp (length continuations))
+          (loop for (key value) on continuations by #'cddr
+                always (and (member key '(:on-ok :on-partial :on-error))
+                            (functionp value)))
+          (= (length (remove-duplicates continuations :test #'eq :key #'identity))
+             (length continuations)))
+     (list :on-ok (getf continuations :on-ok)
+           :on-partial (getf continuations :on-partial)
+           :on-error (getf continuations :on-error)))
+    (t
+     (error "Expected three command continuations or their keyword plist, got ~S"
+            continuations))))
+
 (defun call-with-command-result/k (flow-function)
   "Call FLOW-FUNCTION with :ON-OK, :ON-PARTIAL, and :ON-ERROR keyword
 continuations, and return whichever one FLOW-FUNCTION calls, as a
@@ -29,12 +52,13 @@ COMMAND-RESULT. FLOW-FUNCTION must call exactly one continuation exactly
 once; calling more than one, or returning without calling any, is a bug in
 the flow, not a case this function recovers from."
   (block done
-    (funcall flow-function
-             :on-ok (lambda (fields) (return-from done (%make-command-result :ok fields)))
-             :on-partial (lambda (fields) (return-from done (%make-command-result :partial fields)))
-             :on-error (lambda (code message &key candidates diagnostics conflicts repairs)
-                         (return-from done
-                           (%make-command-result
-                            :error (list :code code :message message :candidates candidates
-                                        :diagnostics diagnostics :conflicts conflicts
-                                        :repairs repairs)))))))
+    (apply flow-function
+           (normalize-command-continuations
+            :on-ok (lambda (fields) (return-from done (%make-command-result :ok fields)))
+            :on-partial (lambda (fields) (return-from done (%make-command-result :partial fields)))
+            :on-error (lambda (code message &key candidates diagnostics conflicts repairs)
+                        (return-from done
+                          (%make-command-result
+                           :error (list :code code :message message :candidates candidates
+                                       :diagnostics diagnostics :conflicts conflicts
+                                       :repairs repairs))))))))

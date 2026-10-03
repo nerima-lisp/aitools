@@ -14,6 +14,7 @@
                 #:top-level-command-p #:group-command-p #:repairs-for-unknown-name
                 #:make-command-schema #:command-schema-name)
   (:import-from #:aitools.protocol.application
+                #:normalize-command-continuations
                 #:call-with-command-result/k #:command-result-kind #:command-result-fields
                 #:redact-json-value #:render-command-summary #:render-command-detail
                 #:unknown-command-error))

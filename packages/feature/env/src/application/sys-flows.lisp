@@ -15,7 +15,9 @@
 observed taking 6-18 s on a heavily loaded Darwin host, so a tight bound
 would turn load into environment.unavailable.")
 
-(defun %darwin-program (key) (getf *darwin-programs* key))
+(defun %darwin-program (key &optional ports)
+  (or (and (eq key :ps) ports (%getenv ports "AITOOLS_DARWIN_PS"))
+      (getf *darwin-programs* key)))
 
 (defun %null-if-nil (value)
   (if (null value) (aitools.env.domain:json-null) value))
@@ -189,7 +191,7 @@ userspace tick (USER_HZ) at 100."
 (defun %darwin-processes (ports)
   "Records from ps, or :UNAVAILABLE. `started` derives from ps's elapsed
 time against the clock port, to the second."
-  (let ((output (%run-output ports (%darwin-program :ps) '("-axww" "-o" "pid=,ppid=,user=,etime=,command="))))
+  (let ((output (%run-output ports (%darwin-program :ps ports) '("-axww" "-o" "pid=,ppid=,user=,etime=,command="))))
     (if (null output)
         :unavailable
         (let ((now-second (* 1000 (floor (%now ports) 1000))))
