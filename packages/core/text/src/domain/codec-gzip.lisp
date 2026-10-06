@@ -51,6 +51,30 @@ index of the DEFLATE stream."
     (when (> position (length octets)) (%archive-fail "gzip header is truncated"))
     (values name mtime position)))
 
+(defun %gzip-safe-member-name-p (name)
+  (and (plusp (length name))
+       (null (archive-entry-path-problem name))
+       (not (find #\/ name))))
+
+(defun %path-basename (path)
+  (subseq path (1+ (or (position #\/ path :from-end t) -1))))
+
+(defun gzip-member-name (octets archive-path)
+  "The safe leaf name used for a gzip member from OCTETS.
+
+The FNAME header is used only when it is a non-empty, safe leaf. Unsafe or
+missing FNAME falls back to ARCHIVE-PATH's basename without its final `.gz`,
+or to `.out` when that fallback is unsafe or has no basename."
+  (let ((name (nth-value 0 (gzip-member-header octets))))
+    (if (and name (%gzip-safe-member-name-p name))
+        name
+        (let* ((base (%path-basename (or archive-path "")))
+               (dot (search ".gz" base :from-end t :test #'char-equal))
+               (fallback (if (and dot (plusp dot))
+                             (subseq base 0 dot)
+                             (concatenate 'string base ".out"))))
+          (if (%gzip-safe-member-name-p fallback) fallback ".out")))))
+
 (defun gzip-decompress (octets &key max-output)
   "The decompressed bytes of every member of the gzip stream OCTETS, each
 checked against its CRC-32 and length. MAX-OUTPUT bounds the total and is

@@ -106,6 +106,7 @@
    #:deflate
    ;; codec-gzip.lisp
    #:gzip-member-header
+   #:gzip-member-name
    #:gzip-decompress
    #:gzip-compress
    ;; codec-zip.lisp

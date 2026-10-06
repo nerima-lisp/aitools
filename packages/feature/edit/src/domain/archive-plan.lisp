@@ -46,16 +46,6 @@ MODE) or :SYMLINK (TARGET); PATH is workspace-relative."
   (mode nil :read-only t)
   (target nil :read-only t))
 
-(defun gz-member-name (octets archive-path)
-  "The name a `.gz` member extracts to: its FNAME header when present, else
-the archive's base name without `.gz`."
-  (let ((name (ignore-errors (nth-value 0 (aitools.text.domain:gzip-member-header octets))))
-        (base (subseq archive-path (1+ (or (position #\/ archive-path :from-end t) -1)))))
-    (if (and name (plusp (length name)) (null (aitools.text.domain:archive-entry-path-problem name)) (not (find #\/ name)))
-        name
-        (let ((dot (search ".gz" base :from-end t :test #'char-equal)))
-          (if (and dot (plusp dot)) (subseq base 0 dot) (concatenate 'string base ".out"))))))
-
 (defun %archive-entries (octets format)
   (ecase format
     (:zip (values (aitools.text.domain:read-zip-entries octets) octets))
@@ -86,7 +76,7 @@ absent), input.unsupported-format (device or other special entries)."
                        (aitools.text.domain:archive-limit-exceeded ()
                          (refuse "refusal.too-large" "the extracted size exceeds --max-bytes ~D" max-bytes))))))
       (if (eq format :gz)
-          (let* ((name (gz-member-name octets (or archive-path "")))
+          (let* ((name (aitools.text.domain:gzip-member-name octets (or archive-path "")))
                  (data (handler-case (aitools.text.domain:gzip-decompress octets :max-output max-bytes)
                          (aitools.text.domain:archive-limit-exceeded ()
                            (refuse "refusal.too-large" "the extracted size exceeds --max-bytes ~D" max-bytes))))
