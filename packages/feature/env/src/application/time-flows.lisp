@@ -50,12 +50,12 @@ zoneinfo directory exists at all."
    :on-unknown (lambda ()
                  (funcall on-error "argument.invalid"
                           (format nil "unknown time zone ~S; use an IANA name such as Asia/Tokyo" name)
-                          :repairs (list (aitools.protocol.domain:repair "use-utc" "Use UTC, or an IANA zone name."
+                          :repairs (list (repair "use-utc" "Use UTC, or an IANA zone name."
                                                   "aitools time now --tz UTC"))))
    :on-unavailable (lambda ()
                      (funcall on-error "environment.unavailable"
                               "no zoneinfo database found; set TZDIR to its directory"
-                              :repairs (list (aitools.protocol.domain:repair "use-utc" "UTC needs no zoneinfo database."
+                              :repairs (list (repair "use-utc" "UTC needs no zoneinfo database."
                                                       "aitools time now --tz UTC"))))))
 
 (defun %zone-iso8601 (zone instant)
@@ -81,7 +81,7 @@ zoneinfo directory exists at all."
 
 (defun %syntax-error (on-error condition example)
   (funcall on-error "input.syntax-error" (princ-to-string condition)
-           :repairs (list (aitools.protocol.domain:repair "fix-value"
+           :repairs (list (repair "fix-value"
                                    "Pass ISO 8601 (2026-03-08T01:30:00, optionally with Z or +09:00) or Unix epoch seconds/milliseconds."
                                    example))))
 
@@ -95,7 +95,7 @@ argument.invalid for the first one that is not a duration."
         (aitools.kernel.domain:invalid-duration-error ()
           (return (funcall on-error "argument.invalid"
                            (format nil "not a duration: ~S (use <number>ms|s|m|h|d; negative values go in --sub)" text)
-                           :repairs (list (aitools.protocol.domain:repair "fix-duration" "Durations are <number>ms|s|m|h|d."
+                           :repairs (list (repair "fix-duration" "Durations are <number>ms|s|m|h|d."
                                                    "aitools time convert now --add 1h")))))))))
 
 (defun %parse-instant/k (ports text zone-name on-instant on-error example)
@@ -124,7 +124,7 @@ output and for reading an offset-less input) is TZ, else the local zone."
     (unless (member to *time-convert-targets* :test #'string=)
       (return-from time-convert/k
         (funcall on-error "argument.invalid" (format nil "--to must be one of ~{~A~^, ~}" *time-convert-targets*)
-                 :repairs (list (aitools.protocol.domain:repair "fix-target" "Pick an output format." example)))))
+                 :repairs (list (repair "fix-target" "Pick an output format." example)))))
     (%parse-durations/k
      add
      (lambda (added)
@@ -138,7 +138,7 @@ output and for reading an offset-less input) is TZ, else the local zone."
                (if (not (aitools.env.domain:epoch-milliseconds-in-range-p result-instant))
                    (funcall on-error "input.syntax-error"
                             (format nil "~A is outside years 0000-9999 after --add/--sub" value)
-                            :repairs (list (aitools.protocol.domain:repair "fix-value" "Keep the result within years 0000-9999." example)))
+                            :repairs (list (repair "fix-value" "Keep the result within years 0000-9999." example)))
                    (flet ((finish (zone)
                             (funcall on-ok
                                      (list (cons "input" value)

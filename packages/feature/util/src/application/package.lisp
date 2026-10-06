@@ -3,6 +3,7 @@
 
 (defpackage #:aitools.util.application
   (:use #:cl)
+  (:import-from #:aitools.protocol.domain #:repair #:schema-repair)
   (:export
    ;; ports.lisp
    #:util-ports

@@ -6,8 +6,8 @@
 (in-package #:aitools.process.application)
 
 (defun %schema-repair (command-name)
-  (aitools.protocol.domain:schema-repair
-   (aitools.process.domain:command-line "aitools" "schema" command-name)))
+  (schema-repair
+   (aitools.protocol.domain:command-line "aitools" "schema" command-name)))
 
 (defun %parse-duration-ms (text)
   "TEXT (`<number>ms|s|m|h|d`) in milliseconds, or NIL when it is not a
@@ -54,6 +54,6 @@ matching through ON-ERROR instead of letting it escape the flow."
 (defun %unavailable-program-error (on-error message program)
   (funcall on-error "environment.unavailable" message
            :repairs (list
-                     (aitools.protocol.domain:repair
+                     (repair
                       "check-tool" "Check whether the program is installed and on PATH."
-                      (aitools.process.domain:command-line "aitools" "sys" "tools" program)))))
+                      (aitools.protocol.domain:command-line "aitools" "sys" "tools" program)))))

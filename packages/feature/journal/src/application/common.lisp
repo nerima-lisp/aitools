@@ -15,7 +15,7 @@ command acts on the same workspace with the same lock timeout."
             (list "--lock-timeout" (journal-context-lock-timeout context)))))
 
 (defun %aitools (context &rest words)
-  (apply #'command-line "aitools" (%globals context) words))
+  (apply #'aitools.protocol.domain:command-line "aitools" (%globals context) words))
 
 (defun %command-words (command-name)
   "The dotted dispatch name COMMAND-NAME as the words an agent types
@@ -27,8 +27,8 @@ never leaks the internal dotted name."
         while dot do (setf start (1+ dot))))
 
 (defun %schema-repair (command-name)
-  (aitools.protocol.domain:schema-repair
-   (command-line "aitools" "schema" (%command-words command-name))))
+  (schema-repair
+   (aitools.protocol.domain:command-line "aitools" "schema" (%command-words command-name))))
 
 (defun %history-repair (context)
   (repair "list-ops" "List the journal's operations, newest first, to find the op_id."

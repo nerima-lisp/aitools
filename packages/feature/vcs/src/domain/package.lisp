@@ -11,7 +11,6 @@
   (:import-from #:aitools.protocol.domain #:json-object-from-alist #:json-null)
   (:export
    ;; render.lisp
-   #:command-line
    #:epoch-seconds-to-iso8601
    ;; paths.lisp
    #:repository-relative-path

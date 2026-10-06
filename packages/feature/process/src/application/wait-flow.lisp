@@ -92,13 +92,13 @@ a condition known to turn true at that moment."
                      (funcall on-error "environment.timeout"
                               (format nil "the wait condition did not hold within ~Dms" elapsed)
                               :repairs (append
-                                        (list (aitools.protocol.domain:repair "wait-longer" "Wait again with a longer timeout."
-                                                       (aitools.process.domain:command-line
+                                        (list (repair "wait-longer" "Wait again with a longer timeout."
+                                                       (aitools.protocol.domain:command-line
                                                         "aitools" "wait" arguments "--timeout"
                                                         (format nil "~Dms" (* 2 timeout-ms)))))
                                         (when bg-id
-                                          (list (aitools.protocol.domain:repair "read-log" "Read the bg process's latest output."
-                                                         (aitools.process.domain:command-line
+                                          (list (repair "read-log" "Read the bg process's latest output."
+                                                         (aitools.protocol.domain:command-line
                                                           "aitools" "bg" "logs" bg-id)))))))))))
 
 (defun %wait-file-path (ports file)

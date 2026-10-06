@@ -32,7 +32,7 @@
    #:next-line-start
    #:strip-bom
    #:octets-find
-   ;; json.lisp
+   ;; protocol shell-word helpers
    #:shell-quote
    #:command-line
    ;; matcher.lisp

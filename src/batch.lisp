@@ -171,7 +171,7 @@ envelope)."
          (format nil "tx ~A could not commit, so it was aborted and nothing was written: ~A"
                  tx (%member committed "error" "message"))
          results
-         :repairs (list (aitools.protocol.domain:repair "retry"
+         :repairs (list (repair "retry"
                                  "Re-read the conflicting paths, then run the batch again."
                                  (%batch-command-line globals "--stdin" "--atomic"))))
         (%fail-with-envelope
@@ -179,7 +179,7 @@ envelope)."
          (format nil "tx ~A could not commit and could not be aborted (~A); some files may already be written and recovery will complete the committed op on the next command: ~A"
                  tx (%member aborted "error" "message") (%member committed "error" "message"))
          results
-         :repairs (list (aitools.protocol.domain:repair "inspect-state"
+         :repairs (list (repair "inspect-state"
                                  "Inspect the transaction and the journal before retrying; the next command also runs recovery."
                                  (format nil "aitools tx status ~A" tx)))))))
 
@@ -215,7 +215,7 @@ envelope)."
          (globals (append (let ((root (option-value invocation :root))) (and root (list "--root" root)))
                           (let ((timeout (option-value invocation :lock-timeout)))
                             (and timeout (list "--lock-timeout" timeout)))))
-         (schema-repair (list (aitools.protocol.domain:repair "inspect-schema" "Show batch's input format and rules."
+         (schema-repair (list (repair "inspect-schema" "Show batch's input format and rules."
                                        "aitools schema batch"))))
     (flet ((invalid (code message)
              (funcall on-error code message :repairs schema-repair)))

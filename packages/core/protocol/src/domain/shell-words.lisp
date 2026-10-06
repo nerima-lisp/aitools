@@ -23,8 +23,8 @@ else wrapped in single quotes with each embedded quote spelled '\\''."
         (write-char #\' out))))
 
 (defun command-line (&rest words)
-  "WORDS, strings or lists of strings, as one command line. NIL entries and
-list arguments are handled like the context-specific command-line helpers."
+  "Join WORDS into one shell command line. NIL entries are dropped, and list
+arguments are spliced into the word sequence before each word is quoted."
   (format nil "~{~A~^ ~}"
           (mapcar #'shell-quote
                   (remove nil

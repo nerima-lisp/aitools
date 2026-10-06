@@ -18,7 +18,7 @@
   (funcall on-error "input.unsupported-language"
            (format nil "~A is not in a language `code` supports (~{~A~^, ~})" path
                    (aitools.text.domain:language-names))
-           :repairs (list (aitools.protocol.domain:repair "read-instead" "Read the file directly."
+           :repairs (list (repair "read-instead" "Read the file directly."
                                    (command-line (list "aitools" "read" path))))))
 
 (defun code-outline/k (ports &key path (limit 200) root tx on-ok on-partial on-error)
@@ -37,12 +37,12 @@
             session absolute relative
             :on-missing (lambda ()
                           (funcall on-error "input.not-found" (format nil "~A is not a readable file" path)
-                                   :repairs (list (aitools.protocol.domain:repair "find-path" "Look for the file by name."
+                                   :repairs (list (repair "find-path" "Look for the file by name."
                                                            (command-line (list "aitools" "find"
                                                                                (aitools.workspace.domain:path-basename absolute)))))))
             :on-binary (lambda ()
                          (funcall on-error "input.unsupported-format" (format nil "~A is a binary file" path)
-                                  :repairs (list (aitools.protocol.domain:repair "inspect" "Inspect the file instead."
+                                  :repairs (list (repair "inspect" "Inspect the file instead."
                                                           (command-line (list "aitools" "info" path))))))
             :on-text
             (lambda (octets)

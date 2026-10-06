@@ -53,12 +53,12 @@ after `aitools`."
     (append
      (when write
        (list (repair "rebase" "Re-apply the tx's content-based operations onto the current files."
-                     (command-line "aitools" globals "tx" "rebase" tx-id))))
+                     (aitools.protocol.domain:command-line "aitools" globals "tx" "rebase" tx-id))))
      (mapcar (lambda (conflict)
                (repair "reread" "Read the changed file again through the tx to refresh the read set."
-                       (command-line "aitools" globals "read" (aitools.store.domain:conflict-path conflict)
+                       (aitools.protocol.domain:command-line "aitools" globals "read" (aitools.store.domain:conflict-path conflict)
                                      "--tx" tx-id)))
              reads)
      (when reads
        (list (repair "ignore-stale-reads" "Commit even though files read through the tx have changed."
-                     (command-line "aitools" globals "tx" "commit" tx-id "--ignore-stale-reads")))))))
+                     (aitools.protocol.domain:command-line "aitools" globals "tx" "commit" tx-id "--ignore-stale-reads")))))))

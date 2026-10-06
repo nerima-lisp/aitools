@@ -14,11 +14,11 @@
   (stdin nil :type boolean :read-only t))
 
 (defun %input-repairs (command)
-  (list (aitools.protocol.domain:repair
+  (list (repair
          "pass-content" "Pass the input text inline." (format nil "aitools ~A --content '<text>'" command))
-        (aitools.protocol.domain:repair
+        (repair
          "pass-file" "Read the input bytes from a file." (format nil "aitools ~A --content-file <path>" command))
-        (aitools.protocol.domain:repair
+        (repair
          "pass-stdin" "Read the input text from standard input." (format nil "aitools ~A --stdin" command))))
 
 (defun resolve-input/k (ports request command &key on-input on-error)
@@ -66,7 +66,7 @@ line prefix (\"util encode base64\") used to build repairs."
                                  (funcall on-error "input.not-utf8"
                                           (format nil "standard input is not valid UTF-8 at byte ~D" offset)
                                           :repairs (list
-                                                    (aitools.protocol.domain:repair
+                                                    (repair
                                                      "pass-file" "Pass bytes through a file instead; --content-file does not decode."
                                                      (format nil "aitools ~A --content-file <path>" command)))))))
                 :on-too-large (lambda ()
