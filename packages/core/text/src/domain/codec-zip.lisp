@@ -8,8 +8,6 @@
 ;;;; archive lists the same way on every host.
 (in-package #:aitools.text.domain)
 
-(defconstant +unix-epoch-universal-time+ 2208988800)
-
 (defun days-from-civil (year month day)
   "Days since 1970-01-01 for a proleptic Gregorian date (H. Hinnant)."
   (let* ((y (if (<= month 2) (1- year) year))
@@ -31,7 +29,8 @@
 (defun %unix-to-dos-time (unix)
   "(VALUES TIME DATE), clamped to MS-DOS's 1980-2107 range."
   (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time (+ (max unix 315532800) +unix-epoch-universal-time+) 0)
+      (decode-universal-time
+       (aitools.kernel.domain:unix-seconds-to-universal-time (max unix 315532800)) 0)
     (if (> year 2107)
         (values #xBF7D #xFF9F)
         (values (logior (ash hour 11) (ash minute 5) (floor second 2))

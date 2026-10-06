@@ -34,9 +34,6 @@
         do (setf name (subseq name 2)))
   name)
 
-(defun %join (directory name)
-  (if (zerop (length directory)) name (concatenate 'string directory "/" name)))
-
 (defstruct (extract-step (:constructor make-extract-step (kind path &key data mode target)) (:copier nil))
   "One write of a validated extraction: KIND is :DIRECTORY, :FILE (DATA,
 MODE) or :SYMLINK (TARGET); PATH is workspace-relative."
@@ -90,7 +87,7 @@ absent), input.unsupported-format (device or other special entries)."
                  (data (handler-case (aitools.text.domain:gzip-decompress octets :max-output max-bytes)
                          (aitools.text.domain:archive-limit-exceeded ()
                            (refuse "refusal.too-large" "the extracted size exceeds --max-bytes ~D" max-bytes))))
-                 (path (%join destination name)))
+                 (path (aitools.workspace.domain:join-path destination name)))
             (unless (eq (funcall lookup-kind path) :absent)
               (refuse "refusal.exists" "~A already exists" path))
             (list (make-extract-step :file path :data (take data) :mode #o644)))
@@ -125,7 +122,7 @@ absent), input.unsupported-format (device or other special entries)."
                 (let* ((name (%normalize-entry-name (aitools.text.domain:archive-entry-name entry)))
                        (problem (aitools.text.domain:archive-entry-path-problem name))
                        (kind (aitools.text.domain:archive-entry-kind entry))
-                       (path (%join destination name)))
+                       (path (aitools.workspace.domain:join-path destination name)))
                   (when problem
                     (refuse "refusal.outside-workspace" "archive entry ~S is unsafe (~(~A~))" name problem))
                   (when (gethash name seen)

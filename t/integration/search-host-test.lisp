@@ -205,5 +205,5 @@ standard input afterwards."
   (it "tells the Unix time in seconds"
     (let ((now (funcall (aitools.search.application::search-ports-unix-now
                          (aitools.search.infrastructure:make-production-search-ports))))
-          (expected (- (get-universal-time) (encode-universal-time 0 0 0 1 1 1970 0))))
+          (expected (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time))))
       (expect (<= (abs (- now expected)) 2) :to-be t))))

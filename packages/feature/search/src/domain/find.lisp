@@ -54,8 +54,8 @@ order, so the result is deterministic."
                      (cons "size" (or (found-entry-size entry) (json-null)))
                      (cons "mode" (aitools.kernel.domain:octal-mode (found-entry-mode entry)))
                      (cons "mtime" (aitools.kernel.domain:iso8601-utc
-                                    (+ (found-entry-mtime entry)
-                                       (encode-universal-time 0 0 0 1 1 1970 0)))))))
+                                    (aitools.kernel.domain:unix-seconds-to-universal-time
+                                     (found-entry-mtime entry)))))))
 
 ;;; ------------------------------------------------------------ tree
 

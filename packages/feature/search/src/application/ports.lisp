@@ -22,3 +22,6 @@ reads standard input, calling exactly one continuation."
   (open-store nil :type (or null function) :read-only t)
   (unix-now nil :type (or null function) :read-only t)
   (read-stdin-octets nil :type (or null function) :read-only t))
+
+(defun unix-seconds-from-universal-time (universal-time)
+  (aitools.kernel.domain:universal-time-to-unix-seconds universal-time))

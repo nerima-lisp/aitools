@@ -45,7 +45,7 @@
             ("replace in a directory with no files" "replace" ("a" "b" "empty") (:expect-count "1") "selection.no-match" "no files to search")
             ("replace in a path that does not exist" "replace" ("a" "b" "nope") (:expect-count "1") "input.not-found" "nope does not exist")
             ("replace outside the workspace" "replace" ("a" "b" "/") (:expect-count "1") "refusal.outside-workspace" "is outside the workspace")
-            ("replace with an unknown --lang" "replace" ("a" "b") (:lang "klingon" :expect-count "1") "input.unsupported-language" "unknown --lang \"klingon\"")
+            ("replace with an unknown --lang" "replace" ("a" "b") (:lang "klingon" :expect-count "1") "argument.invalid" "unknown --lang \"klingon\"")
             ("replace with a malformed --skip-larger-than" "replace" ("a" "b") (:skip-larger-than "huge" :expect-count "1") "argument.invalid" "--skip-larger-than \"huge\" is not a size")
             ("replace --newer than nothing" "replace" ("a" "b") (:newer "no-such-file" :expect-count "1") "argument.invalid" "is neither a duration nor an existing path")
             ("apply with a positional" "apply" ("a.txt") (:stdin-data "x") "argument.invalid" "apply takes no positional arguments")
@@ -158,14 +158,14 @@
       (sb-posix:mkdir (disk "src") #o755)
       (put "src/a.txt" (format nil "v~%"))
       (with-error (code message keys) (run "replace" '("v" "w" "src") :lang "klingon" :expect-count "1")
-        (expect code :to-equal "input.unsupported-language")
+        (expect code :to-equal "argument.invalid")
         (expect (repair-commands keys) :to-equal '("aitools read src")))
       (with-error (code message keys) (run "replace" '("v" "w") :lang "klingon" :expect-count "1")
-        (expect code :to-equal "input.unsupported-language")
+        (expect code :to-equal "argument.invalid")
         (expect (repair-commands keys) :to-equal '("aitools schema replace")))
       (setf *stdin* (bytes "{\"pattern\": \"v\", \"replacement\": \"w\"}"))
       (with-error (code message keys) (run "replace" '("src") :stdin t :lang "klingon" :expect-count "1")
-        (expect code :to-equal "input.unsupported-language")
+        (expect code :to-equal "argument.invalid")
         (expect (repair-commands keys) :to-equal '("aitools read src")))))
 
   (it "refuses a named binary file but skips binary and non-UTF-8 files found by the scan"
@@ -198,3 +198,21 @@
       (expect (text "new.lisp") :to-equal (format nil "x~%"))
       (expect (run "replace" '("v" "y") :lang "common-lisp" :expect-count "0") :to-be :ok)
       (expect (text "old.txt") :to-equal (format nil "v~%")))))
+
+  (it "uses the injected edit clock for --newer durations"
+    (with-workspace ()
+      (put "old.txt" "v")
+      (put "new.txt" "v")
+      (sb-posix:utimes (disk "old.txt") 1000 1000)
+      (sb-posix:utimes (disk "new.txt") 99000 99000)
+      (let ((ports *ports*))
+        (setf *ports*
+              (make-edit-ports
+               :workspace-host (aitools.edit.application::edit-ports-workspace-host ports)
+               :open-store (aitools.edit.application::edit-ports-open-store ports)
+               :text-source (aitools.edit.application::edit-ports-text-source ports)
+               :read-stdin-octets (aitools.edit.application::edit-ports-read-stdin-octets ports)
+               :unix-now (lambda () 100000)))
+        (expect (run "replace" '("v" "w") :newer "1h" :expect-count "1") :to-be :ok)
+        (expect (text "old.txt") :to-equal "v")
+        (expect (text "new.txt") :to-equal "w"))))

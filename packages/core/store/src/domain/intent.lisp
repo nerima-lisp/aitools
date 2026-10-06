@@ -41,9 +41,6 @@
           ((= phase-a 3) (string> (intent-step-path a) (intent-step-path b)))
           (t (string< (intent-step-path a) (intent-step-path b))))))
 
-(defun %join-relative (directory name)
-  (if (zerop (length directory)) name (concatenate 'string directory "/" name)))
-
 (defun change-keeps-content-p (result)
   "True for a `touch` of an existing file: a modified file whose content hash
 is unchanged and whose new state names an mtime. It is applied in place by
@@ -69,7 +66,7 @@ only appears after the commit point)."
              (let ((directory (parent-relative-path path)))
                (loop until (or (zerop (length directory)) (funcall directory-exists-p directory))
                      do (setf directory (parent-relative-path directory)))
-               (%join-relative directory (temp-file-name op-id (incf counter))))))
+               (aitools.workspace.domain:join-path directory (temp-file-name op-id (incf counter))))))
       (stable-sort
        (loop for result in results
              for path = (change-result-path result)
