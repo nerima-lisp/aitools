@@ -51,6 +51,23 @@
       (expect (json-object-get (first (field fields "items")) "path") :to-equal "notes.txt")
       (expect (json-object-get (first (field fields "items")) "size") :to-be 9)))
 
+  (it "lists the safe gzip name that extraction writes"
+    (let* ((gzip (aitools.text.domain:gzip-compress (%as-octets "payload") :name "../x"))
+           (listed-name
+             (multiple-value-bind (kind fields)
+                 (run-flow #'archive-list-flow
+                           (make-test-ports :files `(("/work/bundle.gz" . ,gzip)))
+                           "bundle.gz")
+               (expect kind :to-be :ok)
+               (json-object-get (first (field fields "items")) "path")))
+           (steps (aitools.edit.domain:plan-archive-extraction
+                   gzip :gz "" :archive-path "bundle.gz"
+                   :max-bytes 100 :max-entries 1
+                   :lookup-kind (lambda (path) (declare (ignore path)) :absent))))
+      (expect listed-name :to-equal "bundle")
+      (expect (mapcar #'aitools.edit.domain:extract-step-path steps)
+              :to-equal (list listed-name))))
+
   (it "stops at --limit as partial"
     (multiple-value-bind (kind fields) (run-archive #'archive-list-flow "a.zip" :limit 2)
       (expect kind :to-be :partial)
