@@ -72,17 +72,17 @@ unambiguously."
                       :on-invalid (lambda (position)
                                     (funcall on-error "argument.invalid"
                                              (format nil "the pattern on standard input is not UTF-8 (byte ~D)" position)
-                                             :repairs (list (%repair "pass-pattern" "Pass the pattern as an argument."
+                                             :repairs (list (repair "pass-pattern" "Pass the pattern as an argument."
                                                                      "aitools search --pattern PATTERN")))))))
                  :on-too-large
                  (lambda ()
                    (funcall on-error "argument.invalid" "the pattern on standard input exceeds 1 MiB"
-                            :repairs (list (%repair "pass-pattern" "Pass the pattern as an argument."
+                            :repairs (list (repair "pass-pattern" "Pass the pattern as an argument."
                                                     "aitools search --pattern PATTERN"))))
                  :on-failure
                  (lambda (message)
                    (funcall on-error "environment.io" message
-                            :repairs (list (%repair "pass-pattern" "Pass the pattern as an argument."
+                            :repairs (list (repair "pass-pattern" "Pass the pattern as an argument."
                                                     "aitools search --pattern PATTERN"))))))))
 
 (defparameter *search-regex-budget-seconds* 20
@@ -239,7 +239,7 @@ OUTPUT is :BLOCKS, :MATCHES, :COUNT, :FILES, or :FILES-WITHOUT-MATCH."
                 (lambda (index pattern message)
                   (declare (ignore index))
                   (funcall on-error "input.syntax-error" (format nil "invalid pattern ~S: ~A" pattern message)
-                           :repairs (list (%repair "search-literally" "Search for the text literally."
+                           :repairs (list (repair "search-literally" "Search for the text literally."
                                                    (%search-command-line request :limit limit :fixed t)))))
                 :on-built
                 (lambda (matcher)

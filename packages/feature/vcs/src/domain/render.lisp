@@ -5,11 +5,6 @@
 ;;;; explicit null and false values.
 (in-package #:aitools.vcs.domain)
 
-(defun command-line (&rest words)
-  "Join WORDS (strings; NIL entries are dropped) into one shell command line,
-quoting each word with aitools.protocol.domain:shell-quote."
-  (aitools.protocol.domain:command-line (remove nil words)))
-
 (defun %parse-offset-minutes (offset)
   "Minutes east of UTC for a git `+HHMM`/`-HHMM` offset string."
   (unless (and (= (length offset) 5) (find (char offset 0) "+-")

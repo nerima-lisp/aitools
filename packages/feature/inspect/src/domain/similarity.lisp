@@ -43,20 +43,3 @@ dropped."
                                    (or (< (first x) (first y))
                                        (and (= (first x) (first y)) (< (second x) (second y))))))
                     0 (min count (length scored))))))
-
-(defun shell-quote (argument)
-  "ARGUMENT as one POSIX shell word, for the complete commands placed in
-`next_commands` and `repairs`."
-  (if (and (plusp (length argument))
-           (every (lambda (char)
-                    (or (char<= #\a char #\z) (char<= #\A char #\Z) (char<= #\0 char #\9)
-                        (find char "_./:@%+=,-")))
-                  argument))
-      argument
-      (with-output-to-string (out)
-        (write-char #\' out)
-        (loop for char across argument
-              do (if (char= char #\')
-                     (write-string "'\\''" out)
-                     (write-char char out)))
-        (write-char #\' out))))

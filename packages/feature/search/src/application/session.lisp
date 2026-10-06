@@ -16,9 +16,6 @@
   (view nil :read-only t)
   (staged nil :type (or null hash-table) :read-only t))
 
-(defun %repair (action detail command)
-  (list :action action :detail detail :command command))
-
 (defun %finish (continuation fields &optional next-commands)
   "Pass FIELDS to CONTINUATION, with `next_commands` appended when given.
 Secret masking and the `redactions` count are applied by the envelope
@@ -105,7 +102,7 @@ below them."
 (defun %unavailable (on-error command)
   (funcall on-error "internal.unexpected"
            "the search context was built without its workspace host or text source"
-           :repairs (list (%repair "inspect-schema" "Show this command's arguments and rules."
+           :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
                                    (format nil "aitools schema ~A" command)))))
 
 (defun %now (ports)
@@ -122,7 +119,7 @@ session carrying the tx overlay, or ON-ERROR."
               (staged (make-hash-table :test 'equal)))
           (flet ((missing ()
                    (funcall on-error "input.not-found" (format nil "tx ~A does not exist" tx)
-                            :repairs (list (%repair "list-tx" "List the open transactions." "aitools tx status"))))
+                            :repairs (list (repair "list-tx" "List the open transactions." "aitools tx status"))))
                  (with-view (view)
                    (funcall on-session
                             (%make-session ports workspace-root (%make-overlay view staged (%now ports))
@@ -153,7 +150,7 @@ message, and repairs. COMMAND names the command for repairs."
                      (funcall on-error (if (eq reason :not-found) "input.not-found" "argument.invalid")
                               (format nil "workspace root ~A ~A" path
                                       (if (eq reason :not-found) "does not exist" "is not a directory"))
-                              :repairs (list (%repair "use-default-root" "Run from the workspace without --root."
+                              :repairs (list (repair "use-default-root" "Run from the workspace without --root."
                                                       (format nil "aitools ~A" command)))))
          :on-resolved (lambda (workspace-root)
                         (if tx
@@ -233,7 +230,7 @@ tx is read from the tx; anything else from disk through the text source (%READ-D
 
 (defun %argument-error (on-error message command)
   (funcall on-error "argument.invalid" message
-           :repairs (list (%repair "inspect-schema" "Show this command's arguments and rules."
+           :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
                                    (format nil "aitools schema ~A" command)))))
 
 (defun scan-options/k (session command &key glob lang no-ignore skip-larger-than newer on-options on-error)
@@ -248,7 +245,7 @@ SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
         (return-from scan-options/k
           (funcall on-error "argument.invalid"
                    (format nil "unknown language ~A; known: ~{~A~^, ~}" lang (aitools.text.domain:language-names))
-                   :repairs (list (%repair "use-known-language" "Use one of the known language names."
+                   :repairs (list (repair "use-known-language" "Use one of the known language names."
                                            (format nil "aitools ~A --lang ~A" command
                                                    (first (aitools.text.domain:language-names)))))))))
     (when skip-larger-than
@@ -280,10 +277,10 @@ SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
   (ecase reason
     (:outside-root
      (funcall on-error "argument.invalid" (format nil "~A is outside the workspace root" path)
-              :repairs (list (%repair "set-root" "Scan it as its own workspace."
+              :repairs (list (repair "set-root" "Scan it as its own workspace."
                                       (command-line (list "aitools" "--root" path command))))))
     (:not-found
      (funcall on-error "input.not-found" (format nil "~A does not exist" path)
-              :repairs (list (%repair "find-path" "Look for the path by name."
+              :repairs (list (repair "find-path" "Look for the path by name."
                                       (command-line (list "aitools" "find"
                                                           (aitools.workspace.domain:path-basename path)))))))))

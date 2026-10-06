@@ -31,7 +31,7 @@ would turn load into environment.unavailable.")
 
 (defun %unavailable (on-error what tool)
   (funcall on-error "environment.unavailable" what
-           :repairs (list (%repair "check-tool" (format nil "Check whether ~A is installed." tool)
+           :repairs (list (repair "check-tool" (format nil "Check whether ~A is installed." tool)
                                    (format nil "aitools sys tools ~A" tool)))))
 
 ;;; ---------------------------------------------------------------- sys info
@@ -131,12 +131,12 @@ TIMEOUT is a duration string bounding each version probe."
       (bad
        (return-from sys-tools/k
          (funcall on-error "argument.invalid" (format nil "~S is not a bare command name" bad)
-                  :repairs (list (%repair "use-name" "Pass command names without a directory."
+                  :repairs (list (repair "use-name" "Pass command names without a directory."
                                           "aitools sys tools git")))))
       ((null timeout-milliseconds)
        (return-from sys-tools/k
          (funcall on-error "argument.invalid" (format nil "--timeout: not a duration: ~S" timeout)
-                  :repairs (list (%repair "fix-duration" "Durations are <number>ms|s|m|h|d."
+                  :repairs (list (repair "fix-duration" "Durations are <number>ms|s|m|h|d."
                                           "aitools sys tools --timeout 5s"))))))
     (%probe-tools ports names timeout-milliseconds on-ok)))
 

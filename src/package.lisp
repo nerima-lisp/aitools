@@ -23,6 +23,8 @@
                 #:command-registry #:make-command-registry
                 #:command-registry-top-level #:command-registry-group-commands
                 #:register-command #:find-command-schema #:all-command-schemas)
+  (:import-from #:aitools.protocol.domain
+                #:repair #:schema-repair #:repairs-for-unknown-name)
   (:export
    ;; registry.lisp
    #:finalize-app-commands

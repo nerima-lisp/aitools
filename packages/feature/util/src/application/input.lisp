@@ -13,13 +13,13 @@
   (content-file nil :type (or null string) :read-only t)
   (stdin nil :type boolean :read-only t))
 
-(defun %repair (action detail command)
-  (list :action action :detail detail :command command))
-
 (defun %input-repairs (command)
-  (list (%repair "pass-content" "Pass the input text inline." (format nil "aitools ~A --content '<text>'" command))
-        (%repair "pass-file" "Read the input bytes from a file." (format nil "aitools ~A --content-file <path>" command))
-        (%repair "pass-stdin" "Read the input text from standard input." (format nil "aitools ~A --stdin" command))))
+  (list (repair
+         "pass-content" "Pass the input text inline." (format nil "aitools ~A --content '<text>'" command))
+        (repair
+         "pass-file" "Read the input bytes from a file." (format nil "aitools ~A --content-file <path>" command))
+        (repair
+         "pass-stdin" "Read the input text from standard input." (format nil "aitools ~A --stdin" command))))
 
 (defun resolve-input/k (ports request command &key on-input on-error)
   "Read REQUEST's one input source. Calls ON-INPUT with (OCTETS &key TEXT):
@@ -65,8 +65,10 @@ line prefix (\"util encode base64\") used to build repairs."
                    :on-invalid (lambda (offset)
                                  (funcall on-error "input.not-utf8"
                                           (format nil "standard input is not valid UTF-8 at byte ~D" offset)
-                                          :repairs (list (%repair "pass-file" "Pass bytes through a file instead; --content-file does not decode."
-                                                                  (format nil "aitools ~A --content-file <path>" command)))))))
+                                          :repairs (list
+                                                    (repair
+                                                     "pass-file" "Pass bytes through a file instead; --content-file does not decode."
+                                                     (format nil "aitools ~A --content-file <path>" command)))))))
                 :on-too-large (lambda ()
                                 (funcall on-error "argument.invalid"
                                          (format nil "standard input exceeds the ~D byte input limit" +util-max-input-bytes+)

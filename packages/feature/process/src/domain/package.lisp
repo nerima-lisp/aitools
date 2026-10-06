@@ -9,13 +9,11 @@
 
 (defpackage #:aitools.process.domain
   (:use #:cl)
-  (:import-from #:aitools.protocol.domain #:json-object #:json-object-from-alist #:json-boolean)
+  (:import-from #:aitools.protocol.domain
+                #:json-object #:json-object-from-alist #:json-boolean #:json-or-null)
   (:import-from #:aitools.text.domain #:decode-utf8)
   (:export
-   ;; json-values.lisp
    #:json-or-null
-   ;; shell-words.lisp
-   #:command-line
    ;; line-pattern.lisp
    #:invalid-line-pattern
    #:invalid-line-pattern-message

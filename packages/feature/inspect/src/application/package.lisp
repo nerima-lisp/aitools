@@ -8,7 +8,8 @@
 
 (defpackage #:aitools.inspect.application
   (:use #:cl #:aitools.inspect.domain)
-  (:import-from #:aitools.protocol.domain #:json-object #:json-null)
+  (:import-from #:aitools.protocol.domain
+                #:json-object #:json-null #:repair)
   (:import-from #:aitools.kernel.domain
                 #:make-range-selector #:make-symbol-selector #:make-between-selector #:make-match-selector
                 #:selector-kind #:selector-range-start #:selector-range-end #:selector-match-pattern

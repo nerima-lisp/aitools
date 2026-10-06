@@ -11,6 +11,7 @@
                 #:make-ok-envelope #:make-error-envelope #:json-object-from-alist
                 #:error-code-exit-code #:error-code-known-p
                 #:redact-secrets #:secret-key-name-p #:shell-quote #:command-line
+                #:json-null #:json-or-null #:repair #:schema-repair
                 #:top-level-command-p #:group-command-p #:repairs-for-unknown-name
                 #:make-command-schema #:command-schema-name)
   (:import-from #:aitools.protocol.application

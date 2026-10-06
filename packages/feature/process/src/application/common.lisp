@@ -5,12 +5,9 @@
 ;;;; `argument.invalid` shape, and the mapping of a port I/O failure.
 (in-package #:aitools.process.application)
 
-(defun %repair (action detail command)
-  (list :action action :detail detail :command command))
-
 (defun %schema-repair (command-name)
-  (%repair "inspect-schema" "Show this command's arguments and rules."
-           (aitools.process.domain:command-line "aitools" "schema" command-name)))
+  (schema-repair
+   (aitools.protocol.domain:command-line "aitools" "schema" command-name)))
 
 (defun %parse-duration-ms (text)
   "TEXT (`<number>ms|s|m|h|d`) in milliseconds, or NIL when it is not a
@@ -56,5 +53,7 @@ matching through ON-ERROR instead of letting it escape the flow."
 
 (defun %unavailable-program-error (on-error message program)
   (funcall on-error "environment.unavailable" message
-           :repairs (list (%repair "check-tool" "Check whether the program is installed and on PATH."
-                                   (aitools.process.domain:command-line "aitools" "sys" "tools" program)))))
+           :repairs (list
+                     (repair
+                      "check-tool" "Check whether the program is installed and on PATH."
+                      (aitools.protocol.domain:command-line "aitools" "sys" "tools" program)))))
