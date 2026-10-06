@@ -14,7 +14,6 @@
    #:edit-ports-p
    #:make-edit-ports
    #:make-write-edit-ports
-   #:unix-seconds-from-universal-time
    #:+max-input-bytes+
    ;; command-spec.lisp
    #:edit-command-specs

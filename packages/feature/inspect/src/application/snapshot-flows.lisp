@@ -64,11 +64,10 @@
    :skip-larger-than skip-larger-than :newer newer
    :on-error
    (lambda (kind value names)
-     (declare (ignore names))
      (fail on-error "argument.invalid"
            (case kind
              (:unknown-language (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value
-                                        (aitools.text.domain:language-names)))
+                                        names))
              (:invalid-size (format nil "--skip-larger-than ~S is not a size" value))
              (:invalid-newer (format nil "--newer ~A is neither a duration nor an existing path" value)))
            :repairs (if (eq kind :invalid-newer)

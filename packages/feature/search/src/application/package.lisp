@@ -15,7 +15,6 @@
    #:search-ports
    #:search-ports-p
    #:make-search-ports
-   #:unix-seconds-from-universal-time
    ;; search-flow.lisp
    #:search/k
    ;; find-flow.lisp

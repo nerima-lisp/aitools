@@ -7,7 +7,7 @@
 (in-package #:aitools.search.infrastructure)
 
 (defun %unix-now ()
-  (aitools.search.application:unix-seconds-from-universal-time (get-universal-time)))
+  (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
 
 (defun %read-bounded (stream limit on-octets on-too-large)
   "Read STREAM to its end, at most LIMIT octets: one extra octet proves the

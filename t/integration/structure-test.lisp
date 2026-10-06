@@ -78,6 +78,8 @@ is in neither context list)."
                         (if (eq core-or-feature :core) *core-contexts* *all-contexts*))))
        (:infrastructure
         (append (list (context-package-name context :domain) (context-package-name context :application))
+                ;; Pure shared time conversion is safe for feature adapters.
+                (list "AITOOLS.KERNEL.DOMAIN")
                 *effectful-host-packages*
                 ;; Documented deviation: the envelope writer serializes with
                 ;; json-kit (packages/core/protocol/src/infrastructure/json-writer.lisp).

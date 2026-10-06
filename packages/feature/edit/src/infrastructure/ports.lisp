@@ -28,7 +28,7 @@ external format; read only when a command was given --stdin."
     (if too-large (funcall on-too-large) (funcall on-octets octets))))
 
 (defun unix-now ()
-  (aitools.edit.application:unix-seconds-from-universal-time (get-universal-time)))
+  (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
 
 (defun make-production-edit-ports (&key workspace-host open-store text-source &allow-other-keys)
   (aitools.edit.application:make-edit-ports

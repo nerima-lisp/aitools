@@ -236,6 +236,12 @@ tx is read from the tx; anything else from disk through the text source (%READ-D
            :repairs (list (%repair "inspect-schema" "Show this command's arguments and rules."
                                    (format nil "aitools schema ~A" command)))))
 
+(defun %unknown-language-error (on-error value names command)
+  (funcall on-error "argument.invalid"
+           (format nil "unknown language ~A; known: ~{~A~^, ~}" value names)
+           :repairs (list (%repair "use-known-language" "Use one of the known language names."
+                                   (format nil "aitools ~A --lang ~A" command (first names))))))
+
 (defun scan-options/k (session command &key glob lang no-ignore skip-larger-than newer on-options on-error)
   "Validate the common scan options and call ON-OPTIONS with the
 keyword arguments CALL-WITH-WORKSPACE-SCAN/K takes, or ON-ERROR.
@@ -254,9 +260,7 @@ SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
    (lambda (kind value names)
      (case kind
        (:unknown-language
-        (%argument-error on-error
-                         (format nil "unknown language ~A; known: ~{~A~^, ~}" value names)
-                         command))
+        (%unknown-language-error on-error value names command))
        (:invalid-size
         (%argument-error on-error (format nil "--skip-larger-than: not a size: ~A" value) command))
        (:invalid-newer

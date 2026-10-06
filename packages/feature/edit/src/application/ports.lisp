@@ -7,9 +7,6 @@
 (defconstant +max-input-bytes+ (* 256 1024 1024)
   "Largest --stdin or --content-file input read.")
 
-(defun unix-seconds-from-universal-time (universal-time)
-  (aitools.kernel.domain:universal-time-to-unix-seconds universal-time))
-
 (defstruct (edit-ports (:constructor make-edit-ports
                            (&key workspace-host open-store text-source read-stdin-octets unix-now))
                        (:copier nil))

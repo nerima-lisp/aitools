@@ -24,13 +24,10 @@
      :newer (getf options :newer)
      :on-error
      (lambda (kind value names)
-       (declare (ignore names))
-       ;; Keep the historical internal repair classification. RUN-EDIT-COMMAND
-       ;; exposes this as argument.invalid while retaining the read-path repair.
-       (funcall fail (if (eq kind :unknown-language) "scan.unknown-language" "argument.invalid")
+       (funcall fail (if (eq kind :unknown-language) "input.unsupported-language" "argument.invalid")
                 (case kind
                   (:unknown-language (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value
-                                             (aitools.text.domain:language-names)))
+                                             names))
                   (:invalid-size (format nil "--skip-larger-than ~S is not a size" value))
                   (:invalid-newer (format nil "--newer ~S is neither a duration nor an existing path" value)))))
      :on-options on-options)))

@@ -146,6 +146,14 @@
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (error-message fields) :to-contain message)))
 
+  (it "offers the use-known-language repair for an unknown --lang"
+    (multiple-value-bind (kind fields)
+        (search-in (list (list "/w/a.txt" "hit")) :patterns '("hit") :lang "cobol")
+      (expect kind :to-be :error)
+      (expect (getf (first (getf fields :repairs)) :action) :to-equal "use-known-language")
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools search --lang common-lisp")))
+
   (it "rejects a start path outside the workspace with a --root repair"
     (multiple-value-bind (kind fields)
         (search-in (list (list "/w/a.txt" "hit") (list "/elsewhere/b.txt" "hit")) :patterns '("hit") :paths '("/elsewhere"))

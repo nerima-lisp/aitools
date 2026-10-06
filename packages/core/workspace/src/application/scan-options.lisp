@@ -16,11 +16,8 @@ the same normalization works for each feature context."
     (let ((predicate (and lang (funcall language-predicate lang)))
           (limit default-skip-larger-than)
           (threshold nil))
-      (when lang
-        (unless predicate
-          (invalid :unknown-language lang language-names)))
-        (when skip-larger-than
-          (setf limit
+      (when skip-larger-than
+        (setf limit
               (handler-case
                   (aitools.kernel.domain:size-bytes
                    (aitools.kernel.domain:parse-size skip-larger-than))
@@ -29,15 +26,18 @@ the same normalization works for each feature context."
       (when newer
         (let* ((absolute (funcall path-absolute newer))
                (entry (and absolute (host-stat host absolute))))
-            (if entry
-                (setf threshold (workspace-entry-mtime entry))
-                (let ((milliseconds
-                        (handler-case
-                            (aitools.kernel.domain:duration-milliseconds
-                             (aitools.kernel.domain:parse-duration newer))
-                          (aitools.kernel.domain:invalid-duration-error ()
-                            (invalid :invalid-newer newer)))))
-                  (setf threshold (- (funcall current-time) (floor milliseconds 1000)))))))
+          (if entry
+              (setf threshold (workspace-entry-mtime entry))
+              (let ((milliseconds
+                      (handler-case
+                          (aitools.kernel.domain:duration-milliseconds
+                           (aitools.kernel.domain:parse-duration newer))
+                        (aitools.kernel.domain:invalid-duration-error ()
+                          (invalid :invalid-newer newer)))))
+                (setf threshold (- (funcall current-time) (floor milliseconds 1000)))))))
+      (when lang
+        (unless predicate
+          (invalid :unknown-language lang language-names)))
       (funcall on-options
                (list :glob glob :lang predicate :no-ignore no-ignore
                      :skip-larger-than limit :newer threshold :overlay overlay)))))

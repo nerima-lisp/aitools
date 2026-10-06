@@ -720,7 +720,7 @@ Independent of the journal and of any tx; ignored files are left out unless --no
 | `files` | Files recorded. |
 | `ignore_source` | gitignore, builtin, or none. |
 
-Errors: `argument.invalid`, `input.not-found`, `environment.io`.
+Errors: `argument.invalid`, `environment.io`.
 
 ### `snapshot diff` {#snapshot-diff}
 
