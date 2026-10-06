@@ -25,7 +25,7 @@ same workspace keep claiming the one it picked.")
   (merge-pathnames file-name directory))
 
 (defun %status-repair ()
-  (%repair "list-bg" "List the bg processes started in this workspace." "aitools bg status"))
+  (aitools.protocol.domain:repair "list-bg" "List the bg processes started in this workspace." "aitools bg status"))
 
 (defun %call-with-bg-directory (ports command-name on-error continuation)
   (let ((directory (funcall (process-ports-bg-directory ports))))
@@ -140,7 +140,7 @@ LOG-PATH), or NIL when every attempt lost a race."
   (cond
     ((null argv)
      (funcall on-error "argument.invalid" "bg start needs the program and its arguments after --"
-              :repairs (list (%repair "start-program" "Pass the program after --."
+              :repairs (list (aitools.protocol.domain:repair "start-program" "Pass the program after --."
                                       "aitools bg start -- sleep 60"))))
     ((and name (not (aitools.process.domain:bg-name-valid-p name)))
      (funcall on-error "argument.invalid" "--name must be 1 to 64 characters without control characters"
@@ -153,7 +153,7 @@ LOG-PATH), or NIL when every attempt lost a race."
           (multiple-value-bind (id log-path) (%reserve-bg-id ports directory)
             (if (null id)
                 (funcall on-error "environment.busy" "could not claim a bg ID; other starts kept taking it"
-                         :repairs (list (%repair "retry" "Start the process again."
+                         :repairs (list (aitools.protocol.domain:repair "retry" "Start the process again."
                                                  (aitools.process.domain:command-line
                                                   "aitools" "bg" "start" "--" argv))))
                 (funcall (process-ports-launch-detached ports) argv log-path
@@ -186,7 +186,7 @@ following `--from` read continues without skipping or repeating a line."
                (if (and from (> from size))
                    (funcall on-error "argument.invalid"
                             (format nil "--from ~D is past the end of the log (~D bytes)" from size)
-                            :repairs (list (%repair "read-from-end" "Read from the current end of the log."
+                            :repairs (list (aitools.protocol.domain:repair "read-from-end" "Read from the current end of the log."
                                                     (aitools.process.domain:command-line
                                                      "aitools" "bg" "logs" id "--from" (princ-to-string size)))))
                    (let* ((start (if from from (max 0 (- size +log-read-limit+))))
@@ -301,6 +301,6 @@ after GRACE. `stopped` is false when the process had already ended."
                          (funcall on-ok (%stop-fields ports directory record t))
                          (funcall on-error "environment.io"
                                   (format nil "bg process ~A (pid ~D) did not exit after SIGKILL" id pid)
-                                  :repairs (list (%repair "check-status" "Check the process again."
+                                  :repairs (list (aitools.protocol.domain:repair "check-status" "Check the process again."
                                                           (aitools.process.domain:command-line
                                                            "aitools" "bg" "status" id))))))))))))))))

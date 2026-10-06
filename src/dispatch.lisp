@@ -24,13 +24,8 @@ or NIL when no command was dispatched (bare `--help`/`--version`)."
 repairs; registry lookups keep the dotted dispatch name (\"json.get\")."
   (and command-name (substitute #\Space #\. command-name)))
 
-(defun %repair (action detail command)
-  "A repair plist as MAKE-ERROR-ENVELOPE and the batch/schema flows read it:
-:action names the fix, :detail explains it, :command is the runnable line."
-  (list :action action :detail detail :command command))
-
 (defun %generic-repair (command-name)
-  (%repair "inspect-schema" "Show this command's arguments and rules."
+  (aitools.protocol.domain:schema-repair
            (if command-name
                (format nil "aitools schema ~A" (%display-name command-name))
                "aitools schema")))
@@ -135,7 +130,7 @@ form of the invocation ARGV named, keeping its globals and operands. NIL when
 NAME is no group's subcommand -- the caller then falls back to the
 correspondence table."
   (loop for group in (%groups-with-subcommand registry name)
-        collect (%repair "run-instead"
+        collect (aitools.protocol.domain:repair "run-instead"
                          (format nil "`~A` is the `~A` group's subcommand; include the group name."
                                  name group)
                          (%group-repair-command argv name group))))
@@ -186,7 +181,7 @@ past its commit point, so its message says recovery will complete it."
                               op-id path)
                       (format nil "workspace recovery could not complete: ~A" condition))))
     (%write-error command-name "environment.io" message stderr
-                  :repairs (list (%repair "inspect-path"
+                  :repairs (list (aitools.protocol.domain:repair "inspect-path"
                                           "Inspect the path that blocked recovery."
                                           (format nil "aitools info ~A" path))))))
 
@@ -217,7 +212,7 @@ past its commit point, so its message says recovery will complete it."
                         (%write-error name "environment.busy"
                                       "the workspace lock could not be acquired within --lock-timeout"
                                       stderr
-                                      :repairs (list (%repair "retry"
+                                      :repairs (list (aitools.protocol.domain:repair "retry"
                                                               "Retry once the other writer finishes."
                                                               (%retry-command invocation)))))
              :on-invalid-timeout (lambda (text)
@@ -234,7 +229,7 @@ past its commit point, so its message says recovery will complete it."
       ;; output stays empty and this error envelope is the only output.
       (aitools.protocol.infrastructure:envelope-too-large (condition)
         (%write-error name "refusal.too-large" (princ-to-string condition) stderr
-                      :repairs (list (%repair "narrow-output"
+                      :repairs (list (aitools.protocol.domain:repair "narrow-output"
                                               "Ask for less: a smaller --max-lines or --limit, or a narrower selector."
                                               (getf (%generic-repair name) :command)))))
       (storage-condition (condition)

@@ -8,6 +8,7 @@
    #:json-object-from-alist
    #:json-object
    #:json-null
+   #:json-or-null
    #:json-boolean
    #:json-object-p
    #:json-object-members
@@ -24,6 +25,9 @@
    ;; shell-words.lisp
    #:shell-quote
    #:command-line
+   ;; envelope.lisp
+   #:repair
+   #:schema-repair
    ;; command-placement.lisp
    #:correspondence-name-p
    #:top-level-command-p

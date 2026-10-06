@@ -22,7 +22,11 @@ else wrapped in single quotes with each embedded quote spelled '\\''."
                      (write-char char out)))
         (write-char #\' out))))
 
-(defun command-line (words)
-  "WORDS, a list of strings, as one command line with each word quoted by
-SHELL-QUOTE."
-  (format nil "~{~A~^ ~}" (mapcar #'shell-quote words)))
+(defun command-line (&rest words)
+  "WORDS, strings or lists of strings, as one command line. NIL entries and
+list arguments are handled like the context-specific command-line helpers."
+  (format nil "~{~A~^ ~}"
+          (mapcar #'shell-quote
+                  (remove nil
+                          (loop for word in words
+                                append (if (listp word) word (list word)))))))

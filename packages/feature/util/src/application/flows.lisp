@@ -22,7 +22,7 @@
   "Largest `--length` for `util random`.")
 
 (defun %schema-repair (command)
-  (%repair "inspect-schema" "Show this command's arguments and rules." (format nil "aitools schema ~A" command)))
+  (aitools.protocol.domain:schema-repair (format nil "aitools schema ~A" command)))
 
 (defun %input-text (octets text)
   (or text (aitools.util.domain:octets->lenient-text octets)))
@@ -142,11 +142,14 @@ carries the unrounded rational."
     ((not (<= 0 decimals aitools.util.domain:+calc-max-decimals+))
      (funcall on-error "argument.invalid"
               (format nil "--decimals must be between 0 and ~D" aitools.util.domain:+calc-max-decimals+)
-              :repairs (list (%repair "use-default" "Use the default precision." "aitools util calc '<expr>'"))))
+              :repairs (list (aitools.protocol.domain:repair
+                              "use-default" "Use the default precision." "aitools util calc '<expr>'"))))
     ((eq (null expression) (not stdin))
      (funcall on-error "argument.invalid" "pass exactly one of an expression argument or --stdin"
-              :repairs (list (%repair "pass-expression" "Pass the expression as one argument." "aitools util calc '<expr>'")
-                             (%repair "pass-stdin" "Read the expression from standard input." "aitools util calc --stdin"))))
+              :repairs (list (aitools.protocol.domain:repair
+                              "pass-expression" "Pass the expression as one argument." "aitools util calc '<expr>'")
+                             (aitools.protocol.domain:repair
+                              "pass-stdin" "Read the expression from standard input." "aitools util calc --stdin"))))
     (expression (%calc-evaluate expression decimals on-ok on-error))
     (t
      (resolve-input/k ports (make-input-request :stdin t) "util calc"
@@ -158,7 +161,8 @@ carries the unrounded rational."
 
 (defun %count-error (on-error command)
   (funcall on-error "argument.invalid" (format nil "--count must be between 1 and ~D" +util-max-count+)
-           :repairs (list (%repair "use-default" "Generate one value." (format nil "aitools ~A --count 1" command)))))
+           :repairs (list (aitools.protocol.domain:repair
+                           "use-default" "Generate one value." (format nil "aitools ~A --count 1" command)))))
 
 (defun util-uuid-flow (ports kind count &key on-ok on-error)
   "KIND is \"v4\" or \"v7\". v7 values from one call are strictly increasing."
@@ -193,7 +197,8 @@ RANDOM-OCTETS port in blocks so the port is not called per character."
     ((not (<= 1 count +util-max-count+)) (%count-error on-error "util random"))
     ((not (<= 1 length +util-max-random-length+))
      (funcall on-error "argument.invalid" (format nil "--length must be between 1 and ~D" +util-max-random-length+)
-              :repairs (list (%repair "use-default" "Use the default length." "aitools util random --length 32"))))
+              :repairs (list (aitools.protocol.domain:repair
+                              "use-default" "Use the default length." "aitools util random --length 32"))))
     ((not (aitools.util.domain:random-alphabet-p alphabet))
      (%choice-error on-error "--alphabet" alphabet +util-random-alphabets+ "util random"))
     (t

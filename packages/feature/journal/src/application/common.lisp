@@ -27,8 +27,8 @@ never leaks the internal dotted name."
         while dot do (setf start (1+ dot))))
 
 (defun %schema-repair (command-name)
-  (repair "inspect-schema" "Show this command's arguments and rules."
-          (command-line "aitools" "schema" (%command-words command-name))))
+  (aitools.protocol.domain:schema-repair
+   (command-line "aitools" "schema" (%command-words command-name))))
 
 (defun %history-repair (context)
   (repair "list-ops" "List the journal's operations, newest first, to find the op_id."

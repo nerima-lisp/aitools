@@ -104,9 +104,6 @@ selection itself, and a stale --expect-count would fail it again. Words after
                             (list "--dry-run")
                             (and separator (subseq argv separator)))))))
 
-(defun repair (action detail command)
-  (list :action action :detail detail :command command))
-
 (defun default-repairs (code command argv &optional path)
   "The repairs of a write error CODE without its own. ARGV is the command as
 typed after the program name (or its canonical argv)."

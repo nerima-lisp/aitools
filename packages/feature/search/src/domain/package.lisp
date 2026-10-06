@@ -11,7 +11,9 @@
 
 (defpackage #:aitools.search.domain
   (:use #:cl)
-  (:import-from #:aitools.protocol.domain #:json-object-from-alist #:json-null)
+  (:import-from #:aitools.protocol.domain
+                #:json-object-from-alist #:json-null
+                #:shell-quote #:command-line)
   (:import-from #:aitools.text.domain
                 #:decode-utf8
                 #:utf8-bom-length

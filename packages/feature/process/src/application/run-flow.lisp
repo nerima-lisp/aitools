@@ -47,7 +47,7 @@ relative `--stdout-to` means."
     (if (null host)
         (funcall on-error "environment.unavailable"
                  "run --stdout-to needs the workspace boundary, which this aitools build did not wire in"
-                 :repairs (list (%repair "capture-instead" "Capture stdout in the result instead."
+                 :repairs (list (aitools.protocol.domain:repair "capture-instead" "Capture stdout in the result instead."
                                          "aitools schema run")))
         (aitools.workspace.application:call-with-resolved-root/k
          host :root root
@@ -69,7 +69,7 @@ relative `--stdout-to` means."
                           (declare (ignore real))
                           (funcall on-error "refusal.outside-workspace"
                                    (format nil "--stdout-to ~A is outside the workspace (~(~A~))" lexical verdict)
-                                   :repairs (list (%repair "use-temporary-file"
+                                   :repairs (list (aitools.protocol.domain:repair "use-temporary-file"
                                                            "Create a file in aitools's temporary area and write there."
                                                            "aitools mktemp"))))))))))
 
@@ -88,7 +88,7 @@ relative `--stdout-to` means."
                             (funcall on-error "refusal.exists"
                                      (format nil "--stdout-to ~A already exists; run only creates new files"
                                              stdout-reported)
-                                     :repairs (list (%repair "inspect-existing" "Inspect the existing file."
+                                     :repairs (list (aitools.protocol.domain:repair "inspect-existing" "Inspect the existing file."
                                                              (aitools.process.domain:command-line
                                                               "aitools" "info" stdout-reported)))))))))
 
@@ -97,7 +97,7 @@ relative `--stdout-to` means."
 fields. Calls exactly one of ON-OK, ON-PARTIAL, or ON-ERROR."
   (if (null (run-request-argv request))
       (funcall on-error "argument.invalid" "run needs the program and its arguments after --"
-               :repairs (list (%repair "run-program" "Pass the program after --."
+               :repairs (list (aitools.protocol.domain:repair "run-program" "Pass the program after --."
                                        "aitools run -- printf 'hello\\n'")))
       (%call-with-duration-ms
        (run-request-timeout request) "--timeout" "run" on-error

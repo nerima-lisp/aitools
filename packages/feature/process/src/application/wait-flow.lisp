@@ -92,12 +92,12 @@ a condition known to turn true at that moment."
                      (funcall on-error "environment.timeout"
                               (format nil "the wait condition did not hold within ~Dms" elapsed)
                               :repairs (append
-                                        (list (%repair "wait-longer" "Wait again with a longer timeout."
+                                        (list (aitools.protocol.domain:repair "wait-longer" "Wait again with a longer timeout."
                                                        (aitools.process.domain:command-line
                                                         "aitools" "wait" arguments "--timeout"
                                                         (format nil "~Dms" (* 2 timeout-ms)))))
                                         (when bg-id
-                                          (list (%repair "read-log" "Read the bg process's latest output."
+                                          (list (aitools.protocol.domain:repair "read-log" "Read the bg process's latest output."
                                                          (aitools.process.domain:command-line
                                                           "aitools" "bg" "logs" bg-id)))))))))))
 
@@ -122,7 +122,8 @@ what `wait` waits out."
                   :port (wait-request-port request) :bg (wait-request-bg request)
                   :exit (wait-request-exit request) :duration-text duration-text :duration-ms duration-ms)
                (if (null condition)
-                   (funcall on-error "argument.invalid" message :repairs (list (%schema-repair "wait")))
+                   (funcall on-error "argument.invalid" message
+                            :repairs (list (%schema-repair "wait")))
                    (%call-with-duration-ms
                     (wait-request-timeout request) "--timeout" "wait" on-error
                     (lambda (timeout-ms)
