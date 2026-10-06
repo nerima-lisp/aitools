@@ -241,39 +241,29 @@ tx is read from the tx; anything else from disk through the text source (%READ-D
 keyword arguments CALL-WITH-WORKSPACE-SCAN/K takes, or ON-ERROR.
 SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
   (declare (type function on-options on-error))
-  (let ((predicate nil) (limit aitools.workspace.application:+default-skip-larger-than+) (since nil))
-    (when lang
-      (setf predicate (aitools.text.domain:language-path-predicate lang))
-      (unless predicate
-        (return-from scan-options/k
-          (funcall on-error "argument.invalid"
-                   (format nil "unknown language ~A; known: ~{~A~^, ~}" lang (aitools.text.domain:language-names))
-                   :repairs (list (%repair "use-known-language" "Use one of the known language names."
-                                           (format nil "aitools ~A --lang ~A" command
-                                                   (first (aitools.text.domain:language-names)))))))))
-    (when skip-larger-than
-      (setf limit (handler-case (aitools.kernel.domain:size-bytes (aitools.kernel.domain:parse-size skip-larger-than))
-                    (aitools.kernel.domain:invalid-size-error ()
-                      (return-from scan-options/k
-                        (%argument-error on-error (format nil "--skip-larger-than: not a size: ~A" skip-larger-than)
-                                         command))))))
-    (when newer
-      (let ((entry (aitools.workspace.application:host-stat (%host session) (%absolute session newer))))
-        (setf since
-              (if entry
-                  (aitools.workspace.application:workspace-entry-mtime entry)
-                  (handler-case (- (%now (session-ports session))
-                                   (floor (aitools.kernel.domain:duration-milliseconds
-                                           (aitools.kernel.domain:parse-duration newer))
-                                          1000))
-                    (aitools.kernel.domain:invalid-duration-error ()
-                      (return-from scan-options/k
-                        (%argument-error on-error
-                                         (format nil "--newer: ~A is neither an existing path nor a duration" newer)
-                                         command))))))))
-    (funcall on-options
-             (list :glob glob :lang predicate :no-ignore no-ignore :skip-larger-than limit :newer since
-                   :overlay (session-overlay session)))))
+  (aitools.workspace.application:call-with-scan-options/k
+   (%host session)
+   :path-absolute (lambda (path) (%absolute session path))
+   :current-time (lambda () (%now (session-ports session)))
+   :language-predicate #'aitools.text.domain:language-path-predicate
+   :language-names (aitools.text.domain:language-names)
+   :glob glob :lang lang :no-ignore no-ignore
+   :skip-larger-than skip-larger-than :newer newer
+   :overlay (session-overlay session)
+   :on-error
+   (lambda (kind value names)
+     (case kind
+       (:unknown-language
+        (%argument-error on-error
+                         (format nil "unknown language ~A; known: ~{~A~^, ~}" value names)
+                         command))
+       (:invalid-size
+        (%argument-error on-error (format nil "--skip-larger-than: not a size: ~A" value) command))
+       (:invalid-newer
+        (%argument-error on-error
+                         (format nil "--newer: ~A is neither an existing path nor a duration" value)
+                         command))))
+   :on-options on-options))
 
 (defun scan-error (on-error command reason path)
   "Report a scan start the workspace scan rejected."

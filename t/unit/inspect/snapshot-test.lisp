@@ -57,8 +57,9 @@
   (it-each (("an unparsable --skip-larger-than" (:skip-larger-than "huge") "argument.invalid"
              "--skip-larger-than \"huge\" is not a size" "aitools schema snapshot create")
             ("an unknown --lang" (:lang "klingon") "argument.invalid"
-             "unknown --lang \"klingon\"" "aitools schema snapshot create")
-            ("a --newer that is neither a duration nor a path" (:newer "no-such-file") "input.not-found"
+             "unknown --lang \"klingon\"; known: common-lisp, emacs-lisp, scheme, clojure, rust, go, python, javascript, typescript, nix, shell, markdown"
+             "aitools schema snapshot create")
+            ("a --newer that is neither a duration nor a path" (:newer "no-such-file") "argument.invalid"
              "--newer no-such-file is neither a duration nor an existing path" "aitools snapshot create --newer 1h"))
       "rejects ~A before scanning"
       (label options code message repair)

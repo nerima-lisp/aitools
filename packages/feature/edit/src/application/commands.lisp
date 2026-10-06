@@ -17,8 +17,14 @@ commands."
   (declare (ignore on-partial) (type function on-ok on-error))
   (let* ((argv (or display-argv (options-argv name positionals options))))
     (flet ((fail (code message &key candidates diagnostics conflicts repairs (path (first positionals)))
-             (funcall on-error code message :candidates candidates :diagnostics diagnostics :conflicts conflicts
-                      :repairs (or repairs (default-repairs code name argv path)))))
+             (let ((public-code (if (string= code "scan.unknown-language")
+                                    "argument.invalid"
+                                    code))
+                   (repair-code (if (string= code "scan.unknown-language")
+                                    "input.unsupported-language"
+                                    code)))
+               (funcall on-error public-code message :candidates candidates :diagnostics diagnostics :conflicts conflicts
+                        :repairs (or repairs (default-repairs repair-code name argv path))))))
       (if (string= name "mktemp")
           (mktemp-flow ports options :root root :on-ok on-ok :on-error #'fail)
           (let ((host (edit-ports-workspace-host ports)))

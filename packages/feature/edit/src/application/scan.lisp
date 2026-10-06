@@ -10,34 +10,30 @@
 (defun %scan-options/k (env options fail on-options)
   "The common scan options as CALL-WITH-WORKSPACE-SCAN/K keywords."
   (declare (type function fail on-options))
-  (let* ((host (command-env-host env))
-         (skip (getf options :skip-larger-than))
-         (lang (getf options :lang))
-         (newer (getf options :newer))
-         (predicate (and lang (aitools.text.domain:language-path-predicate lang)))
-         (limit (handler-case (if skip (aitools.kernel.domain:size-bytes (aitools.kernel.domain:parse-size skip))
-                                  aitools.workspace.application:+default-skip-larger-than+)
-                  (error () (return-from %scan-options/k
-                              (funcall fail "argument.invalid" (format nil "--skip-larger-than ~S is not a size" skip)))))))
-    (when (and lang (null predicate))
-      (return-from %scan-options/k
-        (funcall fail "input.unsupported-language" (format nil "unknown --lang ~S" lang))))
-    (let ((newer-seconds
-            (and newer
-                 (handler-case
-                     (- (floor (- (get-universal-time) (encode-universal-time 0 0 0 1 1 1970 0)))
-                        (floor (aitools.kernel.domain:duration-milliseconds (aitools.kernel.domain:parse-duration newer))
-                               1000))
-                   (error ()
-                     (let* ((absolute (aitools.workspace.application:user-path-absolute host newer))
-                            (entry (aitools.workspace.application:host-stat host absolute)))
-                       (if entry
-                           (aitools.workspace.application:workspace-entry-mtime entry)
-                           (return-from %scan-options/k
-                             (funcall fail "argument.invalid"
-                                      (format nil "--newer ~S is neither a duration nor an existing path" newer))))))))))
-      (funcall on-options (list :glob (getf options :glob) :lang predicate :no-ignore (getf options :no-ignore)
-                                :skip-larger-than limit :newer newer-seconds)))))
+  (let ((host (command-env-host env)))
+    (aitools.workspace.application:call-with-scan-options/k
+     host
+     :path-absolute (lambda (path) (aitools.workspace.application:user-path-absolute host path))
+     :current-time (lambda () (funcall (edit-ports-unix-now (command-env-ports env))))
+     :language-predicate #'aitools.text.domain:language-path-predicate
+     :language-names (aitools.text.domain:language-names)
+     :glob (getf options :glob)
+     :lang (getf options :lang)
+     :no-ignore (getf options :no-ignore)
+     :skip-larger-than (getf options :skip-larger-than)
+     :newer (getf options :newer)
+     :on-error
+     (lambda (kind value names)
+       (declare (ignore names))
+       ;; Keep the historical internal repair classification. RUN-EDIT-COMMAND
+       ;; exposes this as argument.invalid while retaining the read-path repair.
+       (funcall fail (if (eq kind :unknown-language) "scan.unknown-language" "argument.invalid")
+                (case kind
+                  (:unknown-language (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value
+                                             (aitools.text.domain:language-names)))
+                  (:invalid-size (format nil "--skip-larger-than ~S is not a size" value))
+                  (:invalid-newer (format nil "--newer ~S is neither a duration nor an existing path" value)))))
+     :on-options on-options)))
 
 (defun %tx-overlay (env tx)
   "A WORKSPACE-OVERLAY showing TX's staged state to the scan, or NIL
