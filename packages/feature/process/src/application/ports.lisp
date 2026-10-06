@@ -11,6 +11,8 @@
   (:report (lambda (condition stream)
              (write-string (process-port-error-message condition) stream))))
 
+(define-condition process-target-changed (process-port-error) ())
+
 (defun %missing-port (&rest arguments)
   (declare (ignore arguments))
   (error "process port not supplied"))
@@ -28,6 +30,10 @@
                                     (remove-file #'%missing-port)
                                     (group-alive-p #'%missing-port)
                                     (signal-group #'%missing-port)
+                                    (list-pids #'%missing-port)
+                                    (process-info #'%missing-port)
+                                    (safe-target-p #'%missing-port)
+                                    (signal-process #'%missing-port)
                                     (tcp-connectable-p #'%missing-port)
                                     (universal-time #'%missing-port)
                                     (monotonic-ms #'%missing-port)
@@ -70,6 +76,13 @@
   ;; (PID SIGNAL) -> T when SIGNAL was delivered to PID's process group,
   ;; NIL when the group no longer exists.
   (signal-group nil :type function :read-only t)
+  ;; () -> PID list; (PID) -> PROCESS-IDENTITY or NIL; (IDENTITY SIGNAL)
+  ;; -> T on delivery, NIL when gone. The signal port independently checks
+  ;; identity, uid, ancestry, and process group immediately before kill(2).
+  (list-pids nil :type function :read-only t)
+  (process-info nil :type function :read-only t)
+  (safe-target-p nil :type function :read-only t)
+  (signal-process nil :type function :read-only t)
   ;; (PORT) -> true when a TCP connection to PORT on the loopback succeeds.
   (tcp-connectable-p nil :type function :read-only t)
   ;; () -> the current universal time.

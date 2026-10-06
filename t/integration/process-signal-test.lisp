@@ -1,0 +1,101 @@
+(in-package #:aitools.process.integration-test)
+
+(defun signal-child (root &key stubborn)
+  (let* ((token (format nil "aitools-signal-~36R" (random (expt 36 12) (make-random-state t))))
+         (script (format nil "~:[~;trap '' TERM; ~]while :; do sleep 1; done # ~A"
+                         stubborn token))
+         (supervisor (value (start-bg root "sh" "-c" script) "pid")))
+    (values supervisor token)))
+
+(defun matching-signal-child (token supervisor)
+  (loop repeat 500
+        for found = (loop for pid in (aitools.process.infrastructure::%host-list-pids)
+                          for info = (aitools.process.infrastructure::%safe-process-info pid)
+                          when (and info (/= pid supervisor)
+                                    (search token (aitools.process.domain:process-identity-command-line info)))
+                            collect info)
+        when (= (length found) 1) return (first found)
+        do (sleep 0.02)))
+
+#+(or darwin linux)
+(describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))
+    "aitools signal (integration)"
+  (it "reaches a guarded PID and rejects changed guards and protected PIDs"
+    (with-temporary-directory (root)
+      (multiple-value-bind (supervisor token) (signal-child root)
+        (unwind-protect
+             (let* ((target (or (matching-signal-child token supervisor) (error "signal child did not appear")))
+                    (pid (aitools.process.domain:process-identity-pid target))
+                    (pid-text (princ-to-string pid))
+                    (self (or (aitools.process.infrastructure::%safe-process-info (sb-posix:getpid))
+                              (error "cannot inspect self")))
+                    (parent (or (aitools.process.infrastructure::%safe-process-info (sb-posix:getppid))
+                                (error "cannot inspect ancestor"))))
+               (dolist (bad (list (list "--pid" pid-text "--expect-command" "wrong-token")
+                                  (list "--pid" pid-text "--expect-start" "wrong-start")
+                                  (list "--pid" "0" "--expect-command" "sh")
+                                  (list "--pid" "1" "--expect-command" "sh")
+                                  (list "--pid" (princ-to-string (sb-posix:getpid))
+                                        "--expect-command"
+                                        (aitools.process.domain:process-identity-command-line self))
+                                  (list "--pid" (princ-to-string (sb-posix:getppid))
+                                        "--expect-command"
+                                        (aitools.process.domain:process-identity-command-line parent))))
+                 (multiple-value-bind (code envelope) (invoke (cons "signal" bad))
+                   (expect code :to-be 2)
+                   (expect (value envelope "error" "code") :to-equal "refusal.target-changed"))
+                 (expect (pid-alive-p pid) :to-be t))
+               (multiple-value-bind (code envelope)
+                   (invoke (list "signal" "--pid" pid-text "--expect-command" token))
+                 (expect code :to-be 0)
+                 (expect (value envelope "total") :to-be 1)))
+          (kill-group supervisor)
+          (expect (wait-for-group-gone supervisor) :to-be t)))))
+
+  (it "rejects incomplete or mismatched pattern selection and sends KILL after grace"
+    (with-temporary-directory (root)
+      (multiple-value-bind (supervisor token) (signal-child root :stubborn t)
+        (unwind-protect
+             (let* ((target (or (matching-signal-child token supervisor) (error "signal child did not appear")))
+                    (pid (aitools.process.domain:process-identity-pid target)))
+               (multiple-value-bind (code envelope)
+                   (invoke (list "signal" "--pattern" (format nil "^/[^ ]*/sh -c trap.*~A" token)
+                                 "--expect-count" "2"))
+                 (expect code :to-be 2)
+                 (let ((error-code (value envelope "error" "code")))
+                   (expect (not (null (member error-code
+                                              '("selection.count-mismatch" "refusal.target-changed")
+                                              :test #'string=))) :to-be t)
+                   (when (string= error-code "refusal.target-changed")
+                     (expect (not (null (search "cannot inspect process "
+                                                (value envelope "error" "message"))))
+                             :to-be t))))
+               (expect (pid-alive-p pid) :to-be t)
+               (let ((started (get-internal-real-time)))
+                 (multiple-value-bind (code envelope)
+                     (invoke (list "signal" "--pid" (princ-to-string pid)
+                                   "--expect-command" token
+                                   "--grace" "300ms"))
+                   (expect code :to-be 0)
+                   (expect (value envelope "items" 0 "signal") :to-be 9))
+                 (expect (>= (- (get-internal-real-time) started)
+                             (* 0.3 internal-time-units-per-second)) :to-be t)))
+          (kill-group supervisor)
+          (expect (wait-for-group-gone supervisor) :to-be t)))))
+
+  (it "accepts a start-time guard and sends the host USR1 number"
+    (with-temporary-directory (root)
+      (multiple-value-bind (supervisor token) (signal-child root)
+        (unwind-protect
+             (let* ((target (or (matching-signal-child token supervisor)
+                                (error "signal child did not appear")))
+                    (pid (aitools.process.domain:process-identity-pid target))
+                    (start (aitools.process.domain:process-identity-start target)))
+               (multiple-value-bind (code envelope)
+                   (invoke (list "signal" "--pid" (princ-to-string pid)
+                                 "--expect-start" (princ-to-string start) "--signal" "USR1"))
+                 (expect code :to-be 0)
+                 (expect (value envelope "items" 0 "signal")
+                         :to-be #+darwin 30 #+linux 10)))
+          (kill-group supervisor)
+          (expect (wait-for-group-gone supervisor) :to-be t))))))
