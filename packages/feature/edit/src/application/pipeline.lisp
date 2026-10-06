@@ -88,23 +88,26 @@ VALIDATE continuation."
                        on-rejected))
    :on-not-found on-not-found))
 
-(defun %inspect-write-plan (write-plan lock-timeout dry-run argv display-path)
-  "Return the static inspection of WRITE-PLAN, or its error details.
-The result is (:OK LOCK-TIMEOUT-MS HASH-ENTRIES EXPECT-COUNT), or
-(:ERROR CODE MESSAGE REPAIRS). No workspace state is read here."
+(defun %inspect-write-plan/k (write-plan lock-timeout dry-run argv display-path on-ok on-error)
+  "Inspect WRITE-PLAN without reading workspace state and call one continuation.
+ON-OK receives LOCK-TIMEOUT-MS, HASH-ENTRIES, and EXPECT-COUNT. ON-ERROR
+receives CODE, MESSAGE, and REPAIRS."
   (multiple-value-bind (lock-timeout-ms lock-timeout-valid) (%lock-timeout-ms lock-timeout)
     (multiple-value-bind (hash-entries hash-error) (%parse-expect-hashes (write-plan-expect-hashes write-plan))
-      (let ((expect-count (write-plan-expect-count write-plan)))
+      (let* ((expect-count-text (write-plan-expect-count write-plan))
+             (expect-count (and expect-count-text (parse-count expect-count-text))))
         (cond
           ((not lock-timeout-valid)
-           (list :error "argument.invalid"
-                 (format nil "--lock-timeout ~S is not a duration (<n>ms|s|m|h|d)" lock-timeout)
-                 nil))
-          (hash-error (list :error "argument.invalid" hash-error nil))
-          ((and expect-count (null (parse-count expect-count)))
-           (list :error "argument.invalid"
-                 (format nil "--expect-count ~S is not a non-negative integer" expect-count)
-                 nil))
+           (funcall on-error
+                    "argument.invalid"
+                    (format nil "--lock-timeout ~S is not a duration (<n>ms|s|m|h|d)" lock-timeout)
+                    nil))
+          (hash-error (funcall on-error "argument.invalid" hash-error nil))
+          ((and expect-count-text (null expect-count))
+           (funcall on-error
+                    "argument.invalid"
+                    (format nil "--expect-count ~S is not a non-negative integer" expect-count-text)
+                    nil))
           (t
            (dolist (requirement (write-plan-guard-requirements write-plan))
              (ecase (first requirement)
@@ -117,30 +120,30 @@ The result is (:OK LOCK-TIMEOUT-MS HASH-ENTRIES EXPECT-COUNT), or
                                      (let ((entry-path (aitools.kernel.domain:expect-hash-entry-path entry)))
                                        (or (null path) (equal path (or entry-path display-path)))))
                                    hash-entries)
-                    (return-from %inspect-write-plan
-                      (list :error "argument.invalid"
-                            (format nil "this write needs --expect-hash ~:[<hash>~;~:*~A=<hash>~]"
-                                    (and (rest (write-plan-targets write-plan)) path))
-                            (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
-                                          (format nil "aitools info ~A"
-                                                  (aitools.protocol.domain:shell-quote (or path display-path))))))))))
+                    (return-from %inspect-write-plan/k
+                      (funcall on-error
+                               "argument.invalid"
+                               (format nil "this write needs --expect-hash ~:[<hash>~;~:*~A=<hash>~]"
+                                       (and (rest (write-plan-targets write-plan)) path))
+                               (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
+                                             (format nil "aitools info ~A"
+                                                     (aitools.protocol.domain:shell-quote (or path display-path))))))))))
                (:expect-count
                 (unless (or expect-count dry-run)
-                  (return-from %inspect-write-plan
-                    (list :error "argument.invalid" "this write needs --expect-count N"
-                          (list (repair "count" "Count the selection without writing, then pass that --expect-count."
-                                        (dry-run-command-line argv)))))))))
+                  (return-from %inspect-write-plan/k
+                    (funcall on-error
+                             "argument.invalid" "this write needs --expect-count N"
+                             (list (repair "count" "Count the selection without writing, then pass that --expect-count."
+                                           (dry-run-command-line argv)))))))))
            (let ((redacted (find-if #'%contains-placeholder-p (write-plan-inputs write-plan))))
              (when redacted
-               (return-from %inspect-write-plan
-                 (list :error "refusal.redacted-input"
-                       (format nil "the input contains ~A, an output mask rather than real content"
-                               +redaction-placeholder+)
-                       nil))))
-           (list :ok lock-timeout-ms hash-entries
-                 ;; Keep this second parse: the original caller parsed the
-                 ;; validated text again when entering the resolved phase.
-                 (and expect-count (parse-count expect-count)))))))))
+               (return-from %inspect-write-plan/k
+                 (funcall on-error
+                          "refusal.redacted-input"
+                          (format nil "the input contains ~A, an output mask rather than real content"
+                                  +redaction-placeholder+)
+                          nil))))
+           (funcall on-ok lock-timeout-ms hash-entries expect-count)))))))
 
 (defun run-write-command/k (ports write-plan &key root lock-timeout dry-run tx display-argv on-ok on-error)
   "Run WRITE-PLAN (a WRITE-PLAN) as one write command and call exactly one of
@@ -168,25 +171,23 @@ it reports the count it selected as `expect_count` instead."
                (funcall on-error code message
                         :candidates candidates :diagnostics diagnostics :conflicts conflicts
                         :repairs (or repairs (default-repairs code command argv path)))))
-      (let ((inspection (%inspect-write-plan write-plan lock-timeout dry-run argv display-path)))
-        (if (eq (first inspection) :error)
-            (destructuring-bind (_ code message repairs) inspection
-              (declare (ignore _))
-              (return-from run-write-command/k
-                (fail code message :repairs repairs)))
-            (destructuring-bind (_ lock-timeout-ms hash-entries expect-count) inspection
-              (declare (ignore _))
-            (aitools.workspace.application:call-with-resolved-root/k
-             host :root root
-             :on-error (lambda (reason path)
-                         (fail (if (eq reason :not-found) "input.not-found" "argument.invalid")
-                               (format nil "workspace root ~A ~:[is not a directory~;does not exist~]" path (eq reason :not-found))
-                               :repairs (list (repair "inspect-schema" "Pass an existing directory as --root." "aitools schema"))))
-             :on-resolved
-             (lambda (workspace-root)
-               (%run-resolved ports write-plan workspace-root hash-entries
-                              expect-count
-                              lock-timeout-ms dry-run tx command-line on-ok #'fail)))))))))
+      (%inspect-write-plan/k
+       write-plan lock-timeout dry-run argv display-path
+       (lambda (lock-timeout-ms hash-entries expect-count)
+         (aitools.workspace.application:call-with-resolved-root/k
+          host :root root
+          :on-error (lambda (reason path)
+                      (fail (if (eq reason :not-found) "input.not-found" "argument.invalid")
+                            (format nil "workspace root ~A ~:[is not a directory~;does not exist~]" path (eq reason :not-found))
+                            :repairs (list (repair "inspect-schema" "Pass an existing directory as --root." "aitools schema"))))
+          :on-resolved
+          (lambda (workspace-root)
+            (%run-resolved ports write-plan workspace-root hash-entries
+                           expect-count
+                           lock-timeout-ms dry-run tx command-line on-ok #'fail))))
+       (lambda (code message repairs)
+         (return-from run-write-command/k
+           (fail code message :repairs repairs)))))))
 
 (defun %selected-count-field (write-plan context)
   "`expect_count` for a --dry-run of a write that --expect-count guards: the
@@ -227,7 +228,11 @@ calling FAIL."
 
 (defun %resolve-hash-path (entry targets paths area on-unmatched)
   "Resolve ENTRY to its path and area using already resolved TARGETS.
-ON-UNMATCHED resolves a hash entry that does not name one of TARGETS."
+A bare --expect-hash names the first target. A PATH=HASH naming a target uses
+that target's resolved path, so a symlink remains the write target. Other
+paths are resolved as ordinary writes by ON-UNMATCHED: they use :INSIDE or
+:TEMPORARY when they resolve to either area, and otherwise retain the input
+path with a NIL area."
   (let* ((path (aitools.kernel.domain:expect-hash-entry-path entry))
          (target-index (and path (position path targets :key #'write-target-path :test #'string=))))
     (cond
