@@ -88,6 +88,60 @@ VALIDATE continuation."
                        on-rejected))
    :on-not-found on-not-found))
 
+(defun %inspect-write-plan (write-plan lock-timeout dry-run argv display-path)
+  "Return the static inspection of WRITE-PLAN, or its error details.
+The result is (:OK LOCK-TIMEOUT-MS HASH-ENTRIES EXPECT-COUNT), or
+(:ERROR CODE MESSAGE REPAIRS). No workspace state is read here."
+  (multiple-value-bind (lock-timeout-ms lock-timeout-valid) (%lock-timeout-ms lock-timeout)
+    (multiple-value-bind (hash-entries hash-error) (%parse-expect-hashes (write-plan-expect-hashes write-plan))
+      (let ((expect-count (write-plan-expect-count write-plan)))
+        (cond
+          ((not lock-timeout-valid)
+           (list :error "argument.invalid"
+                 (format nil "--lock-timeout ~S is not a duration (<n>ms|s|m|h|d)" lock-timeout)
+                 nil))
+          (hash-error (list :error "argument.invalid" hash-error nil))
+          ((and expect-count (null (parse-count expect-count)))
+           (list :error "argument.invalid"
+                 (format nil "--expect-count ~S is not a non-negative integer" expect-count)
+                 nil))
+          (t
+           (dolist (requirement (write-plan-guard-requirements write-plan))
+             (ecase (first requirement)
+               (:expect-hash
+                (let ((path (second requirement)))
+                  ;; A bare --expect-hash is the first target's (VALIDATE hashes
+                  ;; it against that one); any other file of a multi-file write
+                  ;; needs its own PATH=HASH.
+                  (unless (find-if (lambda (entry)
+                                     (let ((entry-path (aitools.kernel.domain:expect-hash-entry-path entry)))
+                                       (or (null path) (equal path (or entry-path display-path)))))
+                                   hash-entries)
+                    (return-from %inspect-write-plan
+                      (list :error "argument.invalid"
+                            (format nil "this write needs --expect-hash ~:[<hash>~;~:*~A=<hash>~]"
+                                    (and (rest (write-plan-targets write-plan)) path))
+                            (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
+                                          (format nil "aitools info ~A"
+                                                  (aitools.protocol.domain:shell-quote (or path display-path))))))))))
+               (:expect-count
+                (unless (or expect-count dry-run)
+                  (return-from %inspect-write-plan
+                    (list :error "argument.invalid" "this write needs --expect-count N"
+                          (list (repair "count" "Count the selection without writing, then pass that --expect-count."
+                                        (dry-run-command-line argv)))))))))
+           (let ((redacted (find-if #'%contains-placeholder-p (write-plan-inputs write-plan))))
+             (when redacted
+               (return-from %inspect-write-plan
+                 (list :error "refusal.redacted-input"
+                       (format nil "the input contains ~A, an output mask rather than real content"
+                               +redaction-placeholder+)
+                       nil))))
+           (list :ok lock-timeout-ms hash-entries
+                 ;; Keep this second parse: the original caller parsed the
+                 ;; validated text again when entering the resolved phase.
+                 (and expect-count (parse-count expect-count)))))))))
+
 (defun run-write-command/k (ports write-plan &key root lock-timeout dry-run tx display-argv on-ok on-error)
   "Run WRITE-PLAN (a WRITE-PLAN) as one write command and call exactly one of
 ON-OK (fields) with the write-output alist (`changes`, then `op_id`, or
@@ -114,47 +168,14 @@ it reports the count it selected as `expect_count` instead."
                (funcall on-error code message
                         :candidates candidates :diagnostics diagnostics :conflicts conflicts
                         :repairs (or repairs (default-repairs code command argv path)))))
-      (multiple-value-bind (lock-timeout-ms lock-timeout-valid) (%lock-timeout-ms lock-timeout)
-        (multiple-value-bind (hash-entries hash-error) (%parse-expect-hashes (write-plan-expect-hashes write-plan))
-          (let ((expect-count (write-plan-expect-count write-plan)))
-            ;; Static checks: nothing here reads the workspace.
-            (cond
-              ((not lock-timeout-valid)
-               (return-from run-write-command/k
-                 (fail "argument.invalid" (format nil "--lock-timeout ~S is not a duration (<n>ms|s|m|h|d)" lock-timeout))))
-              (hash-error (return-from run-write-command/k (fail "argument.invalid" hash-error)))
-              ((and expect-count (null (parse-count expect-count)))
-               (return-from run-write-command/k
-                 (fail "argument.invalid" (format nil "--expect-count ~S is not a non-negative integer" expect-count)))))
-            (dolist (requirement (write-plan-guard-requirements write-plan))
-              (ecase (first requirement)
-                (:expect-hash
-                 (let ((path (second requirement)))
-                   ;; A bare --expect-hash is the first target's (VALIDATE hashes
-                   ;; it against that one); any other file of a multi-file write
-                   ;; needs its own PATH=HASH.
-                   (unless (find-if (lambda (entry)
-                                      (let ((entry-path (aitools.kernel.domain:expect-hash-entry-path entry)))
-                                        (or (null path) (equal path (or entry-path display-path)))))
-                                    hash-entries)
-                     (return-from run-write-command/k
-                       (fail "argument.invalid"
-                             (format nil "this write needs --expect-hash ~:[<hash>~;~:*~A=<hash>~]"
-                                     (and (rest (write-plan-targets write-plan)) path))
-                             :repairs (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
-                                                    (format nil "aitools info ~A" (aitools.protocol.domain:shell-quote (or path display-path))))))))))
-                (:expect-count
-                 (unless (or expect-count dry-run)
-                   (return-from run-write-command/k
-                     (fail "argument.invalid" "this write needs --expect-count N"
-                           :repairs (list (repair "count" "Count the selection without writing, then pass it as --expect-count."
-                                                  (dry-run-command-line argv)))))))))
-            (let ((redacted (find-if #'%contains-placeholder-p (write-plan-inputs write-plan))))
-              (when redacted
-                (return-from run-write-command/k
-                  (fail "refusal.redacted-input"
-                        (format nil "the input contains ~A, an output mask rather than real content"
-                                +redaction-placeholder+)))))
+      (let ((inspection (%inspect-write-plan write-plan lock-timeout dry-run argv display-path)))
+        (if (eq (first inspection) :error)
+            (destructuring-bind (_ code message repairs) inspection
+              (declare (ignore _))
+              (return-from run-write-command/k
+                (fail code message :repairs repairs)))
+            (destructuring-bind (_ lock-timeout-ms hash-entries expect-count) inspection
+              (declare (ignore _))
             (aitools.workspace.application:call-with-resolved-root/k
              host :root root
              :on-error (lambda (reason path)
@@ -164,7 +185,7 @@ it reports the count it selected as `expect_count` instead."
              :on-resolved
              (lambda (workspace-root)
                (%run-resolved ports write-plan workspace-root hash-entries
-                              (and expect-count (parse-count expect-count))
+                              expect-count
                               lock-timeout-ms dry-run tx command-line on-ok #'fail)))))))))
 
 (defun %selected-count-field (write-plan context)
@@ -204,6 +225,29 @@ calling FAIL."
       (return-from %resolve-targets nil))
     (values (nreverse paths) (or (first areas) :inside))))
 
+(defun %resolve-hash-path (entry targets paths area on-unmatched)
+  "Resolve ENTRY to its path and area using already resolved TARGETS.
+ON-UNMATCHED resolves a hash entry that does not name one of TARGETS."
+  (let* ((path (aitools.kernel.domain:expect-hash-entry-path entry))
+         (target-index (and path (position path targets :key #'write-target-path :test #'string=))))
+    (cond
+      ((null path) (values (first paths) area))
+      (target-index (values (nth target-index paths) area))
+      (t (funcall on-unmatched path)))))
+
+(defun %resolve-unmatched-hash-path (host workspace-root path temporary-root)
+  (block resolved
+    (%boundary/k host workspace-root (aitools.workspace.application:user-path-absolute host path)
+                 temporary-root t
+                 (lambda (real relative verdict)
+                   (return-from resolved
+                     (if (eq verdict :temporary)
+                         (values (aitools.kernel.domain:path-relative-to temporary-root real) :temporary)
+                         (values relative :inside))))
+                 (lambda (&rest ignore)
+                   (declare (ignore ignore))
+                   (return-from resolved path)))))
+
 (defun %run-resolved (ports write-plan workspace-root hash-entries expect-count lock-timeout-ms dry-run tx
                       command-line on-ok fail)
   (let* ((host (edit-ports-workspace-host ports))
@@ -232,26 +276,10 @@ calling FAIL."
                                  (%record-options write-plan paths)))
              (extra '()))
         (labels ((hash-path (entry)
-                   ;; (values path entry-area): a PATH=HASH naming a target means
-                   ;; that target as resolved (a symlink the command acts on stays
-                   ;; itself); other paths are resolved as ordinary writes, into
-                   ;; the workspace (:INSIDE) or the mktemp area (:TEMPORARY), or
-                   ;; kept as typed (NIL) when outside both.
-                   (let* ((path (aitools.kernel.domain:expect-hash-entry-path entry))
-                          (target-index (and path (position path targets :key #'write-target-path :test #'string=))))
-                     (cond
-                       ((null path) (values (first paths) area))
-                       (target-index (values (nth target-index paths) area))
-                       (t
-                         (block resolved
-                           (%boundary/k host workspace-root (aitools.workspace.application:user-path-absolute host path)
-                                        temporary-root t
-                                        (lambda (real relative verdict)
-                                          (return-from resolved
-                                            (if (eq verdict :temporary)
-                                                (values (aitools.kernel.domain:path-relative-to temporary-root real) :temporary)
-                                                (values relative :inside))))
-                                        (lambda (&rest ignore) (declare (ignore ignore)) (return-from resolved path))))))))
+                   (%resolve-hash-path
+                    entry targets paths area
+                    (lambda (path)
+                      (%resolve-unmatched-hash-path host workspace-root path temporary-root))))
                  (hash-view (view entry-area)
                    ;; An entry in the other area than the write's is read from
                    ;; that area's store on disk (the mktemp area is never staged
