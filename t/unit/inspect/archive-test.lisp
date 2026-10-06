@@ -68,6 +68,31 @@
       (expect (mapcar #'aitools.edit.domain:extract-step-path steps)
               :to-equal (list listed-name))))
 
+  (it "keeps malformed gzip header failures at the list and extract boundaries"
+    (let ((gzip (%as-octets #(31 139 8 8 0 0 0 0 0 255 120))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'archive-list-flow
+                    (make-test-ports :files `(("/work/broken.gz" . ,gzip)))
+                    "broken.gz")
+        (expect kind :to-be :error)
+        (expect (error-code fields) :to-equal "input.unsupported-format")
+        (expect (getf fields :message)
+                :to-equal "broken.gz cannot be read as an archive: unterminated gzip header string"))
+      (let ((failure
+              (handler-case
+                  (progn
+                    (aitools.edit.domain:plan-archive-extraction
+                     gzip :gz "" :archive-path "broken.gz"
+                     :max-bytes 100 :max-entries 1
+                     :lookup-kind (lambda (path) (declare (ignore path)) :absent))
+                    :no-error)
+                (aitools.text.domain:archive-unsupported (condition)
+                  (list "input.unsupported-format" (princ-to-string condition)))
+                (aitools.text.domain:archive-error (condition)
+                  (list "input.syntax-error" (princ-to-string condition))))))
+        (expect (first failure) :to-equal "input.syntax-error")
+        (expect (second failure) :to-equal "malformed archive data: unterminated gzip header string"))))
+
   (it "stops at --limit as partial"
     (multiple-value-bind (kind fields) (run-archive #'archive-list-flow "a.zip" :limit 2)
       (expect kind :to-be :partial)

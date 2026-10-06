@@ -76,7 +76,7 @@ absent), input.unsupported-format (device or other special entries)."
                        (aitools.text.domain:archive-limit-exceeded ()
                          (refuse "refusal.too-large" "the extracted size exceeds --max-bytes ~D" max-bytes))))))
       (if (eq format :gz)
-          (let* ((name (aitools.text.domain:gzip-member-name octets (or archive-path "")))
+          (let* ((name (ignore-errors (aitools.text.domain:gzip-member-name octets (or archive-path ""))))
                  (data (handler-case (aitools.text.domain:gzip-decompress octets :max-output max-bytes)
                          (aitools.text.domain:archive-limit-exceeded ()
                            (refuse "refusal.too-large" "the extracted size exceeds --max-bytes ~D" max-bytes))))
