@@ -77,9 +77,8 @@
    :on-options (lambda (options)
                  ;; The snapshot record stores the language name; the workspace
                  ;; scan turns it into a predicate when it is replayed.
-                 (let ((options (copy-list options)))
-                   (setf (getf options :lang) lang)
-                   (funcall on-options options)))))
+                 (setf (getf options :lang) lang)
+                 (funcall on-options options))))
 
 (defun %scan-files (context options &key hash)
   "(VALUES snapshot-files ignore-source) for the workspace under OPTIONS,

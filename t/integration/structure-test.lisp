@@ -55,6 +55,14 @@
     ((:domain) "SB-UNICODE" "NORMALIZE-STRING"
      "pure Unicode normalization")))
 
+(defparameter *context-symbol-allowances*
+  ;; (context layers package symbol reason): a pure shared helper used by
+  ;; only the named feature adapters.
+  '(("edit" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
+     "pure Unix-time conversion for the edit adapter")
+    ("search" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
+     "pure Unix-time conversion for the search adapter")))
+
 (defun allowed-package-names (context layer core-or-feature)
   "The packages a file at CONTEXT/LAYER may depend on, per the layer table in
 docs/src/reference/architecture.md. CORE-OR-FEATURE is :CORE or :FEATURE, the file's own placement
@@ -78,8 +86,6 @@ is in neither context list)."
                         (if (eq core-or-feature :core) *core-contexts* *all-contexts*))))
        (:infrastructure
         (append (list (context-package-name context :domain) (context-package-name context :application))
-                ;; Pure shared time conversion is safe for feature adapters.
-                (list "AITOOLS.KERNEL.DOMAIN")
                 *effectful-host-packages*
                 ;; Documented deviation: the envelope writer serializes with
                 ;; json-kit (packages/core/protocol/src/infrastructure/json-writer.lisp).
@@ -88,12 +94,19 @@ is in neither context list)."
         (list (context-package-name context :application)
               "AITOOLS.PROTOCOL.DOMAIN" "AITOOLS.PROTOCOL.APPLICATION" "CL-CLI"))))))
 
-(defun symbol-allowed-p (layer package symbol)
-  (find-if (lambda (entry)
-             (destructuring-bind (layers entry-package entry-symbol reason) entry
-               (declare (ignore reason))
-               (and (member layer layers) (string= package entry-package) (string= symbol entry-symbol))))
-           *symbol-allowances*))
+(defun symbol-allowed-p (context layer package symbol)
+  (or (find-if (lambda (entry)
+                 (destructuring-bind (layers entry-package entry-symbol reason) entry
+                   (declare (ignore reason))
+                   (and (member layer layers) (string= package entry-package)
+                        (string= symbol entry-symbol))))
+               *symbol-allowances*)
+      (find-if (lambda (entry)
+                 (destructuring-bind (entry-context layers entry-package entry-symbol reason) entry
+                   (declare (ignore reason))
+                   (and (string= context entry-context) (member layer layers)
+                        (string= package entry-package) (string= symbol entry-symbol))))
+               *context-symbol-allowances*)))
 
 (defun %aitools-context (package-name)
   "The context segment of an AITOOLS.<CONTEXT>.<LAYER> package name, or NIL."
@@ -241,7 +254,7 @@ the keyword :CORE or :FEATURE."
                (push (format nil "~A:~D: ~?" relative line control arguments) violations))
              (allowed-p (package symbol)
                (or (member package allowed :test #'string=)
-                   (and symbol (symbol-allowed-p layer package symbol)))))
+                   (and symbol (symbol-allowed-p context layer package symbol)))))
       (dolist (start (%form-positions stripped "defpackage"))
         (let ((form (%read-form-at text start)) (line (%line-at text start)))
           (if (eq form :unreadable)

@@ -3,7 +3,6 @@
 
 (defun call-with-scan-options/k (host &key path-absolute current-time language-predicate language-names
                                            glob lang no-ignore skip-larger-than newer overlay
-                                           (default-skip-larger-than +default-skip-larger-than+)
                                            on-options on-error)
   "Parse common scan options and call ON-OPTIONS with workspace scan keywords.
 ON-ERROR receives an error kind and the offending value; unknown-language also
@@ -14,7 +13,7 @@ the same normalization works for each feature context."
            (return-from call-with-scan-options/k
              (funcall on-error kind value names))))
     (let ((predicate (and lang (funcall language-predicate lang)))
-          (limit default-skip-larger-than)
+          (limit +default-skip-larger-than+)
           (threshold nil))
       (when skip-larger-than
         (setf limit

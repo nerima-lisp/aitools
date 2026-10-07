@@ -58,7 +58,6 @@
    #:invalid-duration-error
    #:invalid-duration-error-text
    ;; time.lisp
-   #:+unix-epoch-universal-time+
    #:universal-time-to-unix-seconds
    #:unix-seconds-to-universal-time
    ;; size.lisp

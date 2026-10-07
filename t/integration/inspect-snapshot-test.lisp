@@ -22,8 +22,11 @@
 (defun %set-mtime (path seconds)
   (sb-posix:utimes path seconds seconds))
 
-(defun %real-ports (state)
-  (make-inspect-ports :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+(defun %real-ports (state &key current-directory)
+  (make-inspect-ports :workspace-host (if current-directory
+                                         (aitools.workspace.infrastructure:make-host-workspace-host
+                                          :current-directory current-directory)
+                                         (aitools.workspace.infrastructure:make-host-workspace-host))
                       :text-source (aitools.text.infrastructure:make-host-text-source)
                       :open-store (lambda (root) (aitools.store.infrastructure:make-posix-store root))
                       :state-directory-function (lambda () state)))
@@ -140,6 +143,28 @@ ports writing snapshots there; remove both after."
            (expect (mapcar #'aitools.inspect.domain:snapshot-file-path
                            (aitools.inspect.domain:snapshot-files snapshot))
                    :to-equal '("new.txt")))))))
+
+  (it "resolves a relative duration-shaped --newer path from the workspace"
+    (%call-with-snapshot-workspace
+     (lambda (root state unused-ports)
+       (declare (ignore unused-ports))
+       (%write-text (format nil "~A/7d" root) "ref")
+       (%write-text (format nil "~A/new.txt" root) "new")
+       (%set-mtime (format nil "~A/7d" root) 1000)
+       (%set-mtime (format nil "~A/new.txt" root) 1500)
+       (let ((ports (%real-ports state :current-directory (lambda () root))))
+         (multiple-value-bind (kind fields)
+             (run-flow #'snapshot-create-flow ports :root root :newer "7d")
+           (expect kind :to-be :ok)
+           (let ((snapshot nil)
+                 (id (field fields "snapshot_id")))
+             (aitools.inspect.domain:decode-snapshot/k
+              (uiop:read-file-string (format nil "~A/snapshots/~A.json" state id)) id
+              :on-snapshot (lambda (value) (setf snapshot value))
+              :on-invalid (lambda () (fail "snapshot record did not decode")))
+             (expect (mapcar #'aitools.inspect.domain:snapshot-file-path
+                             (aitools.inspect.domain:snapshot-files snapshot))
+                     :to-equal '("new.txt"))))))))
 
 (describe "snapshot diff records"
   (it "offers existing snapshots for an unknown id, ignoring other files in the directory"
