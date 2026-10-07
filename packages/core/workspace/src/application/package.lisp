@@ -77,5 +77,7 @@
    #:scan-entry-mode
    #:scan-entry-tracked-p
    #:+default-skip-larger-than+
+   #:call-with-scan-options/k
+   #:scan-filter-reason
    #:call-with-workspace-scan/k
    #:workspace-path-ignored-p))

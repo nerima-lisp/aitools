@@ -317,7 +317,8 @@ is recomputed."
     (expect (archive-entry-mtime (first (read-zip-entries
                                          (write-zip (list (make-archive-member :name "late" :data (string-bytes "x")
                                                                                :mtime 5000000000))))))
-            :to-be (- (encode-universal-time 58 59 23 31 12 2107 0) 2208988800)))
+            :to-be (aitools.kernel.domain:universal-time-to-unix-seconds
+                    (encode-universal-time 58 59 23 31 12 2107 0))))
 
   (it "refuses more entries than a non-ZIP64 directory counts"
     (expect (archive-reason (lambda ()

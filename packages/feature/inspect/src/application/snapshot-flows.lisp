@@ -7,8 +7,6 @@
 ;;;; the store's file primitives with a temp file and a rename.
 (in-package #:aitools.inspect.application)
 
-(defconstant +unix-epoch-universal-time+ (encode-universal-time 0 0 0 1 1 1970 0))
-
 (defun %store-io (store primitive)
   (funcall primitive (store-io-port store)))
 
@@ -47,45 +45,40 @@
           #'string<)))
 
 (defun %now-unix (context)
-  (- (funcall (%store-io (context-store context) #'store-io-now)) +unix-epoch-universal-time+))
+  (aitools.kernel.domain:universal-time-to-unix-seconds
+   (funcall (%store-io (context-store context) #'store-io-now))))
 
 ;;; ------------------------------------------------------------ scan options
 
 (defun %scan-options/k (context &key glob lang no-ignore skip-larger-than newer on-options on-error)
-  "Validate the common scan options: ON-OPTIONS (plist for the scan and the
-record) or ON-ERROR. NEWER becomes Unix seconds: a duration counts back from
-now, anything else names a path whose mtime is the threshold."
+  "Validate the common scan options and call ON-OPTIONS, or ON-ERROR."
   (declare (type function on-options on-error))
-  (flet ((invalid (message)
-           (return-from %scan-options/k
-             (fail on-error "argument.invalid" message
-                   :repairs (list (repair "schema" "Show the scan options." "aitools schema snapshot create"))))))
-    (let ((skip (if skip-larger-than
-                    (handler-case (size-bytes (parse-size skip-larger-than))
-                      (error () (invalid (format nil "--skip-larger-than ~S is not a size" skip-larger-than))))
-                    +default-skip-larger-than+))
-          (threshold (and newer (%newer-threshold context newer))))
-      (when (and newer (null threshold))
-        (return-from %scan-options/k
-          (fail on-error "input.not-found"
-                (format nil "--newer ~A is neither a duration nor an existing path" newer)
-                :repairs (list (repair "use-duration" "Give a duration such as 1h."
-                                       "aitools snapshot create --newer 1h")))))
-      (when (and lang (null (language-path-predicate lang)))
-        (invalid (format nil "unknown --lang ~S" lang)))
-      (funcall on-options (list :glob glob :lang lang :no-ignore no-ignore :skip-larger-than skip :newer threshold)))))
-
-(defun %newer-threshold (context newer)
-  "Unix seconds for `--newer`, or NIL when NEWER is neither a duration nor
-an existing path."
-  (let ((milliseconds (handler-case (duration-milliseconds (parse-duration newer))
-                        (error () nil))))
-    (if milliseconds
-        (- (%now-unix context) (floor milliseconds 1000))
-        (let* ((host (context-host context))
-               (real (resolve-real-path host (context-absolute context newer)))
-               (entry (and real (host-stat host real))))
-          (and entry (workspace-entry-mtime entry))))))
+  (aitools.workspace.application:call-with-scan-options/k
+   (context-host context)
+   :path-absolute (lambda (path)
+                    (resolve-real-path (context-host context) (context-absolute context path)))
+   :current-time (lambda () (%now-unix context))
+   :language-predicate #'language-path-predicate
+   :language-names (aitools.text.domain:language-names)
+   :glob glob :lang lang :no-ignore no-ignore
+   :skip-larger-than skip-larger-than :newer newer
+   :on-error
+   (lambda (kind value names)
+     (fail on-error "argument.invalid"
+           (case kind
+             (:unknown-language (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value
+                                        names))
+             (:invalid-size (format nil "--skip-larger-than ~S is not a size" value))
+             (:invalid-newer (format nil "--newer ~A is neither a duration nor an existing path" value)))
+           :repairs (if (eq kind :invalid-newer)
+                        (list (repair "use-duration" "Give a duration such as 1h."
+                                      "aitools snapshot create --newer 1h"))
+                        (list (repair "schema" "Show the scan options." "aitools schema snapshot create")))))
+   :on-options (lambda (options)
+                 ;; The snapshot record stores the language name; the workspace
+                 ;; scan turns it into a predicate when it is replayed.
+                 (setf (getf options :lang) lang)
+                 (funcall on-options options))))
 
 (defun %scan-files (context options &key hash)
   "(VALUES snapshot-files ignore-source) for the workspace under OPTIONS,

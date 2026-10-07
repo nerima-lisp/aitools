@@ -720,7 +720,7 @@ Independent of the journal and of any tx; ignored files are left out unless --no
 | `files` | Files recorded. |
 | `ignore_source` | gitignore, builtin, or none. |
 
-Errors: `argument.invalid`, `input.not-found`, `environment.io`.
+Errors: `argument.invalid`, `environment.io`.
 
 ### `snapshot diff` {#snapshot-diff}
 
@@ -865,6 +865,7 @@ Replaces every non-overlapping match per line (whole file with --multiline). Tem
 | `dry_run` | With --dry-run: true; nothing was written. |
 | `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
 | `changes[].count` | Replacements made in that file. |
+| `skipped` | [{path,reason}] files left out by scan options. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
 

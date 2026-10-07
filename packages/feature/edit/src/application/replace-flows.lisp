@@ -14,7 +14,7 @@
                                      :on-regex on-regex
                                      :on-invalid (lambda (message) (funcall fail "input.syntax-error" message))))
 
-(defun %replace-plan (replacer multiline selector explicit)
+(defun %replace-plan (replacer multiline selector explicit skipped)
   "EXPLICIT: paths the user named as files, whose unreadable or non-text
 state is an error; scanned files in that state are skipped."
   (lambda (context commit reject)
@@ -51,7 +51,10 @@ state is an error; scanned files in that state are skipped."
                :on-filtered (lambda () (return-from one))))))
         (check-expect-count/k context total reject
                               (lambda ()
-                                (funcall commit (nreverse requests) (list (cons :per-change per-change)))))))))
+                                (funcall commit (nreverse requests)
+                                         (append (list (cons :per-change per-change))
+                                                 (when skipped
+                                                   (list (cons "skipped" (nreverse skipped))))))))))))
 
 (defun %replacement-function/k (replacement regex literal fail on-function)
   "The regex replacement function for REPLACEMENT: verbatim when LITERAL,
@@ -126,7 +129,7 @@ else the parsed replacement template. `\\N` naming an existing group is refused
 (defun %replace-with-targets (env paths options fail on-plan replacer selector pattern replacement record-options)
   "PATHS are as the user typed them (relative to the working directory);
 during `tx rebase` (no ENV) they are the recorded workspace-relative paths."
-  (flet ((plan (files explicit)
+  (flet ((plan (files explicit skipped)
            (funcall on-plan
                     (make-write-plan
                      :command "replace"
@@ -136,14 +139,14 @@ during `tx rebase` (no ENV) they are the recorded workspace-relative paths."
                      :expect-hashes (getf options :expect-hash)
                      :expect-count (getf options :expect-count)
                      :replayable (and (content-selector-p selector) (null (getf options :expect-hash)))
-                     :plan (%replace-plan replacer (getf options :multiline) selector explicit)
+                     :plan (%replace-plan replacer (getf options :multiline) selector explicit skipped)
                      :record-options record-options
                      :record-positionals (if (or (getf options :stdin) (getf options :stdin-data)
                                                  (getf record-options :stdin-data))
                                              (lambda (resolved) resolved)
                                              (lambda (resolved) (list* pattern replacement resolved)))))))
     (if (null env)
-        (plan paths paths)
+        (plan paths paths nil)
         (let* ((host (command-env-host env))
                (absolute (mapcar (lambda (path) (aitools.workspace.application:user-path-absolute host path)) paths))
                ;; Workspace-relative where inside (the form the plan's context
@@ -160,10 +163,17 @@ during `tx rebase` (no ENV) they are the recorded workspace-relative paths."
                                when (and entry (eq (aitools.workspace.application:workspace-entry-kind entry) :file))
                                  collect path-relative)))
           (if (and paths (= (length explicit) (length paths)))
-              (plan relative explicit)
-              (scan-files/k env absolute options fail
-                            (lambda (entries)
-                              (let ((files (mapcar #'aitools.workspace.application:scan-entry-path entries)))
-                                (if (null files)
-                                    (funcall fail "selection.no-match" "no files to search" :path (first paths))
-                                    (plan files (intersection files explicit :test #'equal)))))))))))
+              (plan relative explicit nil)
+              (let ((skipped '()))
+                (scan-files/k env absolute options fail
+                              (lambda (entries)
+                                (let ((files (mapcar #'aitools.workspace.application:scan-entry-path entries)))
+                                  (if (null files)
+                                      (funcall fail "selection.no-match" "no files to search" :path (first paths))
+                                      (plan files (intersection files explicit :test #'equal) skipped))))
+                              :on-skip (lambda (entry reason)
+                                         (when (eq reason :too-large)
+                                           (push (aitools.protocol.domain:json-object-from-alist
+                                                  (list (cons "path" (aitools.workspace.application:scan-entry-path entry))
+                                                        (cons "reason" "too-large")))
+                                                 skipped))))))))))
