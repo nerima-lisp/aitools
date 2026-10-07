@@ -21,40 +21,34 @@
 (defun format-json-pointer (tokens)
   (aitools.kernel.domain:format-json-pointer tokens))
 
+(defparameter *json-value-model*
+  (aitools.kernel.domain:make-json-value-model
+   :object-p #'json-object-value-p
+   :object-members #'json-object-pairs
+   :object-from-members #'json-object-from-pairs
+   :array-p #'json-array-value-p
+   :array-elements #'identity
+   :array-from-elements (lambda (elements) (coerce elements 'simple-vector))
+   :null-p #'json-null-value-p
+   :classify #'%classify-json))
+
 (defun json-child (value token)
   "(VALUES child present-p) of VALUE under one reference TOKEN."
-  (cond ((json-object-value-p value) (json-object-get value token))
-        ((json-array-value-p value)
-         (let ((index (aitools.kernel.domain:json-pointer-array-index token (length value))))
-           (if index (values (aref value index) t) (values nil nil))))
-        (t (values nil nil))))
+  (aitools.kernel.domain:json-model-child *json-value-model* value token))
 
 (defun resolve-json-pointer/k (document tokens &key on-found on-missing)
   "Walk TOKENS from DOCUMENT and call ON-FOUND (value) or ON-MISSING
-(parent-tokens parent token), PARENT being the deepest value that exists."
-  (declare (type function on-found on-missing))
-  (let ((value document))
-    (loop for (token . rest) on tokens
-          for depth from 0
-          do (multiple-value-bind (child present) (json-child value token)
-               (unless present
-                 (return-from resolve-json-pointer/k
-                   (funcall on-missing (subseq tokens 0 depth) value token)))
-               (setf value child)))
-    (funcall on-found value)))
+  (parent-tokens parent token), PARENT being the deepest value that exists."
+  (aitools.kernel.domain:json-model-resolve/k
+   *json-value-model* document tokens :on-found on-found :on-missing on-missing))
 
 (defun json-child-names (value)
   "The keys of an object, or the indexes (as strings) of an array."
-  (cond ((json-object-value-p value) (mapcar #'car (json-object-pairs value)))
-        ((json-array-value-p value) (loop for index below (length value) collect (princ-to-string index)))
-        (t '())))
+  (aitools.kernel.domain:json-model-child-names *json-value-model* value))
 
 (defun json-value-length (value)
   "Elements of an array, keys of an object, characters of a string, else NIL."
-  (cond ((json-object-value-p value) (length (json-object-pairs value)))
-        ((json-array-value-p value) (length value))
-        ((stringp value) (length value))
-        (t nil)))
+  (aitools.kernel.domain:json-model-value-length *json-value-model* value))
 
 ;;; ------------------------------------------------------------ comparison
 
@@ -154,26 +148,4 @@ booleans (false first), numbers, strings, and containers last."
   "RFC 6902 style changes turning A into B, as a list of (op tokens old new)
 with OP :ADD, :REMOVE, or :REPLACE, in document order. Object key order
 and number spelling (1 vs 1.0) are not differences."
-  (cond
-    ((and (json-object-value-p a) (json-object-value-p b))
-     (let ((keys-a (mapcar #'car (json-object-pairs a)))
-           (keys-b (mapcar #'car (json-object-pairs b))))
-       (append
-        (loop for key in keys-a
-              for (value-b present) = (multiple-value-list (json-object-get b key))
-              append (if present
-                         (json-diff-ops (json-object-get a key) value-b (append path (list key)))
-                         (list (list :remove (append path (list key)) (json-object-get a key) nil))))
-        (loop for key in keys-b
-              unless (member key keys-a :test #'string=)
-                collect (list :add (append path (list key)) nil (json-object-get b key))))))
-    ((and (json-array-value-p a) (json-array-value-p b))
-     (append
-      (loop for index below (min (length a) (length b))
-            append (json-diff-ops (aref a index) (aref b index) (append path (list (princ-to-string index)))))
-      (loop for index from (1- (length a)) downto (length b)
-            collect (list :remove (append path (list (princ-to-string index))) (aref a index) nil))
-      (loop for index from (length a) below (length b)
-            collect (list :add (append path (list (princ-to-string index))) nil (aref b index)))))
-    ((json-equal a b) '())
-    (t (list (list :replace path a b)))))
+  (aitools.kernel.domain:json-model-diff-ops *json-value-model* a b path))

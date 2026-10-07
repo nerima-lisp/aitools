@@ -106,108 +106,6 @@ its :INVALID becomes the edit refusal."
 (defun format-json-pointer (tokens)
   (aitools.kernel.domain:format-json-pointer tokens))
 
-(defun %array-index (token length &key allow-end)
-  "TOKEN as an index into an array of LENGTH, or NIL (kernel's shared rule)."
-  (aitools.kernel.domain:json-pointer-array-index token length :allow-end allow-end))
-
-(defun %not-found (tokens)
-  (refuse "input.not-found" "no value at JSON pointer ~S" (format-json-pointer tokens)))
-
-(defun json-pointer-get (value tokens)
-  (let ((current value))
-    (loop for (token . rest) on tokens
-          for seen = (list token) then (append seen (list token))
-          do (setf current
-                   (cond
-                     ((json-obj-p current)
-                      (let ((member (assoc token (json-obj-members current) :test #'string=)))
-                        (if member (cdr member) (%not-found seen))))
-                     ((and (vectorp current) (not (stringp current)))
-                      (let ((index (%array-index token (length current))))
-                        (if index (aref current index) (%not-found seen))))
-                     (t (%not-found seen)))))
-    current))
-
-(defun %update-at (value tokens function)
-  "VALUE with the container addressed by (BUTLAST TOKENS) replaced by
-(FUNCTION container last-token). Missing parents are INPUT.NOT-FOUND."
-  (if (null (rest tokens))
-      (funcall function value (first tokens))
-      (let ((token (first tokens)))
-        (cond
-          ((json-obj-p value)
-           (let ((member (assoc token (json-obj-members value) :test #'string=)))
-             (unless member (%not-found (list token)))
-             (make-json-obj (mapcar (lambda (pair)
-                                      (if (eq pair member)
-                                          (cons (car pair) (%update-at (cdr pair) (rest tokens) function))
-                                          pair))
-                                    (json-obj-members value)))))
-          ((and (vectorp value) (not (stringp value)))
-           (let ((index (%array-index token (length value))))
-             (unless index (%not-found (list token)))
-             (let ((copy (copy-seq value)))
-               (setf (aref copy index) (%update-at (aref value index) (rest tokens) function))
-               copy)))
-          (t (%not-found (list token)))))))
-
-(defun %object-put (object key new)
-  (if (assoc key (json-obj-members object) :test #'string=)
-      (make-json-obj (mapcar (lambda (pair) (if (string= (car pair) key) (cons key new) pair))
-                             (json-obj-members object)))
-      (make-json-obj (append (json-obj-members object) (list (cons key new))))))
-
-(defun json-add (value tokens new &key (array-mode :insert))
-  "VALUE with NEW placed at TOKENS: an object member is added or replaced;
-an array element is inserted (RFC 6902 `add`) or, with ARRAY-MODE :REPLACE,
-replaced unless the token is `-` (`json set`). The root pointer replaces
-the whole value."
-  (if (null tokens)
-      new
-      (%update-at value tokens
-                  (lambda (container token)
-                    (cond
-                      ((json-obj-p container) (%object-put container token new))
-                      ((and (vectorp container) (not (stringp container)))
-                       (let ((index (%array-index token (length container) :allow-end t)))
-                         (cond
-                           ((null index) (%not-found (list token)))
-                           ((and (eq array-mode :replace) (< index (length container)) (string/= token "-"))
-                            (let ((copy (copy-seq container))) (setf (aref copy index) new) copy))
-                           (t (concatenate 'simple-vector (subseq container 0 index) (vector new)
-                                           (subseq container index))))))
-                      (t (%not-found (list token))))))))
-
-(defun json-remove (value tokens)
-  (when (null tokens)
-    (refuse "argument.invalid" "the root value cannot be removed"))
-  (%update-at value tokens
-              (lambda (container token)
-                (cond
-                  ((json-obj-p container)
-                   (unless (assoc token (json-obj-members container) :test #'string=)
-                     (%not-found (list token)))
-                   (make-json-obj (remove token (json-obj-members container) :key #'car :test #'string=)))
-                  ((and (vectorp container) (not (stringp container)))
-                   (let ((index (%array-index token (length container))))
-                     (unless index (%not-found (list token)))
-                     (concatenate 'simple-vector (subseq container 0 index) (subseq container (1+ index)))))
-                  (t (%not-found (list token)))))))
-
-(defun json-replace (value tokens new)
-  (json-pointer-get value tokens)
-  (if (null tokens)
-      new
-      (%update-at value tokens
-                  (lambda (container token)
-                    (if (json-obj-p container)
-                        (%object-put container token new)
-                        (let ((copy (copy-seq container)))
-                          (setf (aref copy (%array-index token (length container))) new)
-                          copy))))))
-
-;;; ------------------------------------------------------------- equality
-
 (defun %classify-json (value)
   "Map an edit value-model VALUE to the (VALUES KIND PAYLOAD) that
 AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
@@ -221,78 +119,55 @@ AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
     ;; The value model's one value left: json-kit's +JSON-NULL+.
     (t :null)))
 
+(defparameter *json-value-model*
+  (aitools.kernel.domain:make-json-value-model
+   :object-p #'json-obj-p
+   :object-members #'json-obj-members
+   :object-from-members #'make-json-obj
+   :array-p (lambda (value) (and (vectorp value) (not (stringp value))))
+   :array-elements #'identity
+   :array-from-elements (lambda (elements) (coerce elements 'simple-vector))
+   :null-p #'json-kit:json-null-p
+   :classify #'%classify-json))
+
+(defun %with-json-model-errors (function)
+  (handler-case (funcall function)
+    (aitools.kernel.domain:json-model-error (condition)
+      (refuse (aitools.kernel.domain:json-model-error-code condition)
+              "~A"
+              (aitools.kernel.domain:json-model-error-message condition)))))
+
+(defun json-pointer-get (value tokens)
+  (%with-json-model-errors
+   (lambda () (aitools.kernel.domain:json-model-pointer-get *json-value-model* value tokens))))
+
+(defun json-add (value tokens new &key (array-mode :insert))
+  (%with-json-model-errors
+   (lambda ()
+     (aitools.kernel.domain:json-model-add *json-value-model* value tokens new
+                                            :array-mode array-mode))))
+
+(defun json-remove (value tokens)
+  (%with-json-model-errors
+   (lambda () (aitools.kernel.domain:json-model-remove *json-value-model* value tokens))))
+
+(defun json-replace (value tokens new)
+  (%with-json-model-errors
+   (lambda () (aitools.kernel.domain:json-model-replace *json-value-model* value tokens new))))
+
 (defun json-equal (a b)
   "RFC 6902 `test` equality via the kernel's shared JSON-EQUAL: numbers
 by IEEE double value (RFC 8259), objects regardless of member order, arrays
 element-wise. The read side (`json get`/`diff`) uses the same rule."
-  (aitools.kernel.domain:json-equal a b #'%classify-json))
-
-;;; ------------------------------------------------------------- patches
+  (aitools.kernel.domain:json-model-equal *json-value-model* a b))
 
 (defun json-merge-patch (target patch)
-  "RFC 7386: members of an object PATCH are merged recursively, `null`
-removes; any other PATCH replaces TARGET. Existing members keep their
-position and new ones are appended in PATCH's order."
-  (if (not (json-obj-p patch))
-      patch
-      (let ((result (if (json-obj-p target) target (make-json-obj '()))))
-        (dolist (pair (json-obj-members patch) result)
-          (let ((key (car pair)) (value (cdr pair)))
-            (setf result
-                  (if (json-kit:json-null-p value)
-                      (make-json-obj (remove key (json-obj-members result) :key #'car :test #'string=))
-                      (let ((existing (assoc key (json-obj-members result) :test #'string=)))
-                        (%object-put result key (json-merge-patch (and existing (cdr existing)) value))))))))))
-
-(defun %op-field (operation name &key required)
-  (let ((member (assoc name (json-obj-members operation) :test #'string=)))
-    (when (and required (null member))
-      (refuse "argument.invalid" "JSON Patch operation lacks ~S" name))
-    (cdr member)))
-
-(defun %op-pointer (operation name)
-  (let ((text (%op-field operation name :required t)))
-    (unless (stringp text)
-      (refuse "argument.invalid" "JSON Patch member ~S must be a string" name))
-    (parse-json-pointer text)))
+  (%with-json-model-errors
+   (lambda () (aitools.kernel.domain:json-model-merge-patch *json-value-model* target patch))))
 
 (defun json-apply-patch (value operations)
-  "RFC 6902: apply OPERATIONS (a JSON array of operation objects) in order.
-A failing `test` signals JSON-EDIT-ERROR selection.no-match; a missing path
-input.not-found; a malformed operation argument.invalid."
-  (unless (and (vectorp operations) (not (stringp operations)))
-    (refuse "argument.invalid" "a JSON Patch document must be an array"))
-  (loop for operation across operations
-        for index from 0
-        do (unless (json-obj-p operation)
-             (refuse "argument.invalid" "JSON Patch operation ~D is not an object" index))
-           (let ((op (%op-field operation "op" :required t)))
-             (setf value
-                   (cond
-                     ((equal op "add")
-                      (json-add value (%op-pointer operation "path") (%op-field operation "value" :required t)))
-                     ((equal op "remove") (json-remove value (%op-pointer operation "path")))
-                     ((equal op "replace")
-                      (json-replace value (%op-pointer operation "path") (%op-field operation "value" :required t)))
-                     ((equal op "move")
-                      (let ((from (%op-pointer operation "from")) (path (%op-pointer operation "path")))
-                        (cond
-                          ((equal from path) value)
-                          ((and (< (length from) (length path)) (equal from (subseq path 0 (length from))))
-                           (refuse "argument.invalid" "JSON Patch cannot move a value into itself"))
-                          (t (let ((moved (json-pointer-get value from)))
-                               (json-add (json-remove value from) path moved))))))
-                     ((equal op "copy")
-                      (json-add value (%op-pointer operation "path")
-                                (json-pointer-get value (%op-pointer operation "from"))))
-                     ((equal op "test")
-                      (let ((path (%op-pointer operation "path")))
-                        (unless (json-equal (json-pointer-get value path) (%op-field operation "value" :required t))
-                          (refuse "selection.no-match" "JSON Patch test failed at ~S (operation ~D)"
-                                      (format-json-pointer path) index))
-                        value))
-                     (t (refuse "argument.invalid" "unknown JSON Patch op ~S" op))))))
-  value)
+  (%with-json-model-errors
+   (lambda () (aitools.kernel.domain:json-model-apply-patch *json-value-model* value operations))))
 
 (defun parse-json-text/k (text &key on-value on-invalid)
   "TEXT parsed (see PARSE-JSON-TEXT): ON-VALUE (value) or ON-INVALID
