@@ -46,6 +46,9 @@ report `input.syntax-error` through ON-ERROR when SOURCE does not compile."
 matching through ON-ERROR instead of letting it escape the flow."
   (let ((condition (gensym "CONDITION")))
     `(handler-case (progn ,@body)
+       (process-target-changed (,condition)
+         (funcall ,on-error "refusal.target-changed" (process-port-error-message ,condition)
+                  :repairs (list (%schema-repair ,command-name))))
        (process-port-error (,condition)
          (funcall ,on-error "environment.io" (process-port-error-message ,condition)
                   :repairs (list (%schema-repair ,command-name))))

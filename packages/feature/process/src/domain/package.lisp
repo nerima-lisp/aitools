@@ -101,4 +101,15 @@
    #:wait-condition-duration-ms
    #:make-wait-condition
    #:wait-condition-arguments
-   #:first-matching-line))
+   #:first-matching-line
+   #:process-identity
+   #:make-process-identity
+   #:process-identity-pid
+   #:process-identity-ppid
+   #:process-identity-pgid
+   #:process-identity-uid
+   #:process-identity-ruid
+   #:process-identity-start
+   #:process-identity-command-line
+   #:same-process-p
+   #:signal-number))

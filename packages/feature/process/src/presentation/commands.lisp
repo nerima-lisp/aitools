@@ -137,6 +137,33 @@ continuations, returning the resulting COMMAND-RESULT."
                          (positional-value invocation :id)
                          :grace (option-value invocation :grace)))))
 
+(defun %signal-command (ports)
+  (make-command
+   :name "signal" :description (%summary "signal")
+   :options (list (make-option :name "pid" :kind :value :type :integer :min 0
+                               :description "Target PID; requires an identity guard.")
+                  (make-option :name "pattern" :kind :value :value-name "RE"
+                               :description "Regex over the command line; requires --expect-count.")
+                  (make-option :name "expect-command" :kind :value :value-name "TEXT"
+                               :description "Required substring of a PID target's command line.")
+                  (make-option :name "expect-start" :kind :value :value-name "START"
+                               :description "Exact start identity from the host process table.")
+                  (make-option :name "expect-count" :kind :value :type :integer :min 0
+                               :description "Required number of pattern matches.")
+                  (make-option :name "signal" :kind :value :value-name "NAME" :default "TERM"
+                               :description "Signal name (TERM, KILL, HUP, INT, USR1, USR2, QUIT).")
+                  (make-option :name "grace" :kind :value :value-name "DURATION"
+                               :description "With TERM, send KILL if still running after this duration."))
+   :handler (lambda (invocation)
+              (%run-flow #'aitools.process.application:signal-command/k ports
+                         :pid (option-value invocation :pid)
+                         :pattern (option-value invocation :pattern)
+                         :expect-command (option-value invocation :expect-command)
+                         :expect-start (option-value invocation :expect-start)
+                         :expect-count (option-value invocation :expect-count)
+                         :signal (option-value invocation :signal)
+                         :grace (option-value invocation :grace)))))
+
 (defun register-process-commands (registry ports)
   "Register `run`, `wait`, and `bg start|logs|status|stop` on REGISTRY, each
 handler running against PORTS (an AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS)."
@@ -145,6 +172,7 @@ handler running against PORTS (an AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS)."
             registry :name name :group group :cli-command cli-command :schema (%schema name))))
     (add "run" nil (%run-command ports))
     (add "wait" nil (%wait-command ports))
+    (add "signal" nil (%signal-command ports))
     (add "bg.start" "bg" (%bg-start-command ports))
     (add "bg.logs" "bg" (%bg-logs-command ports))
     (add "bg.status" "bg" (%bg-status-command ports))

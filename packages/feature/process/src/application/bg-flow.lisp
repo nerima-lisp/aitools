@@ -247,16 +247,25 @@ following `--from` read continues without skipping or repeating a line."
 
 ;;; ------------------------------------------------------------- bg stop
 
-(defun %wait-for-group-exit (ports pid budget-ms)
-  "True once PID's group is gone, NIL if it outlives BUDGET-MS."
+(defun %wait-for-exit (ports alive-p budget-ms)
   (let ((start (funcall (process-ports-monotonic-ms ports))))
     (loop
-      (unless (funcall (process-ports-group-alive-p ports) pid)
+      (unless (funcall alive-p)
         (return t))
       (let ((elapsed (- (funcall (process-ports-monotonic-ms ports)) start)))
         (when (>= elapsed budget-ms)
           (return nil))
         (funcall (process-ports-sleep-ms ports) (min +stop-poll-ms+ (- budget-ms elapsed)))))))
+
+(defun %wait-for-group-exit (ports pid budget-ms)
+  (%wait-for-exit ports (lambda () (funcall (process-ports-group-alive-p ports) pid)) budget-ms))
+
+(defun %terminate-with-grace (ports alive-p send grace-ms)
+  "Return the last signal sent. SEND handles its own safety checks."
+  (funcall send +sigterm+)
+  (if (%wait-for-exit ports alive-p grace-ms)
+      +sigterm+
+      (progn (funcall send +sigkill+) +sigkill+)))
 
 (defun %send-stop-signal (ports directory record signal)
   "Record SIGNAL, then send it. Recording comes first because the
@@ -294,9 +303,11 @@ after GRACE. `stopped` is false when the process had already ended."
              (let ((pid (aitools.process.domain:bg-record-pid record)))
                (if (not (nth-value 0 (%bg-state ports directory record)))
                    (funcall on-ok (%stop-fields ports directory record nil))
-                   (let ((record (%send-stop-signal ports directory record +sigterm+)))
-                     (unless (%wait-for-group-exit ports pid grace-ms)
-                       (setf record (%send-stop-signal ports directory record +sigkill+)))
+                   (let ((record record))
+                     (%terminate-with-grace
+                      ports (lambda () (funcall (process-ports-group-alive-p ports) pid))
+                      (lambda (signal) (setf record (%send-stop-signal ports directory record signal)))
+                      grace-ms)
                      (if (%wait-for-group-exit ports pid +kill-wait-ms+)
                          (funcall on-ok (%stop-fields ports directory record t))
                          (funcall on-error "environment.io"

@@ -47,6 +47,20 @@
                      (:name "duration_ms" :description "The duration waited (--duration)."))
      :error-codes ("argument.invalid" "input.syntax-error" "input.not-found" "environment.timeout"
                    "environment.unavailable" "environment.io"))
+    (:name "signal"
+     :summary "Signal same-UID processes selected by PID or command-line pattern."
+     :description "PID targets require an expected command-line substring or start identity. Pattern targets require an exact expected count. All selected targets are checked before sending; identity and safety are rechecked immediately before each signal. A process can still change between check and kill(2)."
+     :args ((:name "--pid" :type "integer" :description "Target PID (at least 2).")
+            (:name "--pattern" :type "regex" :description "Match the full command line.")
+            (:name "--expect-command" :type "string" :description "Required command-line substring with --pid.")
+            (:name "--expect-start" :type "string" :description "Exact host start identity with --pid: seconds.microseconds on Darwin, start ticks on Linux.")
+            (:name "--expect-count" :type "integer" :description "Exact number of pattern matches.")
+            (:name "--signal" :type "string" :default "TERM" :description "TERM, KILL, HUP, INT, USR1, USR2, or QUIT.")
+            (:name "--grace" :type "duration" :description "With TERM, wait then send KILL if still alive."))
+     :output-fields ((:name "items" :description "[{pid,signal}] for processes signalled.")
+                     (:name "total" :description "Number of selected processes."))
+     :error-codes ("argument.invalid" "input.syntax-error" "selection.count-mismatch"
+                   "refusal.target-changed" "environment.io"))
     (:name "bg.start"
      :summary "Start a program detached from aitools, logging stdout and stderr to the workspace state directory."
      :description "The process gets its own session and keeps running after aitools exits. A small sh supervisor records its exit status; argv reaches it only as \"$@\" and is never parsed by a shell."

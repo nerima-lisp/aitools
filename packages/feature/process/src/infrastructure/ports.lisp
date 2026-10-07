@@ -44,6 +44,10 @@ workspace boundary check; without it that option reports `environment.unavailabl
    :remove-file #'%remove-file
    :group-alive-p #'%group-alive-p
    :signal-group #'%signal-group
+   :list-pids #'%host-list-pids
+   :process-info #'%safe-process-info
+   :safe-target-p #'%safe-target-p
+   :signal-process #'%signal-process
    :tcp-connectable-p #'%tcp-connectable-p
    :universal-time #'get-universal-time
    :monotonic-ms #'%monotonic-ms

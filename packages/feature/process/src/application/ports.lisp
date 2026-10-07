@@ -11,6 +11,8 @@
   (:report (lambda (condition stream)
              (write-string (process-port-error-message condition) stream))))
 
+(define-condition process-target-changed (process-port-error) ())
+
 (defun %missing-port (&rest arguments)
   (declare (ignore arguments))
   (error "process port not supplied"))
@@ -28,6 +30,10 @@
                                     (remove-file #'%missing-port)
                                     (group-alive-p #'%missing-port)
                                     (signal-group #'%missing-port)
+                                    (list-pids #'%missing-port)
+                                    (process-info #'%missing-port)
+                                    (safe-target-p #'%missing-port)
+                                    (signal-process #'%missing-port)
                                     (tcp-connectable-p #'%missing-port)
                                     (universal-time #'%missing-port)
                                     (monotonic-ms #'%missing-port)
@@ -64,12 +70,19 @@
   (replace-file nil :type function :read-only t)
   ;; (PATH): remove PATH if it exists.
   (remove-file nil :type function :read-only t)
-  ;; (PID) -> true while PID still leads the session and process group it
-  ;; was started as.
+  ;; (PID) -> true only for an integer PID >= 2 while its process group still
+  ;; has a member this user may signal; NIL for an invalid or gone PID.
   (group-alive-p nil :type function :read-only t)
-  ;; (PID SIGNAL) -> T when SIGNAL was delivered to PID's process group,
-  ;; NIL when the group no longer exists.
+  ;; (PID SIGNAL) -> T when an integer PID >= 2 had SIGNAL delivered to its
+  ;; process group; NIL for an invalid PID or when the group no longer exists.
   (signal-group nil :type function :read-only t)
+  ;; () -> PID list; (PID) -> PROCESS-IDENTITY or NIL; (IDENTITY SIGNAL)
+  ;; -> T on delivery, NIL when gone. The signal port independently checks
+  ;; identity, uid, ancestry, and process group immediately before kill(2).
+  (list-pids nil :type function :read-only t)
+  (process-info nil :type function :read-only t)
+  (safe-target-p nil :type function :read-only t)
+  (signal-process nil :type function :read-only t)
   ;; (PORT) -> true when a TCP connection to PORT on the loopback succeeds.
   (tcp-connectable-p nil :type function :read-only t)
   ;; () -> the current universal time.
