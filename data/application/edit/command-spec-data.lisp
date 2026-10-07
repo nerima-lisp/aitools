@@ -43,7 +43,8 @@
                (:key :nth :name "nth" :kind :value :description "Replace only the Nth match of each file.")
                (:key :literal-replacement :name "literal-replacement" :kind :flag :description "Insert REPLACEMENT verbatim, without template expansion."))
      :include (:selectors :scan :stdin :hash :count :write)
-     :output-fields ((:name "changes[].count" :description "Replacements made in that file.")))
+     :output-fields ((:name "changes[].count" :description "Replacements made in that file.")
+                     (:name "skipped" :description "[{path,reason}] files left out by scan options.")))
     (:name "apply"
      :summary "Apply a unified diff from --stdin to the workspace, all files or none."
      :positionals ()

@@ -55,7 +55,7 @@ when the tx does not exist (the write itself then reports it)."
                 (aitools.store.application:view-directory-entries view relative)))
       :read-octets (lambda (relative) (values t (aitools.store.application:view-read-file view relative)))))))
 
-(defun scan-files/k (env paths options fail on-files &key (kinds '(:file)))
+(defun scan-files/k (env paths options fail on-files &key (kinds '(:file)) on-skip)
   "Workspace-relative paths of the entries of KINDS below PATHS (the root
 when NIL), in path order, honouring the scan options; with --tx the scan
 sees the tx's staged files."
@@ -73,6 +73,8 @@ sees the tx's staged files."
                                       (when (member (aitools.workspace.application:scan-entry-kind entry) kinds)
                                         (push entry found))
                                       nil)
+                              :on-skip (lambda (entry reason)
+                                         (when on-skip (funcall on-skip entry reason)))
                               :on-complete (lambda (source stopped)
                                              (declare (ignore source stopped))
                                              (funcall on-files (nreverse found)))
