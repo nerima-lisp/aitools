@@ -148,6 +148,7 @@ is not guaranteed to have run by then."
 
 (defun %group-alive-p (pid)
   "True while process group PID still has a member this user may signal.
+PID must be an integer of at least 2; invalid PIDs are reported as not alive.
 The supervisor can exit after its target while a descendant remains in the
 supervisor's process group, so this probe must not require the supervisor PID
 itself to remain a session leader. A PID reused by an unrelated process after
@@ -157,24 +158,27 @@ only identity available after the supervisor exits. A failed getsid falls
 back to true: on Darwin a zombie leader still answers kill(pid, 0) while
 getsid answers ESRCH, so nil would report a group with surviving descendants
 as gone."
-  (%reap-launched-supervisor pid)
-  (let* ((group-alive (handler-case (progn (sb-posix:kill (- pid) 0) t)
-                        (sb-posix:syscall-error () nil)))
-         (leader-alive (handler-case (progn (sb-posix:kill pid 0) t)
-                         (sb-posix:syscall-error () nil)))
-         (alive (and group-alive
-                     (or (not leader-alive)
-                         (handler-case (= (sb-posix:getsid pid) pid)
-                           (sb-posix:syscall-error () t))))))
-    ;; Darwin already answers EPERM for a group whose last member is exiting
-    ;; or a zombie, so the supervisor may still be unreaped after a "gone"
-    ;; answer; reap it now if it is already waitable, else on a later probe.
-    (unless alive
-      (%reap-launched-supervisor pid))
-    alive))
+  (when (and (integerp pid) (>= pid 2))
+    (%reap-launched-supervisor pid)
+    (let* ((group-alive (handler-case (progn (sb-posix:kill (- pid) 0) t)
+                          (sb-posix:syscall-error () nil)))
+           (leader-alive (handler-case (progn (sb-posix:kill pid 0) t)
+                           (sb-posix:syscall-error () nil)))
+           (alive (and group-alive
+                       (or (not leader-alive)
+                           (handler-case (= (sb-posix:getsid pid) pid)
+                             (sb-posix:syscall-error () t))))))
+      ;; Darwin already answers EPERM for a group whose last member is exiting
+      ;; or a zombie, so the supervisor may still be unreaped after a "gone"
+      ;; answer; reap it now if it is already waitable, else on a later probe.
+      (unless alive
+        (%reap-launched-supervisor pid))
+      alive)))
 
 (defun %signal-group (pid signal)
-  (and (%group-alive-p pid)
+  (and (integerp pid)
+       (>= pid 2)
+       (%group-alive-p pid)
        (handler-case (progn (sb-posix:kill (- pid) signal) t)
          (sb-posix:syscall-error (condition)
            (if (= (sb-posix:syscall-errno condition) sb-posix:esrch)

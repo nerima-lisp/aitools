@@ -63,14 +63,21 @@
 #+darwin
 (defun %host-process-info (pid)
   (when (and (integerp pid) (>= pid 2))
-    (let ((bytes (%darwin-pid-bytes pid))
-          (argv (%darwin-argv pid)))
-      (when (and bytes argv (= pid (%le bytes 12 4)))
-        (aitools.process.domain:make-process-identity
-         :pid pid :ppid (%le bytes 16 4) :pgid (%le bytes 100 4)
-         :uid (%le bytes 20 4) :ruid (%le bytes 28 4)
-         :start (format nil "~D.~6,'0D" (%le bytes 120 8) (%le bytes 128 8))
-         :command-line argv)))))
+    (let ((bytes (%darwin-pid-bytes pid)))
+      (when (and bytes (= pid (%le bytes 12 4)))
+        (let ((uid (%le bytes 20 4))
+              (ruid (%le bytes 28 4)))
+          (aitools.process.domain:make-process-identity
+           :pid pid :ppid (%le bytes 16 4) :pgid (%le bytes 100 4)
+           :uid uid :ruid ruid
+           :start (format nil "~D.~6,'0D" (%le bytes 120 8) (%le bytes 128 8))
+           ;; Do not inspect another user's argv. An empty command line is a
+           ;; private sentinel for an identity that is not eligible to signal;
+           ;; NIL means this user's argv could not be read.
+           :command-line (if (and (= uid (sb-posix:getuid))
+                                  (= ruid (sb-posix:getuid)))
+                             (%darwin-argv pid)
+                             "")))))))
 
 #+darwin
 (defun %host-list-pids ()
@@ -121,9 +128,8 @@
   (when (and (integerp pid) (>= pid 2))
     (let* ((base (format nil "/proc/~D/" pid))
            (status (%linux-text (concatenate 'string base "status")))
-           (stat (%linux-text (concatenate 'string base "stat")))
-           (argv (%linux-argv (%linux-file-bytes (concatenate 'string base "cmdline")))))
-      (when (and status stat argv)
+           (stat (%linux-text (concatenate 'string base "stat"))))
+      (when (and status stat)
         (let* ((uid-line (find-if (lambda (line) (and (>= (length line) 4)
                                                    (string= line "Uid:" :end1 4)))
                                   (uiop:split-string status :separator '(#\Newline))))
@@ -136,24 +142,49 @@
             (let ((fields (remove "" (uiop:split-string (subseq stat (+ close 2))
                                                        :separator '(#\Space)) :test #'string=)))
               (when (>= (length fields) 20)
-                (aitools.process.domain:make-process-identity
-                 :pid pid :ppid (parse-integer (nth 1 fields))
-                 :pgid (parse-integer (nth 2 fields))
-                 :ruid (first uids) :uid (second uids)
-                 :start (parse-integer (nth 19 fields)) :command-line argv)))))))))
+                (let ((ruid (first uids))
+                      (uid (second uids)))
+                  (aitools.process.domain:make-process-identity
+                   :pid pid :ppid (parse-integer (nth 1 fields))
+                   :pgid (parse-integer (nth 2 fields))
+                   :ruid ruid :uid uid
+                   :start (parse-integer (nth 19 fields))
+                   ;; Do not inspect another user's argv. An empty command
+                   ;; line is a private sentinel for an ineligible identity;
+                   ;; NIL means this user's argv could not be read.
+                   :command-line (if (and (= uid (sb-posix:getuid))
+                                          (= ruid (sb-posix:getuid)))
+                                     (%linux-argv
+                                      (%linux-file-bytes (concatenate 'string base "cmdline")))
+                                     "")))))))))))
+
+#+linux
+(defun %linux-pid-name (name)
+  (and (stringp name)
+       (plusp (length name))
+       (every #'digit-char-p name)
+       (ignore-errors (parse-integer name))))
 
 #+linux
 (defun %host-list-pids ()
-  (let ((paths (handler-case
-                   (progn (sb-posix:closedir (sb-posix:opendir "/proc"))
-                          (directory #p"/proc/*/"))
-                 (error () nil))))
-    (unless paths
+  (let ((directory (handler-case (sb-posix:opendir "/proc")
+                     (error () nil)))
+        (paths nil)
+        (closed nil))
+    (unless directory
+      (error 'aitools.process.application:process-port-error
+             :message "process list unavailable"))
+    (unwind-protect
+         (setf paths (handler-case (directory #p"/proc/*/")
+                       (error () nil)))
+      (setf closed (handler-case (progn (sb-posix:closedir directory) t)
+                     (error () nil))))
+    (unless (and closed paths)
       (error 'aitools.process.application:process-port-error
              :message "process list unavailable"))
     (loop for path in paths
           for name = (first (last (pathname-directory path)))
-          for pid = (and (stringp name) (ignore-errors (parse-integer name)))
+          for pid = (%linux-pid-name name)
           when (and pid (>= pid 2)) collect pid)))
 
 (defun %safe-process-info (pid)
@@ -174,17 +205,19 @@
   (handler-case
       (let* ((pid (aitools.process.domain:process-identity-pid expected))
              (actual (and (integerp pid) (>= pid 2) (%safe-process-info pid))))
-    ;; This check narrows the interval between observation and kill(2), but
-    ;; cannot make the two syscalls atomic. A pidfd/process handle would be
-    ;; needed to close PID reuse races completely on supported kernels.
-    (and actual
-                 (aitools.process.domain:same-process-p expected actual)
-                 (= (aitools.process.domain:process-identity-uid actual) (sb-posix:getuid))
-                 (= (aitools.process.domain:process-identity-ruid actual) (sb-posix:getuid))
-                 (/= pid (sb-posix:getpid))
-                 (/= (aitools.process.domain:process-identity-pgid actual)
-                     (sb-posix:getpgid 0))
-                 (not (%ancestor-p pid))))
+        ;; This check narrows the interval between observation and kill(2), but
+        ;; cannot make the two syscalls atomic. A pidfd/process handle would be
+        ;; needed to close PID reuse races completely on supported kernels.
+        (and actual
+             (stringp (aitools.process.domain:process-identity-command-line expected))
+             (stringp (aitools.process.domain:process-identity-command-line actual))
+             (aitools.process.domain:same-process-p expected actual)
+             (= (aitools.process.domain:process-identity-uid actual) (sb-posix:getuid))
+             (= (aitools.process.domain:process-identity-ruid actual) (sb-posix:getuid))
+             (/= pid (sb-posix:getpid))
+             (/= (aitools.process.domain:process-identity-pgid actual)
+                 (sb-posix:getpgid 0))
+             (not (%ancestor-p pid))))
     (sb-posix:syscall-error () nil)))
 
 (defun %signal-process (expected signal)

@@ -1,6 +1,7 @@
 (in-package #:aitools.process.test)
 
-(defun signal-fixture (&key (count 2) ignore-term unsafe missing-info change-on-send disappear-on-send)
+(defun signal-fixture (&key (count 2) ignore-term unsafe missing-info nil-command-line
+                         change-on-send disappear-on-send)
   (let ((table (make-hash-table))
         (sent '())
         (clock 0))
@@ -8,13 +9,16 @@
           do (setf (gethash pid table)
                    (aitools.process.domain:make-process-identity
                     :pid pid :ppid 100 :pgid pid :uid 501 :ruid 501
-                    :start pid :command-line (format nil "sleep fixture-~D" pid))))
+                    :start pid
+                    :command-line (unless (eql pid nil-command-line)
+                                    (format nil "sleep fixture-~D" pid)))))
     (values
      (aitools.process.application:make-process-ports
       :list-pids (lambda () (loop for pid being the hash-keys of table collect pid))
       :process-info (lambda (pid) (unless (eql pid missing-info) (gethash pid table)))
       :safe-target-p (lambda (target)
-                       (and (not (eql (aitools.process.domain:process-identity-pid target) unsafe))
+                       (and (stringp (aitools.process.domain:process-identity-command-line target))
+                            (not (eql (aitools.process.domain:process-identity-pid target) unsafe))
                             (aitools.process.domain:same-process-p
                              target (gethash (aitools.process.domain:process-identity-pid target) table))))
       :signal-process (lambda (target number)
@@ -43,18 +47,39 @@
 (defun signal-flow (ports &rest args)
   (apply #'run-flow #'aitools.process.application:signal-command/k ports args))
 
+(defun call-with-fake-signal-process-info (target function)
+  (let* ((name 'aitools.process.infrastructure::%safe-process-info)
+         (original (symbol-function name))
+         (parent (sb-posix:getppid)))
+    (unwind-protect
+         (progn
+           (setf (symbol-function name)
+                 (lambda (pid)
+                   (cond ((= pid (aitools.process.domain:process-identity-pid target)) target)
+                         ((= pid parent)
+                          (aitools.process.domain:make-process-identity
+                           :pid parent :ppid 1 :pgid 0 :uid 0 :ruid 0
+                           :start 0 :command-line "parent")))))
+           (funcall function))
+      (setf (symbol-function name) original))))
+
+(defun call-signal-port (target)
+  (let ((ports (aitools.process.infrastructure:make-production-process-ports)))
+    (funcall (aitools.process.application::process-ports-signal-process ports)
+             target 15)))
+
 (describe "aitools signal flow guards"
   (it "refuses PID without a guard and unsafe PID before sending"
     (multiple-value-bind (ports sent) (signal-fixture)
-      (dolist (args '((:pid 2101) (:pid 0 :expect-command "sleep")
-                      (:pid 1 :expect-command "sleep")
-                      (:pid 2101 :expect-command "wrong")
-                      (:pid 2101 :expect-start "wrong")))
-        (multiple-value-bind (kind fields) (apply #'signal-flow ports args)
-          (expect kind :to-be :error)
-          (expect (and (member (field fields :code)
-                               '("argument.invalid" "refusal.target-changed") :test #'string=) t)
-                  :to-be t)))
+      (dolist (case '(((:pid 2101) "argument.invalid")
+                      ((:pid 0 :expect-command "sleep") "refusal.target-changed")
+                      ((:pid 1 :expect-command "sleep") "refusal.target-changed")
+                      ((:pid 2101 :expect-command "wrong") "refusal.target-changed")
+                      ((:pid 2101 :expect-start "wrong") "refusal.target-changed")))
+        (destructuring-bind (args expected-code) case
+          (multiple-value-bind (kind fields) (apply #'signal-flow ports args)
+            (expect kind :to-be :error)
+            (expect (field fields :code) :to-equal expected-code))))
       (expect (funcall sent) :to-equal '())))
 
   (it "accepts a zero-count pattern without sending"
@@ -81,26 +106,84 @@
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal '())))
 
-  (it "checks pattern count and all target safety before the first send"
-    (multiple-value-bind (ports sent) (signal-fixture :unsafe 2102)
+  (it "rejects a PID below 2 in the signal port before inspecting it"
+    (let ((inspected nil)
+          (name 'aitools.process.infrastructure::%safe-process-info))
+      (let ((original (symbol-function name)))
+        (unwind-protect
+             (progn
+               (setf (symbol-function name)
+                     (lambda (pid)
+                       (declare (ignore pid))
+                       (setf inspected t)
+                       nil))
+               (signals aitools.process.application::process-target-changed
+                 (call-signal-port
+                  (aitools.process.domain:make-process-identity
+                   :pid 1 :ppid 100 :pgid 100 :uid 501 :ruid 501
+                   :start 1 :command-line "sleep fixture-1")))
+               (expect inspected :to-be nil))
+          (setf (symbol-function name) original)))))
+
+  (it "rejects a signal target with a different UID"
+    (let* ((uid (logxor (sb-posix:getuid) 1))
+           (target (aitools.process.domain:make-process-identity
+                    :pid 2101 :ppid (sb-posix:getppid)
+                    :pgid (1+ (sb-posix:getpgid 0))
+                    :uid uid :ruid uid :start 2101
+                    :command-line "sleep fixture-2101")))
+      (call-with-fake-signal-process-info
+       target
+       (lambda ()
+         (signals aitools.process.application::process-target-changed
+           (call-signal-port target))))))
+
+  (it "rejects a signal target in the caller's process group"
+    (let* ((uid (sb-posix:getuid))
+           (pgid (sb-posix:getpgid 0))
+           (target (aitools.process.domain:make-process-identity
+                    :pid 2101 :ppid (sb-posix:getppid) :pgid pgid
+                    :uid uid :ruid uid :start 2101
+                    :command-line "sleep fixture-2101")))
+      (call-with-fake-signal-process-info
+       target
+       (lambda ()
+         (signals aitools.process.application::process-target-changed
+           (call-signal-port target))))))
+
+  (it "checks pattern count after filtering unsafe candidates before the first send"
+    (multiple-value-bind (ports sent) (signal-fixture)
       (multiple-value-bind (kind fields)
           (signal-flow ports :pattern "fixture-" :expect-count 3)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "selection.count-mismatch"))
+      (expect (funcall sent) :to-equal '()))
+    (multiple-value-bind (ports sent) (signal-fixture :unsafe 2102)
       (multiple-value-bind (kind fields)
           (signal-flow ports :pattern "fixture-" :expect-count 2)
         (expect kind :to-be :error)
-        (expect (field fields :code) :to-equal "refusal.target-changed"))
+        (expect (field fields :code) :to-equal "selection.count-mismatch"))
       (expect (funcall sent) :to-equal '())))
 
-  (it "refuses the whole pattern selection when a listed PID cannot be inspected"
+  (it "skips a PID that disappears and signals the surviving expected-count candidates"
     (multiple-value-bind (ports sent) (signal-fixture :missing-info 2102)
+      (multiple-value-bind (kind fields)
+          (signal-flow ports :pattern "fixture-" :expect-count 1)
+        (expect kind :to-be :ok)
+        (expect (field fields "total") :to-be 1)
+        (let ((item (elt (field fields "items") 0)))
+          (expect (json-alist-value item "pid") :to-be 2101)
+          (expect (json-alist-value item "signal") :to-be 15)))
+      (expect (funcall sent) :to-equal '((2101 . 15)))))
+
+  (it "rejects a pattern candidate whose same-UID argv cannot be read"
+    (multiple-value-bind (ports sent) (signal-fixture :nil-command-line 2102)
       (multiple-value-bind (kind fields)
           (signal-flow ports :pattern "fixture-" :expect-count 1)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed")
-        (expect (not (null (search "2102" (field fields :message)))) :to-be t))
-      (expect (length (funcall sent)) :to-be 0)))
+        (expect (search "2102" (field fields :message)) :to-be-truthy))
+      (expect (funcall sent) :to-equal '())))
 
   (it "reports every signalled pattern target in the total"
     (multiple-value-bind (ports sent) (signal-fixture)

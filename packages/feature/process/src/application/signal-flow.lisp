@@ -6,7 +6,14 @@
 (defun %signal-alive-p (ports target)
   (let ((current (funcall (process-ports-process-info ports)
                           (aitools.process.domain:process-identity-pid target))))
-    (and current (aitools.process.domain:same-process-p target current))))
+    (and current
+         (let ((expected-command-line
+                 (aitools.process.domain:process-identity-command-line target))
+               (current-command-line
+                 (aitools.process.domain:process-identity-command-line current)))
+           (and (stringp expected-command-line)
+                (stringp current-command-line)
+                (aitools.process.domain:same-process-p target current))))))
 
 (defun %deliver-process-signal (ports target number)
   (unless (funcall (process-ports-signal-process ports) target number)
@@ -21,17 +28,20 @@
       (let ((compiled (aitools.process.domain:compile-line-pattern pattern)))
         (loop for candidate in (funcall (process-ports-list-pids ports))
               for info = (funcall (process-ports-process-info ports) candidate)
-              do (unless info
-                   (error 'process-target-changed
-                          :message (format nil "cannot inspect process ~D during pattern selection"
-                                           candidate)))
-              when (aitools.process.domain:line-pattern-matches-p
-                    compiled (aitools.process.domain:process-identity-command-line info))
+              when (and info
+                        (let ((command-line
+                                (aitools.process.domain:process-identity-command-line info)))
+                          (unless (stringp command-line)
+                            (error 'process-target-changed
+                                   :message (format nil "cannot read argv for process ~D during pattern selection"
+                                                    candidate)))
+                          (and (funcall (process-ports-safe-target-p ports) info)
+                               (aitools.process.domain:line-pattern-matches-p compiled command-line))))
                 collect info))))
 
 (defun signal-command/k (ports &key pid pattern expect-command expect-start expect-count
                                  (signal "TERM") grace on-ok on-partial on-error)
-  (declare (ignore on-partial))
+  (declare (type function on-ok on-partial on-error))
   (cond
     ((not (if pid (null pattern) (and pattern (plusp (length pattern)))))
      (%signal-error on-error "argument.invalid" "specify exactly one of --pid or --pattern"))
@@ -60,19 +70,17 @@
                     ((and pid (null targets))
                      (%signal-error on-error "refusal.target-changed" "target process unavailable"))
                     ((and pid (not (and (or (null expect-command)
-                                            (search expect-command
+                                            (let ((command-line
                                                     (aitools.process.domain:process-identity-command-line
                                                      (first targets))))
+                                              (and (stringp command-line)
+                                                   (search expect-command command-line))))
                                         (or (null expect-start)
                                             (string= expect-start
                                                      (princ-to-string
                                                       (aitools.process.domain:process-identity-start
                                                        (first targets))))))))
                      (%signal-error on-error "refusal.target-changed" "PID identity guard does not match"))
-                    ((not (every (lambda (target)
-                                   (funcall (process-ports-safe-target-p ports) target))
-                                 targets))
-                     (%signal-error on-error "refusal.target-changed" "one or more targets changed or are unsafe"))
                     (t
                      ;; Preflight the entire set before the first send. A later
                      ;; PID reuse may still race a send; the signal port checks
@@ -85,20 +93,34 @@
                                           "target changed before signalling"))))
                      (let ((sent '())
                            (number (aitools.process.domain:signal-number signal)))
-                       (dolist (target targets)
-                         (let ((last-signal
-                                 (if grace-ms
-                                     (%terminate-with-grace
-                                      ports (lambda () (%signal-alive-p ports target))
-                                      (lambda (value) (%deliver-process-signal ports target value))
-                                      grace-ms)
-                                     (progn (%deliver-process-signal ports target number)
-                                            number))))
-                           (push (aitools.protocol.domain:json-object
-                                  "pid" (aitools.process.domain:process-identity-pid target)
-                                  "signal" last-signal) sent)))
-                       (funcall on-ok (list (cons "items" (nreverse sent))
-                                            (cons "total" (length targets)))))))))))
+                       (handler-case
+                           (progn
+                             (dolist (target targets)
+                               (let ((last-signal
+                                       (if grace-ms
+                                           (%terminate-with-grace
+                                            ports (lambda () (%signal-alive-p ports target))
+                                            (lambda (value) (%deliver-process-signal ports target value))
+                                            grace-ms)
+                                           (progn (%deliver-process-signal ports target number)
+                                                  number))))
+                                 (push (aitools.protocol.domain:json-object
+                                        "pid" (aitools.process.domain:process-identity-pid target)
+                                        "signal" last-signal) sent)))
+                             (funcall on-ok (list (cons "items" (nreverse sent))
+                                                  (cons "total" (length targets)))))
+                         (process-target-changed (condition)
+                           (if sent
+                               (funcall on-partial
+                                        (list (cons "items" (nreverse sent))
+                                              (cons "total" (length targets))))
+                               (error condition)))
+                         (process-port-error (condition)
+                           (if sent
+                               (funcall on-partial
+                                        (list (cons "items" (nreverse sent))
+                                              (cons "total" (length targets))))
+                               (error condition)))))))))))
        (if grace
            (%call-with-duration-ms grace "--grace" "signal" on-error #'run)
            (run nil))))))
