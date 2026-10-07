@@ -127,8 +127,15 @@ AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
    :array-p (lambda (value) (and (vectorp value) (not (stringp value))))
    :array-elements #'identity
    :array-from-elements (lambda (elements) (coerce elements 'simple-vector))
+   :array-insert (lambda (array index value)
+                   (concatenate 'vector (subseq array 0 index) (vector value) (subseq array index)))
+   :array-remove (lambda (array index)
+                   (concatenate 'vector (subseq array 0 index) (subseq array (1+ index))))
    :null-p #'json-kit:json-null-p
-   :classify #'%classify-json))
+   :string-p #'stringp
+   :string-text #'identity
+   :string-length #'length
+   :equal (lambda (a b) (aitools.kernel.domain:json-equal a b #'%classify-json))))
 
 (defun %with-json-model-errors (function)
   (handler-case (funcall function)

@@ -2,22 +2,34 @@
 ;;;;
 ;;;; JSON Pointer traversal and RFC 6902/7386 operations over a value model.
 ;;;; The model supplies only type predicates, ordered object members, array
-;;;; elements, constructors, null detection, and equality classification.
+;;;; elements, constructors, null detection, string handling, and equality.
 (in-package #:aitools.kernel.domain)
 
 (defstruct (json-value-model
             (:constructor make-json-value-model
                 (&key object-p object-members object-from-members
-                      array-p array-elements array-from-elements null-p classify))
+                      array-p array-elements array-from-elements array-insert array-remove
+                      null-p string-p string-text string-length equal))
             (:copier nil))
   (object-p nil :type function :read-only t)
+  ;; OBJECT-MEMBERS returns ordered (KEY . VALUE) pairs as the model's
+  ;; traversal view; the value itself need not be an alist.
   (object-members nil :type function :read-only t)
   (object-from-members nil :type function :read-only t)
   (array-p nil :type function :read-only t)
   (array-elements nil :type function :read-only t)
   (array-from-elements nil :type function :read-only t)
+  ;; These callbacks preserve the model's array representation during edits.
+  (array-insert nil :type function :read-only t)
+  (array-remove nil :type function :read-only t)
   (null-p nil :type function :read-only t)
-  (classify nil :type function :read-only t))
+  ;; String values and JSON Patch pointer members are CL strings in the JSON,
+  ;; YAML, and TOML adapters. Other representations provide their predicate,
+  ;; pointer-text conversion, and length at this boundary.
+  (string-p nil :type function :read-only t)
+  (string-text nil :type function :read-only t)
+  (string-length nil :type function :read-only t)
+  (equal nil :type function :read-only t))
 
 (define-condition json-model-error (error)
   ((code :initarg :code :reader json-model-error-code)
@@ -56,6 +68,12 @@
 
 (defun %json-model-array-from-elements (model elements)
   (funcall (json-value-model-array-from-elements model) elements))
+
+(defun %json-model-array-insert (model array index value)
+  (funcall (json-value-model-array-insert model) array index value))
+
+(defun %json-model-array-remove (model array index)
+  (funcall (json-value-model-array-remove model) array index))
 
 (defun %json-model-missing (tokens)
   (%json-model-error "input.not-found" "no value at JSON pointer ~S"
@@ -123,9 +141,7 @@
                     (setf elements (copy-seq elements)
                           (elt elements index) new)
                     (%json-model-array-from-elements model elements))
-                  (%json-model-array-from-elements
-                   model
-                   (concatenate 'list (subseq elements 0 index) (list new) (subseq elements index))))))
+                  (%json-model-array-insert model container index new))))
            (t (%json-model-missing (list token))))))))
 
 (defun json-model-remove (model value tokens)
@@ -147,8 +163,7 @@
                (index (json-pointer-array-index token (length elements))))
           (unless index
             (%json-model-missing (list token)))
-          (%json-model-array-from-elements
-           model (concatenate 'list (subseq elements 0 index) (subseq elements (1+ index))))))
+          (%json-model-array-remove model container index)))
        (t (%json-model-missing (list token)))))))
 
 (defun json-model-replace (model value tokens new)
@@ -170,7 +185,7 @@
            (t (%json-model-missing (list token))))))))
 
 (defun json-model-equal (model left right)
-  (json-equal left right (json-value-model-classify model)))
+  (funcall (json-value-model-equal model) left right))
 
 (defun json-model-merge-patch (model target patch)
   (if (not (funcall (json-value-model-object-p model) patch))
@@ -201,14 +216,18 @@
     (values value present)))
 
 (defun %json-model-operation-pointer (model operation name)
-  (multiple-value-bind (text ignored)
+  (multiple-value-bind (value ignored)
       (%json-model-operation-field model operation name :required t)
     (declare (ignore ignored))
-    (unless (stringp text)
+    (unless (funcall (json-value-model-string-p model) value)
       (%json-model-error "argument.invalid" "JSON Patch member ~S must be a string" name))
-    (let ((tokens (parse-json-pointer text)))
+    (let* ((text (funcall (json-value-model-string-text model) value))
+           (tokens (parse-json-pointer text)))
       (when (eq tokens :invalid)
-        (%json-model-error "argument.invalid" "JSON pointer ~S is malformed" text))
+        (%json-model-error
+         "argument.invalid"
+         "JSON pointer ~S must be empty or start with /, with valid ~~ escapes"
+         text))
       tokens)))
 
 (defun json-model-apply-patch (model value operations)
@@ -227,20 +246,20 @@
                (setf result
                      (cond
                      ((equal op "add")
-                      (multiple-value-bind (new present)
-                          (%json-model-operation-field model operation "value" :required t)
-                        (declare (ignore present))
-                        (json-model-add model result
-                                        (%json-model-operation-pointer model operation "path") new)))
+                      (let ((path (%json-model-operation-pointer model operation "path")))
+                        (multiple-value-bind (new present)
+                            (%json-model-operation-field model operation "value" :required t)
+                          (declare (ignore present))
+                          (json-model-add model result path new))))
                      ((equal op "remove")
                       (json-model-remove model result
                                          (%json-model-operation-pointer model operation "path")))
                      ((equal op "replace")
-                      (multiple-value-bind (new present)
-                          (%json-model-operation-field model operation "value" :required t)
-                        (declare (ignore present))
-                        (json-model-replace model result
-                                            (%json-model-operation-pointer model operation "path") new)))
+                      (let ((path (%json-model-operation-pointer model operation "path")))
+                        (multiple-value-bind (new present)
+                            (%json-model-operation-field model operation "value" :required t)
+                          (declare (ignore present))
+                          (json-model-replace model result path new))))
                      ((equal op "move")
                       (let ((from (%json-model-operation-pointer model operation "from"))
                             (path (%json-model-operation-pointer model operation "path")))
@@ -314,7 +333,8 @@
      (length (funcall (json-value-model-object-members model) value)))
     ((funcall (json-value-model-array-p model) value)
      (length (%json-model-array-elements model value)))
-    ((stringp value) (length value))
+    ((funcall (json-value-model-string-p model) value)
+     (funcall (json-value-model-string-length model) value))
     (t nil)))
 
 (defun json-model-diff-ops (model left right &optional (path '()))
