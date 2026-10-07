@@ -125,20 +125,21 @@ follows `mode`/`path`, or ON-ERROR for a failed selection."
                                       (list (cons "approx_tokens" (%text-approx-tokens texts)))
                                       (when next (list (cons "next_commands" next))))))
                  (funcall (if truncated on-partial on-ok) fields)))
-             (next-range (last total)
-               (and (< last total)
-                    (list (%continue-command context options "--range"
-                                             (format nil "~D:~D" (1+ last) (min total (+ last max-lines)))))))
+             (next-range (first last total tail truncated)
+               (cond
+                 ((and tail truncated)
+                  (list (%continue-command context options "--range"
+                                           (format nil "~D:~D" (max 1 (- first max-lines)) (1- first)))))
+                 ((< last total)
+                  (list (%continue-command context options "--range"
+                                           (format nil "~D:~D" (1+ last) (min total (+ last max-lines))))))))
              (contiguous (lines total start end errors tail)
                (multiple-value-bind (first last truncated) (%shown-window start end max-lines tail)
                  (multiple-value-bind (shown cuts)
                      (%cut-decoded-lines octets options (loop for number from first to last collect number)
                                          (subseq lines (1- first) last))
                    (emit first shown truncated total errors
-                         (if (and tail truncated)
-                             (list (%continue-command context options "--range"
-                                                      (format nil "~D:~D" (max 1 (- first max-lines)) (1- first))))
-                             (next-range last total))
+                         (next-range first last total tail truncated)
                          :cuts cuts))))
              (selected (lines total ranges errors)
                (if (eq (selector-kind selector) :match)
@@ -195,10 +196,7 @@ follows `mode`/`path`, or ON-ERROR for a failed selection."
                        (multiple-value-bind (shown errors cuts)
                            (decode-line-range octets index first last :max-line-bytes +max-line-bytes+)
                          (emit first shown truncated total errors
-                               (if (and tail truncated)
-                                   (list (%continue-command context options "--range"
-                                                            (format nil "~D:~D" (max 1 (- first max-lines)) (1- first))))
-                                   (next-range last total))
+                               (next-range first last total tail truncated)
                                :cuts cuts)))))
               (cond
                 ((zerop total)

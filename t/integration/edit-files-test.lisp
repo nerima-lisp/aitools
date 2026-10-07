@@ -269,6 +269,14 @@
         (with-error (code) (run "archive.extract" '("plain.zip") :to "out") (expect code :to-equal "refusal.exists"))
         (expect-unchanged before))))
 
+  (it "reports a malformed gzip header as input.syntax-error through archive extract"
+    (with-workspace ()
+      (put "broken.gz" (octet-vector 31 139 8 8 0 0 0 0 0 255 120))
+      (with-error (code message)
+          (run "archive.extract" '("broken.gz") :to "out")
+        (expect code :to-equal "input.syntax-error")
+        (expect message :to-equal "malformed archive data: unterminated gzip header string"))))
+
   (it "leaves ignored files out of archive create unless --no-ignore"
     (with-workspace ()
       (sb-posix:mkdir (disk "node_modules") #o755)

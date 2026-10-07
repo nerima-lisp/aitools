@@ -31,22 +31,8 @@ single member of a plain `.gz`."
   (items '() :type list :read-only t)
   (data nil :read-only t))
 
-(defun %ends-with (text suffix)
-  (let ((text (string-downcase text)))
-    (and (>= (length text) (length suffix))
-         (string= suffix text :start2 (- (length text) (length suffix))))))
-
 (defun archive-format-name (format)
   (ecase format (:zip "zip") (:tar "tar") (:tar.gz "tar.gz") (:gz "gz")))
-
-(defun %gz-member-name (octets path)
-  (let ((name (nth-value 0 (gzip-member-header octets))))
-    (or name
-        (let ((base (path-basename-of path)))
-          (if (%ends-with base ".gz") (subseq base 0 (- (length base) 3)) base)))))
-
-(defun path-basename-of (path)
-  (subseq path (1+ (or (position #\/ path :from-end t) -1))))
 
 (defun %tar-items (entries)
   (mapcar (lambda (entry)
@@ -61,7 +47,7 @@ a single-member `.gz`."
     (if tar-gz
         (make-archive :tar.gz (%tar-items (read-tar-entries data)) data)
         (make-archive :gz
-                      (list (make-archive-item (%gz-member-name octets path) :file (length data) nil
+                      (list (make-archive-item (aitools.text.domain:gzip-member-name octets path) :file (length data) nil
                                                (nth-value 1 (gzip-member-header octets)) nil))
                       data))))
 
