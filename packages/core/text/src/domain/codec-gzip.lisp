@@ -53,6 +53,7 @@ index of the DEFLATE stream."
 
 (defun %gzip-safe-member-name-p (name)
   (and (plusp (length name))
+       (not (string= name "."))
        (null (archive-entry-path-problem name))
        (not (find #\/ name))))
 

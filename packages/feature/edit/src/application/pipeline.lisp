@@ -89,9 +89,7 @@ VALIDATE continuation."
    :on-not-found on-not-found))
 
 (defun %inspect-write-plan/k (write-plan lock-timeout dry-run argv display-path on-ok on-error)
-  "Inspect WRITE-PLAN without reading workspace state and call one continuation.
-ON-OK receives LOCK-TIMEOUT-MS, HASH-ENTRIES, and EXPECT-COUNT. ON-ERROR
-receives CODE, MESSAGE, and REPAIRS."
+  "Inspect WRITE-PLAN without reading workspace state and call one continuation."
   (multiple-value-bind (lock-timeout-ms lock-timeout-valid) (%lock-timeout-ms lock-timeout)
     (multiple-value-bind (hash-entries hash-error) (%parse-expect-hashes (write-plan-expect-hashes write-plan))
       (let* ((expect-count-text (write-plan-expect-count write-plan))
@@ -125,7 +123,7 @@ receives CODE, MESSAGE, and REPAIRS."
                                "argument.invalid"
                                (format nil "this write needs --expect-hash ~:[<hash>~;~:*~A=<hash>~]"
                                        (and (rest (write-plan-targets write-plan)) path))
-                               (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
+                               (list (repair "get-hash" "Read the current hash, then pass that as --expect-hash."
                                              (format nil "aitools info ~A"
                                                      (aitools.protocol.domain:shell-quote (or path display-path))))))))))
                (:expect-count
@@ -186,8 +184,7 @@ it reports the count it selected as `expect_count` instead."
                            expect-count
                            lock-timeout-ms dry-run tx command-line on-ok #'fail))))
        (lambda (code message repairs)
-         (return-from run-write-command/k
-           (fail code message :repairs repairs)))))))
+         (fail code message :repairs repairs))))))
 
 (defun %selected-count-field (write-plan context)
   "`expect_count` for a --dry-run of a write that --expect-count guards: the

@@ -240,6 +240,24 @@ literal/length symbols, or (:RAW VALUE . COUNT) bit fields."
     (declare (ignore description))
     (expect (gzip-reason (lambda () (gzip-member-header (apply #'octets header)))) :to-equal expected))
 
+  (it-each (("FNAME with a path" "dir/x" "bundle.gz" "bundle")
+            ("empty FNAME" "" "bundle.gz" "bundle")
+            ("a.gz without FNAME" nil "a.gz" "a")
+            ("A.GZ without FNAME" nil "A.GZ" "A")
+            (".gz without FNAME" nil ".gz" ".gz.out")
+            ("extensionless archive without FNAME" nil "archive" "archive.out")
+            ("NIL archive path without FNAME" nil nil ".out")
+            ("empty archive path without FNAME" nil "" ".out")
+            ("a.gz.bak without FNAME" nil "a.gz.bak" "a")
+            ("dot FNAME falls back" "." "bundle.gz" "bundle")
+            ("a dot fallback is unsafe" nil "..gz" ".out"))
+      "names a gzip member ~A"
+      (description member-name archive-path expected)
+    (let ((gzip (if member-name
+                    (gzip-compress (string-bytes "payload") :name member-name)
+                    (gzip-compress (string-bytes "payload")))))
+      (expect (gzip-member-name gzip archive-path) :to-equal expected)))
+
   (it "rejects a cut trailer and an ISIZE that disagrees with the data"
     (let ((gz (gzip-compress (string-bytes "payload"))))
       (expect (gzip-reason (lambda () (gzip-decompress (subseq gz 0 (- (length gz) 2)))))
