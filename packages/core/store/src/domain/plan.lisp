@@ -202,9 +202,10 @@ before and after states differ only in mtime (and mode, when it names one)."
                    (:directory)
                    (:absent
                     (ensure-parents path)
-                    (record (make-change-result :path path :action :created
-                                                :before before :after (directory-state))
-                            (directory-state)))
+                    (let ((after (directory-state (change-request-mode request))))
+                      (record (make-change-result :path path :action :created
+                                                  :before before :after after)
+                              after)))
                    ((:file :symlink)
                     (reject "refusal.exists" "~A already exists" path))))))))
         (funcall on-planned (reverse results))))))

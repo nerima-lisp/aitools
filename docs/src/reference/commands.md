@@ -123,6 +123,7 @@ The meaning and exit code of each error code are in
 | [`transcode`](#transcode) | edit | Convert a file between utf-8, shift_jis (CP932), euc-jp, iso-8859-1, utf-16le and utf-16be. |
 | [`move`](#move) | edit | Move or rename a file or directory; never merges into an existing directory. |
 | [`copy`](#copy) | edit | Copy a file, or a directory with --recursive, byte for byte. |
+| [`rm`](#rm) | edit | Remove one file, symlink, or empty directory; journaled and undoable. |
 | [`delete`](#delete) | edit | Delete a file, a symlink, or an empty directory. |
 | [`mkdir`](#mkdir) | edit | Create a directory and its parents; an existing directory is a no-op. |
 | [`chmod`](#chmod) | edit | Set or clear the executable bits, or set an octal mode. |
@@ -161,7 +162,11 @@ The meaning and exit code of each error code are in
 | [`sys env`](#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](#sys-tools) | env | Find commands on PATH and report the first line of their version output. |
 | [`sys procs`](#sys-procs) | env | List processes whose command line contains PATTERN (case-insensitive), ordered by pid. |
+| [`sys metrics`](#sys-metrics) | env | Sample CPU, memory, and process metrics once without an interactive display. |
+| [`sys network`](#sys-network) | env | Read cumulative network interface counters, ordered by name. |
+| [`sys disk`](#sys-disk) | env | Read capacity of the filesystem containing PATH (default: workspace root). |
 | [`sys ports`](#sys-ports) | env | List TCP sockets in LISTEN state with the owning process. |
+| [`sys snapshot`](#sys-snapshot) | env | Collect host info, metrics, network, disk, and listening TCP ports in one non-atomic response. |
 | [`time now`](#time-now) | env | Show the current time in a zone, in UTC, and as epoch milliseconds. |
 | [`time convert`](#time-convert) | env | Convert a time value to ISO 8601 or epoch, optionally shifted by durations. |
 | [`time diff`](#time-diff) | env | Compute B minus A. |
@@ -532,7 +537,7 @@ Filter, sort, and project the elements of a JSON array.
 | `path` (positional, required) | string |  | JSON file. |
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
-| `--pick` | string, repeatable |  | Return {pointer: value} for these relative pointers instead of the element. |
+| `--pick` | string, repeatable |  | Set each item's `value` to {pointer: value} for these relative pointers instead of the element. |
 | `--sort-by` | string |  | Relative pointer to order by (null first, then booleans, numbers, strings). |
 | `--desc` | flag |  | Descending order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
@@ -542,10 +547,11 @@ Filter, sort, and project the elements of a JSON array.
 | Output field | Description |
 |---|---|
 | `mode` | items or count. |
-| `items` | [{pointer,value}] of the selected elements. |
-| `count` | Selected elements, in count mode. |
-| `total` | Selected elements, in items mode. |
-| `truncated` | True when --limit cut items (status partial, exit 3). |
+| `items` | In items mode, [{pointer,value}] of the selected elements; each pointer identifies the element in the original array, even after sorting. |
+| `count` | Number of matching elements, unaffected by --limit, in count mode. |
+| `total` | Number of matching elements before --limit, in items mode. |
+| `truncated` | In items mode, true when --limit cut items (top-level status partial, exit 3); otherwise false. |
+| `next_commands` | Present only when truncated: an array of shell-command strings counting all matches with the same --where, --root, and --tx values. |
 
 Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
 
@@ -1098,6 +1104,36 @@ Copy a file, or a directory with --recursive, byte for byte.
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `refusal.too-large`.
 
+### `rm` {#rm}
+
+Remove one file, symlink, or empty directory; journaled and undoable.
+
+A tree needs --recursive and --expect-count (including its root); preview with --dry-run first. Never follows symlinks. Refuses workspace/home/filesystem roots and version-control or state metadata. Limits bound deleted entries and file bytes, not memory use.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--recursive` | flag |  | Remove a directory tree; requires --expect-count except in dry-run. |
+| `--max-entries` | string | `1000` | Maximum deleted entries, including directories and symlinks. |
+| `--max-bytes` | string | `64MiB` | Maximum total deleted regular-file bytes; not a memory limit. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `entries` | Number of deleted entries, including the target itself. |
+| `bytes` | Total regular-file bytes selected for deletion. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`.
+
 ### `delete` {#delete}
 
 Delete a file, a symlink, or an empty directory.
@@ -1213,6 +1249,9 @@ Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `ref
 ### `mktemp` {#mktemp}
 
 Create a temporary file or directory in the workspace's state tmp/ area (not journaled).
+Each invocation attempts to remove entries in this area whose modification time
+is more than seven days old, recursively for directories. Cleanup is not
+guaranteed if filesystem operations fail; do not use this area for durable data.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -1598,11 +1637,16 @@ Errors: `input.not-found`, `environment.busy`, `environment.io`.
 
 Run a program without a shell and report its exit, timing, and trimmed output.
 
-Runs argv directly (no shell), stdin at /dev/null, in its own process group. Exit code is 0 whenever the program started, including on timeout; the child's own status is exit_code/signal. ANSI escapes are removed and \r-redrawn progress lines keep only their last state unless --no-strip-ansi. Known secret formats in the output are masked before --grep sees it.
+Runs argv directly (no shell), in its own process group. By default stdin is /dev/null and the child inherits the current directory and environment. Choose one stdin source, use --cwd for the child's directory, and repeat --env to overlay environment entries. External programs are not sandboxed, and their writes are not journaled or undoable by aitools. Exit code is 0 when the program started, including on timeout, except that exceeding --grep-limit returns partial (exit 3); the child's own status is exit_code/signal. ANSI escapes are removed and \r-redrawn progress lines keep only their last state unless --no-strip-ansi. Known secret formats in the output are masked before --grep sees it.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `argv` (positional, required) | string |  | Program and arguments, after --. |
+| `--stdin` | flag |  | Forward aitools standard input to the child; mutually exclusive with --stdin-data and --stdin-file. |
+| `--stdin-data` | string |  | Send this text as UTF-8 stdin without adding a newline. Mutually exclusive with --stdin and --stdin-file; shell history can retain this argument. |
+| `--stdin-file` | string |  | Send a regular file's bytes as stdin; FIFOs, devices, and directories are rejected. Relative paths use aitools' current directory, not --cwd. Mutually exclusive with --stdin and --stdin-data. |
+| `--cwd` | string |  | Working directory for the child only; --root remains the aitools workspace boundary, not a process sandbox. |
+| `--env` | string, repeatable |  | KEY=VALUE to overlay on the inherited environment; last value wins. Empty values are allowed. |
 | `--timeout` | duration | `120s` | SIGTERM to the process group when exceeded, SIGKILL 1s later; timed_out is then true. |
 | `--head` | integer | `50` | Leading lines kept per stream. |
 | `--tail` | integer | `150` | Trailing lines kept per stream. |
@@ -1700,6 +1744,8 @@ Errors: `argument.invalid`, `input.syntax-error`, `input.not-found`, `environmen
 
 List the bg processes aitools started in this workspace, or one of them.
 
+A listing with invalid or disappeared records is partial (exit 3); omitted identifies those records without exposing their contents. A specific ID retains input.not-found or environment.io errors.
+
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `id` (positional) | string |  | Only this bg ID. |
@@ -1707,7 +1753,9 @@ List the bg processes aitools started in this workspace, or one of them.
 | Output field | Description |
 |---|---|
 | `items` | [{id,name,pid,argv,running,exit_code,signal,started}]; started is UTC RFC 3339. |
-| `total` | Number of items. |
+| `total` | Number of valid returned items. |
+| `observed_total` | Number of record IDs observed before reading; equals total plus omitted count, not a count of host processes. |
+| `omitted` | [{id,reason}] excluded from a listing; reason is invalid-record or record-unavailable. Empty when complete. |
 
 Errors: `input.not-found`, `environment.unavailable`, `environment.io`.
 
@@ -1921,18 +1969,113 @@ Linux reads /proc; Darwin runs ps. Only reads: no process is signalled. More mat
 
 Errors: `environment.unavailable`, `internal.unexpected`.
 
+### `sys metrics` {#sys-metrics}
+
+Sample CPU, memory, and process metrics once without an interactive display.
+
+CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach host_statistics CPU counters and runs sysctl and vm_stat; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed source is an error. More processes than --limit give partial, truncated true, exit 3.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--limit` | integer | `20` | Maximum process items (at least 1), sorted by CPU descending then PID ascending. |
+
+| Output field | Description |
+|---|---|
+| `sample_interval_ms` | Requested CPU sampling interval, 1000 milliseconds; total command duration can be longer. |
+| `cpu` | {busy_percent, logical_cpus, basis: interval_all_cpus}; interval-average busy percentage across all CPUs. |
+| `memory` | {total_bytes, available_bytes, available_basis}; Linux MemAvailable or free+buffers+cached, Darwin free+inactive+speculative pages. |
+| `process_cpu_basis` | lifetime_average (Linux) or decaying_average (Darwin); not the system CPU sampling interval. |
+| `items` | [{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU. |
+| `total` | Process count before --limit. |
+| `truncated` | Present and true when processes were cut at --limit. |
+
+Errors: `environment.unavailable`, `internal.unexpected`.
+
+### `sys network` {#sys-network}
+
+Read cumulative network interface counters, ordered by name.
+
+Linux reads /proc/net/dev; Darwin runs trusted absolute-path netstat -ibn and selects link rows only. These cumulative OS counters are not sampled rates, connectivity checks, routes, DNS, or a complete network inventory. Counters may reset. Missing, denied, failed, unsupported, or malformed sources fail with environment.unavailable. Darwin source timeout is 60 seconds. Output is bounded by --limit; overflow gives partial and exit 3.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--limit` | integer | `100` | Maximum interfaces, 1..1000. |
+
+| Output field | Description |
+|---|---|
+| `source` | OS counter source. |
+| `basis` | cumulative_interface_counters. |
+| `units` | Bytes, packets, and error events. |
+| `items` | [{name, rx_bytes, rx_packets, rx_errors, tx_bytes, tx_packets, tx_errors}]. |
+| `total` | Interface count before limit. |
+| `limit` | Requested output limit. |
+| `truncated` | Whether items were omitted. |
+
+Errors: `argument.invalid`, `environment.unavailable`, `internal.unexpected`.
+
+### `sys disk` {#sys-disk}
+
+Read capacity of the filesystem containing PATH (default: workspace root).
+
+One statfs query, not a disk I/O sample or an inventory of all mounts or devices. Available bytes use blocks available to an unprivileged user, not all free blocks; do not infer used bytes as total minus available. Missing paths, permission failures, unsupported OS, and acquisition failures return environment.unavailable.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` | string |  | Existing path on the filesystem; default workspace root. |
+
+| Output field | Description |
+|---|---|
+| `path` | Queried path. |
+| `source` | statfs. |
+| `scope` | filesystem_containing_path. |
+| `units` | bytes. |
+| `total_bytes` | Filesystem capacity in bytes. |
+| `available_bytes` | Capacity available to unprivileged users in bytes. |
+| `available_basis` | unprivileged_available_blocks. |
+| `truncated` | Always false: one filesystem result. |
+
+Errors: `environment.unavailable`, `internal.unexpected`.
+
 ### `sys ports` {#sys-ports}
 
 List TCP sockets in LISTEN state with the owning process.
 
-Linux reads /proc/net/tcp and tcp6 and maps socket inodes through /proc/<pid>/fd (other users' processes stay null without privileges); Darwin runs lsof. The wildcard address is 0.0.0.0 or ::.
+Linux reads /proc/net/tcp and tcp6 and maps socket inodes through /proc/<pid>/fd (other users' processes stay null without privileges); Darwin runs lsof. One missing Linux family source returns partial (exit 3), even with no observed listeners; both missing returns environment.unavailable. Missing does not distinguish disabled support from permission or read failure. The wildcard address is 0.0.0.0 or ::.
 
 | Output field | Description |
 |---|---|
 | `items` | [{port, address, protocol, pid, command}] by port. |
-| `total` | Number of items. |
+| `total` | Number of observed items; not a complete host count when partial. |
+| `coverage` | Linux only: {ipv4, ipv6}, each ok or source_unavailable; socket table availability, not owner visibility. |
+| `source_unavailable` | Missing Linux socket-table paths, present only when partial. |
 
 Errors: `environment.unavailable`, `internal.unexpected`.
+
+### `sys snapshot` {#sys-snapshot}
+
+Collect host info, metrics, network, disk, and listening TCP ports in one non-atomic response.
+
+Sequential host observations, not all system state. Each section retains data and a status (ok, partial, unavailable) with a reason. Missing required info values, unknown socket owners, omitted items, or unavailable sections yield partial (exit 3); all unavailable fails (exit 1). Shell is optional. Existing source commands retain their 60-second per-command timeout; there is no overall deadline or memory bound. Output limits do not bound acquisition: socket owner scans and OS calls have no timeout, and subprocess output is fully captured. Disk covers PATH only, not all mounts or I/O; network counters are cumulative, not connectivity; ports cover TCP LISTEN only. Metrics takes a one-second CPU sample. Unlike batch, this fixed read-only composition continues after unavailable sections.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` | string |  | Disk filesystem path; default workspace root. Info still describes the workspace filesystem. |
+| `--process-limit` | integer | `20` | Maximum process items, 1..1000. |
+| `--network-limit` | integer | `100` | Maximum interface items, 1..1000. |
+| `--port-limit` | integer | `100` | Maximum listening socket items, 1..1000. |
+
+| Output field | Description |
+|---|---|
+| `scope` | host, not exhaustive system state. |
+| `atomic` | Always false. |
+| `started_at_epoch_ms` | Wall-clock Unix epoch milliseconds; not a monotonic duration. |
+| `finished_at_epoch_ms` | Wall-clock Unix epoch milliseconds. |
+| `sections` | Named info/metrics/network/disk/ports objects with status, data, reason, and epoch-ms observation times. |
+| `limits` | Requested output item limits. |
+| `source_timeout_seconds` | Per external source command timeout, not overall timeout. |
+| `collection_bounds` | Acquisition and memory limitations. |
+
+Errors: `argument.invalid`, `environment.unavailable`, `internal.unexpected`.
 
 ### `time now` {#time-now}
 

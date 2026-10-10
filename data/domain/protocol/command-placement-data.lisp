@@ -10,7 +10,7 @@
 
 (defparameter *protocol-top-level-commands*
   '("read" "info" "search" "find" "diff" "check" "edit" "insert" "replace" "apply"
-    "transform" "move-lines" "write" "split" "transcode" "move" "copy" "delete"
+    "transform" "move-lines" "write" "split" "transcode" "move" "copy" "delete" "rm"
     "mkdir" "chmod" "link" "touch" "mktemp" "overview" "history" "undo" "run" "wait"
     "batch" "schema")
   "The top-level verbs.")

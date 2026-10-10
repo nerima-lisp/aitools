@@ -74,6 +74,7 @@
    #:change-request-mode
    #:change-request-target
    #:change-request-mtime
+   #:change-request-max-bytes
    #:write-file-request
    #:delete-request
    #:move-request
@@ -118,6 +119,9 @@
    #:intent-step-mode
    #:intent-step-target
    #:intent-step-mtime
+   #:intent-step-identity
+   #:intent-step-before
+   #:intent-step-max-bytes
    #:intent-step-kind
    #:changes->steps
    #:change-keeps-content-p

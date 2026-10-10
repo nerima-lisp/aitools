@@ -174,12 +174,22 @@
         (expect kind :to-be :partial)
         (expect (length (field fields "groups")) :to-be 1)
         (expect (field fields "total_groups") :to-be 2)
-        (expect (field fields "next_commands") :to-equal '("aitools table agg s.csv --limit 2"))))
+        (expect (field fields "next_commands") :to-equal '("aitools table agg s.csv --group-by item --limit 2"))))
 
     (it "reports only --distinct, without an implied count"
       (let ((group (first (field (nth-value 1 (agg :distinct "item")) "groups"))))
         (expect (json-object-get group "distinct") :to-be 2)
         (expect (nth-value 1 (json-object-get group "count")) :to-be nil)))
+
+    (it "preserves every aggregate option and quotes filters in the next command"
+      (multiple-value-bind (kind fields)
+          (agg :format "csv" :encoding "utf-8" :where '("amount>0")
+               :group-by '("region" "item") :count t :sum "amount" :avg "amount"
+               :min "amount" :max "amount" :distinct "item" :min-count 1
+               :sort "sum" :desc t :limit 1)
+        (expect kind :to-be :partial)
+        (expect (field fields "next_commands") :to-equal
+                '("aitools table agg s.csv --format csv --where 'amount>0' --encoding utf-8 --group-by region --group-by item --count --sum amount --avg amount --min amount --max amount --distinct item --min-count 1 --sort sum --desc --limit 3"))))
 
     (it "names the column's type when a numeric aggregate meets text"
       (expect (getf (nth-value 1 (agg :avg "item")) :message)
@@ -192,7 +202,7 @@
 ")) "b.jsonl" :max "ok")
         (expect kind :to-be :error)
         (expect (json-object-get (first (getf fields :diagnostics)) "value") :to-be t)
-        (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools table agg b.jsonl --where 'ok!=true'")))))
+        (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools table agg b.jsonl --max ok --limit 50 --where 'ok!=true'")))))
 
 (describe "table read row shapes"
   (it "keeps a newline inside a quoted CSV field and reads CRLF records"

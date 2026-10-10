@@ -72,6 +72,58 @@ unchanged-p all-applied-p) after recovery."
       (expect (recover store) :to-be :none))))
 
 (describe "aitools.store recovery after the commit point"
+  (it-each ((nil) (t))
+      "recovers a finalized mode-zero directory with children: ~A"
+      (children)
+    (with-temp-store (store)
+      (unwind-protect
+           (progn
+             (expect (with-fault-at (:after-apply)
+                       (commit store
+                               (append (list (mkdir-request "private" :mode 0))
+                                       (when children
+                                         (list (mkdir-request "private/nested" :mode 0)
+                                               (write-file-request "private/nested/file"
+                                                                   (bytes "data")))))))
+                     :to-be-truthy)
+             (expect (recover store) :to-be :recovered)
+             (expect (disk-mode store "private") :to-be 0)
+             (expect (intent-files store) :to-equal '())
+             (expect (length (read-journal store)) :to-be 1)
+             (expect (recover store) :to-be :none)
+             ;; Inspection and fixture cleanup must not rely on recovery bypassing permissions.
+             (sb-posix:chmod (disk-path store "private") #o700)
+             (when children
+               (expect (disk-mode store "private/nested") :to-be 0)
+               (sb-posix:chmod (disk-path store "private/nested") #o700)
+               (expect (disk-text store "private/nested/file") :to-equal "data")))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700))
+        (when (probe-file (disk-path store "private/nested"))
+          (sb-posix:chmod (disk-path store "private/nested") #o700)))))
+
+  (it-each ((:after-apply-step) (:after-apply))
+      "restores explicit directory modes and children after interruption at ~A"
+      (point)
+    (with-temp-store (store)
+      (unwind-protect
+           (progn
+             (expect (with-fault-at (point)
+                       (commit store (list (mkdir-request "private" :mode #o500)
+                                           (mkdir-request "private/nested" :mode #o500)
+                                           (write-file-request "private/nested/file" (bytes "data")))))
+                     :to-be-truthy)
+             (expect (recover store) :to-be :recovered)
+             (expect (disk-mode store "private") :to-be #o500)
+             (expect (disk-mode store "private/nested") :to-be #o500)
+             (expect (disk-text store "private/nested/file") :to-equal "data")
+             (expect (intent-files store) :to-equal '())
+             (expect (recover store) :to-be :none))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700))
+        (when (probe-file (disk-path store "private/nested"))
+          (sb-posix:chmod (disk-path store "private/nested") #o700)))))
+
   (it-each ((:after-intent 1) (:after-apply-step 1) (:after-apply-step 2) (:after-apply-step 3)
             (:after-apply 1) (:after-journal 1))
       "rolls forward to the complete result from ~A (nth ~A)"
@@ -155,7 +207,173 @@ unchanged-p all-applied-p) after recovery."
         (expect (unchanged-p store) :to-be-truthy)
         (expect (journal-entry-undoes (first (last (read-journal store)))) :to-equal op)))))
 
+(describe "aitools.store directory recovery identity and durability"
+  (it-each ((nil) (t))
+      "replays an identityless mkdir only when its target is absent (existing: ~A)"
+      (existing)
+    (with-temp-store (store)
+      (expect (with-fault-at (:after-intent)
+                (commit store (list (mkdir-request "private" :mode #o500)))) :to-be-truthy)
+      (when existing (sb-posix:mkdir (disk-path store "private") #o700))
+      (unwind-protect
+           (progn
+             (expect (handler-case (recover store) (store-io-error () :refused))
+                     :to-be (if existing :refused :recovered))
+             (expect (disk-mode store "private") :to-be (if existing #o700 #o500))
+             (expect (length (intent-files store)) :to-be (if existing 1 0))
+             (expect (length (read-journal store)) :to-be (if existing 0 1)))
+        (sb-posix:chmod (disk-path store "private") #o700))))
+
+  (it "retries directory synchronization after the requested mode already took effect"
+    (with-temp-store (plain)
+      (let* ((io (store-io-port plain))
+             (real-chmod (store-io-chmod-directory-identity io))
+             (calls 0)
+             (failing (copy-store-io
+                       io :chmod-directory-identity
+                       (lambda (path mode identity)
+                         (incf calls)
+                         (if (= calls 1)
+                             (progn
+                               ;; Model fchmod succeeding and the subsequent fsync failing.
+                               (sb-posix:chmod path mode)
+                               (error 'store-io-error :operation "fsync" :path path))
+                             (funcall real-chmod path mode identity)))))
+             (store (make-store failing (store-root plain)
+                                (subseq (store-state-directory plain) 0
+                                        (position #\/ (store-state-directory plain) :from-end t)))))
+        (unwind-protect
+             (progn
+               (expect (handler-case (commit store (list (mkdir-request "private" :mode #o500)))
+                         (store-committed-error () :pending)) :to-be :pending)
+               (expect (disk-mode plain "private") :to-be #o500)
+               (expect (length (intent-files plain)) :to-be 1)
+               (expect (read-journal plain) :to-equal '())
+               (expect (recover store) :to-be :recovered)
+               (expect calls :to-be 2)
+               (expect (intent-files plain) :to-equal '())
+               (expect (length (read-journal plain)) :to-be 1)
+               (expect (recover store) :to-be :none))
+          (when (probe-file (disk-path plain "private"))
+            (sb-posix:chmod (disk-path plain "private") #o700))))))
+
+  (it-each ((nil) (t))
+      "refuses a replaced directory after the initial mkdir apply step (symlink: ~A)"
+      (symlink)
+    (with-temp-store (store)
+      (expect (with-fault-at (:after-apply-step)
+                (commit store (list (mkdir-request "private" :mode #o500)))) :to-be-truthy)
+      (sb-posix:rename (disk-path store "private") (disk-path store "saved"))
+      (sb-posix:mkdir (disk-path store "replacement") #o700)
+      (if symlink
+          (sb-posix:symlink "replacement" (disk-path store "private"))
+          (sb-posix:mkdir (disk-path store "private") #o700))
+      (unwind-protect
+           (progn
+             (expect (handler-case (recover store) (store-io-error () :refused)) :to-be :refused)
+             (expect (length (intent-files store)) :to-be 1)
+             (expect (read-journal store) :to-equal '())
+             (expect (disk-mode store "saved") :to-be #o700)
+             (expect (disk-mode store (if symlink "replacement" "private")) :to-be #o700))
+        (unless symlink (sb-posix:chmod (disk-path store "private") #o700))))))
+
 (describe "aitools.store recovery after real process death"
+  (it-each ((:after-intent-checkpoint 1) (:after-intent-checkpoint 2)
+            (:after-intent-checkpoint 3) (:after-intent-checkpoint 4)
+            (:after-intent-checkpoint 5))
+      "preserves the full journal across restrictive directory checkpoint death at ~A (~A)"
+      (point nth)
+    (with-temp-store (store)
+      (unwind-protect
+           (progn
+             (let ((pid (call-in-child-process
+                         (lambda ()
+                           (with-fault-at (point :nth nth :mode :exit)
+                             (commit store (list (mkdir-request "private" :mode 0)
+                                                 (mkdir-request "private/nested" :mode 0)
+                                                 (write-file-request "private/nested/file" (bytes "data")))))))))
+               (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 99)))
+             (let* ((path (join-path (commit-directory (store-state-directory store))
+                                     (first (intent-files store))))
+                    (intent (nth-value 1 (decode-intent
+                                         (aitools.store.application::octets-string
+                                          (funcall (store-io-read-file (store-io-port store)) path)))))
+                    (original (encode-journal (list (intent-journal-entry intent)))))
+               (expect (length (journal-entry-changes (intent-journal-entry intent))) :to-be 3)
+               (expect (recover store) :to-be :recovered)
+               (expect (encode-journal (read-journal store)) :to-equal original)
+               (expect (recover store) :to-be :none)
+               (expect (length (read-journal store)) :to-be 1))
+             (expect (intent-files store) :to-equal '())
+             (expect (disk-mode store "private") :to-be 0)
+             (sb-posix:chmod (disk-path store "private") #o700)
+             (expect (disk-mode store "private/nested") :to-be 0)
+             (sb-posix:chmod (disk-path store "private/nested") #o700)
+             (expect (disk-text store "private/nested/file") :to-equal "data"))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700))
+        (when (probe-file (disk-path store "private/nested"))
+          (sb-posix:chmod (disk-path store "private/nested") #o700)))))
+
+  (it-each ((:after-directory-chmod 1) (:after-directory-chmod 2)
+            (:after-directory-mode 1) (:after-directory-mode 2))
+      "retains an inaccessible unsynchronized checkpoint after death at ~A (~A)"
+      (point nth)
+    (with-temp-store (store)
+      (unwind-protect
+           (progn
+             (let ((pid (call-in-child-process
+                         (lambda ()
+                           (with-fault-at (point :nth nth :mode :exit)
+                             (commit store (list (mkdir-request "private" :mode 0)
+                                                 (mkdir-request "private/nested" :mode 0)
+                                                 (write-file-request "private/nested/file" (bytes "data")))))))))
+               (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 99)))
+             (dotimes (attempt 2)
+               (declare (ignore attempt))
+               (expect (handler-case (recover store) (store-io-error () :refused)) :to-be :refused)
+               (expect (length (intent-files store)) :to-be 1)
+               (expect (read-journal store) :to-equal '())
+               (expect (disk-mode store "private") :to-be (if (= nth 2) 0 #o700)))
+             (sb-posix:chmod (disk-path store "private") #o700)
+             (expect (disk-mode store "private/nested") :to-be 0))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700))
+        (when (probe-file (disk-path store "private/nested"))
+          (sb-posix:chmod (disk-path store "private/nested") #o700)))))
+
+  (it-each ((nil) (t))
+      "retains a checkpoint without chmod of a replacement target (symlink: ~A)"
+      (symlink)
+    (with-temp-store (store)
+      (expect (with-fault-at (:after-intent-checkpoint)
+                (commit store (list (mkdir-request "private" :mode 0)))) :to-be-truthy)
+      (sb-posix:rename (disk-path store "private") (disk-path store "saved"))
+      (sb-posix:mkdir (disk-path store "replacement") #o700)
+      (if symlink
+          (sb-posix:symlink "replacement" (disk-path store "private"))
+          (sb-posix:mkdir (disk-path store "private") #o700))
+      (expect (handler-case (recover store) (store-io-error () :refused)) :to-be :refused)
+      (expect (length (intent-files store)) :to-be 1)
+      (expect (read-journal store) :to-equal '())
+      (expect (disk-mode store "saved") :to-be #o700)
+      (expect (disk-mode store (if symlink "replacement" "private")) :to-be #o700)))
+
+  (it "refuses undo of an inaccessible tree without reopening its permissions"
+    (with-temp-store (store)
+      (unwind-protect
+           (let ((op (nth-value 1 (commit store (list (mkdir-request "private" :mode 0)
+                                                      (mkdir-request "private/nested" :mode 0)
+                                                      (write-file-request "private/nested/file" (bytes "data")))))))
+             (expect (handler-case (undo store op) (store-io-error () :refused)) :to-be :refused)
+             (expect (disk-mode store "private") :to-be 0)
+             (expect (length (read-journal store)) :to-be 1)
+             (expect (intent-files store) :to-equal '()))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700))
+        (when (probe-file (disk-path store "private/nested"))
+          (sb-posix:chmod (disk-path store "private/nested") #o700)))))
+
   (it "discards an op whose process died before the commit point"
     (with-temp-store (store)
       (put-file store "a.txt" "a-old")

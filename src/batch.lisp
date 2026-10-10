@@ -54,41 +54,49 @@ process built; %BATCH-HANDLER dispatches every element against it.")
         (values nil "argument.invalid"
                 "--stdin must be a JSON array of argv arrays of strings, such as [[\"read\",\"a.lisp\"]]"))))
 
-(defun %options-part (argv)
-  "The tokens of ARGV before a `--`, the only ones that can be options."
-  (subseq argv 0 (position "--" argv :test #'string=)))
-
-(defun %has-option-p (argv name)
-  (let ((flag (concatenate 'string "--" name)))
-    (some (lambda (token)
-            (or (string= token flag)
-                (and (> (length token) (length flag))
-                     (string= flag token :end2 (length flag))
-                     (char= (char token (length flag)) #\=))))
-          (%options-part argv))))
-
-(defun %element-command-name (app argv)
-  "ARGV's dispatch name when it parses, else NIL (DISPATCH reports the
+(defun %element-invocation (app argv)
+  "ARGV's invocation when it parses, else NIL (DISPATCH reports the
 parse error when the element runs)."
-  (handler-case (%full-command-name (parse-argv app (cons "aitools" argv)))
+  (handler-case (parse-argv app (cons "aitools" argv))
     (error () nil)))
 
 (defun %element-problem (app argv index atomic)
   "The reason element INDEX (0-based) cannot run inside a batch, or NIL."
-  (cond
-    ((equal (%element-command-name app argv) "batch")
+  (let ((invocation (%element-invocation app argv)))
+    (cond
+    ((and invocation (equal (%full-command-name invocation) "batch"))
      (format nil "element ~D is a batch; batches do not nest" index))
-    ((and atomic (%has-option-p argv "tx"))
+    ((and atomic invocation (option-value invocation :tx))
      (format nil "element ~D has --tx; batch --atomic runs every element in its own tx" index))
-    ((%has-option-p argv "stdin")
+    ((and invocation (option-value invocation :stdin))
      (format nil "element ~D reads --stdin, which batch has consumed; pass the input inline (--content, --stdin-data)"
-             index))))
+             index)))))
 
-(defun %with-tx (argv tx)
-  "ARGV with `--tx TX` added among its options (before a `--`)."
-  (let ((split (position "--" argv :test #'string=)))
-    (append (subseq argv 0 (or split (length argv))) (list "--tx" tx)
-            (and split (subseq argv split)))))
+(defun %with-tx (app argv tx)
+  "Insert the leaf option after the command, before values or a delimiter."
+  (let* ((invocation (%element-invocation app argv))
+         (commands (and invocation (invocation-command-path invocation))))
+    (if (null commands)
+        argv
+        (loop with remaining = commands
+              for tail on argv
+              for position from 0
+              for token = (car tail)
+              do (cond
+                   ((and (plusp (length token)) (char= (char token 0) #\-))
+                    ;; Before the leaf, only global value options consume a token.
+                    (when (and (not (find #\= token))
+                               (find (string-left-trim "-" token) (cl-cli:app-global-options app)
+                                     :test (lambda (name option)
+                                             (member name (cl-cli:option-names option) :test #'string=))))
+                      (setf tail (cdr tail))
+                      (incf position)))
+                   ((member token (cons (command-name (first remaining))
+                                        (cl-cli:command-aliases (first remaining))) :test #'string=)
+                    (pop remaining)
+                    (when (null remaining)
+                      (return (append (subseq argv 0 (1+ position))
+                                      (list "--tx" tx) (cdr tail))))))))))
 
 (defun %parse-envelope (text)
   "TEXT (one envelope line) as json-kit values with member order kept."
@@ -139,7 +147,7 @@ or NIL; after it every element is skipped unless CONTINUE-ON-ERROR."
           do (if (and failure (not continue-on-error))
                  (push (%skipped argv) results)
                  (multiple-value-bind (code envelope)
-                     (%dispatch-captured app registry (append globals (if tx (%with-tx argv tx) argv)))
+                     (%dispatch-captured app registry (append globals (if tx (%with-tx app argv tx) argv)))
                    (push envelope results)
                    (unless (or failure (member code '(0 3)))
                      (setf failure (list index argv envelope))))))

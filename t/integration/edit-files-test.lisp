@@ -76,6 +76,83 @@
         (expect kind :to-be :ok)
         (expect (field fields "changes") :to-equal '())))))
 
+(describe "aitools rm safety and journal"
+  (it "previews a recursive removal, checks the count, and restores binary bytes and links"
+    (with-workspace ()
+      (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
+      (put "keep" "untouched")
+      (sb-posix:symlink "../../keep" (disk "tree/sub/link"))
+      (let ((before (snapshot)))
+        (with-error (code) (run "rm" '("tree")) (expect code :to-equal "refusal.not-a-file"))
+        (with-error (code) (run "rm" '("tree") :recursive t) (expect code :to-equal "argument.invalid"))
+        (multiple-value-bind (kind fields) (run "rm" '("tree") :recursive t :dry-run t)
+          (expect kind :to-be :ok)
+          (expect (field fields "entries") :to-be 4)
+          (expect (field fields "bytes") :to-be 3)
+          (expect (field fields "expect_count") :to-be 4))
+        (with-error (code) (run "rm" '("tree") :recursive t :expect-count "3")
+          (expect code :to-equal "selection.count-mismatch"))
+        (expect-unchanged before)
+        (multiple-value-bind (kind fields) (run "rm" '("tree") :recursive t :expect-count "4")
+          (expect kind :to-be :ok)
+          (expect (kind "tree") :to-be :absent)
+          (expect (text "keep") :to-equal "untouched")
+          (expect (undo (field fields "op_id")) :to-be :committed))
+        (expect (snapshot) :to-equal before))))
+
+  (it "removes a leaf symlink without following it and undoes the removal"
+    (with-workspace ()
+      (sb-posix:symlink "/outside-not-owned-by-this-test" (disk "link"))
+      (multiple-value-bind (kind fields) (run "rm" '("link"))
+        (expect kind :to-be :ok)
+        (expect (kind "link") :to-be :absent)
+        (expect (undo (field fields "op_id")) :to-be :committed)
+        (expect (sb-posix:readlink (disk "link")) :to-equal "/outside-not-owned-by-this-test"))))
+
+  (it "rejects entry and byte limits before changing any path"
+    (with-workspace ()
+      (put "tree/a" "1234")
+      (put "tree/b" "56")
+      (let ((before (snapshot)))
+        (with-error (code) (run "rm" '("tree") :recursive t :dry-run t :max-entries "2")
+          (expect code :to-equal "refusal.too-large"))
+        (with-error (code) (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "5")
+          (expect code :to-equal "refusal.too-large"))
+        (expect-unchanged before)
+        (expect (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "6" :max-entries "3") :to-be :ok))))
+
+  (it-each ((".git") (".jj") (".GIT") (".JJ"))
+    "refuses the whole tree when it contains metadata: ~A" (metadata)
+    (with-workspace ()
+      (put (format nil "tree/~A/data" metadata) "protected")
+      (put "tree/ordinary" "keep")
+      (let ((before (snapshot)))
+        (with-error (code) (run "rm" '("tree") :recursive t :expect-count "4")
+          (expect code :to-equal "refusal.outside-workspace"))
+        (expect-unchanged before))))
+
+  (it "refuses the workspace root without deleting descendants"
+    (with-workspace ()
+      (put "keep" "safe")
+      (let ((before (snapshot)))
+        (with-error (code) (run "rm" '(".") :recursive t :expect-count "2")
+          (expect code :to-equal "refusal.outside-workspace"))
+        (expect-unchanged before))))
+
+  (it "counts staged bytes and stages a recursive removal without changing disk"
+    (with-workspace ()
+      (put "tree/a" "old")
+      (let ((tx (begin-tx)))
+        (expect (run-in tx "write" '("tree/b") :content '("new")) :to-be :ok)
+        (multiple-value-bind (kind fields) (run-in tx "rm" '("tree") :recursive t :dry-run t)
+          (expect kind :to-be :ok)
+          (expect (field fields "entries") :to-be 3)
+          (expect (field fields "bytes") :to-be 6))
+        (expect (run-in tx "rm" '("tree") :recursive t :expect-count "3") :to-be :ok)
+        (expect (text "tree/a") :to-equal "old")
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (kind "tree") :to-be :absent)))))
+
 (describe "aitools chmod, link and touch"
   (it "sets and clears execute bits and sets a mode, reporting the previous one"
     (with-workspace ()

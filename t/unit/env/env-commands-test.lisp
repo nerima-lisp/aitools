@@ -22,12 +22,43 @@
     (gethash name document)))
 
 (describe "aitools.env.presentation commands"
-  (it "registers all eight sys and time commands with schemas"
+  (it "emits bounded network JSON and exit 3"
+    (multiple-value-bind (code stdout stderr)
+        (dispatch-env (make-fake-ports :identity '("Linux" "test" "generic")
+                                      :files (list (cons "/proc/net/dev" *network-linux-text*)))
+                      "sys" "network" "--limit" "1")
+      (expect code :to-be 3)
+      (expect stderr :to-equal "")
+      (expect (json-field stdout "source") :to-equal "/proc/net/dev")
+      (expect (gethash "rx_bytes" (aref (json-field stdout "items") 0)) :to-be 700)))
+  (it "emits disk capacity for the explicit path"
+    (multiple-value-bind (code stdout) (dispatch-env (make-fake-ports) "sys" "disk" "/fixture")
+      (expect code :to-be 0)
+      (expect (json-field stdout "path") :to-equal "/fixture")
+      (expect (json-field stdout "units") :to-equal "bytes")
+      (expect (json-field stdout "available_bytes") :to-be 400)))
+  (it "returns metrics partial JSON with exit 3 and explicit units"
+    (multiple-value-bind (code stdout stderr)
+        (dispatch-env (make-fake-ports :host (metrics-host)) "sys" "metrics" "--limit" "1")
+      (expect code :to-be 3)
+      (expect stderr :to-equal "")
+      (expect (json-field stdout "sample_interval_ms") :to-be 1000)
+      (expect (gethash "rss_bytes" (aref (json-field stdout "items") 0)) :to-be 102400)))
+  (it "rejects a zero metrics limit"
+    (expect (dispatch-env (make-fake-ports :host (metrics-host)) "sys" "metrics" "--limit" "0") :to-be 1))
+  (it "dispatches a non-atomic snapshot and rejects an unsupported overall timeout"
+    (multiple-value-bind (code stdout stderr) (dispatch-env (make-fake-ports) "sys" "snapshot" "--port-limit" "1")
+      (expect code :to-be 3)
+      (expect stderr :to-equal "")
+      (expect (json-field stdout "scope") :to-equal "host")
+      (expect (hash-table-p (json-field stdout "sections")) :to-be t))
+    (expect (dispatch-env (make-fake-ports) "sys" "snapshot" "--timeout" "1s") :to-be 1))
+  (it "registers all sys and time commands with schemas"
     (let ((registry (aitools.protocol.application:make-command-registry)))
       (aitools.env.presentation:register-env-commands registry (make-fake-ports))
       (expect (mapcar #'aitools.protocol.domain:command-schema-name
                       (aitools.protocol.application:all-command-schemas registry))
-              :to-equal '("sys.info" "sys.env" "sys.tools" "sys.procs" "sys.ports"
+              :to-equal '("sys.info" "sys.env" "sys.tools" "sys.procs" "sys.metrics" "sys.network" "sys.disk" "sys.ports" "sys.snapshot"
                           "time.now" "time.convert" "time.diff"))))
 
   (it "converts across the DST boundary end to end"
@@ -88,6 +119,21 @@
     (multiple-value-bind (code stdout) (dispatch-env (make-fake-ports :host (darwin-host)) "sys" "ports")
       (expect code :to-be 0)
       (expect (json-field stdout "total") :to-be 4)))
+
+  (it "returns partial ports and snapshot JSON when one Linux family is unavailable"
+    (let ((ports (make-fake-ports :identity *linux-identity*
+                                 :files (list (cons "/proc/net/tcp" *proc-net-tcp-text*)))))
+      (multiple-value-bind (code stdout stderr) (dispatch-env ports "sys" "ports")
+        (expect code :to-be 3)
+        (expect stderr :to-equal "")
+        (expect (json-field stdout "status") :to-equal "partial")
+        (expect (json-field stdout "total") :to-be 2)
+        (expect (gethash "ipv6" (json-field stdout "coverage")) :to-equal "source_unavailable")
+        (expect (aref (json-field stdout "source_unavailable") 0) :to-equal "/proc/net/tcp6"))
+      (multiple-value-bind (code stdout) (dispatch-env ports "sys" "snapshot")
+        (expect code :to-be 3)
+        (expect (gethash "status" (gethash "ports" (json-field stdout "sections")))
+                :to-equal "partial"))))
 
   (it "runs time diff through dispatch"
     (multiple-value-bind (code stdout)

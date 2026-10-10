@@ -8,7 +8,7 @@
 (in-package #:aitools.store.domain)
 
 (defstruct (change-request
-            (:constructor %make-change-request (op path &key from content mode target mtime))
+            (:constructor %make-change-request (op path &key from content mode target mtime max-bytes))
             (:copier nil))
   (op nil :type (member :write :delete :move :chmod :symlink :mkdir :mtime) :read-only t)
   (path nil :type string :read-only t)
@@ -16,6 +16,7 @@
   (content nil :type (or null octets) :read-only t)
   (mode nil :type (or null (integer 0 #o7777)) :read-only t)
   (target nil :type (or null string) :read-only t)
+  (max-bytes nil :type (or null (integer 0)) :read-only t)
   ;; Unix seconds: the modification time :MTIME sets, or a :WRITE applies to
   ;; its new file; NIL leaves the time to the filesystem.
   (mtime nil :type (or null (integer 0)) :read-only t))
@@ -32,9 +33,9 @@ seconds), keeping its content; MODE, when given, is applied with it (a tx
 that both chmods and touches a file commits both as one step)."
   (%make-change-request :mtime path :mtime mtime :mode mode))
 
-(defun delete-request (path)
+(defun delete-request (path &key max-bytes)
   "Remove a file, a symlink, or an empty directory."
-  (%make-change-request :delete path))
+  (%make-change-request :delete path :max-bytes max-bytes))
 
 (defun move-request (from to)
   (%make-change-request :move to :from from))
@@ -45,8 +46,8 @@ that both chmods and touches a file commits both as one step)."
 (defun symlink-request (path target)
   (%make-change-request :symlink path :target target))
 
-(defun mkdir-request (path)
-  (%make-change-request :mkdir path))
+(defun mkdir-request (path &key mode)
+  (%make-change-request :mkdir path :mode mode))
 
 (defstruct (change-result (:copier nil))
   (path nil :type string :read-only t)

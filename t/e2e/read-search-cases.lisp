@@ -115,11 +115,12 @@
 
 (define-row-case (4 "strings -a -t d is read --as strings" :foreign ("strings")) (ws)
   (put ws "b.bin" +strings-fixture+)
-  (expect (mapcar (lambda (entry) (format nil "~D ~A" (jget entry "offset") (jget entry "text")))
-                  (jlist (jget (run-ok ws '("read" "b.bin" "--as" "strings")) "strings")))
-          :to-equal (mapcar (lambda (line) (string-left-trim " " line))
-                            (text-lines (oracle ws '("strings") "strings -a -n 4 -t d b.bin"
-                                                (format nil "      0 abcdefg~%     14 hijklmn~%"))))))
+  (let ((expected (mapcar (lambda (line) (string-left-trim " " line))
+                         (text-lines (oracle ws '("strings") "strings -a -n 4 -t d b.bin" nil)))))
+    (expect expected :to-equal '("0 abcdefg" "14 hijklmn"))
+    (expect (mapcar (lambda (entry) (format nil "~D ~A" (jget entry "offset") (jget entry "text")))
+                    (jlist (jget (run-ok ws '("read" "b.bin" "--as" "strings")) "strings")))
+            :to-equal expected)))
 
 ;;; Row 5
 

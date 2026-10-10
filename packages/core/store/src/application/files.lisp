@@ -10,20 +10,33 @@
       (store-root store)
       (join-path (store-root store) relative)))
 
-(defun %state-at (store absolute)
+(defun %read-bounded (store absolute max-bytes)
+  (if max-bytes
+      (%io store read-file absolute :max-bytes max-bytes)
+      (%io store read-file absolute)))
+
+(defun %request-byte-limit (requests path)
+  (loop for request in requests
+        when (and (string= path (change-request-path request))
+                  (change-request-max-bytes request))
+          minimize (change-request-max-bytes request) into limit
+          and count t into found
+        finally (return (and (plusp found) limit))))
+
+(defun %state-at (store absolute &key max-bytes)
   (multiple-value-bind (kind mode target) (%io store lstat absolute)
     (ecase kind
       (:absent (absent-state))
-      (:file (file-state (aitools.kernel.domain:content-hash (%io store read-file absolute)) mode))
+      (:file (file-state (aitools.kernel.domain:content-hash (%read-bounded store absolute max-bytes)) mode))
       (:directory (directory-state mode))
       (:symlink (symlink-state target))
       (:other (error 'store-io-error :operation "lstat" :path absolute
                                      :detail "not a regular file, directory, or symlink")))))
 
-(defun workspace-state (store relative)
+(defun workspace-state (store relative &key max-bytes)
   "The ENTRY-STATE of workspace-relative RELATIVE on disk now (lstat: a
 symlink is reported as itself, never followed)."
-  (%state-at store (%workspace-path store relative)))
+  (%state-at store (%workspace-path store relative) :max-bytes max-bytes))
 
 (defun workspace-mtime (store relative)
   "The modification time (Unix seconds) of workspace-relative RELATIVE on
@@ -61,9 +74,9 @@ that carries one."
 (defun %kind-at (store absolute)
   (values (%io store lstat absolute)))
 
-(defun %read-file-if-exists (store absolute)
+(defun %read-file-if-exists (store absolute &key max-bytes)
   (when (eq (%kind-at store absolute) :file)
-    (%io store read-file absolute)))
+    (%read-bounded store absolute max-bytes)))
 
 (defun %read-text-if-exists (store absolute)
   (let ((octets (%read-file-if-exists store absolute)))

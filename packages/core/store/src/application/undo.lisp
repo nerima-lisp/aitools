@@ -41,7 +41,7 @@ created (removing that directory would delete someone else's file)."
   (ecase (entry-state-kind state)
     (:absent (delete-request path))
     (:file (write-file-request path (read-blob store (entry-state-hash state)) :mode (entry-state-mode state)))
-    (:directory (mkdir-request path))
+    (:directory (mkdir-request path :mode (entry-state-mode state)))
     (:symlink (symlink-request path (entry-state-target state)))))
 
 (defun %inverse-requests (store entry)

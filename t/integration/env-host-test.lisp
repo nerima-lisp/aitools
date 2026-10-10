@@ -50,9 +50,13 @@ at load time would hold the adapter functions compiled then."
                (multiple-value-bind (kind result) (run-flow #'sys-ports/k (host-ports))
                  ;; No /proc/net/tcp on Linux or no lsof on Darwin (a build
                  ;; sandbox) is a missing source: skip, never a hard failure.
-                 (unless (eq kind :ok)
+                 (when (eq kind :error)
                    (expect (first result) :to-equal "environment.unavailable")
                    (cl-weave:skip "no listening-socket source on this host"))
+                 (when (eq kind :partial)
+                   (expect (object-field (field result "coverage") "ipv4") :to-equal "ok")
+                   (expect (field result "source_unavailable") :to-equal '("/proc/net/tcp6")))
+                 (expect (member kind '(:ok :partial)) :to-be-truthy)
                  (expect (field result "total") :to-be (length (field result "items")))
                  (expect (find port (field result "items")
                                :key (lambda (item) (object-field item "port")))

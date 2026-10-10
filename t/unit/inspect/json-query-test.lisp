@@ -32,6 +32,16 @@
     (expect (format-json-pointer '("a/b" "m~n")) :to-equal "/a~1b/m~0n")))
 
 (describe "json get"
+  (it-each (("日本語" "2" "\"") ("日本語" "4" "\"日")
+            ("éé" "2" "\"") ("éé" "3" "\"é")
+            ("😀😀" "4" "\"") ("😀😀" "5" "\"😀"))
+      "limits the UTF-8 preview of ~S to ~A bytes"
+      (text budget preview)
+    (let ((*doc* (format nil "~S" text)))
+      (multiple-value-bind (kind fields) (json-get "" :max-bytes budget)
+        (expect kind :to-be :partial)
+        (expect (field fields "value_preview") :to-equal preview))))
+
   (it "returns value, type, and length"
     (multiple-value-bind (kind fields) (json-get "/a/b")
       (expect kind :to-be :ok)
@@ -226,9 +236,19 @@
     (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name<\"b\"")))) :to-equal '(1))
     (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>1")))) :to-be nil))
 
-  (it "names --output count as the next command past --limit"
-    (expect (field (nth-value 1 (json-select "/items" :limit 1)) "next_commands")
-            :to-equal '("aitools json select d.json /items --output count"))))
+  (it-each (("without filters" nil 3 "aitools json select d.json /items --output count")
+            ("with one filter" ("/score>=20") 2 "aitools json select d.json /items --where '/score>=20' --output count")
+            ("with multiple filters" ("/score>=20" "/name!=\"beta\"") 2
+             "aitools json select d.json /items --where '/score>=20' --where '/name!=\"beta\"' --output count"))
+      "names the matching count as the next command past --limit ~A"
+      (label where total command)
+    (declare (ignore label))
+    (multiple-value-bind (kind fields) (json-select "/items" :where where :limit 1)
+      (expect kind :to-be :partial)
+      (expect (field fields "total") :to-be total)
+      (expect (field fields "next_commands") :to-equal (list command)))
+    (expect (field (nth-value 1 (json-select "/items" :where where :output "count")) "count")
+            :to-be total)))
 
 (describe "json diff limits"
   (it "is partial past --limit with the total"

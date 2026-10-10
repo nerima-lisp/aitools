@@ -5,6 +5,39 @@
 (in-package #:aitools.store.test)
 
 (describe "aitools.store commit-changes/k"
+  (it "applies explicit directory modes after writing descendants and preserves omitted modes"
+    (with-temp-store (store)
+      (unwind-protect
+           (progn
+             (expect (commit store (list (mkdir-request "private" :mode #o500)
+                                         (mkdir-request "private/nested" :mode #o750)
+                                         (write-file-request "private/nested/file" (bytes "data"))))
+                     :to-be :committed)
+             (expect (disk-mode store "private") :to-be #o500)
+             (expect (disk-mode store "private/nested") :to-be #o750)
+             (expect (disk-text store "private/nested/file") :to-equal "data")
+             (expect (commit store (list (mkdir-request "private"))) :to-be :committed)
+             (expect (disk-mode store "private") :to-be #o500))
+        (when (probe-file (disk-path store "private"))
+          (sb-posix:chmod (disk-path store "private") #o700)))))
+
+  (it "restores nested deleted directory modes and content through undo"
+    (with-temp-store (store)
+      (put-file store "private/nested/file" "data" :mode #o600)
+      (sb-posix:chmod (disk-path store "private") #o700)
+      (sb-posix:chmod (disk-path store "private/nested") #o750)
+      (multiple-value-bind (status op-id)
+          (commit store (list (delete-request "private/nested/file")
+                              (delete-request "private/nested")
+                              (delete-request "private")))
+        (expect status :to-be :committed)
+        (expect (disk-text store "private") :to-be :absent)
+        (expect (undo store op-id) :to-be :committed)
+        (expect (disk-mode store "private") :to-be #o700)
+        (expect (disk-mode store "private/nested") :to-be #o750)
+        (expect (disk-mode store "private/nested/file") :to-be #o600)
+        (expect (disk-text store "private/nested/file") :to-equal "data"))))
+
   (it "applies every action and reports before/after states and bytes"
     (with-temp-store (store)
       (put-file store "edit.txt" "old")

@@ -168,13 +168,20 @@ Each problem reads \"LINE: problem (example)\"."
             (length lines))))
 
 (defun frontmatter-version (text)
-  "The `version:` value of TEXT's leading YAML frontmatter, or NIL."
-  (let ((lines (uiop:split-string text :separator '(#\Newline))))
-    (when (string= (%trim (first lines)) "---")
+  "Read metadata.version in the skill's two-space-indented YAML frontmatter."
+  (let ((lines (uiop:split-string text :separator '(#\Newline)))
+        (in-metadata nil))
+    (when (and lines (string= (%trim (first lines)) "---"))
       (loop for line in (rest lines)
             until (string= (%trim line) "---")
-            when (uiop:string-prefix-p "version:" line)
-              return (%trim (subseq line (length "version:")))))))
+            do (cond
+                 ((string= line "metadata:") (setf in-metadata t))
+                 ((and in-metadata (uiop:string-prefix-p "  version:" line))
+                  (let ((value (%trim (subseq line (length "  version:")))))
+                    (return (unless (string= value "") value))))
+                 ((and (plusp (length (%trim line)))
+                       (not (find (char line 0) '(#\Space #\Tab))))
+                  (setf in-metadata nil)))))))
 
 (describe "skills/aitools/SKILL.md matches the CLI"
   (it "extracts more examples than the floor"
@@ -187,6 +194,31 @@ Each problem reads \"LINE: problem (example)\"."
   (it "declares the version aitools.asd declares"
     (expect (frontmatter-version (%skill-text))
             :to-equal (asdf:component-version (asdf:find-system "aitools"))))
+
+  (it "extracts metadata.version from leading frontmatter"
+    (expect (frontmatter-version
+             (format nil "---~%name: example~%metadata:~%  version: 1.2.3~%---~%"))
+            :to-equal "1.2.3"))
+
+  (it "rejects the unsupported top-level version field"
+    (expect (frontmatter-version (format nil "---~%version: 1.2.3~%---~%"))
+            :to-be nil))
+
+  (it "does not extract a version from the body"
+    (expect (frontmatter-version
+             (format nil "---~%metadata:~%---~%  version: 1.2.3~%"))
+            :to-be nil))
+
+  (it "does not extract a version from another frontmatter mapping"
+    (expect (frontmatter-version
+             (format nil "---~%metadata:~%  author: example~%other:~%  version: 1.2.3~%---~%"))
+            :to-be nil))
+
+  (it "requires leading frontmatter and a nonempty metadata version"
+    (expect (frontmatter-version (format nil "metadata:~%  version: 1.2.3~%"))
+            :to-be nil)
+    (expect (frontmatter-version (format nil "---~%metadata:~%  version: ~%---~%"))
+            :to-be nil))
 
   (it "reports an unknown command, an unknown option, and a rejected enum value by line"
     (let ((problems (skill-drift (format nil "```sh~%~

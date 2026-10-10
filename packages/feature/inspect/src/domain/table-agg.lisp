@@ -28,18 +28,27 @@ each cell from that text rather than trusting the degraded column type."
   (or (numberp value)
       (and (stringp value) (member (%cell-class value) '(:integer :number)))))
 
-(defun non-numeric-cells (table index &key (limit 20))
+(defun non-numeric-cells (table index &key (limit 20) (rows (table-rows table)))
   "(row value) for the first LIMIT data rows (1-based) whose cell at INDEX is
 present and non-blank but does not read as a number."
-  (loop for row in (table-rows table)
+  (let ((selected (make-hash-table :test 'eq)))
+    (dolist (row rows) (setf (gethash row selected) t))
+    (loop for row in (table-rows table)
         for number from 1
         for value = (svref row index)
-        when (and (%present-p value)
+        when (and (gethash row selected) (%present-p value)
                   (not (and (stringp value) (zerop (length value))))
                   (not (%numeric-cell-p value)))
           collect (list number value) into found
         when (>= (length found) limit) return found
-        finally (return found)))
+        finally (return found))))
+
+(defun %numeric-value (value)
+  (if (stringp value)
+      (case (%cell-class value)
+        (:integer (parse-integer value))
+        (:number (%number-value value)))
+      value))
 
 (defun %key-less-p (a b)
   (loop for x in a
@@ -64,19 +73,19 @@ key order. SUM/AVG/MIN/MAX/DISTINCT are single column indexes or NIL."
                           (setf (gethash fingerprint groups) new)))))
         (incf (table-group-count group))
         (when sum
-          (let ((value (svref row sum)))
+          (let ((value (%numeric-value (svref row sum))))
             (when (numberp value) (incf (table-group-sum group) value))))
         (when avg
-          (let ((value (svref row avg)))
+          (let ((value (%numeric-value (svref row avg))))
             (when (numberp value)
               (incf (table-group-avg-sum group) value)
               (incf (table-group-avg-count group)))))
         (when extreme-min
-          (let ((value (svref row extreme-min)))
+          (let ((value (%numeric-value (svref row extreme-min))))
             (when (and (numberp value) (or (null (table-group-min group)) (< value (table-group-min group))))
               (setf (table-group-min group) value))))
         (when extreme-max
-          (let ((value (svref row extreme-max)))
+          (let ((value (%numeric-value (svref row extreme-max))))
             (when (and (numberp value) (or (null (table-group-max group)) (> value (table-group-max group))))
               (setf (table-group-max group) value))))
         (when distinct

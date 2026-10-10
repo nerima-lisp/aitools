@@ -116,6 +116,17 @@ append TEXT to PATH as the view shows it."
       (expect (status-of store "tx-nope") :to-be :not-found))))
 
 (describe "aitools.store tx commit"
+  (it "preserves an explicit directory mode from the tx overlay"
+    (with-temp-store (store)
+      (let ((tx (begin store)))
+        (expect (stage store tx (list (mkdir-request "private" :mode #o700)
+                                      (write-file-request "private/file" (bytes "data"))))
+                :to-be 1)
+        (expect (disk-text store "private") :to-be :absent)
+        (expect (commit-tx store tx) :to-be :committed)
+        (expect (disk-mode store "private") :to-be #o700)
+        (expect (disk-text store "private/file") :to-equal "data"))))
+
   (it "applies the whole tx as one journal op, removes the tx, and undoes as a unit"
     (with-temp-store (store)
       (put-file store "a.txt" "a")

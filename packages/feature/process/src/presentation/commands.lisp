@@ -52,6 +52,16 @@ continuations, returning the resulting COMMAND-RESULT."
                   (make-option :name "grep-limit" :kind :value :type :integer :min 0 :default 50
                                :description "Matches reported per stream.")
                   (%strip-ansi-option)
+                  (make-option :name "stdin" :kind :boolean
+                               :description "Forward current stdin to the child.")
+                  (make-option :name "stdin-data" :kind :value :value-name "TEXT"
+                               :description "Send this UTF-8 text to the child.")
+                  (make-option :name "stdin-file" :kind :value :value-name "PATH"
+                               :description "Send a regular file's raw bytes to the child.")
+                  (make-option :name "cwd" :kind :value :value-name "PATH"
+                               :description "Working directory for the child only.")
+                  (make-option :name "env" :kind :value :value-name "KEY=VALUE" :multiple-p t
+                               :description "Overlay an inherited environment entry; repeatable, last value wins.")
                   (make-option :name "stdout-to" :kind :value :value-name "PATH"
                                :description "Write stdout to this new file instead of returning it."))
    :handler (lambda (invocation)
@@ -65,6 +75,11 @@ continuations, returning the resulting COMMAND-RESULT."
                           :grep-limit (option-value invocation :grep-limit)
                           :strip-ansi (and (option-value invocation :strip-ansi) t)
                           :stdout-to (option-value invocation :stdout-to)
+                          :stdin (and (option-value invocation :stdin) t)
+                          :stdin-data (option-value invocation :stdin-data)
+                          :stdin-file (option-value invocation :stdin-file)
+                          :cwd (option-value invocation :cwd)
+                          :env (option-value invocation :env)
                           :root (option-value invocation :root))))))
 
 (defun %wait-command (ports)

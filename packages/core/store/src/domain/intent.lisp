@@ -27,6 +27,10 @@
   (kind nil :type (member nil :file :symlink) :read-only t)
   (mode nil :type (or null (integer 0 #o7777)) :read-only t)
   (target nil :type (or null string) :read-only t)
+  ;; Optional in older records. Identity is the filesystem device/inode pair.
+  (identity nil :type (or null string) :read-only t)
+  (before nil :type (or null entry-state) :read-only t)
+  (max-bytes nil :type (or null (integer 0)) :read-only t)
   ;; :UTIME, and a :REPLACE of a file whose new state carries one: the
   ;; modification time in Unix seconds.
   (mtime nil :type (or null (integer 0)) :read-only t))
@@ -56,7 +60,7 @@ the very time it is meant to control."
          (entry-state-mtime after)
          (equal (entry-state-hash before) (entry-state-hash after)))))
 
-(defun changes->steps (op-id results directory-exists-p)
+(defun changes->steps (op-id results directory-exists-p &optional identity-at)
   "Return the intent steps for RESULTS in apply order. DIRECTORY-EXISTS-P
 (relative path) answers for the disk as it is now, before any step runs: a
 temp file goes in the target's directory, or in its nearest existing
@@ -77,7 +81,7 @@ only appears after the commit point)."
              collect (ecase (change-result-action result)
                        ((:created :modified :linked)
                         (ecase (entry-state-kind after)
-                          (:directory (make-intent-step :op :mkdir :path path))
+                          (:directory (make-intent-step :op :mkdir :path path :mode (entry-state-mode after)))
                           (:file (if (change-keeps-content-p result)
                                    (make-intent-step :op :utime :path path :mode (entry-state-mode after)
                                                      :mtime (entry-state-mtime after))
@@ -90,7 +94,11 @@ only appears after the commit point)."
                         (make-intent-step :op (if (eq (entry-state-kind (change-result-before result)) :directory)
                                                   :rmdir
                                                   :unlink)
-                                          :path path))
+                                          :path path
+                                          :identity (and identity-at (funcall identity-at path))
+                                          :before (change-result-before result)
+                                          :max-bytes (and (change-result-before-content result)
+                                                          (length (change-result-before-content result)))))
                        (:moved (make-intent-step :op :move :path path :from (change-result-from result)))
                        (:mode-changed (make-intent-step :op :chmod :path path :mode (entry-state-mode after)))))
        #'%step<))))
@@ -105,6 +113,9 @@ only appears after the commit point)."
                          "kind" (string-downcase (symbol-name (intent-step-kind step)))))
                  (when (intent-step-mode step) (list "mode" (intent-step-mode step)))
                  (when (intent-step-target step) (list "target" (intent-step-target step)))
+                 (when (intent-step-identity step) (list "identity" (intent-step-identity step)))
+                 (when (intent-step-before step) (list "before" (entry-state->json (intent-step-before step))))
+                 (when (intent-step-max-bytes step) (list "max_bytes" (intent-step-max-bytes step)))
                  (when (intent-step-mtime step) (list "mtime" (intent-step-mtime step))))))
 
 (defun %json->step (object)
@@ -125,6 +136,10 @@ only appears after the commit point)."
                         :path (relative "path" t)
                         :from (relative "from" (eq op :move))
                         :temp temp
+                        :identity (%json-field object "identity" :type 'string :required nil)
+                        :before (let ((before (%json-field object "before" :type 'hash-table :required nil)))
+                                  (and before (json->entry-state before)))
+                        :max-bytes (%json-field object "max_bytes" :type '(integer 0) :required nil)
                         :kind (cond ((null kind-name) nil)
                                     ((string= kind-name "file") :file)
                                     ((string= kind-name "symlink") :symlink)

@@ -129,6 +129,8 @@ waits between lock attempts."
                              (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:unsigned-int)
                              dirfd name mode)))
      :chmod (lambda (path mode) (%chmod root path mode))
+     :chmod-directory-identity (lambda (path mode identity) (%chmod-directory-identity root path mode identity))
+     :sync-directory (lambda (path) (%sync-directory root path))
      :symlink (lambda (target path)
                 (%with-parent ((dirfd name) root path)
                   (%alien-call ("symlink" path) "symlinkat"

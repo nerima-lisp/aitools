@@ -30,11 +30,24 @@
 
 (defun %disk-plan/k (store requests on-planned on-rejected)
   (plan-changes/k requests
-                  :lookup-state (lambda (path) (workspace-state store path))
-                  :lookup-content (lambda (path) (%io store read-file (%workspace-path store path)))
+                  :lookup-state (lambda (path) (workspace-state store path :max-bytes (%request-byte-limit requests path)))
+                  :lookup-content (lambda (path) (%read-bounded store (%workspace-path store path)
+                                                               (%request-byte-limit requests path)))
                   :list-children (lambda (path) (%list-children store path))
                   :lookup-mtime (lambda (path) (workspace-mtime store path))
-                  :on-planned on-planned
+                  :on-planned (lambda (results)
+                                (handler-case
+                                    (%refuse-unsafe-steps
+                                     store
+                                     (changes->steps
+                                      "preview" results
+                                      (lambda (path)
+                                        (eq (%kind-at store (%workspace-path store path)) :directory))))
+                                  (store-refusal (condition)
+                                    (return-from %disk-plan/k
+                                      (funcall on-rejected (store-refusal-code condition)
+                                               (store-refusal-message condition)))))
+                                (funcall on-planned results))
                   :on-rejected on-rejected))
 
 (defun %strip-contents (result)
@@ -55,7 +68,8 @@ with the workspace lock held. Returns the new op id."
                                     :changes (mapcar #'%strip-contents results)
                                     :undoes undoes))
          (steps (changes->steps op-id results
-                                (lambda (path) (eq (%kind-at store (%workspace-path store path)) :directory))))
+                                (lambda (path) (eq (%kind-at store (%workspace-path store path)) :directory))
+                                (lambda (path) (nth-value 5 (%io store lstat (%workspace-path store path))))))
          (intent (make-intent :op-id op-id :steps steps :journal-entry entry :tx-id tx-id))
          (intent-path (intent-file-path state op-id))
          (header (encode-intent-header intent))
@@ -64,6 +78,7 @@ with the workspace lock held. Returns the new op id."
       (setf (gethash (change-result-path result) by-path) result))
     (fault-point :after-validate op-id)
     (%refuse-unsafe-steps store steps)
+    (dolist (step steps) (%refuse-changed-deletion store step))
     (when (store-temporary store)
       ;; mktemp's area is scratch space, outside the journal. Without
       ;; a record there is nothing to roll forward, so a crash mid-apply can
@@ -73,7 +88,8 @@ with the workspace lock held. Returns the new op id."
         (%prepare-temps store op-id steps by-path))
       (let ((replace-temps (%replace-temps steps)))
         (dolist (step steps)
-          (%apply-step store step replace-temps)))
+          (%apply-step store step replace-temps))
+        (%finish-directory-modes store steps))
       (return-from %commit-results op-id))
     (with-prepared-intent (store intent-path steps)
       (dolist (result results)
@@ -85,6 +101,7 @@ with the workspace lock held. Returns the new op id."
       (fault-point :after-intent-header op-id)
       (%prepare-temps store op-id steps by-path)
       (fault-point :after-prepare op-id)
+      (dolist (step steps) (%refuse-changed-deletion store step))
       ;; Writing line 2, the checksum, durably is the commit point. Once
       ;; WITH-PREPARED-INTENT returns the op is committed and its record must
       ;; survive, so %COMPLETE-INTENT runs outside the discard guard.

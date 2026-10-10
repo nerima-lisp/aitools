@@ -38,8 +38,12 @@
   ;; An adapter's own host interface: SBCL's POSIX, alien, socket and
   ;; system packages and UIOP are what the effectful kits are built on, and
   ;; infrastructure is the layer that owns such effects.
+  ;; SB-GRAY adapts caller-owned input streams without closing them; SB-UNIX
+  ;; polls their descriptors so the process feeder can observe cancellation.
+  ;; These host effects remain confined to infrastructure.
   '("HOST-KIT" "PROCESS-KIT" "VCS-KIT" "CL-CONCURRENT-KIT" "CL-BOUNDARY-KIT"
-    "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS" "UIOP"))
+    "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
+    "SB-GRAY" "SB-UNIX" "UIOP"))
 
 (defparameter *symbol-allowances*
   ;; (layers package symbol reason): single SBCL symbols a pure layer may
@@ -313,6 +317,23 @@ line."
 (describe "aitools structure test (dependency direction)"
   (it "finds no layer violations in the real source tree"
     (expect (scan-source-tree (repository-root)) :to-equal nil))
+
+  (it "allows process stream adapters only in infrastructure"
+    (let* ((relative "packages/feature/process/src/infrastructure/runner.lisp")
+           (pathname (merge-pathnames relative (repository-root))))
+      (expect (scan-file pathname relative "process" :infrastructure :feature nil)
+              :to-equal nil)
+      ;; Reclassify real effectful code: unrelated placement errors must not
+      ;; substitute for the two host-package violations this policy requires.
+      (dolist (layer '(:domain :application))
+        (let ((violations (scan-file pathname relative "process" layer :feature nil)))
+          (dolist (reference '("SB-GRAY:FUNDAMENTAL-CHARACTER-INPUT-STREAM"
+                               "SB-UNIX:UNIX-SIMPLE-POLL"))
+            (let ((expected (format nil "~A, which process/~(~A~) may not depend on"
+                                    reference layer)))
+              (expect (not (null (some (lambda (violation) (search expected violation))
+                                      violations)))
+                      :to-equal t)))))))
 
   (it "fails on a domain file that reaches an effectful kit"
     (expect (fixture-violations "violation-effectful-kit-from-domain")

@@ -157,6 +157,32 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
                     #'string<)
               :to-equal '("bg-1.json" "bg-1.log"))))
 
+  (it "reads a record from one descriptor despite unlink or replacement after open"
+    (with-temporary-directory (directory)
+      (dolist (replacement '(nil "different replacement"))
+        (let* ((path (write-file (merge-pathnames "bg-1.json" directory) "original"))
+               (original (fdefinition 'aitools.process.infrastructure::%open-input-file))
+               (opens 0)
+               (opened nil))
+          (unwind-protect
+               (progn
+                 (setf (fdefinition 'aitools.process.infrastructure::%open-input-file)
+                       (lambda (input &rest arguments)
+                         (let ((stream (apply original input arguments)))
+                           (incf opens)
+                           (when (= opens 1)
+                             (setf opened stream)
+                             (delete-file path)
+                             (when replacement (write-file path replacement)))
+                           stream)))
+                 (expect (call-port (production-ports)
+                                    'aitools.process.application::process-ports-read-file-text path)
+                         :to-equal "original")
+                 (expect opens :to-be 1)
+                 (expect (open-stream-p opened) :to-be nil))
+            (setf (fdefinition 'aitools.process.infrastructure::%open-input-file) original)
+            (when (and opened (open-stream-p opened)) (close opened)))))))
+
   (it "reads byte ranges, sizes, and text with replacement, and NIL for a missing file"
     (with-temporary-directory (directory)
       (let ((ports (production-ports))

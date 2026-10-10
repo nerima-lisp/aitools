@@ -24,14 +24,40 @@ sbcl --script run-tests.lisp
 `run-tests.lisp` registers the checkout itself with `(:directory root)` and
 inherits the rest of the registry, then runs `asdf:test-system "aitools"`.
 It exits 1 with a one-line message if the test operation signals an error,
-and 0 otherwise. Exit 0 means only that nothing signalled; read cl-weave's
-report for how many specs ran and passed. There is no per-context filter.
+and 0 otherwise. The policy in `t/package.lisp` rejects failures, errors,
+too few executed specs, and skips or todos outside its explicit allowlist.
+Read cl-weave's report for the executed count and any allowed unrun specs.
+There is no per-context filter.
 
-The same suite runs in Nix:
+For the full-suite host gate against the Nix-delivered binary, run:
 
 ```sh
 nix run .#test
 ```
+
+`apps.test` starts a fresh SBCL process and loads `run-host-tests.lisp` from
+the flake's filtered source tree in the Nix store, not the writable checkout.
+It builds `CL_SOURCE_REGISTRY` inline from that source and the pinned test
+dependencies, and sets
+`AITOOLS_E2E_BINARY` to the delivered `bin/aitools`. Each invocation
+creates a fresh ASDF compilation cache in `AITOOLS_HOST_CACHE_DIR` and
+ignores inherited output translations, so it cannot reuse the host's old
+compiled files.
+
+The runner loads `aitools/test` and runs every registered spec without a
+context filter. Success requires a nonempty selection, every selected spec
+passing, and zero skips, todos, failures, or errors, even for skips or todos
+the ordinary test policy would allow. It also enforces
+`*minimum-executed-specs*` in `t/package.lisp`. The report includes the store
+source (`SOURCE`), delivered binary (`BINARY`), JSON results, and
+`POLICY_EXECUTED` count.
+JSON results appear only after all specs finish. If the run is interrupted,
+use stderr's `[start]` and `[end]` lines to identify the last attempted spec;
+an incomplete run is not a passing gate.
+
+The Nix test gate uses `timeoutSeconds = 1800`. The host runner uses
+`timeout -k 30s 1800s`: it sends the timeout signal after 1800 seconds and
+forces termination after another 30 seconds if the process is still running.
 
 ## The gate
 
@@ -39,23 +65,45 @@ nix run .#test
 nix flake check --print-build-logs
 ```
 
-This is what CI runs on `x86_64-linux` (`.github/workflows/ci.yml`). The
-checks are:
+The flake supports `x86_64-linux` and `aarch64-darwin`. The checks differ
+by platform:
 
 | Check | What it runs |
 |---|---|
-| `checks.<system>.default` | The test suite against the pinned dependencies. `CL_PROCESS_KIT_SPAWN` is set so the `bg` specs run, and `AITOOLS_E2E_BINARY` points `t/e2e/` at the delivered package. |
-| `checks.<system>.paredit-lint` | paredit-cli's structural lint over every Lisp source: delimiters must balance. It does not check layout. |
+| `checks.x86_64-linux.default` | The full Nix test suite against the pinned dependencies. `CL_PROCESS_KIT_SPAWN` is set so the `bg` specs run, and `AITOOLS_E2E_BINARY` points `t/e2e/` at the delivered package. |
+| `checks.aarch64-darwin.default` | Delivery artifacts: the host test runner and spawn helper must be executable, and the delivered binary's `schema` must return `status: ok` with nonempty, uniquely named commands. It does not run the full suite. |
+| `checks.<system>.paredit-lint` | paredit-cli's structural lint over every Lisp source in the filtered distribution tree: delimiters must balance. It does not check layout. |
 | `checks.<system>.formatting` | treefmt over the Nix sources. |
 | `checks.<system>.docs` | `mkdocs build --strict` of this site. |
 
-To include files git does not track yet, use a `path:` flake reference:
-`nix flake check path:. --print-build-logs`.
+Darwin's native `ps` and `top` cannot run under the Nix build sandbox's
+mandatory Seatbelt policy. On Darwin, `nix flake check` therefore checks
+delivery artifacts, Lisp syntax, docs, and formatting; run `nix run .#test`
+as well for the full suite on the host against that delivery.
 
-In a linked git worktree, `checks.formatting` fails inside the Nix sandbox
-because `.git` there is a file pointing outside the sandbox and treefmt
-calls `git ls-files`. Run `nix fmt` from a normal checkout instead; do not
-weaken the check.
+CI (`.github/workflows/ci.yml`) requires both platform jobs:
+
+| Runner | Required gates |
+|---|---|
+| `ubuntu-latest` (`x86_64-linux`) | `nix flake check --print-build-logs`, including the full Nix test suite. |
+| `macos-15` (ARM, `aarch64-darwin`) | `nix flake check --print-build-logs` for delivery, syntax, docs, and formatting, then `nix run .#test --print-build-logs` for every spec on the host against the same flake's delivered binary. |
+
+Both jobs also run `git diff --check` and have a 30-minute job timeout.
+This overall limit includes setup and the Nix gate; it does not guarantee
+the host suite a full 1800 seconds.
+
+To include files git does not track yet, use the same `path:` flake reference
+for both gates:
+
+```sh
+nix flake check path:. --print-build-logs
+nix run path:.#test --print-build-logs
+```
+
+The distribution filter keeps `.lisp` and `.asd` files and the skill document,
+but excludes scratch directories whose names start with `.release-probe.`,
+`.session-audit-`, or `.store-fd-probe.`. Including a new test file does not
+register its specs: add it to `aitools.asd` as described below.
 
 To build one check or the binary alone:
 

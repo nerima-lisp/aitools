@@ -47,12 +47,33 @@
     (:foreign-names ("iconv" "nkf")
      :repairs ((:detail "Convert a file's text encoding."
                 :command "aitools transcode")))
-    (:foreign-names ("cp" "mv" "rm" "rmdir")
-     :repairs ((:detail "Copy, move, or delete a file or empty directory."
+    (:foreign-names ("cp")
+     :repairs ((:detail "Copy a file, or a directory with --recursive."
                 :command "aitools copy")))
-    (:foreign-names ("mkdir" "chmod" "ln" "touch" "mktemp")
-     :repairs ((:detail "Create a directory, change mode, link, touch, or make a temp path."
+    (:foreign-names ("mv")
+     :repairs ((:detail "Move or rename a file or directory."
+                :command "aitools move")))
+    (:foreign-names ("rm")
+     :repairs ((:detail "Remove one target with journal and undo; trees need --recursive and --expect-count."
+                :command "aitools rm")))
+    (:foreign-names ("rmdir")
+     :repairs ((:detail "Delete a file, a symlink, or an empty directory."
+                :command "aitools delete")))
+    (:foreign-names ("mkdir")
+     :repairs ((:detail "Create a directory and its parents."
                 :command "aitools mkdir")))
+    (:foreign-names ("chmod")
+     :repairs ((:detail "Set executable bits or an octal mode."
+                :command "aitools chmod")))
+    (:foreign-names ("ln")
+     :repairs ((:detail "Create a symbolic link inside the workspace."
+                :command "aitools link")))
+    (:foreign-names ("touch")
+     :repairs ((:detail "Create an empty file or set a file's modification time."
+                :command "aitools touch")))
+    (:foreign-names ("mktemp")
+     :repairs ((:detail "Create a temporary file or directory in the workspace's state tmp/ area."
+                :command "aitools mktemp")))
     (:foreign-names ("jq")
      :repairs ((:detail "Read, query, or edit JSON."
                 :command "aitools json get")))
@@ -71,9 +92,23 @@
     (:foreign-names ("which")
      :repairs ((:detail "Check whether an external tool is available."
                 :command "aitools sys tools")))
-    (:foreign-names ("ps" "lsof")
-     :repairs ((:detail "List processes or listening ports."
+    (:foreign-names ("ps")
+     :repairs ((:detail "List processes (read-only)."
                 :command "aitools sys procs")))
+    (:foreign-names ("top")
+     :repairs ((:detail "Read one noninteractive system metrics snapshot."
+                :command "aitools sys metrics")))
+    (:foreign-names ("lsof")
+     :repairs ((:detail "List listening TCP sockets and their owning processes."
+                :command "aitools sys ports")))
+    (:foreign-names ("df")
+     :repairs ((:detail "Read capacity of the filesystem containing a path, not every mount."
+                :command "aitools sys disk")))
+    (:foreign-names ("netstat")
+     :repairs ((:detail "Read cumulative interface counters, not rates or connectivity."
+                :command "aitools sys network")
+               (:detail "List listening TCP sockets, not every connection or route."
+                :command "aitools sys ports")))
     (:foreign-names ("date")
      :repairs ((:detail "Read or convert the current or a given time."
                 :command "aitools time now")))

@@ -131,7 +131,33 @@ holding `.git`, else the working directory. Does not start git."
           when (equal namestring "/")
             return start)))
 
+(defun %cpu-counters ()
+  #+darwin
+  (let ((host (sb-alien:alien-funcall
+               (sb-alien:extern-alien "mach_host_self" (function sb-alien:unsigned-int)))))
+    (unwind-protect
+         (sb-alien:with-alien ((ticks (array sb-alien:unsigned-int 4))
+                              (count sb-alien:unsigned-int 4))
+           ;; HOST_CPU_LOAD_INFO has four uint32 counters: user, system, idle, nice.
+           (when (and (zerop (sb-alien:alien-funcall
+                             (sb-alien:extern-alien
+                              "host_statistics"
+                              (function sb-alien:int sb-alien:unsigned-int sb-alien:int
+                                        (* sb-alien:unsigned-int) (* sb-alien:unsigned-int)))
+                             host 3 (sb-alien:cast (sb-alien:addr ticks) (* sb-alien:unsigned-int))
+                             (sb-alien:addr count)))
+                      (= count 4))
+             (list (sb-alien:deref ticks 0) (sb-alien:deref ticks 3)
+                   (sb-alien:deref ticks 1) (sb-alien:deref ticks 2) 0 0 0 0)))
+      (sb-alien:alien-funcall
+       (sb-alien:extern-alien "mach_port_deallocate"
+                             (function sb-alien:int sb-alien:unsigned-int sb-alien:unsigned-int))
+       (sb-alien:extern-alien "mach_task_self_" sb-alien:unsigned-int) host)))
+  #-darwin nil)
+
 (defun make-env-ports-from-boundaries (&key clock environment filesystem host-info
+                                         (sleep-seconds #'sleep)
+                                         (cpu-counters #'%cpu-counters)
                                          (run-program #'%run-program)
                                          (executable-p #'%executable-p)
                                          (list-directory #'%list-directory)
@@ -146,6 +172,8 @@ keywords default to the host adapters above and are replaced by fakes in
 tests."
   (aitools.env.application:make-env-ports
    :now-milliseconds (lambda () (cl-boundary-kit:clock-now clock))
+   :sleep-seconds sleep-seconds
+   :cpu-counters cpu-counters
    :environment-variable (lambda (name) (cl-boundary-kit:environment-get environment name))
    :environment-variables (lambda () (cl-boundary-kit:environment-list environment))
    :read-file (lambda (path external-format)

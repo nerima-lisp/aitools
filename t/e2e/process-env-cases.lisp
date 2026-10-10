@@ -178,6 +178,59 @@
       (sb-ext:process-wait process)
       (sb-ext:process-close process))))
 
+(define-row-case (41 "top's process snapshot is sys metrics" :foreign ("top")) (ws)
+  (let ((process (sb-ext:run-program "sleep" '("47") :search t :wait nil)))
+    (unwind-protect
+         (let* ((pid (sb-ext:process-pid process))
+                (expected (trimmed
+                           (oracle ws '("top" "awk")
+                                   (format nil
+                                           "case $(uname -s) in Darwin) /usr/bin/top -l 1 -pid ~D -stats pid,rsize -n 1 ;; *) top -b -n 1 -p ~D ;; esac > top.txt && awk '$1 == ~D {print $1}' top.txt"
+                                           pid pid pid)
+                                   nil)))
+                (result (aitools ws '("sys" "metrics" "--limit" "10000")))
+                (envelope (aitools-envelope result))
+                (item (find pid (jlist (jget envelope "items"))
+                            :key (lambda (item) (jget item "pid")))))
+           (expect expected :to-equal (princ-to-string pid))
+           (expect (aitools-exit-code result) :to-be 0)
+           (expect (aitools-stream result) :to-be :stdout)
+           (expect (and item (jget item "pid")) :to-be pid)
+           (expect (jget item "command") :to-equal "sleep")
+           (expect (>= (jget item "rss_bytes") 0) :to-be t)
+           (expect (<= 0 (jget envelope "cpu" "busy_percent") 100) :to-be t)
+           (expect (jget envelope "sample_interval_ms") :to-be 1000))
+      (sb-ext:process-kill process 9)
+      (sb-ext:process-wait process)
+      (sb-ext:process-close process))))
+
+(define-row-case (41 "df's filesystem capacity is sys disk" :foreign ("df")) (ws)
+  (let* ((blocks (parse-integer (oracle ws '("df" "awk")
+                                      "df -Pk . > df.txt && awk 'NR == 2 {print $2}' df.txt"
+                                      nil)))
+         (envelope (run-ok ws '("sys" "disk" "."))))
+    (expect (floor (jget envelope "total_bytes") 1024) :to-be blocks)
+    (expect (jget envelope "units") :to-equal "bytes")
+    (expect (jget envelope "scope") :to-equal "filesystem_containing_path")
+    (expect (<= 0 (jget envelope "available_bytes") (jget envelope "total_bytes"))
+            :to-be t)))
+
+(define-row-case (41 "netstat's interface names are sys network" :foreign ("netstat")) (ws)
+  (let* ((names (remove-duplicates
+                 (text-lines
+                  (oracle ws '("netstat" "awk")
+                          "netstat -in > netstat.txt && awk 'NF >= 5 && $1 != \"Name\" && $1 != \"Iface\" {sub(/[*]$/, \"\", $1); print $1}' netstat.txt"
+                          nil))
+                 :test #'string=))
+         (envelope (run-ok ws '("sys" "network" "--limit" "1000")))
+         (items (jlist (jget envelope "items"))))
+    (expect (sorted (mapcar (lambda (item) (jget item "name")) items))
+            :to-equal (sorted names))
+    (expect (jget envelope "basis") :to-equal "cumulative_interface_counters")
+    (dolist (item items)
+      (dolist (key '("rx_bytes" "tx_bytes" "rx_packets" "tx_packets" "rx_errors" "tx_errors"))
+        (expect (>= (jget item key) 0) :to-be t)))))
+
 (define-row-case (41 "lsof -i's listener is sys ports" :foreign ("lsof")) (ws)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket :type :stream :protocol :tcp)))
     (unwind-protect
