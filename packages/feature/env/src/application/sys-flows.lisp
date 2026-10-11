@@ -285,7 +285,8 @@ LIMIT items the result is partial."
        (when before
          (funcall (env-ports-sleep-seconds ports) 1)
          (aitools.env.domain:cpu-busy-percent
-          before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))))
+          before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
+          :iowait-may-decrease t))))
     (:darwin
      (let ((before (funcall (env-ports-cpu-counters ports))))
        (when before
@@ -296,8 +297,11 @@ LIMIT items the result is partial."
   (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
          (cpu (%metrics-cpu ports os)))
     (multiple-value-bind (cpus total available) (%cpus-and-memory ports os :strict t)
-      (let ((records (and os (aitools.env.domain:parse-process-metrics
-                              (%run-output ports "/bin/ps" '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
+      (let* ((program (case os
+                        (:linux (find-executable ports "ps"))
+                        (:darwin (%darwin-program :ps))))
+             (records (and program (aitools.env.domain:parse-process-metrics
+                                   (%run-output ports program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
         (if (not (and cpu cpus (plusp cpus) total (plusp total)
                       available (<= 0 available total) records))
             (funcall on-error "environment.unavailable"

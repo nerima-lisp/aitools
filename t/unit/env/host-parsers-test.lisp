@@ -66,6 +66,13 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
     (expect (cpu-busy-percent '(0 0 0 0 0 0 0 0) '(0 0 0 10 0 0 0 0)) :to-equal 0d0)
     (expect (cpu-busy-percent '(0 0 0 0 0 0 0 0) '(10 0 0 0 0 0 0 0)) :to-equal 100d0)
     (expect (cpu-busy-percent '(4294967295 0 0 0 0 0 0 0) '(0 0 0 10 0 0 0 0)) :to-be nil))
+  (it-each (((30 0 20 120 9 0 0 0) 37.5d0)
+            ((9 0 20 120 9 0 0 0) nil)
+            ((10 0 10 70 9 0 0 0) nil))
+      "permits only Linux iowait to decrease: ~S" (after expected)
+    (let ((before '(10 0 10 70 10 0 0 0)))
+      (expect (cpu-busy-percent before after) :to-be nil)
+      (expect (cpu-busy-percent before after :iowait-may-decrease t) :to-equal expected)))
   (it "converts RSS to bytes and retains only the command basename"
     (let ((record (first (parse-process-metrics "42 125.5 2048 /usr/bin/worker"))))
       (expect (getf record :pid) :to-be 42)

@@ -50,6 +50,14 @@ family source is missing, the ports section is partial even with no returned
 listeners. If both are missing, it is unavailable. Neither result establishes
 that the host has no listeners.
 
+`sys metrics` resolves `ps` through PATH on Linux and uses the native
+`/bin/ps` on macOS. Aggregate CPU usage is sampled over one second; process
+CPU percentages use the separately reported `process_cpu_basis` and are not
+the same interval measurement. Linux documents that `iowait` can decrease;
+such a decrease contributes zero to the sampled interval. Other decreasing
+CPU counters and intervals without advancing counters remain unavailable.
+See the [Linux proc documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
+
 For `bg status`, `total` counts valid returned records and `observed_total`
 counts identifiers seen during listing. Each omitted identifier has a reason;
 an all-invalid listing is partial, not a normal empty list. Concurrent job

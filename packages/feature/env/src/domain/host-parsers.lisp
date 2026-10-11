@@ -79,12 +79,15 @@
                (every #'ascii-digits-p (subseq fields 1 9)))
       (mapcar #'parse-integer (subseq fields 1 9)))))
 
-(defun cpu-busy-percent (before after)
+(defun cpu-busy-percent (before after &key iowait-may-decrease)
   (when (and before after)
-    (let* ((deltas (mapcar #'- after before))
-           (total (reduce #'+ deltas)))
-      (when (and (every (lambda (value) (>= value 0)) deltas) (plusp total))
-        (float (* 100 (/ (- total (nth 3 deltas) (nth 4 deltas)) total)) 1d0)))))
+    (let ((deltas (mapcar #'- after before)))
+      (when iowait-may-decrease
+        ;; Linux documents that iowait may decrease independently of CPU activity.
+        (setf (nth 4 deltas) (max 0 (nth 4 deltas))))
+      (let ((total (reduce #'+ deltas)))
+        (when (and (every (lambda (value) (>= value 0)) deltas) (plusp total))
+          (float (* 100 (/ (- total (nth 3 deltas) (nth 4 deltas)) total)) 1d0))))))
 
 (defun parse-process-metrics (text)
   "NIL for an empty or malformed source; commands contain no argument vector."
