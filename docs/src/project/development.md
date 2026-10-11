@@ -160,7 +160,8 @@ step and check the next run's `recovered` result.
 context contributes four kinds of file:
 
 - **library** files (`domain/`, `application/`, `infrastructure/`), relative
-  to the context's `src/`, in load order. They go into the `aitools` system.
+  to the context's `src/` (for example `packages/feature/env/src/`), in load order.
+  They go into the `aitools` system, not the repository-root `src/`.
 - **presentation** files, also under the context's `src/`; only `aitools/cli`
   loads them.
 - **data** files, relative to the repository's `data/`. Every context's data
@@ -179,7 +180,8 @@ To add a context or move files between layers, edit its lists in
 ## Adding a command
 
 1. Put the logic in the owning context: pure rules in `domain/`, the flow in
-   `application/` as a function that calls exactly one of its continuations.
+   `application/` as a function that selects one supplied success or error
+   callback and calls it once to return the result.
 2. In `presentation/`, build the cl-cli command and a
    `make-command-schema` value, and call
    `aitools.protocol.application:register-command` from
@@ -199,8 +201,10 @@ To add a context or move files between layers, edit its lists in
     `src/registry.lisp`).
 3. Wrap the flow in the handler with
    `aitools.protocol.application:call-with-command-result/k`.
-4. If the context needs new effects, add them to its ports structure and to
-   `make-production-<context>-ports` in `infrastructure/`.
+4. If the context needs new effects, add callable adapters to its ports
+   structure and wire their real filesystem or process implementations in
+   `make-production-<context>-ports` in `infrastructure/`. Application flows
+   use those ports; tests can supply fake adapters.
 5. Keep table data (patterns, summaries, option descriptions where the
    context keeps them as data) in `data/<layer>/<context>/*-data.lisp`.
 6. Add specs under `t/`, list the new files in `aitools.asd`, and

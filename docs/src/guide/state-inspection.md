@@ -15,7 +15,7 @@ other processes. An unavailable source is not evidence that nothing exists.
 | Managed jobs | `bg status [ID]` | Jobs registered in this workspace, not every host process. List results identify unreadable or invalid records in `omitted`. |
 | Job output | `bg logs ID` | Bounded log windows; follow the returned offset to continue. |
 | Transactions | `tx status [ID]`, `tx diff ID` | Open staged operations, recorded reads, drift, and a bounded proposed diff. |
-| Committed writes | `history --limit 20` | Aitools journal operations only, not external program writes. Continue when truncated. |
+| Committed writes | `history --limit 20` | Aitools journal operations only, not external program writes. When truncated, follow `next_commands` to rerun with a larger limit; this is not offset pagination. |
 | File baseline | `snapshot create`, `snapshot diff` | Persistent workspace comparison, separate from `sys snapshot`; creating the baseline writes state. |
 
 Use `aitools schema COMMAND` for arguments and output fields, for example

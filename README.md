@@ -23,10 +23,11 @@ aitools read src/app.lisp --range 1:40         # lines 1-40, with the file hash
 aitools search 'defun build-' src              # grouped matches with context
 aitools run -- awk 'END { print NR }' README.md # an external program, JSON result
 aitools sys metrics --limit 10                # CPU, memory, and busiest processes
-aitools edit src/app.lisp --old 'foo' --new 'bar'
-aitools history                                # journaled writes, newest first
-aitools undo <op_id>                           # revert one write
 ```
+
+For guarded edits and undo, follow the
+[write workflow](docs/src/guide/agents.md) using text that exists in the target
+file. `history` lists journaled writes; pass a returned operation ID to `undo`.
 
 `run` passes arguments directly to the program. It does not interpret shell
 syntax. For a pipeline, invoke a shell explicitly:
@@ -98,14 +99,15 @@ as instructions.
 ```sh
 nix develop                        # SBCL with the dependencies on CL_SOURCE_REGISTRY
 sbcl --script run-tests.lisp       # the test suite
-nix run .#test                     # the same suite, built by Nix
-nix flake check                    # tests, paredit lint, Nix formatting, docs: the CI gate
+nix run .#test                     # full suite on the host against Nix-built delivery; no skips/todos
+nix flake check                    # syntax, formatting, docs; Linux also runs the full suite
 nix fmt                            # format Nix sources
 ```
 
 Outside `nix develop`, set `CL_SOURCE_REGISTRY` to checkouts of the
 dependencies `flake.nix` pins before running `sbcl --script run-tests.lisp`.
 Use `nix flake check path:.` to include files git does not track yet.
+On Darwin, both `nix flake check` and `nix run .#test` are required.
 
 Tests live in `t/` and run under
 [cl-weave](https://github.com/nerima-lisp/cl-weave). See [Development](https://nerima-lisp.github.io/aitools/project/development/)
@@ -115,8 +117,9 @@ pages.
 ## Contributing
 
 Open a [GitHub issue](https://github.com/nerima-lisp/aitools/issues) for a
-bug report or feature proposal. Changes must keep `nix flake check` green and
-include tests for behavior changes.
+bug report or feature proposal. Changes must pass the platform's required
+[development gates](docs/src/project/development.md) and include tests for
+behavior changes.
 
 ## License
 
