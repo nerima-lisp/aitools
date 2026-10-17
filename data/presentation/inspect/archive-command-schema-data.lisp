@@ -50,7 +50,7 @@
      :output-fields ((:name "snapshot_id" :description "Id for snapshot diff.")
                      (:name "files" :description "Files recorded.")
                      (:name "ignore_source" :description "gitignore, builtin, or none."))
-     :error-codes ("argument.invalid" "input.not-found" "environment.io"))
+     :error-codes ("argument.invalid" "environment.io"))
     (:name "snapshot.diff"
      :summary "List files added, removed, or modified since a snapshot."
      :description "A file counts as modified only when its size or mtime changed and its content hash differs from the recorded one."

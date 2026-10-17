@@ -159,6 +159,31 @@ build/
       (expect (paths (index-octets '("x.gen"))) :to-equal '(".gitignore")))))
 
 (describe "aitools.workspace.application scan: order, filters, and exits"
+  (it "keeps scan filter decisions in a pure reason function"
+    (let ((entry (make-workspace-entry :name "a.lisp" :kind :file :size 8 :mtime 100)))
+      (expect (scan-filter-reason entry "a.lisp" nil (make-glob-filter '("*.lisp"))
+                                  (lambda (path) (declare (ignore path)) t) 9 99)
+              :to-be nil)
+      (expect (scan-filter-reason entry "a.lisp" nil (make-glob-filter '("*.lisp"))
+                                  (lambda (path) (declare (ignore path)) t) 9 100)
+              :to-be :too-old)
+      (expect (scan-filter-reason entry "a.lisp" nil (make-glob-filter '("*.lisp"))
+                                  nil 7 nil)
+              :to-be :too-large)
+      (let ((directory (make-workspace-entry :name "a.lisp" :kind :directory :size 8 :mtime 100)))
+        (expect (scan-filter-reason directory "a.lisp" nil (make-glob-filter '("*.lisp"))
+                                    nil 7 nil)
+                :to-be nil))
+      (expect (scan-filter-reason entry "a.lisp" nil (make-glob-filter '("*.lisp"))
+                                  (lambda (path) (declare (ignore path)) nil) 9 nil)
+              :to-be :language)
+      (expect (scan-filter-reason entry "a.txt" nil (make-glob-filter '("*.lisp"))
+                                  nil 9 nil)
+              :to-be :glob)
+      (expect (scan-filter-reason entry "a.txt" t (make-glob-filter '("*.lisp"))
+                                  nil 9 nil)
+              :to-be nil)))
+
   (it "emits in full-path order, a directory sorting as NAME/"
     (let ((host (repo-host '(("a.txt" . "") ("a/b" . "") ("a0" . "")))))
       (expect (scan-paths host (resolved-root host)) :to-equal '("a.txt" "a" "a/b" "a0"))))

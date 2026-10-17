@@ -22,6 +22,7 @@ standard input, called only for --stdin. UNIX-NOW () -> Unix seconds
   (read-stdin-octets nil :type (or null function) :read-only t)
   (unix-now nil :type (or null function) :read-only t))
 
+;; `util decode --to` uses this write-only path and never enters `scan-files/k`.
 (defun make-write-edit-ports (&key workspace-host open-store)
   "EDIT-PORTS for a caller that only writes files whose bytes it already
 holds (RUN-WRITE-COMMAND/K with a WRITE-PLAN that carries its own inputs, no

@@ -20,7 +20,8 @@
 git version, unlike `%aI`, which newer git prints as `Z`."
   (let ((minutes (%parse-offset-minutes offset)))
     (multiple-value-bind (second minute hour day month year)
-        (decode-universal-time (+ seconds (* 60 minutes) (encode-universal-time 0 0 0 1 1 1970 0)) 0)
+        (decode-universal-time
+         (aitools.kernel.domain:unix-seconds-to-universal-time (+ seconds (* 60 minutes))) 0)
       (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D~A~2,'0D:~2,'0D"
               year month day hour minute second
               (if (minusp minutes) "-" "+")

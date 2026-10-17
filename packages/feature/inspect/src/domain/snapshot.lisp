@@ -44,7 +44,7 @@ SNAPSHOT-ID-FROM-TIME makes; anything else (a path, `..`) is not an id."
 
 (defun snapshot-id-from-time (unix-seconds random-hex)
   (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time (+ unix-seconds (encode-universal-time 0 0 0 1 1 1970 0)) 0)
+      (decode-universal-time (aitools.kernel.domain:unix-seconds-to-universal-time unix-seconds) 0)
     (format nil "snap-~4,'0D~2,'0D~2,'0DT~2,'0D~2,'0D~2,'0DZ-~A" year month day hour minute second random-hex)))
 
 (defun encode-snapshot (snapshot)

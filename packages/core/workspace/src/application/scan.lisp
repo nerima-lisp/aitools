@@ -158,6 +158,20 @@ start nested below another removed, or the first path outside the root."
 
 ;;; ------------------------------------------------------------ the scan
 
+(defun scan-filter-reason (entry path explicit filter lang skip-larger-than newer)
+  "Return the first filter reason for ENTRY, or NIL when it is accepted."
+  (cond
+    ((and skip-larger-than (eq (workspace-entry-kind entry) :file)
+          (> (workspace-entry-size entry) skip-larger-than))
+     :too-large)
+    ((and newer (<= (workspace-entry-mtime entry) newer))
+     :too-old)
+    ((and (not explicit) lang
+          (not (and (eq (workspace-entry-kind entry) :file) (funcall lang path))))
+     :language)
+    ((and (not explicit) (not (glob-filter-accepts-p filter path)))
+     :glob)))
+
 (defun call-with-workspace-scan/k (host root &key paths glob lang no-ignore
                                                   (skip-larger-than +default-skip-larger-than+)
                                                   newer overlay work emit on-skip on-complete on-error)
@@ -215,18 +229,16 @@ ON-ERROR (reason path): reason :OUTSIDE-ROOT or :NOT-FOUND for a start."
                         (offer (candidate explicit)
                           (let ((entry (scan-entry-entry candidate))
                                 (path (scan-entry-path candidate)))
-                            (cond
-                              ((and skip-larger-than (eq (workspace-entry-kind entry) :file)
-                                    (> (workspace-entry-size entry) skip-larger-than))
-                               (funcall on-skip candidate :too-large))
-                              ((and newer (<= (workspace-entry-mtime entry) newer)))
-                              ((and (not explicit) lang
-                                    (not (and (eq (workspace-entry-kind entry) :file) (funcall lang path)))))
-                              ((and (not explicit) (not (glob-filter-accepts-p filter path))))
-                              (work
-                               (push candidate batch)
-                               (when (>= (incf count) *scan-batch-size*) (flush)))
-                              (t (deliver candidate nil)))))
+                            (let ((reason (scan-filter-reason entry path explicit filter lang
+                                                              skip-larger-than newer)))
+                              (if reason
+                                  (when (eq reason :too-large)
+                                    (funcall on-skip candidate :too-large))
+                                  (if work
+                                      (progn
+                                        (push candidate batch)
+                                        (when (>= (incf count) *scan-batch-size*) (flush)))
+                                      (deliver candidate nil))))))
                         (walk (absolute root-relative top-relative stack inside-ignored)
                           (multiple-value-bind (entries readable)
                               (%list-entries host overlay absolute root-relative)

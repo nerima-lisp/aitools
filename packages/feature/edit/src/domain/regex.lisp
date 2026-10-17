@@ -148,8 +148,6 @@ line break."
 (defparameter +iso-time-pattern+
   "^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\\.[0-9]+)?)?)?(Z|[+-][0-9]{2}:?[0-9]{2})?$")
 
-(defun %unix-epoch () (encode-universal-time 0 0 0 1 1 1970 0))
-
 (defun parse-mtime (text)
   "Unix seconds for TEXT: digits, @digits, or ISO 8601
 YYYY-MM-DD[THH:MM[:SS[.fraction]]][Z|+HH:MM|-HH:MM] (UTC without a zone);
@@ -171,8 +169,7 @@ NIL when malformed."
                      ;; (February 30 becomes March 1); only a date that decodes
                      ;; back to the fields given is a date.
                      (when (equal (subseq (multiple-value-list (decode-universal-time universal 0)) 0 6) fields)
-                       (- universal
-                          (%unix-epoch)
+                       (- (aitools.kernel.domain:universal-time-to-unix-seconds universal)
                           (if (or (null zone) (string= zone "Z"))
                               0
                               (let ((digits (remove #\: (subseq zone 1))))
@@ -181,5 +178,6 @@ NIL when malformed."
                  (error () nil))))))))))
 
 (defun iso-utc (unix-seconds)
-  (multiple-value-bind (second minute hour day month year) (decode-universal-time (+ unix-seconds (%unix-epoch)) 0)
+  (multiple-value-bind (second minute hour day month year)
+      (decode-universal-time (aitools.kernel.domain:unix-seconds-to-universal-time unix-seconds) 0)
     (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ" year month day hour minute second)))

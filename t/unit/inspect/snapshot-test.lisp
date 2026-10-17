@@ -54,11 +54,20 @@
         (expect (mapcar (lambda (pair) (snapshot-file-path (car pair))) suspects) :to-equal '("grown" "touched"))))))
 
 (describe "snapshot create scan options"
+  (it "rejects an unknown --lang before scanning with the current language list"
+    ;; OPEN-STORE fails the test if called: validation must not touch the store.
+    (multiple-value-bind (kind fields)
+        (run-flow #'snapshot-create-flow (make-test-ports) :lang "klingon")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "argument.invalid")
+      (expect (getf fields :message)
+              :to-equal (format nil "unknown --lang ~S; known: ~{~A~^, ~}" "klingon"
+                                (aitools.text.domain:language-names)))
+      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools schema snapshot create")))
+
   (it-each (("an unparsable --skip-larger-than" (:skip-larger-than "huge") "argument.invalid"
              "--skip-larger-than \"huge\" is not a size" "aitools schema snapshot create")
-            ("an unknown --lang" (:lang "klingon") "argument.invalid"
-             "unknown --lang \"klingon\"" "aitools schema snapshot create")
-            ("a --newer that is neither a duration nor a path" (:newer "no-such-file") "input.not-found"
+            ("a --newer that is neither a duration nor a path" (:newer "no-such-file") "argument.invalid"
              "--newer no-such-file is neither a duration nor an existing path" "aitools snapshot create --newer 1h"))
       "rejects ~A before scanning"
       (label options code message repair)

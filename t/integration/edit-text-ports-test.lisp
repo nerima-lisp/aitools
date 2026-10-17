@@ -74,7 +74,8 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (expect (aitools.edit.application::edit-ports-workspace-host ports) :to-be :host)
       (expect (aitools.edit.application::edit-ports-text-source ports) :to-be :source))
     (let ((now (aitools.edit.infrastructure:unix-now)))
-      (expect (<= 0 (- (- (get-universal-time) (encode-universal-time 0 0 0 1 1 1970 0)) now) 1) :to-be t)))
+      (expect (<= 0 (- (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)) now) 1)
+              :to-be t)))
 
   (it "builds write-only ports with no stdin, text source or clock"
     (let ((ports (aitools.edit.application:make-write-edit-ports :workspace-host :host :open-store #'identity)))

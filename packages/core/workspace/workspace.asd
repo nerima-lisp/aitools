@@ -15,7 +15,7 @@
    (:module "application"
     :components ((:file "package") (:file "host") (:file "real-path")
                  (:file "root") (:file "boundary")
-                 (:file "ignore-context") (:file "scan")))
+                 (:file "ignore-context") (:file "scan") (:file "scan-options")))
    (:module "infrastructure"
     :components ((:file "package") (:file "host")
                  (:file "ordered-mapper") (:file "boundaries")))))

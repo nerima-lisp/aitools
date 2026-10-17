@@ -149,6 +149,7 @@ The meaning and exit code of each error code are in
 | [`tx abort`](#tx-abort) | journal | Discard a tx without touching the working tree. |
 | [`run`](#run) | process | Run a program without a shell and report its exit, timing, and trimmed output. |
 | [`wait`](#wait) | process | Block until one condition holds: a file line, an open port, a bg log line, a bg exit, or a duration. |
+| [`signal`](#signal) | process | Signal same-UID processes selected by PID or command-line pattern. |
 | [`bg start`](#bg-start) | process | Start a program detached from aitools, logging stdout and stderr to the workspace state directory. |
 | [`bg logs`](#bg-logs) | process | Read a bg process's log: the last lines, or the lines from a byte offset. |
 | [`bg status`](#bg-status) | process | List the bg processes aitools started in this workspace, or one of them. |
@@ -537,7 +538,7 @@ Filter, sort, and project the elements of a JSON array.
 | `path` (positional, required) | string |  | JSON file. |
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
-| `--pick` | string, repeatable |  | Set each item's `value` to {pointer: value} for these relative pointers instead of the element. |
+| `--pick` | string, repeatable |  | Return {pointer: value} for these relative pointers instead of the element. |
 | `--sort-by` | string |  | Relative pointer to order by (null first, then booleans, numbers, strings). |
 | `--desc` | flag |  | Descending order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
@@ -547,11 +548,10 @@ Filter, sort, and project the elements of a JSON array.
 | Output field | Description |
 |---|---|
 | `mode` | items or count. |
-| `items` | In items mode, [{pointer,value}] of the selected elements; each pointer identifies the element in the original array, even after sorting. |
-| `count` | Number of matching elements, unaffected by --limit, in count mode. |
-| `total` | Number of matching elements before --limit, in items mode. |
-| `truncated` | In items mode, true when --limit cut items (top-level status partial, exit 3); otherwise false. |
-| `next_commands` | Present only when truncated: an array of shell-command strings counting all matches with the same --where, --root, and --tx values. |
+| `items` | [{pointer,value}] of the selected elements. |
+| `count` | Selected elements, in count mode. |
+| `total` | Selected elements, in items mode. |
+| `truncated` | True when --limit cut items (status partial, exit 3). |
 
 Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
 
@@ -726,7 +726,7 @@ Independent of the journal and of any tx; ignored files are left out unless --no
 | `files` | Files recorded. |
 | `ignore_source` | gitignore, builtin, or none. |
 
-Errors: `argument.invalid`, `input.not-found`, `environment.io`.
+Errors: `argument.invalid`, `environment.io`.
 
 ### `snapshot diff` {#snapshot-diff}
 
@@ -871,6 +871,7 @@ Replaces every non-overlapping match per line (whole file with --multiline). Tem
 | `dry_run` | With --dry-run: true; nothing was written. |
 | `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
 | `changes[].count` | Replacements made in that file. |
+| `skipped` | [{path,reason}] files left out by scan options. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
 
@@ -1249,9 +1250,6 @@ Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `ref
 ### `mktemp` {#mktemp}
 
 Create a temporary file or directory in the workspace's state tmp/ area (not journaled).
-Each invocation attempts to remove entries in this area whose modification time
-is more than seven days old, recursively for directories. Cleanup is not
-guaranteed if filesystem operations fail; do not use this area for durable data.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -1694,6 +1692,29 @@ Block until one condition holds: a file line, an open port, a bg log line, a bg 
 | `duration_ms` | The duration waited (--duration). |
 
 Errors: `argument.invalid`, `input.syntax-error`, `input.not-found`, `environment.timeout`, `environment.unavailable`, `environment.io`.
+
+### `signal` {#signal}
+
+Signal same-UID processes selected by PID or command-line pattern.
+
+PID targets require an expected command-line substring or start identity. Pattern targets require an exact expected count. All selected targets are checked before sending; identity and safety are rechecked immediately before each signal. A process can still change between check and kill(2).
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--pid` | integer |  | Target PID (at least 2). |
+| `--pattern` | regex |  | Match the full command line. |
+| `--expect-command` | string |  | Required command-line substring with --pid. |
+| `--expect-start` | string |  | Exact host start identity with --pid: seconds.microseconds on Darwin, start ticks on Linux. |
+| `--expect-count` | integer |  | Exact number of pattern matches. |
+| `--signal` | string | `TERM` | TERM, KILL, HUP, INT, USR1, USR2, or QUIT. |
+| `--grace` | duration |  | With TERM, wait then send KILL if still alive. |
+
+| Output field | Description |
+|---|---|
+| `items` | [{pid,signal}] for processes signalled. |
+| `total` | Number of selected processes. |
+
+Errors: `argument.invalid`, `input.syntax-error`, `selection.count-mismatch`, `refusal.target-changed`, `environment.io`.
 
 ### `bg start` {#bg-start}
 

@@ -6,7 +6,7 @@
   :components
   ((:module "domain"
     :components ((:file "package") (:file "path") (:file "selector")
-                 (:file "guard") (:file "duration") (:file "size")
+                 (:file "guard") (:file "duration") (:file "time") (:file "size")
                  (:file "digest") (:file "token-estimate")
                  (:file "unified-diff") (:file "unified-diff-patch")
                  (:file "json") (:file "json-model")))))

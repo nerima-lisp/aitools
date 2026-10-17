@@ -144,7 +144,7 @@ takes them."
 
 (defun iso8601-from-unix (seconds)
   (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time (+ seconds (encode-universal-time 0 0 0 1 1 1970 0)) 0)
+      (decode-universal-time (aitools.kernel.domain:unix-seconds-to-universal-time seconds) 0)
     (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ" year month day hour minute second)))
 
 (defun check-format-for-path (path)

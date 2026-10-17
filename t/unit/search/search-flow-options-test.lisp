@@ -136,6 +136,27 @@
                       (field (nth-value 1 (search-in files :patterns '("hit") :newer "1h")) "blocks"))
               :to-equal '("new.txt"))))
 
+  (it "treats an existing duration-shaped --newer path as a path"
+    (let ((files (list (list "/w/7d" "ref" :mtime 1000)
+                       (list "/w/new.txt" "hit" :mtime 1500))))
+      (expect (mapcar (lambda (block) (jfield block "path"))
+                      (field (nth-value 1 (search-in files :patterns '("hit") :newer "7d")) "blocks"))
+              :to-equal '("new.txt"))))
+
+  (it "reports files skipped by --skip-larger-than with a --newer path"
+    (let ((files (list (list "/w/7d" "ref" :mtime 1000)
+                       (list "/w/big.txt" "hit-big" :mtime 2000)
+                       (list "/w/new.txt" "hit" :mtime 1500))))
+      (multiple-value-bind (kind fields)
+          (search-in files :patterns '("hit") :newer "7d" :skip-larger-than "4")
+        (expect kind :to-be :ok)
+        (expect (mapcar (lambda (entry)
+                          (list (jfield entry "path") (jfield entry "reason")))
+                        (field fields "skipped"))
+                :to-equal '(("big.txt" "too-large")))
+        (expect (mapcar (lambda (block) (jfield block "path")) (field fields "blocks"))
+                :to-equal '("new.txt")))))
+
   (it-each ((:lang "cobol" "unknown language cobol")
             (:skip-larger-than "huge" "--skip-larger-than: not a size: huge")
             (:newer "yesterday" "--newer: yesterday is neither an existing path nor a duration"))
@@ -145,6 +166,14 @@
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (error-message fields) :to-contain message)))
+
+  (it "offers the use-known-language repair for an unknown --lang"
+    (multiple-value-bind (kind fields)
+        (search-in (list (list "/w/a.txt" "hit")) :patterns '("hit") :lang "cobol")
+      (expect kind :to-be :error)
+      (expect (getf (first (getf fields :repairs)) :action) :to-equal "use-known-language")
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools search --lang common-lisp")))
 
   (it "rejects a start path outside the workspace with a --root repair"
     (multiple-value-bind (kind fields)
