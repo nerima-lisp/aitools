@@ -29,4 +29,5 @@
    #:bg-start/k
    #:bg-logs/k
    #:bg-status/k
-   #:bg-stop/k))
+   #:bg-stop/k
+   #:signal-command/k))
