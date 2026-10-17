@@ -112,6 +112,16 @@
      :include (:hash :write)
      :output-fields ((:name "files" :description "Files copied (directories).")
                      (:name "skipped" :description "[{path,reason}] entries not copied.")))
+    (:name "rm"
+     :summary "Remove one file, symlink, or empty directory; journaled and undoable."
+     :description "A tree needs --recursive and --expect-count (including its root); preview with --dry-run first. Never follows symlinks. Refuses workspace/home/filesystem roots and version-control or state metadata. Limits bound deleted entries and file bytes, not memory use."
+     :positionals ((:key :path :name "path"))
+     :options ((:key :recursive :name "recursive" :kind :flag :description "Remove a directory tree; requires --expect-count except in dry-run.")
+               (:key :max-entries :name "max-entries" :kind :value :default "1000" :description "Maximum deleted entries, including directories and symlinks.")
+               (:key :max-bytes :name "max-bytes" :kind :value :default "64MiB" :description "Maximum total deleted regular-file bytes; not a memory limit."))
+     :include (:hash :count :write)
+     :output-fields ((:name "entries" :description "Number of deleted entries, including the target itself.")
+                     (:name "bytes" :description "Total regular-file bytes selected for deletion.")))
     (:name "delete"
      :summary "Delete a file, a symlink, or an empty directory."
      :positionals ((:key :path :name "path"))

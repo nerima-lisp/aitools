@@ -15,15 +15,15 @@
 value is compared as its text; anything else by its rendered JSON."
   (format nil "~A!=~A" column (if (stringp value) value (render-json value))))
 
-(defun %numeric-check/k (context path options table rows aggregates on-valid on-error)
+(defun %numeric-check/k (context path options table rows aggregates command-words on-valid on-error)
   "ON-VALID () when every numeric aggregate column (an alist of (flag .
 index)) is numeric; else argument.invalid naming the offending rows and a
 concrete --where that drops the first offending value."
-  (declare (ignore rows))
   (loop for (flag . index) in aggregates
         when (and index (not (member (nth index (table-types table)) '("integer" "number" "null") :test #'string=)))
-          do (let* ((cells (non-numeric-cells table index))
+          do (let* ((cells (non-numeric-cells table index :rows rows))
                     (column (nth index (table-columns table))))
+               (when cells
                (return-from %numeric-check/k
                  (fail on-error "argument.invalid"
                        (format nil "~A needs a numeric column; ~A is ~A" flag column
@@ -37,11 +37,12 @@ concrete --where that drops the first offending value."
                                               (command-line context
                                                             (append (list "table" "agg" path)
                                                                     (%table-option-words options)
+                                                                    command-words
                                                                     (list "--where"
                                                                           (%where-exclude-text
                                                                            column (second (first cells)))))))
                                       (repair "table-options" "See the table options and aggregates."
-                                              "aitools schema table agg"))))))
+                                              "aitools schema table agg")))))))
   (funcall on-valid))
 
 (defun %group-json (table group group-by aggregates count)
@@ -69,7 +70,7 @@ concrete --where that drops the first offending value."
           (desc (reverse jsons))
           (t jsons))))
 
-(defun %agg-fields (context path table options groups group-by aggregates count min-count sort desc limit)
+(defun %agg-fields (context path table options groups group-by aggregates count min-count sort desc limit command-words)
   "(VALUES fields truncated)."
   (let* ((kept (if min-count (remove-if (lambda (group) (< (table-group-count group) min-count)) groups) groups))
          (jsons (%sort-groups (mapcar (lambda (group) (%group-json table group group-by aggregates count)) kept)
@@ -85,6 +86,7 @@ concrete --where that drops the first offending value."
                       (list (cons "next_commands"
                                   (list (command-line context (append (list "table" "agg" path)
                                                                       (%table-option-words options)
+                                                                      command-words
                                                                       (list "--limit" (princ-to-string (length jsons))))))))))
             truncated)))
 
@@ -112,7 +114,7 @@ index, NIL for an absent spec."
                                             :distinct (funcall index "distinct"))
                      group-indexes aggregates
                      (getf flags :count) (getf flags :min-count) (getf flags :sort) (getf flags :desc)
-                     (getf flags :limit))
+                     (getf flags :limit) (getf flags :command-words))
       (funcall (if truncated on-partial on-ok) fields))))
 
 (defun table-agg-flow (ports path &key root tx lock-timeout format delimiter pointer no-header ws-columns where
@@ -122,10 +124,20 @@ index, NIL for an absent spec."
 column names or numbers. COUNT is implied when no other aggregate is asked
 for. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
   (declare (type function on-ok on-partial on-error))
-  (let ((options (make-table-options :format format :delimiter delimiter :pointer pointer :no-header no-header
+  (let* ((command-words
+           (append (loop for column in group-by append (list "--group-by" column))
+                   (when count (list "--count"))
+                   (loop for (name . column) in (list (cons "sum" sum) (cons "avg" avg)
+                                                     (cons "min" min) (cons "max" max)
+                                                     (cons "distinct" distinct))
+                         when column append (list (concatenate 'string "--" name) column))
+                   (when min-count (list "--min-count" (princ-to-string min-count)))
+                   (when sort (list "--sort" sort))
+                   (when desc (list "--desc"))))
+        (options (make-table-options :format format :delimiter delimiter :pointer pointer :no-header no-header
                                      :ws-columns ws-columns :where where :encoding encoding))
         (flags (list :count (or count (not (or sum avg min max distinct)))
-                     :min-count min-count :sort sort :desc desc :limit limit))
+                     :min-count min-count :sort sort :desc desc :limit limit :command-words command-words))
         (specs (list (cons "sum" sum) (cons "avg" avg) (cons "min" min) (cons "max" max) (cons "distinct" distinct))))
     (if (and sort (not (member sort *aggregate-outputs* :test #'string=)) (not (member sort group-by :test #'string=)))
         (%table-invalid on-error (format nil "--sort ~S names no output column (~{~A~^, ~} or a --group-by column)"
@@ -141,6 +153,7 @@ for. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
                                       (loop for (name . index) in aggregates
                                             unless (string= name "distinct")
                                               collect (cons (concatenate 'string "--" name) index))
+                                      (append command-words (list "--limit" (princ-to-string limit)))
                                       (lambda ()
                                         (%aggregate context path table rows options group-indexes aggregates flags
                                                     on-ok on-partial))

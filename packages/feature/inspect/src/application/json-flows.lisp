@@ -7,10 +7,19 @@
 ;;;; read set.
 (in-package #:aitools.inspect.application)
 
+(defun %utf8-char-length (char)
+  (let ((code (char-code char)))
+    (cond ((< code #x80) 1) ((< code #x800) 2) ((< code #x10000) 3) (t 4))))
+
 (defun %utf8-length (string)
+  (loop for char across string sum (%utf8-char-length char)))
+
+(defun %utf8-prefix (string max-bytes)
   (loop for char across string
-        sum (let ((code (char-code char)))
-              (cond ((< code #x80) 1) ((< code #x800) 2) ((< code #x10000) 3) (t 4)))))
+        for end from 0
+        sum (%utf8-char-length char) into bytes
+        when (> bytes max-bytes) return (subseq string 0 end)
+        finally (return string)))
 
 (defun %json-document/k (context target on-document on-error)
   "Parse TARGET's bytes as JSON and call ON-DOCUMENT (value)."
@@ -89,7 +98,7 @@ ON-DOCUMENT (context target document)."
                         (list (cons "truncated" (json-false))
                               (cons "approx_tokens" (approx-token-count (length rendered)))))
                 nil)
-        (let ((preview (subseq rendered 0 (min (length rendered) max-bytes))))
+        (let ((preview (%utf8-prefix rendered max-bytes)))
           (values (append head
                           (list (cons "value_preview" preview)
                                 (cons "truncated" t)
@@ -187,7 +196,7 @@ value under SORT-TOKENS when given."
                                    (lambda (a b) (json-value-less-p (key a) (key b))))))
         (if desc (nreverse indexes) indexes))))
 
-(defun %select-fields (context target pointer array indexes picks output limit)
+(defun %select-fields (context target pointer array indexes picks output limit &key where)
   "(VALUES fields truncated)."
   (if (string= output "count")
       (values (list (cons "path" (file-target-argument target)) (cons "pointer" pointer)
@@ -207,8 +216,11 @@ value under SORT-TOKENS when given."
                               (cons "truncated" (json-bool truncated)))
                         (when truncated
                           (list (cons "next_commands"
-                                      (list (command-line context (list "json" "select" (file-target-argument target) pointer
-                                                                        "--output" "count")))))))
+                                      (list (command-line
+                                             context
+                                             (append (list "json" "select" (file-target-argument target) pointer)
+                                                     (loop for condition in where append (list "--where" condition))
+                                                     (list "--output" "count"))))))))
                 truncated))))
 
 (defun json-select-flow (ports path pointer &key root tx lock-timeout where pick sort-by desc (output "items")
@@ -251,7 +263,7 @@ value under SORT-TOKENS when given."
                                     :repairs (list (repair "fix-pattern" "Simplify the regular expression."
                                                            "aitools schema json select")))
                               (multiple-value-bind (fields truncated)
-                                  (%select-fields context target pointer array indexes pick output limit)
+                                  (%select-fields context target pointer array indexes pick output limit :where where)
                                 (funcall (if truncated on-partial on-ok) fields))))))
                   on-error))))
             on-error))

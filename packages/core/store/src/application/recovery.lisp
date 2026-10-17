@@ -38,6 +38,12 @@ reach) is discarded without touching the workspace."
       (let ((op-id (if intent (intent-op-id intent) (subseq name 0 (- (length name) 5)))))
         (ecase status
           (:complete
+           ;; A replaced checkpoint target is an I/O failure, not an invalid
+           ;; intent to discard. Keep the durable record for operator recovery.
+           (dolist (step (intent-steps intent))
+             (when (and (member (intent-step-op step) '(:mkdir :chmod))
+                        (intent-step-identity step))
+               (%check-directory-identity store step)))
            (if (%intent-violation store intent)
                (progn
                  (%io store unlink path)

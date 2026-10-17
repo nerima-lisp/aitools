@@ -18,12 +18,12 @@
 (defun %view-entry (view path)
   (and (store-view-index view) (tx-index-find (store-view-index view) path)))
 
-(defun view-path-state (view path)
+(defun view-path-state (view path &key max-bytes)
   "ENTRY-STATE of PATH in VIEW. A staged file's hash is its blob name."
   (let ((entry (%view-entry view path)))
     (if entry
         (tx-path-staged entry)
-        (workspace-state (store-view-store view) path))))
+        (workspace-state (store-view-store view) path :max-bytes max-bytes))))
 
 (defun view-path-kind (view path)
   "The ENTRY-STATE of PATH in VIEW with its kind, mode, and (for a symlink)
@@ -45,15 +45,15 @@ any other path's is the disk's."
         (entry-state-mtime (tx-path-staged entry))
         (workspace-mtime (store-view-store view) path))))
 
-(defun view-read-file (view path)
+(defun view-read-file (view path &key max-bytes)
   "Bytes of PATH in VIEW when it is a regular file there, else NIL."
   (let ((entry (%view-entry view path))
         (store (store-view-store view)))
     (if entry
         (let ((staged (tx-path-staged entry)))
           (and (eq (entry-state-kind staged) :file)
-               (read-blob store (entry-state-hash staged))))
-        (%read-file-if-exists store (%workspace-path store path)))))
+               (read-blob store (entry-state-hash staged) :max-bytes max-bytes)))
+        (%read-file-if-exists store (%workspace-path store path) :max-bytes max-bytes))))
 
 (defun %view-children (view path)
   "Relative paths of PATH's entries in VIEW, sorted, `.aitools-*.tmp` files
@@ -82,8 +82,8 @@ walk; the write protocol's temp files are left out, as every scan excludes them.
 
 (defun %view-plan/k (view requests on-planned on-rejected)
   (plan-changes/k requests
-                  :lookup-state (lambda (path) (view-path-state view path))
-                  :lookup-content (lambda (path) (view-read-file view path))
+                  :lookup-state (lambda (path) (view-path-state view path :max-bytes (%request-byte-limit requests path)))
+                  :lookup-content (lambda (path) (view-read-file view path :max-bytes (%request-byte-limit requests path)))
                   :list-children (lambda (path) (%view-children view path))
                   :lookup-mtime (lambda (path) (view-path-mtime view path))
                   :on-planned on-planned

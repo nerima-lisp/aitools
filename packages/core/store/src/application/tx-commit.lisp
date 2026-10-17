@@ -70,7 +70,7 @@ reverse path order (contents before their directory)."
           (:directory
            (push (if (eq (entry-state-kind base) :directory)
                      (chmod-request path (entry-state-mode staged))
-                     (mkdir-request path))
+                     (mkdir-request path :mode (entry-state-mode staged)))
                  writes))
           (:symlink (push (symlink-request path (entry-state-target staged)) writes)))))
     (append (nreverse writes) deletions)))

@@ -27,6 +27,33 @@
   (it "points a bare group subcommand name at its group form"
     (expect (getf (first (repairs-for-unknown-name "uuid")) :command) :to-equal "aitools util uuid"))
 
+  (it-each (("cp" "aitools copy")
+            ("mv" "aitools move")
+            ("rm" "aitools rm")
+            ("top" "aitools sys metrics")
+            ("rmdir" "aitools delete")
+            ("mkdir" "aitools mkdir")
+            ("chmod" "aitools chmod")
+            ("ln" "aitools link")
+            ("touch" "aitools touch")
+            ("mktemp" "aitools mktemp")
+            ("ps" "aitools sys procs")
+            ("lsof" "aitools sys ports"))
+      "maps ~S to its matching operation ~S"
+      (name command)
+    (expect (mapcar (lambda (repair) (getf repair :command))
+                    (repairs-for-unknown-name name))
+            :to-equal (list command)))
+
+  (it-each (("rm" "--recursive")
+            ("rmdir" "empty directory")
+            ("ln" "symbolic link")
+            ("lsof" "listening TCP"))
+      "states the supported scope for ~S: ~S"
+      (name scope)
+    (expect (search scope (getf (first (repairs-for-unknown-name name)) :detail))
+            :to-be-truthy))
+
   (it "falls back to `aitools schema` for a name with no correspondence entry"
     (let ((repairs (repairs-for-unknown-name "totally-made-up-command")))
       (expect repairs :not :to-be-falsy)

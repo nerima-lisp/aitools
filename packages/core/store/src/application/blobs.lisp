@@ -20,12 +20,12 @@
           (%io store rename temp path))))
     hash))
 
-(defun read-blob (store hash)
+(defun read-blob (store hash &key max-bytes)
   "The bytes of blob HASH. A referenced blob that is missing or whose bytes
 no longer hash to its name means the state directory was damaged, which is
 reported rather than papered over."
   (let* ((path (blob-file-path (store-state-directory store) hash))
-         (octets (%read-file-if-exists store path)))
+         (octets (%read-file-if-exists store path :max-bytes max-bytes)))
     (unless (and octets (string= (aitools.kernel.domain:content-hash octets) hash))
       (error 'store-format-error :detail (format nil "blob ~A is missing or damaged" hash)))
     octets))

@@ -35,8 +35,11 @@
                                     workspace-host
                                     (temporary-directory (constantly nil))))
                           (:copier nil))
-  ;; (ARGV TIMEOUT-MS &key STDOUT-PATH ON-EXITED ON-TIMED-OUT ON-UNAVAILABLE
-  ;; ON-EXISTS): run ARGV without a shell, stdin at /dev/null. ON-EXITED /
+  ;; (ARGV TIMEOUT-MS &key STDOUT-PATH STDIN STDIN-DATA STDIN-FILE CWD ENV
+  ;; ON-EXITED ON-TIMED-OUT ON-UNAVAILABLE ON-EXISTS): run ARGV without a shell.
+  ;; Stdin defaults to /dev/null; explicit sources are mutually exclusive.
+  ;; CWD affects only the child; ENV overlays inherited KEY=VALUE entries.
+  ;; ON-EXITED /
   ;; ON-TIMED-OUT receive a PROCESS-OUTCOME; ON-UNAVAILABLE receives (MESSAGE
   ;; PROGRAM) when ARGV could not be started at all. With STDOUT-PATH, stdout
   ;; goes to that newly created file instead of being captured; ON-EXISTS is

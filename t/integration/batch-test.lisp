@@ -92,6 +92,24 @@ with standard input reading STDIN (a string)."
   (length (value (nth-value 1 (run-aitools '("tx" "status"))) "items")))
 
 (describe "aitools batch"
+  (it "inserts the transaction after the command rather than a matching global value"
+    (multiple-value-bind (app registry) (aitools/cli:build-app)
+      (declare (ignore registry))
+      (expect (aitools/cli::%with-tx app '("--root" "write" "write" "a.txt" "--content" "--") "tx-test")
+              :to-equal '("--root" "write" "write" "--tx" "tx-test" "a.txt" "--content" "--"))))
+
+  (it "does not interpret an inline value as a batch-restricted option"
+    (with-batch-workspace ()
+      (dolist (flags '(nil ("--atomic")))
+        (loop for literal in '("--stdin" "--stdin=true" "--tx" "--")
+              for index from 0
+              for path = (format nil "literal-~A-~D.txt" (if flags "atomic" "plain") index)
+              do (multiple-value-bind (code envelope)
+                     (apply #'run-batch (list (list "write" path "--content" literal)) flags)
+                   (expect code :to-be 0)
+                   (expect (statuses (value envelope "results")) :to-equal '("ok"))
+                   (expect (text path) :to-equal literal))))))
+
   (it "runs every element through dispatch and returns their envelopes in order"
     (with-batch-workspace ()
       (put "a.txt" (format nil "one~%"))

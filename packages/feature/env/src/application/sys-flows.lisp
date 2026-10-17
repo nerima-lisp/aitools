@@ -8,7 +8,47 @@
 (in-package #:aitools.env.application)
 
 (defparameter *darwin-programs*
-  '(:sysctl "/usr/sbin/sysctl" :vm-stat "/usr/bin/vm_stat" :ps "/bin/ps" :lsof "/usr/sbin/lsof"))
+  '(:sysctl "/usr/sbin/sysctl" :vm-stat "/usr/bin/vm_stat" :ps "/bin/ps" :lsof "/usr/sbin/lsof"
+    :netstat "/usr/sbin/netstat"))
+
+(defun sys-network/k (ports &key (limit 100) on-ok on-partial on-error)
+  (unless (and (integerp limit) (<= 1 limit 1000))
+    (return-from sys-network/k (funcall on-error "argument.invalid" "Network limit must be between 1 and 1000.")))
+  (let* ((os (%os-kind (funcall (env-ports-system-identity ports))))
+         (source (case os (:linux "/proc/net/dev") (:darwin "netstat -ibn"))))
+    (unless source
+      (return-from sys-network/k (funcall on-error "environment.unavailable" "Network counters are unsupported on this OS.")))
+    (let ((text (case os
+                  (:linux (%read-text ports source))
+                  (:darwin (%run-output ports (%darwin-program :netstat) '("-ibn"))))))
+      (multiple-value-bind (items valid)
+          (if text (aitools.env.domain:parse-network-counters text os) (values nil nil))
+        (unless valid
+          (return-from sys-network/k
+            (funcall on-error "environment.unavailable"
+                     "Network counters unavailable: missing source, permission denied, failed command, or malformed data.")))
+        (let* ((truncated (> (length items) limit))
+               (fields (list (cons "source" source) (cons "basis" "cumulative_interface_counters")
+                             (cons "units" (%object (cons "bytes" "bytes") (cons "packets" "packets") (cons "errors" "events")))
+                             (cons "items" (mapcar (lambda (row) (apply #'%object row)) (subseq items 0 (min limit (length items)))))
+                             (cons "total" (length items)) (cons "limit" limit)
+                             (cons "truncated" (aitools.protocol.domain:json-boolean truncated)))))
+          (funcall (if truncated on-partial on-ok) fields))))))
+
+(defun sys-disk/k (ports &key path on-ok on-error)
+  (let* ((path (or path (funcall (env-ports-workspace-root ports))))
+         (os (%os-kind (funcall (env-ports-system-identity ports)))))
+    (unless os
+      (return-from sys-disk/k (funcall on-error "environment.unavailable" "Filesystem capacity is unsupported on this OS.")))
+    (multiple-value-bind (total available) (funcall (env-ports-file-system-space ports) path)
+      (unless (and (integerp total) (integerp available) (<= 0 available total))
+        (return-from sys-disk/k
+          (funcall on-error "environment.unavailable" "Filesystem capacity unavailable: missing path, permission denied, or failed statfs.")))
+      (funcall on-ok (list (cons "path" path) (cons "source" "statfs") (cons "units" "bytes")
+                           (cons "scope" "filesystem_containing_path")
+                           (cons "total_bytes" total) (cons "available_bytes" available)
+                           (cons "available_basis" "unprivileged_available_blocks")
+                           (cons "truncated" (aitools.protocol.domain:json-boolean nil)))))))
 
 (defparameter *source-timeout-seconds* 60
   "Upper bound for one OS source command. Only a hang guard: `ps -axww` was
@@ -36,13 +76,13 @@ would turn load into environment.unavailable.")
 
 ;;; ---------------------------------------------------------------- sys info
 
-(defun %cpus-and-memory (ports os)
+(defun %cpus-and-memory (ports os &key strict)
   "(VALUES CPUS MEMORY-TOTAL MEMORY-AVAILABLE), each NIL when unknown."
   (case os
     (:linux
      (let ((cpuinfo (%read-text ports "/proc/cpuinfo"))
            (meminfo (%read-text ports "/proc/meminfo")))
-       (multiple-value-bind (total available) (if meminfo (aitools.env.domain:parse-meminfo meminfo) (values nil nil))
+       (multiple-value-bind (total available) (if meminfo (aitools.env.domain:parse-meminfo meminfo :strict strict) (values nil nil))
          (values (and cpuinfo (let ((count (aitools.env.domain:count-cpuinfo-processors cpuinfo)))
                                 (and (plusp count) count)))
                  total available))))
@@ -54,7 +94,7 @@ would turn load into environment.unavailable.")
                 (let ((text (nth index lines)))
                   (and text (aitools.env.domain:ascii-digits-p text) (parse-integer text)))))
          (values (integer-at 0) (integer-at 1)
-                 (and vm-stat (aitools.env.domain:parse-vm-stat vm-stat))))))
+                 (and vm-stat (aitools.env.domain:parse-vm-stat vm-stat :strict strict))))))
     (t (values nil nil nil))))
 
 (defun sys-info/k (ports &key on-ok on-error)
@@ -236,6 +276,63 @@ LIMIT items the result is partial."
                                                          (and pattern (aitools.protocol.domain:shell-quote pattern)) total))))))
               (funcall on-ok fields))))))
 
+;;; ------------------------------------------------------------- sys metrics
+
+(defun %metrics-cpu (ports os)
+  (case os
+    (:linux
+     (let ((before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))
+       (when before
+         (funcall (env-ports-sleep-seconds ports) 1)
+         (aitools.env.domain:cpu-busy-percent
+          before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
+          :iowait-may-decrease t))))
+    (:darwin
+     (let ((before (funcall (env-ports-cpu-counters ports))))
+       (when before
+         (funcall (env-ports-sleep-seconds ports) 1)
+         (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))))
+
+(defun sys-metrics/k (ports &key (limit 20) on-ok on-partial on-error)
+  (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
+         (cpu (%metrics-cpu ports os)))
+    (multiple-value-bind (cpus total available) (%cpus-and-memory ports os :strict t)
+      (let* ((program (case os
+                        (:linux (find-executable ports "ps"))
+                        (:darwin (%darwin-program :ps))))
+             (records (and program (aitools.env.domain:parse-process-metrics
+                                   (%run-output ports program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
+        (if (not (and cpu cpus (plusp cpus) total (plusp total)
+                      available (<= 0 available total) records))
+            (funcall on-error "environment.unavailable"
+                     "CPU, memory, or process metrics source is unavailable or malformed")
+            (let* ((sorted (stable-sort records
+                                        (lambda (a b)
+                                          (if (= (getf a :cpu-percent) (getf b :cpu-percent))
+                                              (< (getf a :pid) (getf b :pid))
+                                              (> (getf a :cpu-percent) (getf b :cpu-percent))))))
+                   (count (length sorted))
+                   (fields
+                     (list (cons "sample_interval_ms" 1000)
+                           (cons "cpu" (%object (cons "busy_percent" cpu)
+                                                (cons "logical_cpus" cpus)
+                                                (cons "basis" "interval_all_cpus")))
+                           (cons "memory" (%object (cons "total_bytes" total)
+                                                   (cons "available_bytes" available)
+                                                   (cons "available_basis" (if (eq os :linux)
+                                                                               "mem_available_or_free_buffers_cached"
+                                                                               "free_inactive_speculative_pages"))))
+                           (cons "process_cpu_basis" (if (eq os :linux) "lifetime_average" "decaying_average"))
+                           (cons "items" (loop for record in (subseq sorted 0 (min limit count))
+                                               collect (%object (cons "pid" (getf record :pid))
+                                                                (cons "command" (getf record :command))
+                                                                (cons "cpu_percent" (getf record :cpu-percent))
+                                                                (cons "rss_bytes" (getf record :rss-bytes)))))
+                           (cons "total" count))))
+              (if (> count limit)
+                  (funcall on-partial (append fields (list (cons "truncated" t))))
+                  (funcall on-ok fields))))))))
+
 ;;; --------------------------------------------------------------- sys ports
 
 (defun %linux-socket-owners (ports)
@@ -262,12 +359,16 @@ pid and command null."
     (if (and (null tcp) (null tcp6))
         :unavailable
         (let ((owners (%linux-socket-owners ports)))
-          (mapcar (lambda (record)
+          (values (mapcar (lambda (record)
                     (let ((owner (gethash (getf record :inode) owners)))
                       (list :port (getf record :port) :address (getf record :address)
                             :pid (car owner) :command (cdr owner))))
                   (append (and tcp (aitools.env.domain:parse-proc-net-tcp tcp :ipv4))
-                          (and tcp6 (aitools.env.domain:parse-proc-net-tcp tcp6 :ipv6))))))))
+                          (and tcp6 (aitools.env.domain:parse-proc-net-tcp tcp6 :ipv6))))
+                  (%object (cons "ipv4" (if tcp "ok" "source_unavailable"))
+                           (cons "ipv6" (if tcp6 "ok" "source_unavailable")))
+                  (append (unless tcp (list "/proc/net/tcp"))
+                          (unless tcp6 (list "/proc/net/tcp6"))))))))
 
 (defun %darwin-listeners (ports)
   "lsof exits 1 when nothing matches, so 1 with empty output is an empty
@@ -279,13 +380,88 @@ list rather than a failure."
           ((and (eql exit-code 1) (zerop (length (string-trim '(#\Newline #\Space) (or stdout ""))))) nil)
           (t :unavailable))))
 
-(defun sys-ports/k (ports &key on-ok on-error)
+(defun sys-snapshot/k (ports &key path (process-limit 20) (network-limit 100)
+                                  (port-limit 100) on-ok on-partial on-error)
+  (unless (every (lambda (n) (and (integerp n) (<= 1 n 1000)))
+                 (list process-limit network-limit port-limit))
+    (return-from sys-snapshot/k
+      (funcall on-error "argument.invalid" "Snapshot limits must be between 1 and 1000.")))
+  (let ((started (%now ports)) (sections nil) (usable 0) (incomplete nil))
+    (labels ((observe (name flow &optional partial-p)
+               (let ((begin (%now ports)))
+                 (flet ((finish (status data reason)
+                          (unless (string= status "unavailable") (incf usable))
+                          (unless (string= status "ok") (setf incomplete t))
+                          (push (cons name (%object (cons "status" status)
+                                                    (cons "data" (if data (apply #'%object data) (aitools.protocol.domain:json-null)))
+                                                    (cons "reason" (%null-if-nil reason))
+                                                    (cons "started_at_epoch_ms" begin)
+                                                    (cons "finished_at_epoch_ms" (%now ports)))) sections)))
+                   (handler-case (apply flow
+                          :on-ok (lambda (data)
+                                   (let ((reason (cond
+                                                   ((string= name "info") (%snapshot-info-missing data))
+                                                   ((string= name "ports") (%snapshot-limit-ports data port-limit)))))
+                                     (finish (if reason "partial" "ok") data reason)))
+                          :on-error (lambda (code message &rest details)
+                                      (declare (ignore details))
+                                      (finish "unavailable" nil (%object (cons "code" code) (cons "message" message))))
+                          (when partial-p
+                            (list :on-partial (lambda (data)
+                                                (finish "partial" data
+                                                        (if (string= name "ports")
+                                                            (%snapshot-limit-ports data port-limit)
+                                                            "output_limit"))))))
+                     (file-error () (finish "unavailable" nil "source_file_unreadable")))))))
+      (observe "info" (lambda (&rest callbacks) (apply #'sys-info/k ports callbacks)))
+      (observe "metrics" (lambda (&rest callbacks) (apply #'sys-metrics/k ports :limit process-limit callbacks)) t)
+      (observe "network" (lambda (&rest callbacks) (apply #'sys-network/k ports :limit network-limit callbacks)) t)
+      (observe "disk" (lambda (&rest callbacks) (apply #'sys-disk/k ports :path path callbacks)))
+      (observe "ports" (lambda (&rest callbacks) (apply #'sys-ports/k ports callbacks)) t))
+    (let ((data (list (cons "scope" "host") (cons "atomic" (aitools.protocol.domain:json-boolean nil))
+                      (cons "started_at_epoch_ms" started) (cons "finished_at_epoch_ms" (%now ports))
+                      (cons "source_timeout_seconds" *source-timeout-seconds*)
+                      (cons "limits" (%object (cons "processes" process-limit) (cons "interfaces" network-limit) (cons "ports" port-limit)))
+                      (cons "collection_bounds" "Output limits only; no overall deadline or memory bound. OS calls and socket-owner scans are not time bounded; external commands capture complete output.")
+                      (cons "sections" (apply #'%object (nreverse sections))))))
+      (if (zerop usable)
+          (funcall on-error "environment.unavailable" "All snapshot sections are unavailable." :diagnostics (list (apply #'%object data)))
+          (funcall (if incomplete on-partial on-ok) data)))))
+
+(defun %snapshot-info-missing (data)
+  (let ((missing nil))
+    (dolist (key '("os" "os_version" "arch" "cpus" "user" "uid" "hostname"))
+      (let ((value (cdr (assoc key data :test #'string=))))
+        (when (or (null value) (eq value (aitools.protocol.domain:json-null))) (push key missing))))
+    (dolist (key '("memory" "disk"))
+      (dolist (entry (aitools.protocol.domain:json-object-members (cdr (assoc key data :test #'string=))))
+        (when (eq (cdr entry) (aitools.protocol.domain:json-null))
+          (push (format nil "~A.~A" key (car entry)) missing))))
+    (when missing (%object (cons "code" "missing_observations") (cons "fields" (nreverse missing))))))
+
+(defun %snapshot-limit-ports (data limit)
+  (let* ((items (cdr (assoc "items" data :test #'string=)))
+         (truncated (> (length items) limit))
+         (unavailable (cdr (assoc "source_unavailable" data :test #'string=)))
+         (unknown (some (lambda (item)
+                          (eq (cdr (assoc "pid" (aitools.protocol.domain:json-object-members item) :test #'string=))
+                              (aitools.protocol.domain:json-null))) items)))
+    (setf (cdr (assoc "items" data :test #'string=)) (subseq items 0 (min limit (length items))))
+    (nconc data (list (cons "limit" limit) (cons "truncated" (aitools.protocol.domain:json-boolean truncated))
+                      (cons "scope" "tcp_listen") (cons "owner_scan_bounded" (aitools.protocol.domain:json-boolean nil))))
+    (when (or truncated unknown unavailable)
+      (%object (cons "output_truncated" (aitools.protocol.domain:json-boolean truncated))
+               (cons "source_unavailable" unavailable)
+               (cons "owner_unknown" (aitools.protocol.domain:json-boolean unknown))))))
+
+(defun sys-ports/k (ports &key on-ok on-partial on-error)
   "TCP sockets in LISTEN state."
-  (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
-         (records (case os
+  (let ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports))))))
+    (multiple-value-bind (records coverage unavailable)
+        (case os
                     (:linux (%linux-listeners ports))
                     (:darwin (%darwin-listeners ports))
-                    (t :unavailable))))
+                    (t :unavailable))
     (if (eq records :unavailable)
         (%unavailable on-error "no listening-socket source (/proc/net/tcp on Linux, lsof on Darwin) is available" "lsof")
         (let ((items (mapcar (lambda (record)
@@ -295,4 +471,7 @@ list rather than a failure."
                                         (cons "pid" (%null-if-nil (getf record :pid)))
                                         (cons "command" (%null-if-nil (getf record :command)))))
                              (aitools.env.domain:sort-and-deduplicate-ports records))))
-          (funcall on-ok (list (cons "items" items) (cons "total" (length items))))))))
+          (funcall (if unavailable on-partial on-ok)
+                   (append (list (cons "items" items) (cons "total" (length items)))
+                           (when coverage (list (cons "coverage" coverage)))
+                           (when unavailable (list (cons "source_unavailable" unavailable))))))))))

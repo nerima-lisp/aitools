@@ -12,11 +12,11 @@
 ;;;;
 ;;;; Primitives signal STORE-IO-ERROR on failure. Their contracts:
 ;;;;
-;;;;   lstat (path)                  -> (values kind mode target mtime links); kind
+;;;;   lstat (path)                  -> (values kind mode target mtime links identity); kind
 ;;;;                                    is :absent :file :directory :symlink
 ;;;;                                    :other, mtime Unix seconds and links the
 ;;;;                                    hard link count (NIL when absent)
-;;;;   read-file (path)              -> octets
+;;;;   read-file (path &key max-bytes) -> octets, regular files only; NIL is unbounded
 ;;;;   create-file (path octets &key mode sync)
 ;;;;                                  exclusive create (fails if present) with
 ;;;;                                  MODE, default 0600 (state files are private);
@@ -48,6 +48,8 @@
   (rmdir nil :type function :read-only t)
   (mkdir nil :type function :read-only t)
   (chmod nil :type function :read-only t)
+  (chmod-directory-identity nil :type (or null function) :read-only t)
+  (sync-directory nil :type (or null function) :read-only t)
   (symlink nil :type function :read-only t)
   (set-mtime nil :type function :read-only t)
   (list-directory nil :type function :read-only t)
@@ -72,6 +74,8 @@
                    :rmdir (pick :rmdir #'store-io-rmdir)
                    :mkdir (pick :mkdir #'store-io-mkdir)
                    :chmod (pick :chmod #'store-io-chmod)
+                   :chmod-directory-identity (pick :chmod-directory-identity #'store-io-chmod-directory-identity)
+                   :sync-directory (pick :sync-directory #'store-io-sync-directory)
                    :symlink (pick :symlink #'store-io-symlink)
                    :set-mtime (pick :set-mtime #'store-io-set-mtime)
                    :list-directory (pick :list-directory #'store-io-list-directory)

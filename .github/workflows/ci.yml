@@ -43,3 +43,27 @@ jobs:
       # Catches stray conflict markers and whitespace errors that compile fine.
       - name: Check diff hygiene
         run: git diff --check
+
+  check-darwin:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Check Nix delivery, syntax, docs and formatting
+        run: nix flake check --print-build-logs
+
+      # Native ps/top cannot execute in a Darwin Nix build. Both steps are
+      # required: the full suite uses the binary built by the same flake.
+      - name: Run every spec against the delivery on the host
+        run: nix run .#test --print-build-logs
+
+      - name: Check diff hygiene
+        run: git diff --check

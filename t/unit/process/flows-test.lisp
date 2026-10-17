@@ -42,12 +42,31 @@
       (expect kind :to-be :partial)
       (expect (json-alist-value (field fields "stderr") "total_matches") :to-be 3)))
 
+  (it "forwards explicit input, child directory, and environment without rewriting them"
+    (multiple-value-bind (kind fields world)
+        (run-with (list :exited :exit-code 0) :stdin-data "" :cwd "child"
+                  :env '("A=" "A=a=b"))
+      (declare (ignore fields))
+      (expect kind :to-be :ok)
+      (expect (fake-world-run-options world) :to-equal
+              '((:stdin nil :stdin-data "" :stdin-file nil :cwd "child" :env ("A=" "A=a=b"))))))
+
   (it "masks secrets in stderr and counts them"
     (multiple-value-bind (kind fields)
         (run-with (list :exited :exit-code 0 :stderr (format nil "auth: Bearer ~A~%" *dummy-token*)))
       (expect kind :to-be :ok)
       (expect (json-alist-value (field fields "stderr") "head") :to-equal '("auth: Bearer [REDACTED_SECRET]"))
       (expect (field fields "redactions") :to-be 1)))
+
+  (it "rejects NUL in environment or cwd before launching without echoing the input"
+    (dolist (arguments (list (list :env (list (format nil "KEY=private~Cvalue" #\Null)))
+                            (list :cwd (format nil "private~Cpath" #\Null))))
+      (multiple-value-bind (kind fields world)
+          (apply #'run-with (list :exited :exit-code 0) arguments)
+        (expect kind :to-be :error)
+        (expect (field fields :code) :to-equal "argument.invalid")
+        (expect (search "private" (field fields :message)) :to-be nil)
+        (expect (fake-world-run-calls world) :to-equal nil))))
 
   (it "reports a program that cannot start as environment.unavailable with a sys tools repair"
     (multiple-value-bind (kind fields) (run-with (list :unavailable) :argv '("no-such-tool"))
@@ -64,6 +83,12 @@
   (it-each (((:argv nil) "argument.invalid")
             ((:timeout "10") "argument.invalid")
             ((:timeout "0s") "argument.invalid")
+            ((:stdin t :stdin-data "") "argument.invalid")
+            ((:stdin t :stdin-file "input") "argument.invalid")
+            ((:stdin-data "" :stdin-file "input") "argument.invalid")
+            ((:env ("NO_SEPARATOR")) "argument.invalid")
+            ((:env ("=value")) "argument.invalid")
+            ((:cwd "") "argument.invalid")
             ((:grep "(") "input.syntax-error"))
       "rejects ~S with ~A before running anything"
       (arguments code)

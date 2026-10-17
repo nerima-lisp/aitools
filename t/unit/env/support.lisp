@@ -31,7 +31,10 @@ hour before that day's spring-forward.")
                           (files *zoneinfo-files*) (directories '("/usr/share/zoneinfo"))
                           (links nil) (executables nil)
                           (identity '("Darwin" "25.6.0" "arm64"))
-                          (space '(1000 400)) (host (make-fake-host)))
+                          (space '(1000 400)) (host (make-fake-host))
+                          (sleep-seconds (lambda (seconds) (declare (ignore seconds))))
+                          (cpu-counters (let ((ticks 0))
+                                          (lambda () (incf ticks) (list (* ticks 3) 0 0 (* ticks 37) 0 0 0 0)))))
   "ENV-PORTS over fakes. FILES is an alist path -> content; DIRECTORIES is an
 alist path -> entry names, or a bare path for an existing directory whose
 entries do not matter; LINKS maps path -> target; EXECUTABLES lists
@@ -40,6 +43,8 @@ executable paths. HOST's PROGRAMS maps a program path to a function of
 appended to HOST's RUNS as (PROGRAM ARGUMENTS)."
   (aitools.env.infrastructure:make-env-ports-from-boundaries
    :clock (cl-boundary-kit:make-fake-clock :start now)
+   :sleep-seconds sleep-seconds
+   :cpu-counters cpu-counters
    :environment (cl-boundary-kit:make-test-environment :initial-values environment)
    :filesystem (cl-boundary-kit:make-test-filesystem :initial-files files)
    :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")
@@ -74,7 +79,7 @@ KIND :OK, :PARTIAL, or :ERROR; FIELDS the alist, or for :ERROR the list
                             (list :on-ok (lambda (fields) (return-from done (values :ok fields)))
                                   :on-error (lambda (code message &rest keys)
                                               (return-from done (values :error (list* code message keys)))))
-                            (when (member function (list #'sys-procs/k))
+                            (when (member function (list #'sys-procs/k #'sys-metrics/k #'sys-network/k #'sys-snapshot/k #'sys-ports/k))
                               (list :on-partial (lambda (fields) (return-from done (values :partial fields)))))))
     (error "flow ~S returned without calling a continuation" function)))
 

@@ -10,15 +10,28 @@
 (defun %fd-stream (fd direction)
   (sb-sys:make-fd-stream fd direction t :element-type '(unsigned-byte 8) :buffering :full))
 
-(defun %read-file (path)
+(defun %read-file (path &key max-bytes)
+  (check-type max-bytes (or null (integer 0)))
   (let ((fd (%syscall ("open" path)
-              (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nofollow +o-cloexec+)))))
+              (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nofollow
+                                          sb-posix:o-nonblock +o-cloexec+)))))
+    (handler-case
+        (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
+          (unless (= (logand (sb-posix:stat-mode stat) sb-posix:s-ifmt) sb-posix:s-ifreg)
+            (error 'store-io-error :operation "read" :path path :detail "not a regular file"))
+          (when (and max-bytes (> (sb-posix:stat-size stat) max-bytes))
+            (error 'store-io-error :operation "read" :path path :detail "file exceeds byte limit"))
+          (aitools.store.application:fault-point :after-read-stat path))
+      (error (condition) (sb-posix:close fd) (error condition)))
     (with-open-stream (stream (%fd-stream fd :input))
       (%stream-errors ("read" path)
         (let ((chunks '()) (total 0))
           (loop
-            (let* ((buffer (make-array 65536 :element-type '(unsigned-byte 8)))
+            (let* ((buffer (make-array (if max-bytes (min 65536 (1+ (- max-bytes total))) 65536)
+                                       :element-type '(unsigned-byte 8)))
                    (count (read-sequence buffer stream)))
+              (when (and max-bytes (> (+ total count) max-bytes))
+                (error 'store-io-error :operation "read" :path path :detail "file exceeds byte limit"))
               (when (plusp count)
                 (push (if (= count (length buffer)) buffer (subseq buffer 0 count)) chunks)
                 (incf total count))
@@ -117,6 +130,26 @@ lstat. Either way PATH is checked by %REFUSE-SHARED-INODE first."
             (%refuse-shared-inode operation path (sb-posix:stat-mode stat) (sb-posix:stat-nlink stat)
                                   :require-file require-file)
             (funcall on-name dirfd name stat))))))
+
+(defun %chmod-directory-identity (root path mode identity)
+  ;; No permission-denied pathname fallback: only the verified descriptor
+  ;; may be changed, even if its name is replaced after opening it.
+  (%with-parent ((dirfd name) root path)
+    (let ((fd (%open-directory-at dirfd name path)))
+      (unwind-protect
+           (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
+             (unless (equal identity (format nil "~D:~D" (sb-posix:stat-dev stat) (sb-posix:stat-ino stat)))
+               (error 'store-io-error :operation "chmod" :path path :detail "directory identity changed"))
+             (%syscall ("chmod" path) (sb-posix:fchmod fd mode))
+             (aitools.store.application:fault-point :after-directory-chmod path)
+             (%syscall ("fsync" path) (sb-posix:fsync fd)))
+        (sb-posix:close fd)))))
+
+(defun %sync-directory (root path)
+  (%with-parent ((dirfd name) root path)
+    (let ((fd (%open-directory-at dirfd name path)))
+      (unwind-protect (%syscall ("fsync" path) (sb-posix:fsync fd))
+        (sb-posix:close fd)))))
 
 (defun %chmod (root path mode)
   (%call-in-place root path "chmod" nil

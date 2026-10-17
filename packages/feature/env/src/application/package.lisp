@@ -21,7 +21,11 @@
    ;; sys-flows.lisp
    #:find-executable
    #:sys-info/k
+   #:sys-snapshot/k
    #:sys-env/k
    #:sys-tools/k
    #:sys-procs/k
+   #:sys-metrics/k
+   #:sys-network/k
+   #:sys-disk/k
    #:sys-ports/k))

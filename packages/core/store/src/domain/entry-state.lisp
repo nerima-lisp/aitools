@@ -92,8 +92,8 @@
 
 (defun entry-state-equal (a b)
   "True when A and B describe the same observable entry. Directory modes are
-ignored: `mkdir` applies the process umask, so a directory's mode is not a
-value any command promises to reproduce. File mtimes are compared only when
+ignored for compatibility with mkdir requests that leave the mode to the
+process umask. File mtimes are compared only when
 both sides carry one: a state records its mtime only where a command
 promised it (`touch`), and a comparison that needs it reads the disk's."
   (and (eq (entry-state-kind a) (entry-state-kind b))

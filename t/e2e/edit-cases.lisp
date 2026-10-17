@@ -107,7 +107,7 @@ o.txt after editing it) as the expected text, run aitools with ARGUMENTS
 
 (define-row-case (17 "sed -i 'Nc text' is edit --range N --new text" :foreign ("sed")) (ws)
   (expect-same-edit ws (format nil "a~%b~%c~%") '("sed")
-                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'2c\\~%text'") "o.txt"))
+                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'2c\\~%text~%'") "o.txt"))
                     (format nil "a~%text~%c~%")
                     '("edit" "a.txt" "--range" "2" "--new" "text" "--expect-hash" :hash)))
 
@@ -131,19 +131,19 @@ o.txt after editing it) as the expected text, run aitools with ARGUMENTS
 
 (define-row-case (19 "sed -i '/re/a text' is insert --after --match re" :foreign ("sed")) (ws)
   (expect-same-edit ws +insert-fixture+ '("sed")
-                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'/re/a\\~%T'") "o.txt"))
+                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'/re/a\\~%T~%'") "o.txt"))
                     (format nil "x~%re1~%T~%y~%re2~%T~%")
                     '("insert" "a.txt" "--after" "--match" "re" "--content" "T" "--expect-count" "2")))
 
 (define-row-case (19 "sed -i '/re/i text' is insert --before --match re" :foreign ("sed")) (ws)
   (expect-same-edit ws +insert-fixture+ '("sed")
-                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'/re/i\\~%T'") "o.txt"))
+                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'/re/i\\~%T~%'") "o.txt"))
                     (format nil "x~%T~%re1~%y~%T~%re2~%")
                     '("insert" "a.txt" "--before" "--match" "re" "--content" "T" "--expect-count" "2")))
 
 (define-row-case (19 "sed -i '1i text' is insert --at start" :foreign ("sed")) (ws)
   (expect-same-edit ws +insert-fixture+ '("sed")
-                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'1i\\~%FIRST'") "o.txt"))
+                    (format nil "~A && cat o.txt" (sed-in-place (format nil "'1i\\~%FIRST~%'") "o.txt"))
                     (format nil "FIRST~%x~%re1~%y~%re2~%")
                     '("insert" "a.txt" "--at" "start" "--content" "FIRST")))
 

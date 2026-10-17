@@ -9,8 +9,13 @@
 (defparameter *process-command-schemas*
   '((:name "run"
      :summary "Run a program without a shell and report its exit, timing, and trimmed output."
-     :description "Runs argv directly (no shell), stdin at /dev/null, in its own process group. Exit code is 0 whenever the program started, including on timeout; the child's own status is exit_code/signal. ANSI escapes are removed and \\r-redrawn progress lines keep only their last state unless --no-strip-ansi. Known secret formats in the output are masked before --grep sees it."
+     :description "Runs argv directly (no shell), in its own process group. By default stdin is /dev/null and the child inherits the current directory and environment. Choose one stdin source, use --cwd for the child's directory, and repeat --env to overlay environment entries. External programs are not sandboxed, and their writes are not journaled or undoable by aitools. Exit code is 0 when the program started, including on timeout, except that exceeding --grep-limit returns partial (exit 3); the child's own status is exit_code/signal. ANSI escapes are removed and \\r-redrawn progress lines keep only their last state unless --no-strip-ansi. Known secret formats in the output are masked before --grep sees it."
      :args ((:name "argv" :kind "positional" :type "string" :required t :description "Program and arguments, after --.")
+            (:name "--stdin" :type "flag" :description "Forward aitools standard input to the child; mutually exclusive with --stdin-data and --stdin-file.")
+            (:name "--stdin-data" :type "string" :description "Send this text as UTF-8 stdin without adding a newline. Mutually exclusive with --stdin and --stdin-file; shell history can retain this argument.")
+            (:name "--stdin-file" :type "string" :description "Send a regular file's bytes as stdin; FIFOs, devices, and directories are rejected. Relative paths use aitools' current directory, not --cwd. Mutually exclusive with --stdin and --stdin-data.")
+            (:name "--cwd" :type "string" :description "Working directory for the child only; --root remains the aitools workspace boundary, not a process sandbox.")
+            (:name "--env" :type "string" :repeatable t :description "KEY=VALUE to overlay on the inherited environment; last value wins. Empty values are allowed.")
             (:name "--timeout" :type "duration" :default "120s" :description "SIGTERM to the process group when exceeded, SIGKILL 1s later; timed_out is then true.")
             (:name "--head" :type "integer" :default 50 :description "Leading lines kept per stream.")
             (:name "--tail" :type "integer" :default 150 :description "Trailing lines kept per stream.")
@@ -74,9 +79,12 @@
      :error-codes ("argument.invalid" "input.syntax-error" "input.not-found" "environment.unavailable" "environment.io"))
     (:name "bg.status"
      :summary "List the bg processes aitools started in this workspace, or one of them."
+     :description "A listing with invalid or disappeared records is partial (exit 3); omitted identifies those records without exposing their contents. A specific ID retains input.not-found or environment.io errors."
      :args ((:name "id" :kind "positional" :type "string" :description "Only this bg ID."))
      :output-fields ((:name "items" :description "[{id,name,pid,argv,running,exit_code,signal,started}]; started is UTC RFC 3339.")
-                     (:name "total" :description "Number of items."))
+                     (:name "total" :description "Number of valid returned items.")
+                     (:name "observed_total" :description "Number of record IDs observed before reading; equals total plus omitted count, not a count of host processes.")
+                     (:name "omitted" :description "[{id,reason}] excluded from a listing; reason is invalid-record or record-unavailable. Empty when complete."))
      :error-codes ("input.not-found" "environment.unavailable" "environment.io"))
     (:name "bg.stop"
      :summary "Stop a bg process: SIGTERM to its process group, SIGKILL if it outlives --grace."

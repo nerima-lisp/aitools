@@ -7,7 +7,7 @@
 
 (defstruct (run-request (:constructor make-run-request
                             (&key argv (timeout "120s") (head 50) (tail 150) grep (grep-limit 50)
-                                  (strip-ansi t) stdout-to root))
+                                  (strip-ansi t) stdout-to root stdin stdin-data stdin-file cwd env))
                         (:copier nil))
   (argv nil :type list :read-only t)
   (timeout "120s" :type string :read-only t)
@@ -17,6 +17,11 @@
   (grep-limit 50 :type (integer 0) :read-only t)
   (strip-ansi t :type boolean :read-only t)
   (stdout-to nil :type (or null string) :read-only t)
+  (stdin nil :type boolean :read-only t)
+  (stdin-data nil :type (or null string) :read-only t)
+  (stdin-file nil :type (or null string) :read-only t)
+  (cwd nil :type (or null string) :read-only t)
+  (env nil :type list :read-only t)
   ;; The global `--root` value, or NIL for the git-root-then-cwd rule.
   (root nil :type (or null string) :read-only t))
 
@@ -80,6 +85,11 @@ relative `--stdout-to` means."
     (%reporting-port-errors (on-error "run")
       (funcall (process-ports-run-program ports) (run-request-argv request) timeout-ms
                :stdout-path stdout-real
+               :stdin (run-request-stdin request)
+               :stdin-data (run-request-stdin-data request)
+               :stdin-file (run-request-stdin-file request)
+               :cwd (run-request-cwd request)
+               :env (run-request-env request)
                :on-exited #'report
                :on-timed-out #'report
                :on-unavailable (lambda (message program)
@@ -92,9 +102,30 @@ relative `--stdout-to` means."
                                                              (aitools.process.domain:command-line
                                                               "aitools" "info" stdout-reported)))))))))
 
+(defun %run-input-error (request)
+  (cond
+    ((> (count-if #'identity (list (run-request-stdin request)
+                                  (run-request-stdin-data request)
+                                  (run-request-stdin-file request))) 1)
+     "--stdin, --stdin-data, and --stdin-file are mutually exclusive")
+    ((some (lambda (entry)
+             (let ((separator (position #\= entry)))
+               (or (null separator) (zerop separator) (find #\Null entry))))
+           (run-request-env request))
+     "--env needs KEY=VALUE with a nonempty key and no NUL characters")
+    ((and (run-request-cwd request)
+          (or (zerop (length (run-request-cwd request)))
+              (find #\Null (run-request-cwd request))))
+     "--cwd needs a nonempty directory path without NUL characters")))
+
 (defun run-command/k (ports request &key on-ok on-partial on-error)
   "Run REQUEST's argv through PORTS' RUN-PROGRAM and report `run`'s
 fields. Calls exactly one of ON-OK, ON-PARTIAL, or ON-ERROR."
+  (let ((input-error (%run-input-error request)))
+    (when input-error
+      (return-from run-command/k
+        (funcall on-error "argument.invalid" input-error
+                 :repairs (list (%schema-repair "run"))))))
   (if (null (run-request-argv request))
       (funcall on-error "argument.invalid" "run needs the program and its arguments after --"
                :repairs (list (%repair "run-program" "Pass the program after --."

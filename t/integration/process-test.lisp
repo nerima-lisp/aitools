@@ -78,6 +78,129 @@ symlinks, so a multi-call binary still sees NAME as its argv[0]."
 ;;; ------------------------------------------------------------------ run
 
 (describe "aitools run (integration)"
+  (it "keeps stdin at EOF unless explicitly requested"
+    (let ((*standard-input* (make-string-input-stream "not inherited")))
+      (multiple-value-bind (code envelope) (invoke '("run" "--" "cat"))
+        (expect code :to-be 0)
+        (expect (value envelope "exit_code") :to-be 0)
+        (expect (lines envelope "stdout" "head") :to-equal nil))
+      (expect (read-line *standard-input*) :to-equal "not inherited")))
+
+  (it "forwards explicit stdin without closing the caller's stream"
+    (let ((*standard-input* (make-string-input-stream (format nil "stream input~%"))))
+      (multiple-value-bind (code envelope) (invoke '("run" "--stdin" "--" "cat"))
+        (expect code :to-be 0)
+        (expect (value envelope "exit_code") :to-be 0)
+        (expect (lines envelope "stdout" "head") :to-equal '("stream input")))
+      (expect (open-stream-p *standard-input*) :to-be t)))
+
+  (it "stops feeding an open input pipe when the child exits or times out"
+    (dolist (command '(("true") ("sleep" "2")))
+      (let ((producer (sb-ext:run-program (program-on-path "sleep") '("20")
+                                         :output :stream :wait nil)))
+        (unwind-protect
+             (let ((*standard-input* (sb-ext:process-output producer))
+                   (started (get-internal-real-time)))
+               (multiple-value-bind (code envelope)
+                   (invoke (append '("run" "--stdin" "--timeout" "100ms" "--") command))
+                 (expect code :to-be 0)
+                 (expect (value envelope "timed_out") :to-be
+                         (if (string= (first command) "sleep") t json-kit:+json-false+)))
+               (expect (< (/ (- (get-internal-real-time) started)
+                             internal-time-units-per-second) 2) :to-be t)
+               (expect (open-stream-p *standard-input*) :to-be t)
+               (expect (count "cl-process-kit stdin feeder" (sb-thread:list-all-threads)
+                              :key #'sb-thread:thread-name :test #'equal) :to-be 0))
+          (sb-ext:process-kill producer 9)
+          (sb-ext:process-wait producer)
+          (sb-ext:process-close producer)))))
+
+  (it "forwards available UTF-8 input before the caller sends EOF"
+    (let ((producer (sb-ext:run-program
+                     (program-on-path "sh")
+                     '("-c" "printf '日本語\\n'; exec sleep 20")
+                     :output :stream :external-format :utf-8 :wait nil)))
+      (unwind-protect
+           (let ((*standard-input* (sb-ext:process-output producer)))
+             (multiple-value-bind (code envelope)
+                 (invoke (list* "run" "--stdin" "--timeout" "1s" "--"
+                                (sh "IFS= read -r line; printf '%s\\n' \"$line\"")))
+               (expect code :to-be 0)
+               (expect (value envelope "timed_out") :to-be json-kit:+json-false+)
+               (expect (lines envelope "stdout" "head") :to-equal '("日本語")))
+             (expect (open-stream-p *standard-input*) :to-be t))
+        (sb-ext:process-kill producer 9)
+        (sb-ext:process-wait producer)
+        (sb-ext:process-close producer))))
+
+  (it "encodes inline stdin as UTF-8 and accepts explicitly empty input"
+    (dolist (text '("日本語" ""))
+      (multiple-value-bind (code envelope) (invoke (list "run" "--stdin-data" text "--" "cat"))
+        (expect code :to-be 0)
+        (expect (value envelope "exit_code") :to-be 0)
+        (expect (lines envelope "stdout" "head") :to-equal (if (equal text "") nil (list text))))))
+
+  (it "preserves binary stdin-file bytes and resolves it independently of child cwd"
+    (with-temporary-directory (directory)
+      (let* ((input (merge-pathnames "input.bin" directory))
+             (child (merge-pathnames "child/" directory))
+             (*default-pathname-defaults* directory))
+        (ensure-directories-exist child)
+        (with-open-file (stream input :direction :output :element-type '(unsigned-byte 8))
+          (write-sequence (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(65 0 255)) stream))
+        (multiple-value-bind (code envelope)
+            (invoke (list "run" "--stdin-file" "input.bin" "--cwd" (namestring child) "--" "od" "-An" "-tx1"))
+          (expect code :to-be 0)
+          (expect (value envelope "exit_code") :to-be 0)
+          (expect (mapcan (lambda (line)
+                            (remove "" (uiop:split-string line :separator '(#\Space #\Tab))
+                                    :test #'string=))
+                          (lines envelope "stdout" "head"))
+                  :to-equal '("41" "00" "ff"))))))
+
+  (it "rejects a stdin FIFO without waiting for a writer"
+    (with-temporary-directory (directory)
+      (let* ((fifo (merge-pathnames "input.fifo" directory))
+             (link (merge-pathnames "input-link" directory))
+             (started (get-internal-real-time)))
+        (sb-posix:mkfifo (namestring fifo) #o600)
+        (sb-posix:symlink (namestring fifo) (namestring link))
+        (dolist (path (list fifo link directory))
+          (multiple-value-bind (code envelope)
+              (invoke (list "run" "--stdin-file" (namestring path) "--timeout" "100ms" "--" "cat"))
+            (expect code :to-be 1)
+            (expect (value envelope "error" "code") :to-equal "environment.io")))
+        (expect (/ (- (get-internal-real-time) started) internal-time-units-per-second) :to-be-less-than 2))))
+
+  (it "sets child cwd without changing the caller's cwd"
+    (with-temporary-directory (directory)
+      (let ((before (uiop:getcwd)))
+        (multiple-value-bind (code envelope)
+            (invoke (list "run" "--cwd" (namestring directory) "--" "pwd"))
+          (expect code :to-be 0)
+          (expect (value envelope "exit_code") :to-be 0)
+          (expect (first (lines envelope "stdout" "head")) :to-equal (string-right-trim "/" (namestring directory))))
+        (expect (uiop:getcwd) :to-equal before))))
+
+  (it "overlays inherited environment with last-wins, empty, and embedded-equals values"
+    (let ((before (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE")))
+      (multiple-value-bind (code envelope)
+          (invoke (list* "run" "--env" "AITOOLS_PROCESS_TEST_VALUE=first"
+                         "--env" "AITOOLS_PROCESS_TEST_VALUE=last=value"
+                         "--env" "AITOOLS_PROCESS_TEST_EMPTY=" "--"
+                         (sh "printf '%s\\n' \"$AITOOLS_PROCESS_TEST_VALUE\" \"${AITOOLS_PROCESS_TEST_EMPTY+x}\" \"${AITOOLS_PROCESS_TEST_EMPTY:-empty}\"; test -n \"$PATH\"")))
+        (expect code :to-be 0)
+        (expect (value envelope "exit_code") :to-be 0)
+        (expect (lines envelope "stdout" "head") :to-equal '("last=value" "x" "empty")))
+      (expect (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE") :to-equal before)))
+
+  (it "reports a missing stdin file as environment.io"
+    (with-temporary-directory (directory)
+      (multiple-value-bind (code envelope)
+          (invoke (list "run" "--stdin-file" (namestring (merge-pathnames "absent" directory)) "--" "cat"))
+        (expect code :to-be 1)
+        (expect (value envelope "error" "code") :to-equal "environment.io"))))
+
   (it "prints stdout lines of a real child"
     (multiple-value-bind (code envelope) (invoke (list "run" "--" "printf" (format nil "a~%b~%")))
       (expect code :to-be 0)

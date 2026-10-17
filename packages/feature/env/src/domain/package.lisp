@@ -55,6 +55,10 @@
    #:zone-local-to-epoch-milliseconds
    ;; host-parsers.lisp
    #:split-fields
+   #:parse-cpu-counters
+   #:cpu-busy-percent
+   #:parse-process-metrics
+   #:parse-network-counters
    #:parse-meminfo
    #:parse-vm-stat
    #:parse-sysctl-values

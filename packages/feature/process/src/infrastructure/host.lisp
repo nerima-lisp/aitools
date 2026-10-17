@@ -23,9 +23,12 @@
                        (directory (merge-pathnames uiop:*wild-file-for-directory* directory)
                                   :resolve-symlinks nil)))))
 
+(defun %open-input-file (path &key (if-does-not-exist :error))
+  (open path :element-type '(unsigned-byte 8) :if-does-not-exist if-does-not-exist))
+
 (defun %read-octets (path start end)
   (%port-io ("reading ~A" path)
-    (with-open-file (in path :element-type '(unsigned-byte 8))
+    (with-open-stream (in (%open-input-file path))
       (let* ((end (min end (file-length in)))
              (octets (make-array (max 0 (- end start)) :element-type '(unsigned-byte 8))))
         (file-position in start)
@@ -34,12 +37,21 @@
 
 (defun %file-size (path)
   (%port-io ("inspecting ~A" path)
-    (with-open-file (in path :element-type '(unsigned-byte 8) :if-does-not-exist nil)
-      (and in (file-length in)))))
+    (let ((stream (%open-input-file path :if-does-not-exist nil)))
+      (when stream
+        (with-open-stream (in stream)
+          (file-length in))))))
 
 (defun %read-file-text (path)
-  (let ((size (%file-size path)))
-    (and size (aitools.process.domain:decode-output-octets (%read-octets path 0 size)))))
+  (%port-io ("reading ~A" path)
+    (let ((stream (%open-input-file path :if-does-not-exist nil)))
+      (when stream
+        (with-open-stream (in stream)
+          ;; Keep the same descriptor if the pathname disappears or is replaced.
+          (let* ((octets (make-array (file-length in) :element-type '(unsigned-byte 8)))
+                 (count (read-sequence octets in)))
+            (aitools.process.domain:decode-output-octets
+             (if (= count (length octets)) octets (subseq octets 0 count)))))))))
 
 (defun %write-text (stream text)
   (write-sequence (sb-ext:string-to-octets text :external-format :utf-8) stream))

@@ -145,11 +145,9 @@
       treefmt-nix,
     }:
     let
-      # x86_64-linux is what CI gates; aarch64-darwin is the development
-      # machine. CI only requires x86_64-linux; aarch64-darwin is included
-      # because cl-nix-forge v0.6.0's `mkExecutable` now drives a real
-      # `asdf:program-op` on Darwin too (see the cl-nix-forge input comment
-      # above), so building or running aitools on this platform is not blocked.
+      # CI gates both platforms. Darwin's full suite runs on the host after
+      # Nix builds the delivery: its native ps/top oracles cannot run inside
+      # the Nix build's mandatory Seatbelt policy.
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
@@ -170,6 +168,21 @@
       # (t/integration/skill-contract-test.lisp) reads SKILL.md from the
       # source tree at test time.
       sourceInclude = [ ./skills/aitools/SKILL.md ];
+      # Path-based builds also see untracked Lisp probes. Exclude scratch
+      # directories without requiring them to exist in a clean checkout.
+      sourceExclude =
+        let
+          scratchPrefixes = [
+            ".release-probe."
+            ".session-audit-"
+            ".store-fd-probe."
+          ];
+          scratchDirs = nixpkgs.lib.filterAttrs (
+            name: type:
+            type == "directory" && nixpkgs.lib.any (prefix: nixpkgs.lib.hasPrefix prefix name) scratchPrefixes
+          ) (builtins.readDir ./.);
+        in
+        map (name: ./. + "/${name}") (builtins.attrNames scratchDirs);
 
       meta = {
         description = "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends.";
@@ -382,6 +395,8 @@
             args = ctx.lispDerivationArgs // {
               lispSystem = "aitools/cli";
               src = cliFasls;
+              # Stage 1 already patched these sources before compilation.
+              postPatch = "";
             };
             programPath = "aitools";
             installSource = true;
@@ -396,11 +411,71 @@
             program = "${delivered}/bin/aitools";
             inherit (ctx.generated.apps.default) meta;
           };
+          oraclePackages =
+            with ctx.pkgs;
+            [
+              git
+              gnugrep
+              zip
+              unzip
+              jq
+              perl
+              which
+              procps
+              lsof
+              util-linux
+              openssl
+              inetutils
+              getconf
+              tzdata
+              xxd
+              ripgrep
+              fd
+              tree
+              dos2unix
+              nkf
+              netcat
+              bc
+              python3
+            ]
+            ++ nixpkgs.lib.optionals ctx.pkgs.stdenv.hostPlatform.isLinux [ ctx.pkgs.nettools ]
+            ++ nixpkgs.lib.optionals ctx.pkgs.stdenv.hostPlatform.isDarwin [ ctx.pkgs.unixtools.netstat ];
+          testDependencies = ctx.package.enableCheck.ancestry.deps;
+          testRegistry = nixpkgs.lib.concatStringsSep ":" (
+            [ "${ctx.src}//" ]
+            ++ map (dependency: "${dependency}${dependency.registrySuffix or ""}") testDependencies
+          );
+          hostTestRunner = ctx.pkgs.writeShellApplication {
+            name = "aitools-host-tests";
+            text = ''
+              # Native Darwin ps/top need host entitlements; grep -P needs GNU grep.
+              export PATH=${
+                if ctx.pkgs.stdenv.hostPlatform.isDarwin then
+                  "${nixpkgs.lib.makeBinPath [ ctx.pkgs.gnugrep ]}:/usr/bin:/bin:/usr/sbin:/sbin:"
+                else
+                  ""
+              }${nixpkgs.lib.makeBinPath (oraclePackages ++ [ ctx.pkgs.coreutils ])}
+              export CL_SOURCE_REGISTRY=${nixpkgs.lib.escapeShellArg testRegistry}
+              export CL_PROCESS_KIT_SPAWN=${spawnTrampoline}/bin/cl-process-kit-spawn
+              export AITOOLS_E2E_BINARY=${delivered}/bin/aitools
+              export TZDIR=${ctx.pkgs.tzdata}/share/zoneinfo
+              AITOOLS_HOST_CACHE_DIR=$(${ctx.pkgs.coreutils}/bin/mktemp -d -t aitools-host-tests.XXXXXX)
+              export AITOOLS_HOST_CACHE_DIR
+              exec ${ctx.pkgs.coreutils}/bin/timeout -k 30s 1800s \
+                ${ctx.pkgs.sbcl}/bin/sbcl --noinform --non-interactive --no-sysinit --no-userinit \
+                --load ${ctx.src}/run-host-tests.lisp --end-toplevel-options
+            '';
+          };
         in
         {
           packages.default = delivered;
           apps.default = deliveredApp;
           apps.aitools = deliveredApp;
+          apps.test = {
+            type = "app";
+            program = "${hostTestRunner}/bin/aitools-host-tests";
+            meta.description = "Run every spec against the Nix delivery on the host; no skips or todos";
+          };
           # AITOOLS_E2E_BINARY makes t/e2e exercise the delivered package
           # instead of building its own copy in the sandbox.
           # git, zip and unzip are the oracles the gitignore-parity, vcs,
@@ -411,26 +486,24 @@
           # those specs reports a counted skip instead of comparing aitools
           # against the real tool. TZDIR points the time-zone specs at tzdata's
           # zoneinfo so the --tz rows resolve Asia/Tokyo in the sandbox.
-          checks.default = ctx.generated.checks.default.overrideAttrs (old: {
-            CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
-            AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
-            TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
-            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
-              ctx.pkgs.git
-              ctx.pkgs.zip
-              ctx.pkgs.unzip
-              ctx.pkgs.jq
-              ctx.pkgs.perl
-              ctx.pkgs.which
-              ctx.pkgs.procps
-              ctx.pkgs.lsof
-              ctx.pkgs.util-linux
-              ctx.pkgs.openssl
-              ctx.pkgs.inetutils
-              ctx.pkgs.getconf
-              ctx.pkgs.tzdata
-            ];
-          });
+          checks.default =
+            if ctx.pkgs.stdenv.hostPlatform.isDarwin then
+              ctx.pkgs.runCommand "aitools-delivery-check" { nativeBuildInputs = [ ctx.pkgs.jq ]; } ''
+                test -x ${hostTestRunner}/bin/aitools-host-tests
+                test -x ${delivered}/bin/cl-process-kit-spawn
+                ${delivered}/bin/aitools schema > schema.json
+                jq -e '.status == "ok" and (.commands | length > 0) and
+                  ([.commands[].name] | length == (unique | length))' schema.json
+                mkdir -p "$out"
+                cp schema.json "$out/"
+              ''
+            else
+              ctx.generated.checks.default.overrideAttrs (old: {
+                CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
+                AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
+                TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
+                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ oraclePackages;
+              });
         };
 
       extraOutputs = ctx: {

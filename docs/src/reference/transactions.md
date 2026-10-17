@@ -1,10 +1,12 @@
 # Transactions
 
 A transaction (tx) stacks writes from several aitools calls without touching
-the working tree, lets the agent read the combined result, and then writes
-everything at once as one journal operation. A single call that changes
-several files (`replace`, `apply`) is already atomic through the write
-protocol and does not need a tx.
+the working tree, lets the agent read the combined result, and then commits
+it as one journal operation. A single call that changes several files
+(`replace`, `apply`) already uses the same write protocol and does not need
+a tx. Physical changes are applied sequentially, so other processes can see
+intermediate states. After the durable commit point, recovery finishes the
+operation rather than rolling it back.
 
 The store code is in `packages/core/store/src/application/tx.lisp`,
 `tx-stage.lisp`, and `tx-commit.lisp`; the commands are in the journal
@@ -72,7 +74,8 @@ not rewritten.
 
 ## Isolation and conflicts
 
-A tx uses snapshot isolation on its write set plus an explicit read set.
+A tx provides a staged view with optimistic checks on its write set and an
+explicit read set. It does not isolate the working tree from external writers.
 
 - **Write set.** Every path the tx wrote. At commit, a path whose file on
   disk no longer matches `base` is a write conflict.
@@ -85,7 +88,7 @@ A tx uses snapshot isolation on its write set plus an explicit read set.
 `tx status <tx>` reports both before you commit: `drift` lists written paths
 that changed on disk, and `stale_reads` lists read paths that changed.
 
-A conflicting commit writes nothing, exits with code 2
+A conflict detected before the durable commit writes nothing, exits with code 2
 (`refusal.target-changed`), and lists each conflict with the repairs that
 resolve it:
 
@@ -148,6 +151,17 @@ operation from the middle and keep the ones after it.
 4. Record the whole tx as one journal operation and delete the tx
    directory.
 
+An I/O failure after the durable commit can leave some changes applied.
+The next command attempts to finish the committed operation through recovery.
+Inspect the error's diagnostics and repairs before retrying; an error does
+not always mean that the working tree is unchanged. Recovery retains the
+intent and stops if a recorded directory has been replaced or a permission
+checkpoint cannot be reopened safely. A crash after applying mode `000`
+but before syncing it can require operator intervention; recovery does not
+temporarily widen permissions. Stop external writers before committing:
+the workspace lock does not exclude other programs, and a newly created
+directory is not reserved against replacement before its identity is recorded.
+
 `aitools undo <op_id>` with the commit's `op_id` reverts the whole tx. A
 commit of a tx with no staged changes returns `"op_id":null`.
 
@@ -164,11 +178,15 @@ touch the working tree, and returns the paths the tx had staged:
 
 `batch --stdin --atomic` is shorthand for a tx: it runs `tx begin`, every
 element with `--tx <tx>` added, and `tx commit`, each dispatched exactly as
-a standalone call (`src/batch.lisp`). If an element fails or the commit
-conflicts, batch runs `tx abort`, writes nothing, and answers with the first
-failure's `error.code` and exit code; the per-element envelopes are in
-`error.diagnostics`. On success the output has `results`, `tx`, and the
-commit's `changes` and `op_id`, so one `undo` reverts the whole batch.
+a standalone call (`src/batch.lisp`). If an element fails or a conflict is
+detected before the durable commit, batch runs `tx abort`, writes nothing,
+and answers with the first failure's `error.code` and exit code; the
+per-element envelopes are in `error.diagnostics`. A failure after the
+durable commit can leave changes applied and requires recovery to attempt
+completion, not an abort to roll it back. Recovery can refuse unsafe state
+as described above. On success the output has
+`results`, `tx`, and the commit's `changes` and `op_id`, so one `undo` reverts
+the whole batch.
 
 Under `--atomic`, an element may not carry its own `--tx`, and
 `--continue-on-error` is refused.

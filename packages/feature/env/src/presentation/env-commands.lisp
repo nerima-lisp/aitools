@@ -90,6 +90,57 @@ return the COMMAND-RESULT."
                                                  :limit (option-value invocation :limit)
                                                  :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
 
+(defun %register-sys-metrics (registry ports)
+  (%register
+   registry "sys" "metrics"
+   (make-command :name "metrics" :description "Sample CPU, memory, and process metrics once."
+                 :options (list (make-option :name "limit" :kind :value :type :integer :min 1 :default 20
+                                             :description "Maximum processes, ordered by CPU usage."))
+                 :handler (lambda (invocation)
+                            (%call-flow (lambda (on-ok on-partial on-error)
+                                          (aitools.env.application:sys-metrics/k
+                                           ports :limit (option-value invocation :limit)
+                                           :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
+
+(defun %register-sys-network (registry ports)
+  (%register
+   registry "sys" "network"
+   (make-command :name "network" :description "Read cumulative network interface counters."
+                 :options (list (make-option :name "limit" :kind :value :type :integer :min 1 :max 1000 :default 100))
+                 :handler (lambda (invocation)
+                            (%call-flow (lambda (on-ok on-partial on-error)
+                                          (aitools.env.application:sys-network/k
+                                           ports :limit (option-value invocation :limit)
+                                           :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
+
+(defun %register-sys-disk (registry ports)
+  (%register
+   registry "sys" "disk"
+   (make-command :name "disk" :description "Read capacity of the filesystem containing PATH."
+                 :positionals (list (make-positional :name "path" :key :path :required-p nil))
+                 :handler (lambda (invocation)
+                            (%call-flow (lambda (on-ok on-partial on-error)
+                                          (declare (ignore on-partial))
+                                          (aitools.env.application:sys-disk/k
+                                           ports :path (positional-value invocation :path)
+                                           :on-ok on-ok :on-error on-error)))))))
+
+(defun %register-sys-snapshot (registry ports)
+  (%register
+   registry "sys" "snapshot"
+   (make-command :name "snapshot" :description "Observe host sections sequentially (non-atomic)."
+                 :positionals (list (make-positional :name "path" :key :path :required-p nil))
+                 :options (loop for (name default) in '(("process-limit" 20) ("network-limit" 100) ("port-limit" 100))
+                                collect (make-option :name name :kind :value :type :integer :min 1 :max 1000 :default default))
+                 :handler (lambda (invocation)
+                            (%call-flow (lambda (on-ok on-partial on-error)
+                                          (aitools.env.application:sys-snapshot/k
+                                           ports :path (positional-value invocation :path)
+                                           :process-limit (option-value invocation :process-limit)
+                                           :network-limit (option-value invocation :network-limit)
+                                           :port-limit (option-value invocation :port-limit)
+                                           :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
+
 (defun %register-sys-ports (registry ports)
   (%register
    registry "sys" "ports"
@@ -97,8 +148,7 @@ return the COMMAND-RESULT."
                  :handler (lambda (invocation)
                             (declare (ignore invocation))
                             (%call-flow (lambda (on-ok on-partial on-error)
-                                          (declare (ignore on-partial))
-                                          (aitools.env.application:sys-ports/k ports :on-ok on-ok :on-error on-error)))))))
+                                          (aitools.env.application:sys-ports/k ports :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
 
 ;;; --------------------------------------------------------------------- time
 
@@ -158,7 +208,11 @@ against PORTS (an AITOOLS.ENV.APPLICATION:ENV-PORTS)."
   (%register-sys-env registry ports)
   (%register-sys-tools registry ports)
   (%register-sys-procs registry ports)
+  (%register-sys-metrics registry ports)
+  (%register-sys-network registry ports)
+  (%register-sys-disk registry ports)
   (%register-sys-ports registry ports)
+  (%register-sys-snapshot registry ports)
   (%register-time-now registry ports)
   (%register-time-convert registry ports)
   (%register-time-diff registry ports)

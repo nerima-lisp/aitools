@@ -223,27 +223,37 @@ following `--from` read continues without skipping or repeating a line."
 
 (defun bg-status/k (ports id &key on-ok on-partial on-error)
   "Every bg process started in this workspace, or only ID."
-  (declare (ignore on-partial))
   (%reporting-port-errors (on-error "bg.status")
     (%call-with-bg-directory
      ports "bg.status" on-error
      (lambda (directory)
-       (flet ((report (records)
-                (funcall on-ok (list (cons "items" (mapcar (lambda (record) (%status-item ports directory record))
-                                                           records))
-                                     (cons "total" (length records))))))
+       (flet ((report (records observed-total omitted)
+                (funcall (if omitted on-partial on-ok)
+                         (list (cons "items" (mapcar (lambda (record) (%status-item ports directory record))
+                                                    records))
+                               (cons "total" (length records))
+                               (cons "observed_total" observed-total)
+                               (cons "omitted" omitted)))))
          (if id
              (%call-with-bg-record ports directory id on-error
-                                   (lambda (record) (report (list record))))
-             (let ((records '()))
-               ;; A record that no longer parses is skipped here rather than
-               ;; failing the whole listing; `bg status <id>` reports it.
-               (dolist (listed-id (%recorded-bg-ids ports directory) (report (nreverse records)))
-                 (let ((text (funcall (process-ports-read-file-text ports)
-                                      (%bg-path directory (aitools.process.domain:bg-record-file-name listed-id)))))
-                   (when text
-                     (handler-case (push (aitools.process.domain:parse-bg-record text listed-id) records)
-                       (aitools.process.domain:invalid-bg-record () nil))))))))))))
+                                   (lambda (record) (report (list record) 1 nil)))
+             (let ((ids (%recorded-bg-ids ports directory))
+                   (records '())
+                   (omitted '()))
+               (dolist (listed-id ids)
+                 (let* ((text (funcall (process-ports-read-file-text ports)
+                                       (%bg-path directory (aitools.process.domain:bg-record-file-name listed-id))))
+                        (reason (if text
+                                    (handler-case
+                                        (progn
+                                          (push (aitools.process.domain:parse-bg-record text listed-id) records)
+                                          nil)
+                                      (aitools.process.domain:invalid-bg-record () "invalid-record"))
+                                    "record-unavailable")))
+                   (when reason
+                     (push (aitools.protocol.domain:json-object "id" listed-id "reason" reason)
+                           omitted))))
+               (report (nreverse records) (length ids) (nreverse omitted)))))))))
 
 ;;; ------------------------------------------------------------- bg stop
 

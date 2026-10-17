@@ -124,6 +124,30 @@ east,apple,3
 ")
 
 (describe "table agg"
+  (it "retains source row numbers for non-numeric cells after filtering"
+    (multiple-value-bind (kind fields)
+        (table-agg '(("/work/m.csv" . "n
+10
+oops
+bad
+")) "m.csv" :where '("n!=oops") :sum "n")
+      (expect kind :to-be :error)
+      (expect (mapcar (lambda (cell) (json-object-get cell "row"))
+                      (getf fields :diagnostics)) :to-equal '(3))))
+
+  (it "aggregates the numeric rows retained by a mixed-column repair"
+    (multiple-value-bind (kind fields)
+        (table-agg '(("/work/m.csv" . "n
+10
+oops
+20
+")) "m.csv" :where '("n!=oops") :sum "n" :avg "n" :min "n" :max "n" :count t)
+      (expect kind :to-be :ok)
+      (let ((group (first (field fields "groups"))))
+        (expect (mapcar (lambda (name) (json-object-get group name)) '("sum" "min" "max" "count"))
+                :to-equal '(30 10 20 2))
+        (expect (json-object-get group "avg") :to-be-close-to 15d0))))
+
   (flet ((group-list (fields &rest names)
            (mapcar (lambda (group) (mapcar (lambda (name) (json-object-get group name)) names))
                    (field fields "groups"))))

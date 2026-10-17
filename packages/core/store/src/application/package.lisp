@@ -25,6 +25,8 @@
    #:store-io-rmdir
    #:store-io-mkdir
    #:store-io-chmod
+   #:store-io-chmod-directory-identity
+   #:store-io-sync-directory
    #:store-io-symlink
    #:store-io-set-mtime
    #:store-io-list-directory

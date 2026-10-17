@@ -46,6 +46,8 @@ nav:
   - Getting started: getting-started.md
   - Guide:
       - Using aitools from an agent: guide/agents.md
+      - State inspection: guide/state-inspection.md
+      - Migrating session commands: guide/session-migration.md
   - Reference:
       - Commands: reference/commands.md
       - JSON output: reference/json-schema.md

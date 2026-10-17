@@ -15,6 +15,7 @@
   (next-pid 1000)
   (launches '())
   (run-calls '())
+  (run-options '())
   (reads '())
   run-behavior
   (launch-behavior :start)
@@ -63,9 +64,12 @@
 
 (defun fake-ports (world)
   (aitools.process.application:make-process-ports
-   :run-program (lambda (argv timeout-ms &key stdout-path on-exited on-timed-out on-unavailable on-exists)
+   :run-program (lambda (argv timeout-ms &key stdout-path stdin stdin-data stdin-file cwd env
+                                            on-exited on-timed-out on-unavailable on-exists)
                   (declare (ignore stdout-path on-exists))
                   (push (list argv timeout-ms) (fake-world-run-calls world))
+                  (push (list :stdin stdin :stdin-data stdin-data :stdin-file stdin-file :cwd cwd :env env)
+                        (fake-world-run-options world))
                   (destructuring-bind (kind &rest arguments) (fake-world-run-behavior world)
                     (ecase kind
                       (:exited (funcall on-exited (apply #'aitools.process.domain:make-process-outcome arguments)))

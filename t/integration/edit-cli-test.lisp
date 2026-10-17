@@ -29,6 +29,26 @@
             (sb-posix:unsetenv "XDG_STATE_HOME"))))))
 
 (describe "aitools edit commands through dispatch"
+  (it "previews and removes a tree through rm's guarded CLI and restores it with undo"
+    (call-with-cli-workspace
+     (lambda ()
+       (put "tree/data" (octet-vector 0 255 10))
+       (let ((before (snapshot)))
+         (multiple-value-bind (code envelope) (run-aitools "rm" "tree" "--recursive")
+           (expect code :to-be 1)
+           (expect (envelope-value envelope "error" "code") :to-equal "argument.invalid"))
+         (multiple-value-bind (code envelope) (run-aitools "rm" "tree" "--recursive" "--dry-run")
+           (expect code :to-be 0)
+           (expect (envelope-value envelope "entries") :to-be 2)
+           (expect (envelope-value envelope "expect_count") :to-be 2))
+         (expect (snapshot) :to-equal before)
+         (multiple-value-bind (code envelope)
+             (run-aitools "rm" "tree" "--recursive" "--expect-count" "2" "--max-bytes" "3")
+           (expect code :to-be 0)
+           (expect (kind "tree") :to-be :absent)
+           (expect (run-aitools "undo" (envelope-value envelope "op_id")) :to-be 0))
+         (expect (snapshot) :to-equal before)))))
+
   (it "edits a file and answers with changes and op_id, exit 0"
     (call-with-cli-workspace
      (lambda ()

@@ -478,6 +478,96 @@ content before it; returns that blob's name."
                   :to-equal (list "mkdir" blocker)))
         (expect (disk-text plain "a.txt") :to-be :absent)))))
 
+(defun bounded-child-result (thunk)
+  (let ((pid (call-in-child-process thunk)) (reaped nil))
+    (unwind-protect
+         (loop repeat 100
+               do (multiple-value-bind (finished status) (sb-posix:waitpid pid sb-posix:wnohang)
+                    (when (plusp finished)
+                      (setf reaped t)
+                      (return (and (sb-posix:wifexited status) (sb-posix:wexitstatus status)))))
+                  (sleep 0.01)
+               finally (return :timeout))
+      (unless reaped (kill-child pid)))))
+
+(describe "aitools.store concurrent deletion guards"
+  (it "replays legacy deletion intents without optional identity fields"
+    (with-temp-store (store)
+      (seed-state store)
+      (put-file store "legacy" "before")
+      (forge-intent store (list (make-intent-step :op :unlink :path "legacy")))
+      (expect (recover store) :to-be :recovered)
+      (expect (disk-text store "legacy") :to-be :absent)
+      (expect (intent-files store) :to-equal '())))
+
+  (it "bounds exact, empty, oversized and growing reads"
+    (with-temp-store (store)
+      (put-file store "victim" "abc")
+      (put-file store "empty" "")
+      (expect (length (view-read-file (disk-view store) "victim" :max-bytes 3)) :to-be 3)
+      (expect (length (view-read-file (disk-view store) "empty" :max-bytes 0)) :to-be 0)
+      (expect (handler-case (view-read-file (disk-view store) "victim" :max-bytes 2)
+                (store-io-error () :refused)) :to-be :refused)
+      (let ((*fault-hook*
+              (lambda (point &rest details)
+                (when (and (eq point :after-read-stat)
+                           (string= (first details) (disk-path store "victim")))
+                  (with-open-file (out (disk-path store "victim") :direction :output
+                                       :if-exists :append)
+                    (write-string "growth" out))))))
+        (expect (handler-case (view-read-file (disk-view store) "victim" :max-bytes 3)
+                  (store-io-error () :refused)) :to-be :refused))
+      (expect (disk-text store "victim") :to-equal "abcgrowth")))
+
+  (it "retains a committed intent until its original deletion target is restored"
+    (with-temp-store (store)
+      (put-file store "victim" "before")
+      (with-fault-at (:after-intent) (commit store (list (delete-request "victim" :max-bytes 6))))
+      (sb-posix:rename (disk-path store "victim") (disk-path store "original"))
+      (put-file store "victim" "before")
+      (expect (handler-case (recover store) (store-committed-error () :refused)) :to-be :refused)
+      (expect (disk-text store "victim") :to-equal "before")
+      (expect (length (intent-files store)) :to-be 1)
+      (sb-posix:rename (disk-path store "original") (disk-path store "victim"))
+      (expect (recover store) :to-be :recovered)
+      (expect (disk-text store "victim") :to-be :absent)
+      (expect (intent-files store) :to-equal '())))
+
+  (it "refuses a file swapped to a FIFO between lstat and open without blocking"
+    (with-temp-store (store)
+      (put-file store "victim" "before")
+      (expect
+       (bounded-child-result
+        (lambda ()
+          (let* ((path (disk-path store "victim"))
+                 (base (store-io-port store))
+                 (reader (store-io-read-file base))
+                 (io (copy-store-io base :read-file
+                      (lambda (name &rest keys)
+                        (when (string= name path)
+                          (sb-posix:unlink path)
+                          (sb-posix:mkfifo path #o600))
+                        (apply reader name keys))))
+                 (guarded (make-store io (store-root store) (state-home-of store))))
+            (handler-case
+                (progn (view-read-file (disk-view guarded) "victim")
+                       (error "FIFO read was accepted"))
+              (store-io-error () nil)))))
+       :to-be 0)))
+
+  (it "preserves a same-content replacement inode after validation"
+    (with-temp-store (store)
+      (put-file store "victim" "before")
+      (let ((*fault-hook*
+              (lambda (point &rest details)
+                (declare (ignore details))
+                (when (eq point :after-validate)
+                  (sb-posix:rename (disk-path store "victim") (disk-path store "original"))
+                  (put-file store "victim" "before")))))
+        (expect (commit store (list (delete-request "victim"))) :to-be :rejected))
+      (expect (disk-text store "victim") :to-equal "before")
+      (expect (intent-files store) :to-equal '()))))
+
 (defun io-failure (thunk)
   "(operation detail) of the STORE-IO-ERROR THUNK signals, or :OK."
   (handler-case (progn (funcall thunk) :ok)

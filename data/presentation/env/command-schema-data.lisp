@@ -31,6 +31,47 @@
                      (:name "memory" :description "{total, available} in bytes.")
                      (:name "disk" :description "{total, available} in bytes for the file system of the workspace root."))
      :error-codes ("internal.unexpected"))
+    (:name "sys.snapshot"
+     :summary "Collect host info, metrics, network, disk, and listening TCP ports in one non-atomic response."
+     :description "Sequential host observations, not all system state. Each section retains data and a status (ok, partial, unavailable) with a reason. Missing required info values, unknown socket owners, omitted items, or unavailable sections yield partial (exit 3); all unavailable fails (exit 1). Shell is optional. Existing source commands retain their 60-second per-command timeout; there is no overall deadline or memory bound. Output limits do not bound acquisition: socket owner scans and OS calls have no timeout, and subprocess output is fully captured. Disk covers PATH only, not all mounts or I/O; network counters are cumulative, not connectivity; ports cover TCP LISTEN only. Metrics takes a one-second CPU sample. Unlike batch, this fixed read-only composition continues after unavailable sections."
+     :args ((:name "path" :type "string" :description "Disk filesystem path; default workspace root. Info still describes the workspace filesystem.")
+            (:name "--process-limit" :type "integer" :default 20 :description "Maximum process items, 1..1000.")
+            (:name "--network-limit" :type "integer" :default 100 :description "Maximum interface items, 1..1000.")
+            (:name "--port-limit" :type "integer" :default 100 :description "Maximum listening socket items, 1..1000."))
+     :output-fields ((:name "scope" :description "host, not exhaustive system state.")
+                     (:name "atomic" :description "Always false.")
+                     (:name "started_at_epoch_ms" :description "Wall-clock Unix epoch milliseconds; not a monotonic duration.")
+                     (:name "finished_at_epoch_ms" :description "Wall-clock Unix epoch milliseconds.")
+                     (:name "sections" :description "Named info/metrics/network/disk/ports objects with status, data, reason, and epoch-ms observation times.")
+                     (:name "limits" :description "Requested output item limits.")
+                     (:name "source_timeout_seconds" :description "Per external source command timeout, not overall timeout.")
+                     (:name "collection_bounds" :description "Acquisition and memory limitations."))
+     :error-codes ("argument.invalid" "environment.unavailable" "internal.unexpected"))
+    (:name "sys.network"
+     :summary "Read cumulative network interface counters, ordered by name."
+     :description "Linux reads /proc/net/dev; Darwin runs trusted absolute-path netstat -ibn and selects link rows only. These cumulative OS counters are not sampled rates, connectivity checks, routes, DNS, or a complete network inventory. Counters may reset. Missing, denied, failed, unsupported, or malformed sources fail with environment.unavailable. Darwin source timeout is 60 seconds. Output is bounded by --limit; overflow gives partial and exit 3."
+     :args ((:name "--limit" :type "integer" :default 100 :description "Maximum interfaces, 1..1000."))
+     :output-fields ((:name "source" :description "OS counter source.")
+                     (:name "basis" :description "cumulative_interface_counters.")
+                     (:name "units" :description "Bytes, packets, and error events.")
+                     (:name "items" :description "[{name, rx_bytes, rx_packets, rx_errors, tx_bytes, tx_packets, tx_errors}].")
+                     (:name "total" :description "Interface count before limit.")
+                     (:name "limit" :description "Requested output limit.")
+                     (:name "truncated" :description "Whether items were omitted."))
+     :error-codes ("argument.invalid" "environment.unavailable" "internal.unexpected"))
+    (:name "sys.disk"
+     :summary "Read capacity of the filesystem containing PATH (default: workspace root)."
+     :description "One statfs query, not a disk I/O sample or an inventory of all mounts or devices. Available bytes use blocks available to an unprivileged user, not all free blocks; do not infer used bytes as total minus available. Missing paths, permission failures, unsupported OS, and acquisition failures return environment.unavailable."
+     :args ((:name "path" :type "string" :description "Existing path on the filesystem; default workspace root."))
+     :output-fields ((:name "path" :description "Queried path.")
+                     (:name "source" :description "statfs.")
+                     (:name "scope" :description "filesystem_containing_path.")
+                     (:name "units" :description "bytes.")
+                     (:name "total_bytes" :description "Filesystem capacity in bytes.")
+                     (:name "available_bytes" :description "Capacity available to unprivileged users in bytes.")
+                     (:name "available_basis" :description "unprivileged_available_blocks.")
+                     (:name "truncated" :description "Always false: one filesystem result."))
+     :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.env"
      :summary "List environment variables, optionally those whose name starts with PREFIX."
      :description "A variable whose name contains a secret key word (password, secret, token, api_key, ...) as an underscore-separated word has its value replaced by [REDACTED_SECRET]; every other value still has known secret formats masked."
@@ -56,11 +97,25 @@
                      (:name "total" :description "Matching processes before --limit.")
                      (:name "truncated" :description "Present and true when items were cut at --limit."))
      :error-codes ("environment.unavailable" "internal.unexpected"))
+    (:name "sys.metrics"
+     :summary "Sample CPU, memory, and process metrics once without an interactive display."
+     :description "CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach host_statistics CPU counters and runs sysctl and vm_stat; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed source is an error. More processes than --limit give partial, truncated true, exit 3."
+     :args ((:name "--limit" :type "integer" :default 20 :description "Maximum process items (at least 1), sorted by CPU descending then PID ascending."))
+     :output-fields ((:name "sample_interval_ms" :description "Requested CPU sampling interval, 1000 milliseconds; total command duration can be longer.")
+                     (:name "cpu" :description "{busy_percent, logical_cpus, basis: interval_all_cpus}; interval-average busy percentage across all CPUs.")
+                     (:name "memory" :description "{total_bytes, available_bytes, available_basis}; Linux MemAvailable or free+buffers+cached, Darwin free+inactive+speculative pages.")
+                     (:name "process_cpu_basis" :description "lifetime_average (Linux) or decaying_average (Darwin); not the system CPU sampling interval.")
+                     (:name "items" :description "[{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU.")
+                     (:name "total" :description "Process count before --limit.")
+                     (:name "truncated" :description "Present and true when processes were cut at --limit."))
+     :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.ports"
      :summary "List TCP sockets in LISTEN state with the owning process."
-     :description "Linux reads /proc/net/tcp and tcp6 and maps socket inodes through /proc/<pid>/fd (other users' processes stay null without privileges); Darwin runs lsof. The wildcard address is 0.0.0.0 or ::."
+     :description "Linux reads /proc/net/tcp and tcp6 and maps socket inodes through /proc/<pid>/fd (other users' processes stay null without privileges); Darwin runs lsof. One missing Linux family source returns partial (exit 3), even with no observed listeners; both missing returns environment.unavailable. Missing does not distinguish disabled support from permission or read failure. The wildcard address is 0.0.0.0 or ::."
      :output-fields ((:name "items" :description "[{port, address, protocol, pid, command}] by port.")
-                     (:name "total" :description "Number of items."))
+                     (:name "total" :description "Number of observed items; not a complete host count when partial.")
+                     (:name "coverage" :description "Linux only: {ipv4, ipv6}, each ok or source_unavailable; socket table availability, not owner visibility.")
+                     (:name "source_unavailable" :description "Missing Linux socket-table paths, present only when partial."))
      :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "time.now"
      :summary "Show the current time in a zone, in UTC, and as epoch milliseconds."

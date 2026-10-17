@@ -1,16 +1,17 @@
 ---
 name: aitools
-description: This skill should be used when reading, searching, or editing files in a workspace and the `aitools` binary is available. Use it instead of cat, head, tail, grep, rg, find, ls, sed, perl, awk, sort, diff, jq, tar, unzip, base64, date, ps, env, and read-only git for file and text work, because aitools returns one JSON object per call, guards every write with a hash or count, journals writes for undo, masks secrets in output, and refuses writes outside the workspace. Use it for multi-file changes that must land together (tx, batch --atomic), for running a program without a shell (run, bg, wait), and whenever a shell habit would parse text output by hand.
-version: 0.1.2
+description: Use when the aitools binary is available for workspace file and text operations, guarded edits and transactions, or running external programs with JSON exit status and bounded output. Prefer built-in commands for structured inspection and journaled writes; use run for installed programs whose exact behavior is needed. External programs are not sandboxed and their writes are not journaled.
+metadata:
+  version: 0.2.0
 ---
 
 # aitools
 
 ## Purpose
 
-Provide usage patterns for `aitools`, a Common Lisp CLI that replaces the shell tools an agent reaches for
-during file and text work. Every call prints exactly one JSON object, every write states what it expects
-the file to look like, and every committed write is one journal operation that `aitools undo` reverts.
+Use `aitools` built-ins for structured file and text work, or `run` for arbitrary installed programs.
+Every call prints one JSON object. Guarded edits state the expected file content, hash, or match count;
+journaled writes return an operation that `aitools undo` can revert. External-program writes have neither protection.
 
 ## Overview
 
@@ -18,10 +19,12 @@ the file to look like, and every committed write is one journal operation that `
 `{"schema_version":1,"status":"ok"|"partial"|"error","command":"<as typed>", ...}`. Branch on the exit code
 first, then on `error.code`. The exit codes come from `data/domain/protocol/error-catalog-data.lisp`:
 
-- 0: `status:"ok"`. `run` also exits 0 whenever the child started, even on timeout; the child's own status
-  is the `exit_code`, `signal`, and `timed_out` fields.
-- 3: `status:"partial"`. A result was cut at a command-specific limit: `read --max-lines`, search/find/table/archive limits such as `--limit`, `json get --max-bytes`, or `run --grep-limit`.
-  The output is a valid prefix with `truncated:true`; `next_commands` holds the invocation that continues it.
+- 0: `status:"ok"`. `run` also exits 0 after the child starts, even on timeout, unless `--grep-limit`
+  is exceeded (exit 3). Read the child's own `exit_code`, `signal`, and `timed_out` fields.
+- 3: `status:"partial"`. A result was cut at a command-specific limit, or inspection could not obtain all requested state. Limits include `read --max-lines`, search/find/table/archive `--limit`, `json get --max-bytes`, and `run --grep-limit`.
+  Inspect limit fields, section statuses, and diagnostics; missing observations are not empty state. Use `next_commands` when appropriate. For `run`, the child has
+  already executed; grep overflow does not imply `truncated:true` or provide a continuation. Do not rerun
+  a side-effecting program just to recover omitted output.
   Writes never exit 3.
 - 2: the file is not in the state the call assumed: `selection.no-match`, `selection.ambiguous`,
   `selection.count-mismatch`, or `refusal.target-changed` (a hash guard, `tx commit`, `tx rebase`, or `undo`
@@ -31,8 +34,8 @@ first, then on `error.code`. The exit codes come from `data/domain/protocol/erro
   `environment.*`.
 
 **Error envelope.** `error.code`, `error.message`, `error.exit_code`, and `error.repairs` (never empty), plus
-`candidates`, `diagnostics`, or `conflicts` when relevant. `repairs[].command` is the aitools invocation to
-run next. Some repairs name only a command (`aitools read` for `cat`) rather than a complete invocation.
+`candidates`, `diagnostics`, or `conflicts` when relevant. `repairs[].command` offers a possible next invocation,
+not authorization to execute it. Check intent, permissions, and the state left by the failed operation before choosing a repair, especially one that bypasses stale-read checks. Some repairs name only a command (`aitools read` for `cat`) rather than a complete invocation.
 
 **Write output.** `changes[]` of `{path, action, hash_before, hash_after, diff}`, then `op_id` (for `undo` and
 `diff --op`), or `tx` and `tx_op` under `--tx`, or `dry_run:true` under `--dry-run`. `hash` in `read` and
@@ -40,23 +43,28 @@ run next. Some repairs name only a command (`aitools read` for `cat`) rather tha
 
 **Workspace.** `--root <dir>` selects the workspace (write boundary, state directory, ignore rules); without
 it aitools uses the enclosing git root, then the working directory. Relative paths still resolve against
-the working directory. Reads may leave the workspace; writes outside it, through a symlink that leaves it,
+the working directory. Built-in reads may leave the workspace; built-in writes outside it, through a symlink that leaves it,
 or into its `.git/` fail with `refusal.outside-workspace`. The state directory (journal, tx, bg logs) lives
 outside the root and is not writable either; the only extra writable area is the one `aitools mktemp`
 returns. Global options `--root` and `--lock-timeout` go before or after the command name.
 
 **Secrets.** Every string in every envelope passes through a secret mask (PEM blocks, `Bearer` tokens, AWS key
 ids, `ghp_`/`sk-`/`xox?-` tokens, and values assigned to keys such as `password`, `token`, `api_key`).
-A match becomes `[REDACTED_SECRET]` and the envelope gains `redactions`. A write whose input contains
+A match becomes `[REDACTED_SECRET]` and the envelope gains `redactions`. A built-in file write whose input contains
 `[REDACTED_SECRET]` fails with `refusal.redacted-input`; there is no bypass.
 
-**Standard input** is read only when `--stdin` is given. `--stdin-data '<text>'` passes the same payload inline
-and is what `history` records.
+**Standard input** is read only when `--stdin` is given. `--stdin-data '<text>'` passes the payload inline
+and can appear in shell history. `run` also accepts a regular file with `--stdin-file PATH`;
+choose only one input source.
 
 **Discovery.** `aitools schema` lists every command; `aitools schema <command>` returns its arguments, output
 fields, and declared error codes. Treat that output as the reference when this file and the binary differ.
 
 ## Commands
+
+Examples are independent unless a sequence is described. Replace sample operation, transaction,
+snapshot, and background-job IDs with the IDs returned by your preceding command. `$HASH` is
+the hash from the current target's read, not a literal value or a hash from another file.
 
 ### Discovery
 
@@ -126,8 +134,8 @@ aitools diff --op op-20260926T011541Z-4a125e73
 
 ### Structured data
 
-JSON by RFC 6901 pointer (jq), tables by column (awk/cut/sort/uniq -c). Writes take the same
-guards as text edits.
+JSON by RFC 6901 pointer (jq), tables by column (awk/cut/sort/uniq -c). JSON writes accept an
+optional `--expect-hash`; `table set` requires it outside `--dry-run` because rows are positional.
 
 ```sh
 aitools json get package.json /version --raw
@@ -168,10 +176,14 @@ aitools snapshot diff snap-20260927T022919Z-d57b6f42
 
 ### Text edits
 
-In-place text edits (sed/perl/patch/sort). Selectors: --old (exact, then whitespace-insensitive),
+In-place text edits (sed/perl/patch/sort). Selectors: --old,
 --range S:E|S:|N, --symbol NAME [--kind], --between START-RE END-RE [--exclusive], --match RE [--invert];
 one per call. Position selectors (--range, --symbol) need --expect-hash; selections that can match many
 lines (--match, replace) need --expect-count, except under --dry-run, which reports it as `expect_count`.
+
+`--old` first searches for an exact match. Only if none exists does it compare whole lines after trimming
+leading and trailing whitespace, preserving internal whitespace and adjusting replacement indentation.
+Multiple matches are refused; an ambiguous exact match does not trigger the fallback.
 
 ```sh
 aitools edit src/app.lisp --old '(format t "Hello")' --new '(format t "Hi")'
@@ -223,9 +235,38 @@ aitools mktemp --suffix .json
 aitools mktemp --dir
 ```
 
+`rm` takes exactly one path. Without `--recursive`, it accepts a file, symlink,
+or empty directory. For a tree, first run a dry run, inspect the selected paths
+and returned count, then repeat with `--expect-count COUNT`:
+
+```sh
+aitools rm build/scratch --recursive --dry-run
+aitools rm build/scratch --recursive --expect-count COUNT
+```
+
+The count includes the target directory, nested directories,
+files, and symlinks. Symlinks are removed without following their targets.
+The defaults are 1,000 entries and 64 MiB of regular-file content; raise
+`--max-entries` or `--max-bytes` only after inspecting the intended target.
+These selection limits are not a process-memory limit.
+
+Workspace, home, and filesystem roots, version-control metadata, and state
+metadata are refused. Keep the returned `op_id` for undo. Stop external writers
+to the target tree before deletion: a dry run does not reserve the tree, and
+the journal does not isolate it from other processes. A failure after the durable
+commit requires recovery to attempt completion, not automatic rollback.
+Recovery stops and retains the intent if a recorded directory was replaced or
+cannot be reopened safely. A crash after mode `000` is applied but before it
+is synced can require operator intervention; aitools does not widen permissions.
+Inspect diagnostics before retrying or modifying the affected paths.
+
+This journal and undo behavior applies to workspace targets. Files in the
+`mktemp` scratch area are not journaled or undoable; a failure there can leave
+part of a multi-path operation applied.
+
 ### Journal and transactions
 
-Every committed write is one op. `undo` refuses (exit 2) when a later change touched the same
+Every committed journaled write is one op. `undo` refuses (exit 2) when a later change touched the same
 paths. A tx stages writes without touching the working tree and commits them as one op; `batch --atomic`
 is the one-call form of the same thing.
 
@@ -243,7 +284,6 @@ aitools tx diff tx-20260926T011551Z-67a7c1ac --max-diff-lines 400
 aitools tx drop tx-20260926T011551Z-67a7c1ac 2
 aitools tx rebase tx-20260926T011551Z-67a7c1ac
 aitools tx commit tx-20260926T011551Z-67a7c1ac
-aitools tx commit tx-20260926T011551Z-67a7c1ac --ignore-stale-reads
 aitools tx abort tx-20260926T011551Z-67a7c1ac
 aitools batch --stdin --atomic
 aitools batch --stdin --continue-on-error
@@ -251,13 +291,31 @@ aitools batch --stdin --continue-on-error
 
 ### Processes
 
-Run programs from an argv after `--`, never through a shell. `run` keeps the first --head and last
+Run programs from argv after `--`; arguments are passed directly without shell expansion.
+Use `run -- sh -c '...'` only when shell syntax is needed, and keep untrusted data out of the script string.
+`run` captures non-interactive output; it does not allocate a terminal or PTY.
+`run` keeps the first --head and last
 --tail lines of each stream; --timeout (default 120s) sends SIGTERM to the process group, then SIGKILL.
 `bg` starts detached processes whose logs live in the state directory; `wait` blocks on one condition
 (default timeout 60s, then environment.timeout).
 
+`run` defaults to closed stdin, the current directory, and the inherited environment.
+Use mutually exclusive `--stdin`, `--stdin-data TEXT`, or `--stdin-file PATH` for input.
+`--stdin-file` rejects FIFOs, devices, and directories; use `--stdin` for piped input.
+`--cwd PATH` changes only the child's directory. Relative input-file paths still use the caller's directory.
+Repeat `--env KEY=VALUE` to overlay the parent environment; the last value wins and empty values are allowed.
+These input, directory, and environment options belong to `run`, not `bg start`.
+
+External programs retain normal filesystem and network access. `--root` is not a sandbox;
+external writes bypass guards, transactions, and undo. `--stdout-to` saves raw, unmasked bytes to a new,
+non-journaled file. Inspect child `exit_code`, `signal`, and `timed_out` even when aitools exits 0;
+inspect `truncated` and `capture_capped` before assuming the returned output is complete.
+
 ```sh
 aitools run -- make test
+aitools run -- awk 'END { print NR }' README.md
+aitools run --stdin-data 'hello' -- sed 's/hello/world/'
+aitools run --cwd src --env LC_ALL=C -- grep -n TODO main.lisp
 aitools run --timeout 600s --grep 'FAIL|ERROR' --tail 40 -- cargo test
 aitools run --stdout-to build/report.json -- ./gen-report
 aitools bg start --name devserver -- npm run dev
@@ -274,7 +332,8 @@ aitools bg stop bg-1 --grace 10s
 
 ### Git
 
-Read-only git. There is no aitools command that commits, pushes, or changes refs.
+The built-in `git` commands are read-only. Calling git through `run` does not impose that restriction;
+obtain authorization before any version-control write.
 
 ```sh
 aitools git status
@@ -288,7 +347,7 @@ aitools git show HEAD:src/app.lisp --range 1:40
 
 ### Host, time, and utilities
 
-Host facts (uname/env/which/ps/lsof), time (date), and byte and number utilities
+Host facts (uname/env/which/ps/lsof/top), time (date), and byte and number utilities
 (base64/xxd/bc/uuidgen/openssl rand). `sys env` masks secret-named variables.
 
 ```sh
@@ -296,13 +355,18 @@ aitools sys info
 aitools sys env LANG
 aitools sys tools git sbcl jq
 aitools sys procs sbcl --limit 20
+aitools sys metrics --limit 10
 aitools sys ports
+aitools sys network --limit 20
+aitools sys disk .
+aitools sys snapshot . --process-limit 10 --network-limit 20 --port-limit 20
 aitools time now --tz Asia/Tokyo
 aitools time convert 1790475971 --to iso8601 --tz UTC
 aitools time convert now --add 90m --to epoch_ms
 aitools time diff 2026-09-26T00:00:00Z 2026-09-27T12:30:00Z
 aitools util encode base64 --content 'hello'
 aitools util decode base64 --content 'aGVsbG8='
+# Writes decoded bytes to a file; the other utility examples return JSON.
 aitools util decode hex --content-file blob.hex --to out/blob.bin
 aitools util redact --content-file .env
 aitools util tokens --content-file README.md
@@ -311,6 +375,37 @@ aitools util calc -- -2**2
 aitools util uuid --kind v7 --count 3
 aitools util random --length 24 --alphabet base64url
 ```
+
+`sys env PREFIX` matches a case-sensitive variable-name prefix, not an exact name.
+`sys tools` finds commands on PATH and executes their version probes; it is not
+only a path lookup. `sys procs PATTERN` matches a case-insensitive substring of
+the command line. `sys ports` covers TCP LISTEN sockets only, not open files, UDP,
+or established connections.
+
+`sys metrics` returns one JSON snapshot after a one-second CPU sampling interval.
+System CPU is a percentage of all logical CPUs; process CPU can exceed 100% and
+uses a lifetime average on Linux or a decaying average on macOS, not the system
+sampling interval. Memory and resident sizes are bytes. Process entries contain
+command names, not arguments, and are sorted by CPU usage. Inspect the reported
+basis fields when comparing results. Truncating the process list at the limit
+returns partial status and exit code 3; unavailable sources return an error
+instead of zero readings. There is no process filter or pagination; if the top
+processes do not answer the question, use an authorized external collector rather
+than treating a partial list as a complete inventory.
+
+`sys network` reports cumulative interface counters, not traffic rates or
+connectivity. `sys disk PATH` reports capacity for the filesystem containing
+PATH, not disk I/O or all mounts; available bytes exclude blocks reserved from
+unprivileged users, so do not subtract them from total bytes to infer used space.
+
+`sys snapshot PATH` collects info, metrics, network, disk, and TCP listening ports
+sequentially, not atomically. Inspect each section's status and observation times;
+unavailable or incomplete sections make the result partial (exit code 3), and all
+sections unavailable produce an error (exit code 1). PATH selects only the disk
+section's filesystem; info still reports the workspace filesystem, which may
+differ. The limits bound returned entries, not acquisition memory
+or total duration. Source commands have individual 60-second timeouts, but socket
+owner scans and OS calls have no timeout; there is no overall deadline.
 
 ## Patterns
 
@@ -342,8 +437,10 @@ aitools search 'old-name' src --word --output count
 
 ### Multi-file change in a tx
 
-Stage several writes, review the combined diff, then commit as one op. On a commit conflict
-(exit 2) run the repair it names: `tx rebase` for write drift, a re-read with --tx for a stale read.
+Stage several writes, review the combined diff, then commit as one op. On a commit
+conflict (exit 2), inspect the failure and current state before choosing an
+authorized repair. Candidates include `tx rebase` for write drift and a re-read
+with --tx for a stale read; a repair is not permission to overwrite a conflict.
 
 ```sh
 aitools tx begin --name rename-helper
@@ -356,9 +453,13 @@ aitools tx commit tx-20260926T011551Z-67a7c1ac
 
 ### Atomic batch
 
-One call, all or nothing: `batch --stdin --atomic` reads a JSON array of argv arrays (without
+One staged commit: `batch --stdin --atomic` reads a JSON array of argv arrays (without
 the leading `aitools`), runs them in a tx, and commits once. Elements may not read --stdin (use
 --content or --stdin-data) and may not carry --tx. The single op_id undoes the whole batch.
+Pre-commit failures leave the working tree unchanged. Physical writes are sequential;
+after a durable commit, recovery attempts completion instead of rolling it back.
+Unsafe directory replacement or inaccessible permission checkpoints stop recovery
+with the intent retained, as described in the removal section.
 
 ```sh
 aitools batch --stdin --atomic < edits.json
@@ -373,8 +474,6 @@ Follow `next_commands` from a partial (exit 3) result instead of raising limits 
 ```sh
 aitools read server.log --max-lines 80
 aitools read server.log --range 81:160
-aitools search 'timeout' --limit 15
-aitools search 'timeout' --limit 60 --output matches
 ```
 
 ### Build and serve
@@ -391,7 +490,7 @@ aitools bg stop bg-1
 
 ### Patch apply
 
-Apply a unified diff to every file or none; preview first.
+Validate a unified diff before committing it as one journal operation; preview first.
 
 ```sh
 aitools apply --stdin --dry-run < fix.patch
@@ -415,7 +514,7 @@ aitools git diff --output stat
 | iconv, nkf | `aitools transcode --from ENC --to ENC` |
 | cp | `aitools copy` |
 | mv | `aitools move` |
-| rm, rmdir | `aitools delete` |
+| rm, rmdir | `aitools rm` (tree removal needs `--recursive` and a count guard) |
 | mkdir | `aitools mkdir` |
 | chmod | `aitools chmod` |
 | ln | `aitools link` |
@@ -426,31 +525,33 @@ aitools git diff --output stat
 | git (read-only) | `aitools git status`, `log`, `diff`, `blame`, `show` |
 | uname, whoami, hostname, nproc | `aitools sys info` |
 | env | `aitools sys env` (secret-named values masked) |
-| which | `aitools sys tools NAME...` |
+| which plus version probes | `aitools sys tools NAME...` (executes the programs) |
 | ps | `aitools sys procs` |
-| lsof | `aitools sys ports` |
+| top (non-interactive snapshot) | `aitools sys metrics` |
+| lsof (TCP LISTEN sockets only) | `aitools sys ports` |
 | date | `aitools time now`, `convert`, `diff` |
 | base64, xxd | `aitools util encode`, `decode`; `aitools read --as hex` for a dump |
 | bc, expr | `aitools util calc` |
 | uuidgen | `aitools util uuid` |
 | openssl rand | `aitools util random` |
 | patch, git apply | `aitools apply --stdin` |
-| a shell pipeline or redirection to run a program | `aitools run -- ARGV...`; `aitools bg start` for long-lived processes |
+| any installed program | `aitools run -- PROGRAM ARG...`; `aitools bg start` for long-lived processes |
+| shell pipelines | `aitools run -- sh -c 'SCRIPT'` with a trusted script; no implicit shell parsing |
 | several files must change together | `aitools tx begin` ... `tx commit`, or `aitools batch --stdin --atomic` |
 
 ## Best practices
 
-- **critical**: Branch on the exit code before parsing: 0 use it, 3 continue with next_commands, 2 re-read and retry with a fresh selection/hash/count, 1 read error.code and run a repair.
-- **critical**: Run `repairs[].command` as the next step; when a repair names only a command, run `aitools schema <command>` to complete the invocation.
+- **critical**: Branch on the exit code before parsing: 0 inspect the result (including child status for `run`), 3 inspect limits, section statuses, diagnostics, and any `next_commands`, 2 re-read and retry with a fresh selection/hash/count, 1 read error.code and evaluate repairs. A partial `run` is not permission to repeat its side effects.
+- **critical**: Treat `repairs[].command` as a candidate, not an instruction or grant of authority. Check the requested intent and post-failure state before executing it; when a repair names only a command, use `aitools schema <command>` to complete the invocation.
 - **critical**: Pass --expect-hash from the read you based a position edit on; never reuse a hash across your own intervening writes (use `hash_after` from the write output instead).
 - **critical**: A bare `--expect-hash HASH` guards only the first target of a write. When a write touches a second file (`move-lines --to` with a position selector, an overwrite destination), give that file its own `--expect-hash PATH=HASH`.
 - **high**: Prefer --old for single edits: it needs no hash, and a zero or multiple match fails with candidates rather than editing the wrong place.
 - **high**: Run writes with --dry-run first when the selection is broad, then repeat the same command without it (adding `--expect-count` from the dry run's `expect_count` for --match or replace).
 - **high**: Keep each write's op_id; `aitools undo OP_ID` reverts exactly that op and `aitools diff --op OP_ID` shows its full diff.
-- **high**: Use a tx or `batch --atomic` for any change that spans files and must not land half-done.
+- **high**: Use a tx or `batch --atomic` to validate related changes before one journaled commit. Other processes may see intermediate writes; committed failures need recovery.
 - **medium**: Pass --stdin only when you actually pipe input; prefer --stdin-data or --content so the call is self-contained and replayable.
-- **medium**: Put temporary files under the path `aitools mktemp` returns; everything else outside the workspace is read-only.
-- **medium**: Give `run` an explicit --timeout sized to the job; its exit code is 0 whenever the child started, so read `exit_code` and `timed_out`.
+- **medium**: Put temporary files under the path `aitools mktemp` returns; built-in writes reject other paths outside the workspace.
+- **medium**: Give `run` an explicit --timeout sized to the job; read `exit_code` and `timed_out` even when aitools exits 0. Exceeding --grep-limit yields exit 3.
 
 ## Anti-patterns
 
@@ -458,9 +559,9 @@ aitools git diff --output stat
 
 - **Copying redacted output**: Writing text copied from output that contains [REDACTED_SECRET]. Instead: Leave the secret where it is and edit around it with --old on neighboring text, or copy the file with `aitools copy`; the write is refused anyway (refusal.redacted-input).
 
-- **Unguarded position edit**: Editing by --range or --symbol from a stale read, or guessing a hash. Instead: Run `aitools info PATH` (or `aitools read`) and pass its `hash` as --expect-hash.
+- **Unguarded position edit**: Editing by --range or --symbol from a stale read, or attaching a fresh hash to old positions. Instead: Re-read the target, derive the selection again, and pass that read's `hash` as --expect-hash.
 
-- **Raising limits to escape partial**: Answering exit 3 by setting --max-lines or --limit to a huge value. Instead: Follow next_commands, or narrow with a selector, --glob, or a more specific pattern.
+- **Raising limits to escape partial**: Answering exit 3 by setting --max-lines or --limit to a huge value. Instead: Inspect diagnostics and section statuses first; unavailable observations need a supported collector or permission, not a larger output limit. For bounded read-only results, follow available next_commands or narrow the selection. For `run`, inspect retained output and child status; do not rerun a side-effecting command to recover output.
 
 - **Writing into git or state**: Editing files under .git/ or the aitools state directory, or writing outside --root. Instead: Use `aitools git ...` for repository facts and `aitools mktemp` for scratch space.
 
@@ -468,14 +569,11 @@ aitools git diff --output stat
 
 ## Rules (critical)
 
-- Never pass text containing [REDACTED_SECRET] to a write.
-- Every --range or --symbol write carries --expect-hash; every --match or replace write carries --expect-count.
-- Never retry an exit-2 failure with the same arguments; re-read first.
-- Never hand a program to a shell string; `run`, `bg start`, and `batch` take argv arrays.
+- Prefer direct argv with `run` and `bg start`. If a shell is required, invoke it explicitly and never interpolate untrusted data into its script.
+- Never use an external program to bypass a denied write or claim its changes can be undone by aitools.
 
 ## Rules (standard)
 
-- Use `aitools schema COMMAND` rather than guessing an option.
 - Give --root explicitly when the working directory is not inside the intended workspace.
 - Commit or abort every tx you begin; open transactions never expire.
 
@@ -483,23 +581,17 @@ aitools git diff --output stat
 
 ### Orient
 
-Know the workspace and the exact text before changing it.
-
 1. Run `aitools overview` or `aitools find --depth 1` for the layout.
 2. Locate code with `aitools search`, `aitools code defs`, or `aitools code outline`.
 3. Read the target with a selector; keep the returned `hash`.
 
 ### Change
 
-Make a guarded, reviewable write.
-
 1. Pick the narrowest selector (--old first) and the guard it requires.
 2. Preview broad writes with --dry-run and check the diff and counts.
 3. For several files, stage in a tx and inspect `tx diff` before `tx commit`.
 
 ### Verify
-
-Confirm the result and keep a way back.
 
 1. Run `aitools check` on JSON and Lisp files you touched, and the project's tests with `aitools run`.
 2. Record the op_id; if the change is wrong, `aitools undo OP_ID --dry-run`, then `aitools undo OP_ID`.
@@ -508,16 +600,7 @@ Confirm the result and keep a way back.
 
 - **low**: selection.no-match or selection.ambiguous (exit 2): read the candidates, widen --old with a neighboring line or switch to a guarded --range.
 - **low**: input.not-found: run the `aitools find` repair; check whether the relative path resolves from the working directory.
-- **medium**: refusal.target-changed (exit 2): someone else wrote the file; re-read, re-derive the edit, and pass the new hash. In a tx, follow the tx rebase or re-read repair.
+- **medium**: refusal.target-changed (exit 2): the target no longer matches the guarded state; this may include your own intervening write. Re-read, re-derive the edit, and pass the new hash. In a tx, inspect the conflict and evaluate the rebase or re-read candidate under the repair-authority rule above.
 - **medium**: environment.busy: another writer holds the workspace lock; the repair repeats the same command, optionally with a longer --lock-timeout.
 - **high**: refusal.outside-workspace or refusal.redacted-input: the write is aimed at the wrong place or carries masked text; do not look for another spelling, change the target or the input.
 - **critical**: internal.unexpected, or `recovered` entries reporting a discarded operation: stop writing, report the envelope, and verify the affected files with `aitools read` and `aitools history`.
-
-## Constraints
-
-- Must: Read the exit code and, on failure, error.code before anything else.
-- Must: Guard position-based writes with --expect-hash and multi-match writes with --expect-count.
-- Must: Use a tx or batch --atomic for multi-file changes that must be all or nothing.
-- Avoid: Shell text tools for file work when an aitools command covers it.
-- Avoid: Writing [REDACTED_SECRET] or writing outside the workspace, into .git/, or into the state directory.
-- Avoid: Reading standard input implicitly; pass --stdin only when input is piped.
