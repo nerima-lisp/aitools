@@ -7,9 +7,6 @@
 
 (defconstant +default-history-limit+ 50)
 
-(defun %null-or (value)
-  (if (null value) json-kit:+json-null+ value))
-
 (defun history-item (entry)
   "`history`'s `items[]` element for journal ENTRY: {op_id, command, paths,
 time, undoes?}; `undoes` only on an entry written by `undo`."
@@ -43,10 +40,8 @@ to its original content)."
 (defun state-hash (state)
   "A tx path state or a conflict side as shown in JSON: the content hash of
 a regular file, else null."
-  (%null-or (aitools.store.domain:entry-state-hash state)))
-
-(defun repair (action detail command)
-  (list :action action :detail detail :command command))
+  (aitools.protocol.domain:json-or-null
+   (aitools.store.domain:entry-state-hash state)))
 
 (defun commit-conflict-repairs (tx-id conflicts &key globals)
   "The repairs for `tx commit` CONFLICTS: `aitools tx rebase <tx>` for
@@ -58,12 +53,12 @@ after `aitools`."
     (append
      (when write
        (list (repair "rebase" "Re-apply the tx's content-based operations onto the current files."
-                     (command-line "aitools" globals "tx" "rebase" tx-id))))
+                     (aitools.protocol.domain:command-line "aitools" globals "tx" "rebase" tx-id))))
      (mapcar (lambda (conflict)
                (repair "reread" "Read the changed file again through the tx to refresh the read set."
-                       (command-line "aitools" globals "read" (aitools.store.domain:conflict-path conflict)
+                       (aitools.protocol.domain:command-line "aitools" globals "read" (aitools.store.domain:conflict-path conflict)
                                      "--tx" tx-id)))
              reads)
      (when reads
        (list (repair "ignore-stale-reads" "Commit even though files read through the tx have changed."
-                     (command-line "aitools" globals "tx" "commit" tx-id "--ignore-stale-reads")))))))
+                     (aitools.protocol.domain:command-line "aitools" globals "tx" "commit" tx-id "--ignore-stale-reads")))))))

@@ -11,6 +11,7 @@
   ;; (codec-zip needs the same conversion); env's civil-time and posix-tz
   ;; call it unqualified.
   (:import-from #:aitools.text.domain #:days-from-civil)
+  (:import-from #:aitools.protocol.domain #:json-null)
   (:export
    ;; civil-time.lisp
    #:ascii-digit-value

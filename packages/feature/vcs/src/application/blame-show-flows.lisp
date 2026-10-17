@@ -18,7 +18,7 @@ combination points at `git SUBCOMMAND`'s schema."
          :on-invalid (lambda (message repairs)
                        (declare (ignore repairs))
                        (funcall on-error "argument.invalid" message
-                                :repairs (list (%repair "use-one-selector" "Check which selectors this command takes."
+                                :repairs (list (repair "use-one-selector" "Check which selectors this command takes."
                                                         (format nil "aitools schema git.~A" subcommand)))))
          selector-options))
 
@@ -27,7 +27,7 @@ combination points at `git SUBCOMMAND`'s schema."
 with the ranges, or report the failed selection with repairs that name
 SUBCOMMAND on TARGET."
   (flet ((range-repair (action detail range)
-           (list (%repair action detail (%git-command root subcommand target "--range" range)))))
+           (list (repair action detail (%git-command root subcommand target "--range" range)))))
     (aitools.inspect.application:resolve-selector/k
      lines selector
      :path path
@@ -103,7 +103,7 @@ SUBCOMMAND on TARGET."
                           (let ((numbers (loop for (start . end) in ranges
                                                append (loop for n from start to end collect n))))
                             (respond on-ok numbers (car (first ranges)) nil nil)))))))))
-           :not-found-repairs (list (%repair "check-status" "Blame needs a path git tracks; list changes."
+           :not-found-repairs (list (repair "check-status" "Blame needs a path git tracks; list changes."
                                              (%git-command root "status"))))))))))
 
 (defun %selector-options (options)
@@ -116,7 +116,7 @@ SUBCOMMAND on TARGET."
 
 (defun %show-invalid-spec (on-error root spec)
   (funcall on-error "argument.invalid" (format nil "expected <rev>:<path>, got ~A" spec)
-           :repairs (list (%repair "show-head" "Show the file as committed at HEAD."
+           :repairs (list (repair "show-head" "Show the file as committed at HEAD."
                                    (%git-command root "show"
                                                  (concatenate 'string "HEAD:"
                                                               (if (%option-like-p spec) "<path>" spec)))))))
@@ -161,7 +161,7 @@ lines."
                    (%show-blob bytes rev (or repository-path path) spec selector max-lines root
                                on-ok on-partial on-error))
                  :octets t
-                 :not-found-repairs (list (%repair "find-revision" "List commits that touched the path."
+                 :not-found-repairs (list (repair "find-revision" "List commits that touched the path."
                                                    (%git-command root "log"
                                                                  (when (plusp (length path)) path)))))))))))))
 

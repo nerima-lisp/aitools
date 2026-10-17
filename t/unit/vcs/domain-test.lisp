@@ -30,15 +30,6 @@
     (signals error (epoch-seconds-to-iso8601 0 "+09"))
     (signals error (epoch-seconds-to-iso8601 0 (format nil "+~C900" (code-char #xFF10))))))
 
-(describe "aitools.vcs.domain command-line"
-  (it "leaves safe words alone and quotes the rest"
-    (expect (command-line "src/a.lisp") :to-equal "src/a.lisp")
-    (expect (command-line "a b") :to-equal "'a b'")
-    (expect (command-line "it's") :to-equal "'it'\\''s'")
-    (expect (command-line "") :to-equal "''"))
-  (it "drops NIL words"
-    (expect (command-line "aitools" "git" "log" nil "--limit" "5") :to-equal "aitools git log --limit 5")))
-
 (describe "aitools.vcs.domain status-fields"
   (it "splits index and work-tree changes and reports untracked paths"
     (let ((fields (status-fields

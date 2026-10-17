@@ -3,6 +3,7 @@
 
 (defpackage #:aitools.vcs.application
   (:use #:cl)
+  (:import-from #:aitools.protocol.domain #:repair)
   (:export
    ;; port.lisp
    #:git-port

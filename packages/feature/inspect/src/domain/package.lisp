@@ -9,7 +9,8 @@
 
 (defpackage #:aitools.inspect.domain
   (:use #:cl)
-  (:import-from #:aitools.protocol.domain #:json-object #:json-null)
+  (:import-from #:aitools.protocol.domain
+                #:json-object #:json-null #:json-or-null #:shell-quote)
   (:import-from #:aitools.kernel.domain
                 #:selector-kind #:selector-range-start #:selector-range-end
                 #:selector-symbol-name #:selector-symbol-kind

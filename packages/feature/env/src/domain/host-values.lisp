@@ -6,11 +6,6 @@
 ;;;; in `path:null` and friends.
 (in-package #:aitools.env.domain)
 
-(defun json-null ()
-  "The JSON null value (json-kit's sentinel). The application layer cannot
-name json-kit directly, so it asks for it here."
-  json-kit:+json-null+)
-
 (defun secret-environment-name-p (name)
   "True when NAME contains one of the secret key names as a whole word.
 Delegates to the protocol layer's canonical check so `sys env` redaction and

@@ -197,11 +197,3 @@
       (expect (json-alist-value written "bytes") :to-be 9)
       (expect (json-alist-value written "head" :absent) :to-be :absent)
       (expect (json-alist-value unwritten "bytes") :to-be 0))))
-
-(describe "aitools.process.domain shell words"
-  (it "quotes only what a shell would interpret"
-    (expect (aitools.process.domain:command-line "aitools" "bg" "logs" "bg-1" "--from" "12")
-            :to-equal "aitools bg logs bg-1 --from 12")
-    (expect (aitools.process.domain:command-line "aitools" "wait" (list "--pattern" "it's up"))
-            :to-equal "aitools wait --pattern 'it'\\''s up'")
-    (expect (aitools.process.domain:command-line "") :to-equal "''")))

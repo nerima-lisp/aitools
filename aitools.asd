@@ -182,7 +182,6 @@
                 :pathname "packages/feature/search/src/"
                 :components ((:file "domain/package")
                              (:file "domain/bytes")
-                             (:file "domain/json")
                              (:file "domain/matcher")
                              (:file "domain/results")
                              (:file "domain/find")
@@ -283,8 +282,6 @@
                (:module "feature-process"
                 :pathname "packages/feature/process/src/"
                 :components ((:file "domain/package")
-                             (:file "domain/json-values")
-                             (:file "domain/shell-words")
                              (:file "domain/line-pattern")
                              (:file "domain/terminal-text")
                              (:file "domain/output-report")

@@ -13,10 +13,6 @@
 (defun json-bool (value)
   (if value t json-kit:+json-false+))
 
-(defun json-or-null (value)
-  "VALUE, or JSON null when VALUE is NIL (NIL itself would serialize as [])."
-  (if (null value) json-kit:+json-null+ value))
-
 (defun json-null-value-p (value)
   (eq value json-kit:+json-null+))
 

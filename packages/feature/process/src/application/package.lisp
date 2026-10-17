@@ -8,6 +8,7 @@
 
 (defpackage #:aitools.process.application
   (:use #:cl)
+  (:import-from #:aitools.protocol.domain #:repair #:schema-repair)
   (:export
    ;; ports.lisp
    #:process-ports

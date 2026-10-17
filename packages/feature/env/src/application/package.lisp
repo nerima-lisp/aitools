@@ -7,6 +7,7 @@
 
 (defpackage #:aitools.env.application
   (:use #:cl)
+  (:import-from #:aitools.protocol.domain #:repair)
   (:export
    ;; ports.lisp
    #:env-ports

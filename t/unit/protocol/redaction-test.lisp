@@ -204,7 +204,24 @@
 
   (it "joins a list of words into one command line"
     (expect (command-line (list "aitools" "read" "my file.txt" "--range" "1:5"))
-            :to-equal "aitools read 'my file.txt' --range 1:5")))
+            :to-equal "aitools read 'my file.txt' --range 1:5"))
+
+  (it "splices list arguments, drops NIL, and quotes empty words"
+    (expect (command-line "aitools" nil (list "read" "a b.txt") "")
+            :to-equal "aitools read 'a b.txt' ''")))
+
+(describe "aitools.protocol.domain shared value helpers"
+  (it "maps NIL to JSON null and preserves non-NIL values"
+    (expect (json-or-null nil) :to-equal (json-null))
+    (expect (json-or-null "value") :to-equal "value"))
+
+  (it "builds repair and schema-repair plists"
+    (expect (repair "action" "detail" "command")
+            :to-equal '(:action "action" :detail "detail" :command "command"))
+    (expect (schema-repair "aitools schema read")
+            :to-equal '(:action "inspect-schema"
+                        :detail "Show this command's arguments and rules."
+                        :command "aitools schema read"))))
 
 (describe "aitools.protocol.domain redact-secrets edges"
   (it "masks an OpenPGP private key block"

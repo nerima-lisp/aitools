@@ -8,7 +8,8 @@
 
 (defpackage #:aitools.journal.application
   (:use #:cl #:aitools.journal.domain)
-  (:import-from #:aitools.protocol.domain #:json-object #:json-null #:json-boolean)
+  (:import-from #:aitools.protocol.domain
+                #:json-object #:json-null #:json-boolean #:repair #:schema-repair)
   (:export
    ;; ports.lisp
    #:journal-ports

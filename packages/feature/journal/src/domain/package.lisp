@@ -9,10 +9,9 @@
 
 (defpackage #:aitools.journal.domain
   (:use #:cl)
-  (:import-from #:aitools.protocol.domain #:json-object)
+  (:import-from #:aitools.protocol.domain #:json-object #:repair)
   (:export
    ;; command-line.lisp
-   #:command-line
    #:argv-command-line
    ;; render.lisp
    #:+default-history-limit+

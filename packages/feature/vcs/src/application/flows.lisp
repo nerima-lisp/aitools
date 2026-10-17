@@ -19,16 +19,14 @@
   "Pinned so user configuration (color, external drivers, textconv,
 diff.relative) cannot change what the parsers read.")
 
-(defun %repair (action detail command)
-  (list :action action :detail detail :command command))
-
 (defun %git-command (root &rest words)
   "`aitools [--root ROOT] git WORDS...` as one shell command line; NIL
 words are dropped."
-  (apply #'aitools.vcs.domain:command-line "aitools" (when root "--root") root "git" words))
+  (apply #'aitools.protocol.domain:command-line "aitools" (when root "--root") root "git" words))
 
 (defun %git-unavailable-repairs ()
-  (list (%repair "check-tool" "Check whether git is installed and on PATH." "aitools sys tools git")))
+  (list (repair
+         "check-tool" "Check whether git is installed and on PATH." "aitools sys tools git")))
 
 (defun %finish (continuation fields &optional next-commands)
   "Mask FIELDS' secret values, append `redactions` when anything was
@@ -64,15 +62,17 @@ repository is argument.invalid."
                (if (and path (null repository-path))
                    (funcall on-error "argument.invalid"
                             (format nil "~A is outside the repository ~A" path top)
-                            :repairs (list (%repair "list-changes" "List the paths this repository tracks changes for."
-                                                    (%git-command root "status"))))
+                            :repairs (list (repair
+                                            "list-changes" "List the paths this repository tracks changes for."
+                                            (%git-command root "status"))))
                    (funcall continuation (port-at-root port top) repository-path top directory))))
            :on-no-directory (lambda (directory)
                               (funcall on-error "input.not-found"
                                        (format nil "--root directory does not exist: ~A" directory)
-                                       :repairs (list (%repair "use-working-directory"
-                                                               "Run from the working directory instead."
-                                                               (%git-command nil "status")))))
+                                       :repairs (list (repair
+                                                       "use-working-directory"
+                                                       "Run from the working directory instead."
+                                                       (%git-command nil "status")))))
            :on-outside (lambda ()
                          (funcall on-error "environment.unavailable"
                                   "the working directory is not inside a git work tree"
@@ -107,7 +107,7 @@ repository is argument.invalid."
                 :on-success (lambda (snapshot) (%finish on-ok (aitools.vcs.domain:status-fields snapshot)))
                 :on-failure (lambda (kind message)
                               (%fail on-error kind message
-                                     :not-found-repairs (list (%repair "retry" "Run the status again."
+                                     :not-found-repairs (list (repair "retry" "Run the status again."
                                                                        (%git-command root "status"))))))))))
 
 ;;; --------------------------------------------------------------- git log
@@ -116,7 +116,7 @@ repository is argument.invalid."
   "The newest LIMIT commits touching PATH (all commits when NIL),
 with the total count; PARTIAL when more commits exist than LIMIT."
   (let ((port (port-at-root port root))
-        (repairs (list (%repair "list-commits" "List the newest commits of the repository."
+        (repairs (list (repair "list-commits" "List the newest commits of the repository."
                                 (%git-command root "log")))))
     (flet ((respond (repository-path items total)
              (let ((fields (append (when repository-path (list (cons "path" repository-path)))
@@ -176,10 +176,10 @@ until MAX-LINES rendered lines; later files come back as mode \"summary\"
 and the result is PARTIAL."
   (if (and ref (%option-like-p ref))
       (funcall on-error "argument.invalid" (format nil "--ref must name a revision, not an option: ~A" ref)
-               :repairs (list (%repair "diff-range" "Compare two revisions."
+               :repairs (list (repair "diff-range" "Compare two revisions."
                                        (%git-command root "diff" "--ref" "HEAD~1..HEAD"))))
       (let ((port (port-at-root port root))
-            (repairs (list (%repair "list-commits" "Find a revision to compare against." (%git-command root "log"))))
+            (repairs (list (repair "list-commits" "Find a revision to compare against." (%git-command root "log"))))
             (mode (if (eq output :stat) "stat" "hunks")))
         (%call-in-repository
          port on-error root path
@@ -223,6 +223,6 @@ and the result is PARTIAL."
                                        (shape records patches)
                                        (funcall on-error "environment.io"
                                                 "the diff changed between git runs; run the command again"
-                                                :repairs (list (%repair "retry" "Run the same diff again."
+                                                :repairs (list (repair "retry" "Run the same diff again."
                                                                         (%diff-command root path staged ref max-lines)))))))
                                :not-found-repairs repairs)))))))))))

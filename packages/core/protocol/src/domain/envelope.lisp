@@ -31,6 +31,10 @@ its result objects through one of these two."
 an absent scalar is built through this."
   json-kit:+json-null+)
 
+(defun json-or-null (value)
+  "VALUE, or JSON null when VALUE is NIL."
+  (if (null value) (json-null) value))
+
 (defun json-boolean (value)
   "VALUE as a JSON boolean: T for true, json-kit's false sentinel otherwise
 (NIL would serialize as [])."
@@ -41,6 +45,14 @@ an absent scalar is built through this."
 
 (defun json-object-members (value)
   (json-kit:json-object-members value))
+
+(defun repair (action detail command)
+  "Build a repair plist with ACTION, DETAIL, and runnable COMMAND."
+  (list :action action :detail detail :command command))
+
+(defun schema-repair (command)
+  "Build the standard schema repair for the complete COMMAND string."
+  (repair "inspect-schema" "Show this command's arguments and rules." command))
 
 (defun %recovered-entry (entry)
   (json-object-from-alist (list (cons "op_id" (getf entry :op-id)) (cons "action" (getf entry :action)))))

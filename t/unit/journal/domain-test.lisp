@@ -6,13 +6,7 @@
 
 (defun %file (text) (aitools.store.domain:file-state (aitools.kernel.domain:content-hash (bytes text)) #o644))
 
-(describe "aitools.journal command lines"
-  (it "quotes only words that need it"
-    (expect (command-line "aitools" "read" "a b.txt" "--tx" "tx-1") :to-equal "aitools read 'a b.txt' --tx tx-1")
-    (expect (command-line "aitools" nil (list "--root" "/w") "history") :to-equal "aitools --root /w history")
-    (expect (command-line "it's") :to-equal "'it'\\''s'")
-    (expect (command-line "") :to-equal "''"))
-
+(describe "aitools.journal argv command lines"
   (it "renders a recorded argv as the aitools line that ran it"
     (expect (argv-command-line '("edit" "a.txt" "--old" "x y")) :to-equal "aitools edit a.txt --old 'x y'")
     (expect (argv-command-line '("aitools" "undo" "op-1")) :to-equal "aitools undo op-1")))
