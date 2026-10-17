@@ -549,7 +549,8 @@
               inherit (ctx) src;
               name = "aitools-paredit-lint";
             };
-          } // ctx.pkgs.lib.optionalAttrs (!ctx.pkgs.stdenv.hostPlatform.isDarwin) {
+          }
+          // ctx.pkgs.lib.optionalAttrs (!ctx.pkgs.stdenv.hostPlatform.isDarwin) {
             # Darwin CI runs the full suite on the host because its Nix build
             # sandbox blocks the `top` oracle and process-signal calls.
             coverage = ctx.generated.checks.default.overrideAttrs (old: {
