@@ -28,6 +28,14 @@
       (expect (getf (command-result-fields result) :message) :to-equal "no match")
       (expect (getf (command-result-fields result) :candidates) :to-equal (list "a.lisp")))))
 
+  (it "rejects positional continuations at the public CPS boundary"
+    (signals error
+      (normalize-command-continuations
+       (lambda (fields) fields)
+       (lambda (fields) fields)
+       (lambda (code message &rest options)
+         (declare (ignore code message options))))))
+
 (describe "aitools.protocol.application unknown-command-error"
   (it "always returns argument.invalid with at least one repair"
     (multiple-value-bind (code message repairs) (unknown-command-error "cat")

@@ -44,7 +44,7 @@
     # src/text-boundaries.lisp), which unblock the two search regex specs left
     # it-todo under v2.1.0.
     cl-regex-kit = {
-      url = "github:nerima-lisp/cl-regex-kit/v2.1.1";
+      url = "github:nerima-lisp/cl-regex-kit/v2.2.0";
       flake = false;
     };
 
@@ -74,7 +74,7 @@
     };
 
     cl-process-kit = {
-      url = "github:nerima-lisp/cl-process-kit/v3.3.1";
+      url = "github:nerima-lisp/cl-process-kit/v3.4.0";
       flake = false;
     };
 
@@ -106,7 +106,7 @@
     };
 
     cl-weave = {
-      url = "github:nerima-lisp/cl-weave/v1.3.0";
+      url = "github:nerima-lisp/cl-weave/v1.4.0";
       flake = false;
     };
 
@@ -145,9 +145,11 @@
       treefmt-nix,
     }:
     let
-      # CI gates both platforms. Darwin's full suite runs on the host after
-      # Nix builds the delivery: its native ps/top oracles cannot run inside
-      # the Nix build's mandatory Seatbelt policy.
+      # x86_64-linux is what CI gates; aarch64-darwin is the development
+      # machine. CI only requires x86_64-linux; aarch64-darwin is included
+      # because cl-nix-forge v0.6.0's `mkExecutable` now drives a real
+      # `asdf:program-op` on Darwin too (see the cl-nix-forge input comment
+      # above), so building or running aitools on this platform is not blocked.
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
@@ -164,10 +166,25 @@
 
       root = ./.;
 
-      # mkLispSource keeps only .asd and .lisp files; the skill contract spec
-      # (t/integration/skill-contract-test.lisp) reads SKILL.md from the
-      # source tree at test time.
-      sourceInclude = [ ./skills/aitools/SKILL.md ];
+      # mkLispSource does not retain nested ASDF files automatically. Keep the
+      # context definitions beside the aggregate system so its bootstrap can
+      # register them in the build source as well as in a checkout.
+      sourceInclude = [
+        ./skills/aitools/SKILL.md
+        ./packages/core/kernel/kernel.asd
+        ./packages/core/protocol/protocol.asd
+        ./packages/core/store/store.asd
+        ./packages/core/text/text.asd
+        ./packages/core/workspace/workspace.asd
+        ./packages/feature/edit/edit.asd
+        ./packages/feature/env/env.asd
+        ./packages/feature/inspect/inspect.asd
+        ./packages/feature/journal/journal.asd
+        ./packages/feature/process/process.asd
+        ./packages/feature/search/search.asd
+        ./packages/feature/util/util.asd
+        ./packages/feature/vcs/vcs.asd
+      ];
       # Path-based builds also see untracked Lisp probes. Exclude scratch
       # directories without requiring them to exist in a clean checkout.
       sourceExclude =
@@ -466,6 +483,18 @@
                 --load ${ctx.src}/run-host-tests.lisp --end-toplevel-options
             '';
           };
+          testCheck = ctx.generated.checks.default.overrideAttrs (old: {
+            CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
+            AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
+            AITOOLS_DARWIN_PS = if ctx.system == "aarch64-darwin" then "${ctx.pkgs.darwin.ps}/bin/ps" else "";
+            TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
+            nativeBuildInputs =
+              (old.nativeBuildInputs or [ ])
+              ++ oraclePackages
+              ++ ctx.pkgs.lib.optionals (ctx.system == "aarch64-darwin") [
+                ctx.pkgs.darwin.ps
+              ];
+          });
         in
         {
           packages.default = delivered;
@@ -498,25 +527,58 @@
                 cp schema.json "$out/"
               ''
             else
-              ctx.generated.checks.default.overrideAttrs (old: {
-                CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
-                AITOOLS_E2E_BINARY = "${delivered}/bin/aitools";
-                TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
-                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ oraclePackages;
-              });
+              testCheck;
         };
 
-      extraOutputs = ctx: {
-        checks = {
-          # Structural parse gate over every Lisp source in the filtered
-          # tree: fails if any .lisp/.asd file is not a balanced S-expression
-          # document, catching an unbalanced components.sexp-driven file
-          # before ASDF fails to load the system with a confusing error.
-          paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
-            inherit (ctx) src;
-            name = "aitools-paredit-lint";
+      extraOutputs =
+        ctx:
+        let
+          spawnTrampoline = ctx.pkgs.runCommandCC "cl-process-kit-spawn" { } ''
+            mkdir -p $out/bin
+            $CC -std=c11 -O2 -Wall -Wextra -Werror ${cl-process-kit}/native/spawn.c \
+              -o $out/bin/cl-process-kit-spawn
+          '';
+        in
+        {
+          checks = {
+            # Structural parse gate over every Lisp source in the filtered
+            # tree: fails if any .lisp/.asd file is not a balanced S-expression
+            # document, catching an unbalanced components.sexp-driven file
+            # before ASDF fails to load the system with a confusing error.
+            paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
+              inherit (ctx) src;
+              name = "aitools-paredit-lint";
+            };
+            coverage = ctx.generated.checks.default.overrideAttrs (old: {
+              AITOOLS_COVERAGE = "1";
+              CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
+              AITOOLS_E2E_BINARY = "${ctx.generated.packages.default}/bin/aitools";
+              AITOOLS_DARWIN_PS = if ctx.system == "aarch64-darwin" then "${ctx.pkgs.darwin.ps}/bin/ps" else "";
+              TZDIR = "${ctx.pkgs.tzdata}/share/zoneinfo";
+              nativeBuildInputs =
+                (old.nativeBuildInputs or [ ])
+                ++ [
+                  ctx.pkgs.git
+                  ctx.pkgs.zip
+                  ctx.pkgs.unzip
+                  ctx.pkgs.jq
+                  ctx.pkgs.perl
+                  ctx.pkgs.which
+                  ctx.pkgs.procps
+                ]
+                ++ ctx.pkgs.lib.optionals (ctx.system == "aarch64-darwin") [
+                  ctx.pkgs.darwin.ps
+                ]
+                ++ [
+                  ctx.pkgs.lsof
+                  ctx.pkgs.util-linux
+                  ctx.pkgs.openssl
+                  ctx.pkgs.inetutils
+                  ctx.pkgs.getconf
+                  ctx.pkgs.tzdata
+                ];
+            });
           };
         };
-      };
     };
 }

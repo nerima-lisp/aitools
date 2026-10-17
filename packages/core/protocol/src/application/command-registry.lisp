@@ -10,6 +10,26 @@
 ;;;; interprets them, so the "aitools" system stays free of cl-cli.
 (in-package #:aitools.protocol.application)
 
+(defstruct (command-declaration
+            (:constructor make-command-declaration
+                (name &key group command-builder schema))
+            (:copier nil))
+  "A command's protocol-level declaration.
+
+COMMAND-BUILDER is called with the context's PORTS value and must return the
+opaque CLI command. SCHEMA is the already-built COMMAND-SCHEMA. The
+declaration deliberately contains no cl-cli types, keeping registration in
+the protocol application layer."
+  (name nil :type string :read-only t)
+  (group nil :type (or null string) :read-only t)
+  (command-builder nil :type function :read-only t)
+  (schema nil :read-only t))
+
+(defmacro define-command (name (&key group command-builder schema))
+  "Construct a COMMAND-DECLARATION for use in a context's declaration list."
+  `(make-command-declaration
+    ,name :group ,group :command-builder ,command-builder :schema ,schema))
+
 (defstruct (command-registry (:constructor make-command-registry ())
                              (:copier nil))
   "TOP-LEVEL accumulates ungrouped commands' cli-command values.
@@ -35,6 +55,21 @@ should equal NAME."
   (setf (gethash name (command-registry-schemas registry)) schema)
   (push name (command-registry-schema-order registry))
   registry)
+
+(defun register-command-declaration (registry declaration ports)
+  "Build and register DECLARATION using PORTS, returning REGISTRY."
+  (check-type declaration command-declaration)
+  (register-command registry
+                    :name (command-declaration-name declaration)
+                    :group (command-declaration-group declaration)
+                    :cli-command
+                    (funcall (command-declaration-command-builder declaration) ports)
+                    :schema (command-declaration-schema declaration)))
+
+(defun register-command-declarations (registry declarations ports)
+  "Register DECLARATIONS in list order and return REGISTRY."
+  (dolist (declaration declarations registry)
+    (register-command-declaration registry declaration ports)))
 
 (defun find-command-schema (registry name)
   (gethash name (command-registry-schemas registry)))
