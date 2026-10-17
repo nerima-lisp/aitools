@@ -106,5 +106,23 @@
    #:format-json-pointer
    #:json-pointer-array-index
    #:json-equal
+   ;; json-model.lisp
+   #:json-value-model
+   #:make-json-value-model
+   #:json-model-error
+   #:json-model-error-code
+   #:json-model-error-message
+   #:json-model-pointer-get
+   #:json-model-add
+   #:json-model-remove
+   #:json-model-replace
+   #:json-model-equal
+   #:json-model-merge-patch
+   #:json-model-apply-patch
+   #:json-model-child
+   #:json-model-resolve/k
+   #:json-model-child-names
+   #:json-model-value-length
+   #:json-model-diff-ops
    #:iso8601-utc
    #:octal-mode))

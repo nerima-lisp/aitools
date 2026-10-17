@@ -79,7 +79,8 @@
                              (:file "domain/token-estimate")
                              (:file "domain/unified-diff")
                              (:file "domain/unified-diff-patch")
-                             (:file "domain/json")))
+                             (:file "domain/json")
+                             (:file "domain/json-model")))
                (:module "core-protocol"
                 :pathname "packages/core/protocol/src/"
                 :components ((:file "domain/package")
