@@ -1,13 +1,1 @@
-(:context :inspect
-          :state
-          :bootstrap
-          :source
-          :bootstrap
-          :expression-covered
-          1
-          :expression-total
-          1000000000
-          :branch-covered
-          1
-          :branch-total
-          1000000000)
+(:context :inspect :state :measured :source :linux-ci :expression-covered 10148 :expression-total 10593 :branch-covered 996 :branch-total 1108)
