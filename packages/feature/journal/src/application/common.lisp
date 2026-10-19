@@ -46,26 +46,26 @@ Dispatch rejects a non-duration --lock-timeout before any journal flow runs
         aitools.store.application:+default-lock-timeout-ms+
         (aitools.kernel.domain:duration-milliseconds (aitools.kernel.domain:parse-duration text)))))
 
-(defun %call-with-store (ports context command-name on-error continuation)
+(aitools.kernel.domain:define-flow
+    (%call-with-store ports context command-name &key on-error on-store)
   "Resolve the workspace root and call CONTINUATION with (STORE ROOT
 LOCK-TIMEOUT-MS), ROOT being the workspace context's WORKSPACE-ROOT. A store
 I/O failure or a damaged state record escaping CONTINUATION is reported as
 `environment.io`."
-  (declare (type function on-error continuation))
+  (declare (type function on-error on-store))
   (let ((host (journal-ports-workspace-host ports))
         (timeout (%lock-timeout-ms context)))
     (aitools.workspace.application:call-with-resolved-root/k
      host
      :root (journal-context-root context)
      :on-error (lambda (reason path)
-                 (funcall on-error "argument.invalid"
+                 (aitools.kernel.domain:flow-continue :on-error "argument.invalid"
                           (format nil "workspace root ~A: ~(~A~)" path reason)
                           :repairs (list (%schema-repair command-name))))
      :on-resolved
      (lambda (root)
        (handler-case
-           (funcall continuation
-                    (funcall (journal-ports-open-store ports)
+           (aitools.kernel.domain:flow-continue :on-store (funcall (journal-ports-open-store ports)
                              (aitools.workspace.application:workspace-root-real root))
                     root timeout)
          ;; A post-commit I/O failure: the op passed the store's commit point
@@ -75,22 +75,23 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
          ;; so surface the op_id and the recovery status. This clause must
          ;; precede store-io-error, its superclass.
          (aitools.store.application:store-committed-error (condition)
-           (funcall on-error "environment.io" (princ-to-string condition)
+           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
                     :diagnostics (list (json-object "op_id" (aitools.store.application:store-committed-error-op-id condition)
                                                     "recovery" "pending"))
                     :repairs (list (repair "recover"
                                            "Re-run once the path is writable: aitools completes a committed-but-interrupted write on its next command. List the recorded op meanwhile."
                                            (%aitools context "history")))))
          (aitools.store.application:store-io-error (condition)
-           (funcall on-error "environment.io" (princ-to-string condition)
+           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
                     :repairs (list (%schema-repair command-name))))
          (aitools.store.domain:store-format-error (condition)
-           (funcall on-error "environment.io" (princ-to-string condition)
+           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
                     :repairs (list (%schema-repair command-name)))))))))
 
-(defun %report-busy (on-error context &rest words)
+(aitools.kernel.domain:define-flow
+    (%report-busy context words &key on-error)
   (declare (type function on-error))
-  (funcall on-error "environment.busy"
+  (aitools.kernel.domain:flow-continue :on-error "environment.busy"
            "the workspace or tx lock could not be acquired within --lock-timeout"
            :repairs (list (repair "retry" "Run the same command again once the other writer is done."
                                   (apply #'%aitools context words)))))
@@ -98,12 +99,13 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
 (defun %conflicts-json (conflicts)
   (mapcar #'aitools.store.domain:conflict->json conflicts))
 
-(defun %report-rejection (on-error command-name code message)
+(aitools.kernel.domain:define-flow
+    (%report-rejection command-name code message &key on-error)
   "A store rejection with no command-specific repair: the planner's refusals
 and `environment.io`. Only refusal.target-changed carries conflicts, and
 every caller answers that code itself."
   (declare (type function on-error))
-  (funcall on-error code message
+  (aitools.kernel.domain:flow-continue :on-error code message
            :repairs (list (%schema-repair command-name))))
 
 (defun %fields-with (fields &rest extra)

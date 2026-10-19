@@ -131,16 +131,35 @@ continuations, returning the resulting COMMAND-RESULT."
   "Register `history`, `undo` and `tx begin|status|diff|drop|rebase|commit|
 abort` on REGISTRY, each handler running against PORTS (an
 AITOOLS.JOURNAL.APPLICATION:JOURNAL-PORTS)."
-  (flet ((add (name group cli-command)
-           (aitools.protocol.application:register-command
-            registry :name name :group group :cli-command cli-command :schema (%schema name))))
-    (add "history" nil (%history-command ports))
-    (add "undo" nil (%undo-command ports))
-    (add "tx.begin" "tx" (%tx-begin-command ports))
-    (add "tx.status" "tx" (%tx-status-command ports))
-    (add "tx.diff" "tx" (%tx-diff-command ports))
-    (add "tx.drop" "tx" (%tx-drop-command ports))
-    (add "tx.rebase" "tx" (%tx-rebase-command ports))
-    (add "tx.commit" "tx" (%tx-commit-command ports))
-    (add "tx.abort" "tx" (%tx-abort-command ports)))
+  (aitools.protocol.application:register-command-declarations
+   registry
+   (list
+    (aitools.protocol.application:define-command
+        "history"
+      (:command-builder #'%history-command :schema (%schema "history")))
+    (aitools.protocol.application:define-command
+        "undo"
+      (:command-builder #'%undo-command :schema (%schema "undo")))
+    (aitools.protocol.application:define-command
+        "tx.begin"
+      (:group "tx" :command-builder #'%tx-begin-command :schema (%schema "tx.begin")))
+    (aitools.protocol.application:define-command
+        "tx.status"
+      (:group "tx" :command-builder #'%tx-status-command :schema (%schema "tx.status")))
+    (aitools.protocol.application:define-command
+        "tx.diff"
+      (:group "tx" :command-builder #'%tx-diff-command :schema (%schema "tx.diff")))
+    (aitools.protocol.application:define-command
+        "tx.drop"
+      (:group "tx" :command-builder #'%tx-drop-command :schema (%schema "tx.drop")))
+    (aitools.protocol.application:define-command
+        "tx.rebase"
+      (:group "tx" :command-builder #'%tx-rebase-command :schema (%schema "tx.rebase")))
+    (aitools.protocol.application:define-command
+        "tx.commit"
+      (:group "tx" :command-builder #'%tx-commit-command :schema (%schema "tx.commit")))
+    (aitools.protocol.application:define-command
+        "tx.abort"
+      (:group "tx" :command-builder #'%tx-abort-command :schema (%schema "tx.abort"))))
+   ports)
   registry)
