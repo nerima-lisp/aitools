@@ -111,12 +111,12 @@
     };
 
     cl-crypto-kit = {
-      url = "github:nerima-lisp/cl-crypto-kit/v0.1.0";
+      url = "github:nerima-lisp/cl-crypto-kit/v0.1.1";
       flake = false;
     };
 
     cl-deflate-kit = {
-      url = "github:nerima-lisp/cl-deflate-kit/v0.2.0";
+      url = "github:nerima-lisp/cl-deflate-kit/v0.3.0";
       flake = false;
     };
 
@@ -126,12 +126,12 @@
     };
 
     cl-yaml-kit = {
-      url = "github:nerima-lisp/cl-yaml-kit/v0.1.0";
+      url = "github:nerima-lisp/cl-yaml-kit/v0.2.1";
       flake = false;
     };
 
     cl-toml-kit = {
-      url = "github:nerima-lisp/cl-toml-kit/v0.1.0";
+      url = "github:nerima-lisp/cl-toml-kit/v0.2.0";
       flake = false;
     };
 
@@ -390,6 +390,7 @@
             lispDependencies = [
               parserKit
               dateKit
+              codecKit
             ];
           };
           orgKit = ctx.cl.lispDerivation {
