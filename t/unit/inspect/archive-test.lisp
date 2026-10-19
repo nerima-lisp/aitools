@@ -129,6 +129,21 @@
       (expect kind :to-be :ok)
       (expect (field fields "mode") :to-equal "hex")
       (expect (json-object-get (first (field fields "rows")) "hex") :to-equal "6f 6e 65 0a 74 77 6f 0a 74 68 72 65 65 0a")))
+  (it "preserves candidate lines when an archive selector matches nothing"
+    (multiple-value-bind (kind fields)
+        (run-archive #'archive-read-flow "a.zip" "docs/readme.txt" :match "threeX")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "selection.no-match")
+      (let ((candidate (first (getf fields :candidates))))
+        (expect (json-object-get candidate "text") :to-equal "three")
+        (expect (json-object-get candidate "line") :to-be 3))
+      (expect (null (getf fields :repairs)) :to-be nil)))
+  (it "forwards invalid-regex repairs from archive member text"
+    (multiple-value-bind (kind fields)
+        (run-archive #'archive-read-flow "a.zip" "docs/readme.txt" :match "(")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.syntax-error")
+      (expect (null (getf fields :repairs)) :to-be nil)))
 
   (it "fails with input.not-found and near entry names for a missing entry"
     (multiple-value-bind (kind fields) (run-archive #'archive-read-flow "a.tar" "docs/redme.txt")

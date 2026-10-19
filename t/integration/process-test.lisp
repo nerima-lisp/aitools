@@ -183,3 +183,4 @@ argv[0] preserves the command name for multi-call executables."
     (multiple-value-bind (code envelope) (invoke (list "wait" "--duration" "200ms"))
       (expect code :to-be 0)
       (expect (>= (value envelope "elapsed_ms") 200) :to-be t))))
+

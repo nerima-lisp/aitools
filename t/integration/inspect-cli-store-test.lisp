@@ -24,9 +24,10 @@
 
 (describe "--tx reads that cannot record the read set"
   (it "answers environment.busy with a retry command while another thread holds the tx lock"
-    (with-workspace (root)
-      (let* ((file (ws-file root "f.txt" (format nil "x~%")))
-             (store (open-store root))
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let* ((file (ws-file workspace "f.txt" (format nil "x~%")))
+             (store (open-store workspace))
              (tx (begin-tx store))
              (held (sb-thread:make-semaphore))
              (release (sb-thread:make-semaphore))
@@ -41,18 +42,19 @@
              (progn
                (sb-thread:wait-on-semaphore held)
                (multiple-value-bind (code envelope)
-                   (run-aitools "--root" root "--lock-timeout" "50ms" "read" file "--tx" tx)
+                   (run-aitools "--root" workspace "--lock-timeout" "50ms" "read" file "--tx" tx)
                  (expect code :to-be 1)
                  (expect (value-at envelope "error" "code") :to-equal "environment.busy")
                  (expect (value-at envelope "error" "repairs" 0 "command")
-                         :to-equal (format nil "aitools --root ~A read ~A --tx ~A" root file tx))))
+                         :to-equal (format nil "aitools --root ~A read ~A --tx ~A" workspace file tx))))
           (sb-thread:signal-semaphore release)
           (sb-thread:join-thread holder)))))
 
   (it "answers input.not-found when the tx is aborted between opening its view and recording the read"
-    (with-workspace (root)
-      (let* ((file (ws-file root "f.txt" (format nil "x~%")))
-             (store (open-store root))
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let* ((file (ws-file workspace "f.txt" (format nil "x~%")))
+             (store (open-store workspace))
              (tx (begin-tx store))
              (aborted nil)
              (ports (aitools.inspect.application:make-inspect-ports
@@ -69,7 +71,7 @@
                      :state-directory-function (constantly nil)))
              (result (aitools.protocol.application:call-with-command-result/k
                       (lambda (&rest continuations)
-                        (apply #'aitools.inspect.application:read-flow ports file :root root :tx tx continuations)))))
+                        (apply #'aitools.inspect.application:read-flow ports file :root workspace :tx tx continuations)))))
         (expect aborted :to-be t)
         (expect (aitools.protocol.application:command-result-kind result) :to-be :error)
         (let ((fields (aitools.protocol.application:command-result-fields result)))
@@ -90,11 +92,12 @@
 
 (describe "--tx reads see the tx's staged kinds and modes"
   (it "reads a staged deletion as missing, a staged new directory as a directory, and a staged write's mode"
-    (with-workspace (root)
-      (ws-file root "gone.txt" (format nil "g~%"))
-      (let ((cfg (ws-file root "cfg.txt" (format nil "c~%"))))
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (ws-file workspace "gone.txt" (format nil "g~%"))
+      (let ((cfg (ws-file workspace "cfg.txt" (format nil "c~%"))))
         (sb-posix:chmod cfg #o644)
-        (let* ((store (open-store root))
+        (let* ((store (open-store workspace))
                (tx (begin-tx store)))
           (stage store tx (list "rm" "gone.txt") (aitools.store.domain:delete-request "gone.txt"))
           (stage store tx (list "write" "sub/new.txt")
@@ -102,24 +105,25 @@
           (stage store tx (list "write" "cfg.txt")
                  (aitools.store.domain:write-file-request "cfg.txt" (sb-ext:string-to-octets "staged" :external-format :utf-8)
                                                           :mode #o600))
-          (multiple-value-bind (code envelope) (run-aitools "--root" root "read" (concatenate 'string root "gone.txt") "--tx" tx)
+          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "read" (inspect-test-path workspace "gone.txt") "--tx" tx)
             (expect code :to-be 1)
             (expect (value-at envelope "error" "code") :to-equal "input.not-found"))
-          (multiple-value-bind (code envelope) (run-aitools "--root" root "read" (concatenate 'string root "sub") "--tx" tx)
+          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "read" (inspect-test-path workspace "sub") "--tx" tx)
             (expect code :to-be 1)
             (expect (value-at envelope "error" "code") :to-equal "refusal.not-a-file")
             (expect (value-at envelope "error" "message") :to-contain "is a directory"))
-          (multiple-value-bind (code envelope) (run-aitools "--root" root "info" cfg "--tx" tx)
+          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "info" cfg "--tx" tx)
             (expect code :to-be 0)
             (expect (value-at envelope "mode") :to-equal "0600"))
-          (multiple-value-bind (code envelope) (run-aitools "--root" root "info" cfg)
+          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "info" cfg)
             (expect code :to-be 0)
             (expect (value-at envelope "mode") :to-equal "0644")))))))
 
 (describe "diff --op when a change's content is gone"
   (it "reports content_available false instead of a diff"
-    (with-workspace (root)
-      (let* ((store (open-store root))
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let* ((store (open-store workspace))
              (first-op (commit-write store "f.txt" (format nil "one~%")))
              (second-op (commit-write store "f.txt" (format nil "one~%two~%"))))
         (declare (ignore first-op))
@@ -127,8 +131,8 @@
          (uiop:ensure-directory-pathname
           (concatenate 'string (aitools.store.application:store-state-directory store) "/blobs"))
          :validate t)
-        (write-bytes (concatenate 'string root "f.txt") (format nil "rewritten~%"))
-        (multiple-value-bind (code envelope) (run-aitools "--root" root "diff" "--op" second-op)
+        (write-bytes (inspect-test-path workspace "f.txt") (format nil "rewritten~%"))
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "diff" "--op" second-op)
           (expect code :to-be 0)
           (expect (value-at envelope "changes" 0 "path") :to-equal "f.txt")
           (expect (value-at envelope "changes" 0 "content_available") :to-be json-kit:+json-false+)
@@ -136,8 +140,9 @@
 
 (describe "snapshot flows without a state-directory function"
   (it "keeps snapshots in the store's state directory"
-    (with-workspace (root)
-      (ws-file root "a.txt" "a")
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (ws-file workspace "a.txt" "a")
       (let* ((ports (aitools.inspect.application:make-inspect-ports
                      :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
                      :text-source (aitools.text.infrastructure:make-host-text-source)
@@ -145,8 +150,8 @@
                      :state-directory-function (constantly nil)))
              (created (aitools.protocol.application:call-with-command-result/k
                        (lambda (&rest continuations)
-                         (apply #'aitools.inspect.application:snapshot-create-flow ports :root root continuations))))
+                         (apply #'aitools.inspect.application:snapshot-create-flow ports :root workspace continuations))))
              (id (cdr (assoc "snapshot_id" (aitools.protocol.application:command-result-fields created) :test #'string=))))
         (expect (probe-file (format nil "~A/snapshots/~A.json"
-                                    (aitools.store.application:store-state-directory (open-store root)) id))
+                                    (aitools.store.application:store-state-directory (open-store workspace)) id))
                 :to-be-truthy)))))

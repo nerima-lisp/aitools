@@ -7,32 +7,65 @@
 ;;;; load order. Shared option constructors and the flow runner live here.
 (in-package #:aitools.inspect.presentation)
 
-(defvar *inspect-commands* '()
-  "(name group builder schema-table) per command, in declaration order.")
+(defvar *inspect-commands*
+  (list)
+  "Protocol command declarations in declaration order.")
 
-(defun define-inspect-command (name group builder schema-table)
-  "Declare command NAME (dotted when GROUP is given). BUILDER is a symbol
-naming a function of PORTS returning the cl-cli command. SCHEMA-TABLE is
-the list of schema plists holding NAME's entry."
-  (setf *inspect-commands*
-        (append (remove name *inspect-commands* :key #'first :test #'string=)
-                (list (list name group builder schema-table))))
-  name)
+(defmacro define-inspect-command (name group builder schema-table)
+  (let ((name-var (gensym "COMMAND-NAME-")))
+    `(let* ((,name-var ,name)
+            (declaration
+             (aitools.protocol.application:define-command ,name-var
+                                                          (:group ,group
+                                                                  :command-builder
+                                                                  (symbol-function
+                                                                   ,builder)
+                                                                  :schema
+                                                                  (%schema
+                                                                   ,name-var
+                                                                   ,schema-table)))))
+       (setf *inspect-commands* (append
+                                 (remove ,name-var
+                                         *inspect-commands*
+                                         :key
+                                         (lambda (item)
+                                           (aitools.protocol.application:command-declaration-name
+                                            item))
+                                         :test
+                                         #'string=)
+                                 (list declaration)))
+       declaration)))
 
 (defun %schema-entry (name table)
-  (or (find name table :key (lambda (entry) (getf entry :name)) :test #'string=)
-      (error "no schema entry for ~A" name)))
+  (or
+   (find name
+         table
+         :key
+         (lambda (entry)
+           (getf entry :name))
+         :test
+         #'string=)
+   (error "no schema entry for ~A" name)))
 
 (defun %schema (name table)
   (let ((entry (%schema-entry name table)))
-    (aitools.protocol.domain:make-command-schema
-     name (getf entry :summary)
-     :description (getf entry :description)
-     :args (append (getf entry :args)
-                   (when (getf entry :selectors) aitools.data:*inspect-selector-args*)
-                   (unless (getf entry :no-tx) aitools.data:*inspect-common-args*))
-     :output-fields (getf entry :output-fields)
-     :error-codes (getf entry :error-codes))))
+    (aitools.protocol.domain:make-command-schema name
+                                                 (getf entry :summary)
+                                                 :description
+                                                 (getf entry :description)
+                                                 :args
+                                                 (append (getf entry :args)
+                                                         (when
+                                                             (getf entry
+                                                                   :selectors)
+                                                           aitools.data:*inspect-selector-args*)
+                                                         (unless
+                                                             (getf entry :no-tx)
+                                                           aitools.data:*inspect-common-args*))
+                                                 :output-fields
+                                                 (getf entry :output-fields)
+                                                 :error-codes
+                                                 (getf entry :error-codes))))
 
 (defun command-summary (name table)
   (getf (%schema-entry name table) :summary))
@@ -47,54 +80,99 @@ return the COMMAND-RESULT."
 (defun context-arguments (invocation)
   "The global `--root` and `--lock-timeout` and the command's `--tx`, as
 flow keyword arguments."
-  (list :root (option-value invocation :root)
-        :lock-timeout (option-value invocation :lock-timeout)
-        :tx (option-value invocation :tx)))
+  (list :root
+        (option-value invocation :root)
+        :lock-timeout
+        (option-value invocation :lock-timeout)
+        :tx
+        (option-value invocation :tx)))
 
 (defun tx-option ()
-  (make-option :name "tx" :kind :value :value-name "TX" :description "Read the tx's state."))
+  (make-option :name
+               "tx"
+               :kind
+               :value
+               :value-name
+               "TX"
+               :description
+               "Read the tx's state."))
 
 (defun integer-option (name default description &key (min 1))
-  (make-option :name name :kind :value :type :integer :min min :default default :description description))
+  (make-option :name
+               name
+               :kind
+               :value
+               :type
+               :integer
+               :min
+               min
+               :default
+               default
+               :description
+               description))
 
 (defun flag-option (name description)
   (make-option :name name :kind :flag :description description))
 
 (defun value-option (name description &key choices default value-name)
-  (apply #'make-option :name name :kind :value :description description
-         (append (when choices (list :choices choices))
-                 (when default (list :default default))
-                 (when value-name (list :value-name value-name)))))
+  (apply #'make-option
+         :name
+         name
+         :kind
+         :value
+         :description
+         description
+         (append
+          (when choices
+            (list :choices choices))
+          (when default
+            (list :default default))
+          (when value-name
+            (list :value-name value-name)))))
 
 (defun selector-options ()
   "The selectors other than --old, built from the shared
 AITOOLS.DATA:*SELECTOR-OPTIONS* table."
-  (mapcar (lambda (option)
-            (let ((name (getf option :name))
-                  (description (getf option :description))
-                  (value-name (getf option :value-name)))
-              (ecase (getf option :kind)
-                (:flag (flag-option name description))
-                (:value (value-option name description :value-name value-name))
-                (:pair (make-option :name name :kind :value :value-count 2 :value-name value-name
-                                    :description description)))))
-          aitools.data:*selector-options*))
+  (mapcar
+   (lambda (option)
+     (let ((name (getf option :name))
+           (description (getf option :description))
+           (value-name (getf option :value-name)))
+       (ecase (getf option :kind)
+         (:flag (flag-option name description))
+         (:value (value-option name description :value-name value-name))
+         (:pair
+          (make-option :name
+                       name
+                       :kind
+                       :value
+                       :value-count
+                       2
+                       :value-name
+                       value-name
+                       :description
+                       description)))))
+   aitools.data:*selector-options*))
 
 (defun selector-arguments (invocation)
-  (list :range (option-value invocation :range)
-        :symbol (option-value invocation :symbol)
-        :kind (option-value invocation :kind)
-        :between (option-value invocation :between)
-        :exclusive (option-value invocation :exclusive)
-        :match (option-value invocation :match)
-        :invert (option-value invocation :invert)))
+  (list :range
+        (option-value invocation :range)
+        :symbol
+        (option-value invocation :symbol)
+        :kind
+        (option-value invocation :kind)
+        :between
+        (option-value invocation :between)
+        :exclusive
+        (option-value invocation :exclusive)
+        :match
+        (option-value invocation :match)
+        :invert
+        (option-value invocation :invert)))
 
 (defun register-inspect-commands (registry ports)
   "Register every declared inspect command on REGISTRY with PORTS, the
 AITOOLS.INSPECT.APPLICATION:INSPECT-PORTS the composition root built."
-  (loop for (name group builder table) in *inspect-commands*
-        do (aitools.protocol.application:register-command
-            registry :name name :group group
-                     :cli-command (funcall builder ports)
-                     :schema (%schema name table)))
-  registry)
+  (aitools.protocol.application:register-command-declarations registry
+                                                              *inspect-commands*
+                                                              ports))

@@ -10,9 +10,12 @@
 (defpackage #:aitools.edit.test
   (:use #:cl #:aitools.edit.domain)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect #:expect-not #:signals)
+  (:import-from #:cl-weave
+                #:it #:it-each #:expect #:expect-not #:signals)
+  (:import-from #:aitools.test.support #:with-workspace)
   (:import-from #:aitools.edit.application
-                #:make-edit-ports #:run-edit-command #:replay-edit-op #:options-argv #:parse-recorded-argv))
+                #:make-edit-ports #:run-edit-command #:replay-edit-op
+                #:options-argv #:parse-recorded-argv))
 
 (in-package #:aitools.edit.test)
 
@@ -67,32 +70,17 @@ opens such a root as a temporary store exempt from the state-directory guard."
                                         :temporary (%temporary-area-p root)))
 
 (defun call-with-workspace (function)
-  (let* ((base (sb-posix:mkdtemp (format nil "~A/aitools-edit-XXXXXX"
-                                         (string-right-trim "/" (or (sb-posix:getenv "TMPDIR") "/tmp")))))
-         (base (string-right-trim "/" (sb-ext:native-namestring (truename (concatenate 'string base "/"))))))
-    (unwind-protect
-         (let* ((*root* (concatenate 'string base "/work"))
-                (*home* (concatenate 'string base "/state"))
-                (*stdin* nil)
-                (*ports* (make-edit-ports
-                          :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
-                          :open-store #'open-store
-                          :text-source (aitools.text.infrastructure:make-host-text-source)
-                          :read-stdin-octets #'%stdin-port
-                          :unix-now #'aitools.edit.infrastructure:unix-now)))
-           (sb-posix:mkdir *root* #o755)
-           ;; Relative paths resolve against the working directory (as the
-           ;; tools aitools replaces do), so the tests run from the root.
-           (let ((previous (sb-posix:getcwd)))
-             (sb-posix:chdir *root*)
-             (unwind-protect (funcall function)
-               (sb-posix:chdir previous))))
-      (uiop:delete-directory-tree (sb-ext:parse-native-namestring (concatenate 'string base "/"))
-                                  :validate (lambda (path) (search "aitools-edit-" (namestring path)))
-                                  :if-does-not-exist :ignore))))
-
-(defmacro with-workspace (() &body body)
-  `(call-with-workspace (lambda () ,@body)))
+  (aitools.test.support:call-with-workspace (lambda (root home)
+     (let ((*root* root)
+           (*home* home)
+           (*stdin* nil)
+           (*ports* (make-edit-ports
+                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+                     :open-store (function open-store)
+                     :text-source (aitools.text.infrastructure:make-host-text-source)
+                     :read-stdin-octets (function %stdin-port)
+                     :unix-now (function aitools.edit.infrastructure:unix-now))))
+       (funcall function))) :prefix "aitools-edit" :chdir t :initialize-state-home nil))
 
 (defun disk (relative)
   (concatenate 'string *root* "/" relative))

@@ -205,51 +205,6 @@
     (expect (field (nth-value 1 (json-get "/items" :max-bytes "20")) "next_commands")
             :to-equal '("aitools json get d.json /items --keys" "aitools json get d.json /items/0"))))
 
-(describe "json select arguments and ordering"
-  (it "rejects a --pick that is not a relative pointer"
-    (multiple-value-bind (kind fields) (json-select "/items" :pick '("name"))
-      (expect kind :to-be :error)
-      (expect (error-code fields) :to-equal "argument.invalid")
-      (expect (getf fields :message) :to-equal "\"name\" is not a relative JSON pointer")))
-
-  (it "rejects a malformed array pointer"
-    (expect (error-code (nth-value 1 (json-select "items"))) :to-equal "argument.invalid"))
-
-  (it "picks a missing member as null"
-    (let ((values (mapcar (lambda (item) (json-object-get (json-object-get item "value") "/tag"))
-                          (field (nth-value 1 (json-select "/items" :pick '("/tag"))) "items"))))
-      (expect (first values) :to-equal "red")
-      (expect (json-null-value-p (second values)) :to-be t)))
-
-  (it "sorts ascending with --sort-by and reverses document order with --desc alone"
-    (expect (selected-ids (nth-value 1 (json-select "/items" :sort-by "/score"))) :to-equal '(2 3 1))
-    (expect (selected-ids (nth-value 1 (json-select "/items" :desc t))) :to-equal '(3 2 1)))
-
-  (it "orders values of mixed types null, false, true, numbers, strings, then containers"
-    (let* ((doc "[{\"v\": \"b\"}, {\"v\": 2}, {\"v\": [1]}, {\"v\": null}, {\"v\": true}, {\"v\": false}, {\"v\": \"a\"}, {}, {\"v\": 1}]")
-           (fields (nth-value 1 (run-flow #'json-select-flow (make-test-ports :files `(("/work/m.json" . ,doc)))
-                                          "m.json" "" :sort-by "/v"))))
-      (expect (mapcar (lambda (item) (json-object-get item "pointer")) (field fields "items"))
-              :to-equal '("/3" "/7" "/5" "/4" "/8" "/1" "/6" "/0" "/2"))))
-
-  (it "compares strings by order and never matches across types"
-    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name<\"b\"")))) :to-equal '(1))
-    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>1")))) :to-be nil))
-
-  (it-each (("without filters" nil 3 "aitools json select d.json /items --output count")
-            ("with one filter" ("/score>=20") 2 "aitools json select d.json /items --where '/score>=20' --output count")
-            ("with multiple filters" ("/score>=20" "/name!=\"beta\"") 2
-             "aitools json select d.json /items --where '/score>=20' --where '/name!=\"beta\"' --output count"))
-      "names the matching count as the next command past --limit ~A"
-      (label where total command)
-    (declare (ignore label))
-    (multiple-value-bind (kind fields) (json-select "/items" :where where :limit 1)
-      (expect kind :to-be :partial)
-      (expect (field fields "total") :to-be total)
-      (expect (field fields "next_commands") :to-equal (list command)))
-    (expect (field (nth-value 1 (json-select "/items" :where where :output "count")) "count")
-            :to-be total)))
-
 (describe "json diff limits"
   (it "is partial past --limit with the total"
     (multiple-value-bind (kind fields)
@@ -261,7 +216,13 @@
       (expect (field fields "truncated") :to-be t))))
 
 (describe "json-equal"
-  (flet ((parsed (text) (parse-json-document/k text :on-value #'identity :on-error (lambda (&rest error) (fail (format nil "~S" error))))))
+  (flet ((parsed (text)
+           (aitools.kernel.domain:flow-call
+            (parse-json-document/k text)
+            (:on-value (value)
+              value)
+            (:on-error (message line column)
+              (fail (format nil "~S" (list message line column)))))))
     (it-each (("{\"a\": 1, \"b\": [1, 2]}" "{\"b\": [1, 2.0], \"a\": 1}" t)
               ("[1, [2]]" "[1, [2]]" t)
               ("[1, 2]" "[2, 1]" nil)

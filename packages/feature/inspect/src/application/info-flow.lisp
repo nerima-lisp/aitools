@@ -7,9 +7,10 @@
 (in-package #:aitools.inspect.application)
 
 (defun %digest-value (algorithm octets)
-  (cond ((string= algorithm "sha256") (sha256-hex octets))
-        ((string= algorithm "sha1") (sha1-hex octets))
-        (t (md5-hex octets))))
+  (cond
+    ((string= algorithm "sha256") (sha256-hex octets))
+    ((string= algorithm "sha1") (sha1-hex octets))
+    (t (md5-hex octets))))
 
 (defun %path-fields (context target)
   (let* ((host (context-host context))
@@ -18,21 +19,30 @@
          (lexical-inside (path-inside-p root-path absolute))
          (lstat (host-stat host absolute))
          (exists (not (eq (file-target-kind target) :absent)))
-         (kind (cond (exists (string-downcase (symbol-name (file-target-kind target))))
-                     ((and lstat (eq (workspace-entry-kind lstat) :symlink)) "symlink")
-                     (t nil))))
+         (kind
+          (cond
+            (exists (string-downcase (symbol-name (file-target-kind target))))
+            ((and lstat (eq (workspace-entry-kind lstat) :symlink)) "symlink")
+            (t nil))))
     (list (cons "absolute" absolute)
           (cons "real" (json-or-null (file-target-real target)))
-          (cons "relative" (json-or-null (and lexical-inside
-                                              (let ((relative (path-relative-to root-path absolute)))
-                                                (if (string= relative "") "." relative)))))
+          (cons "relative"
+                (json-or-null
+                 (and lexical-inside
+                      (let ((relative (path-relative-to root-path absolute)))
+                        (if (string= relative "")
+                            "."
+                            relative)))))
           (cons "exists" (json-bool exists))
           (cons "kind" (json-or-null kind))
           (cons "inside_workspace" (json-bool (file-target-relative target)))
-          (cons "ignored" (json-bool (and (file-target-relative target)
-                                          (plusp (length (file-target-relative target)))
-                                          (workspace-path-ignored-p host (inspect-context-root context)
-                                                                    (file-target-relative target))))))))
+          (cons "ignored"
+                (json-bool
+                 (and (file-target-relative target)
+                      (plusp (length (file-target-relative target)))
+                      (workspace-path-ignored-p host
+                                                (inspect-context-root context)
+                                                (file-target-relative target))))))))
 
 (defun %stat-fields (context target)
   "(VALUES mode mtime) of TARGET: for a path the tx changed, the staged mode
@@ -40,15 +50,24 @@ and the staged mtime (a tx `touch`; NIL after any other change), else the
 disk's."
   (let ((view (inspect-context-view context))
         (relative (file-target-relative target)))
-    (if (and view relative (plusp (length relative))
+    (if (and view
+             relative
+             (plusp (length relative))
              (let ((staged (view-path-state view relative)))
                (or (entry-state-mtime staged)
-                   (not (entry-state-equal staged (workspace-state (inspect-context-store context) relative))))))
+                   (not
+                    (entry-state-equal staged
+                                       (workspace-state
+                                        (inspect-context-store context)
+                                        relative))))))
         (let ((staged (view-path-state view relative)))
           (values (entry-state-mode staged) (entry-state-mtime staged)))
-        (let ((entry (and (file-target-real target) (host-stat (context-host context) (file-target-real target)))))
+        (let ((entry
+               (and (file-target-real target)
+                    (host-stat (context-host context) (file-target-real target)))))
           (if entry
-              (values (workspace-entry-mode entry) (workspace-entry-mtime entry))
+              (values (workspace-entry-mode entry)
+                      (workspace-entry-mtime entry))
               (values nil nil))))))
 
 (defun %content-fields (octets target digest)
@@ -82,9 +101,13 @@ disk's."
 (defun %link-hash-fields (context target)
   "`hash` for a path that is a symlink leading to no regular file (PATH-HASH's
 rule, so the value is the one --expect-hash compares), else nothing."
-  (let ((hash (path-hash (context-host context) (context-root-real context) (inspect-context-view context)
-                         (file-target-absolute target))))
-    (when hash (list (cons "hash" hash)))))
+  (let ((hash
+         (path-hash (context-host context)
+                    (context-root-real context)
+                    (inspect-context-view context)
+                    (file-target-absolute target))))
+    (when hash
+      (list (cons "hash" hash)))))
 
 (aitools.kernel.domain:define-flow
     (info-flow ports path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
@@ -92,49 +115,58 @@ rule, so the value is the one --expect-hash compares), else nothing."
   (declare (ignore on-partial) (type function on-ok on-error))
   (labels ((report-ok (fields)
              (aitools.kernel.domain:flow-continue :on-ok fields))
-           (report-error (code message &rest keys)
-             (if (member :candidates keys)
-                 (aitools.kernel.domain:flow-continue
-                  :on-error code message
-                  :candidates (getf keys :candidates)
-                  :repairs (getf keys :repairs))
-                 (aitools.kernel.domain:flow-continue
-                  :on-error code message :repairs (getf keys :repairs)))))
+           (report-error (code message &key candidates diagnostics conflicts repairs)
+             (aitools.kernel.domain:flow-continue
+              :on-error code message
+              :candidates candidates
+              :diagnostics diagnostics
+              :conflicts conflicts
+              :repairs repairs)))
     (aitools.kernel.domain:flow-call
-        (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
-      (:on-ready (context)
-        (let* ((target (probe-target context path))
-               (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))
-          (flet ((with-stat (fields)
-                   (multiple-value-bind (mode mtime) (%stat-fields context target)
-                     (append fields
-                             (list (cons "mode" (json-or-null (and mode (format-file-mode mode))))
-                                   (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime)))))))))
-            (case (file-target-kind target)
-              (:absent
-               (if allow-missing
-                   (report-ok (append path-fields (%link-hash-fields context target)))
-                   (fail-missing context target #'report-error)))
-              (:file
-               (record-read/k
-                context target
-                :on-error #'report-error
-                :on-recorded
-                (lambda ()
-                  (multiple-value-bind (octets problem) (read-target-octets context target)
-                    (if octets
-                        (let* ((content (%content-fields octets target digest))
-                               (hash-tail (member "hash" content :key #'car :test #'string=)))
-                          ;; mode and mtime sit between the layout fields and hash.
-                          (report-ok (append path-fields
-                                             (with-stat (ldiff content hash-tail))
-                                             hash-tail)))
-                        (fail-target-read context target #'report-error problem))))))
-              (t
-               (let ((entry (and (file-target-real target) (host-stat (context-host context) (file-target-real target)))))
-                 ;; hash follows mode and mtime, as it does for a file.
-                 (report-ok (append (with-stat (append path-fields
-                                                       (list (cons "size" (if entry (workspace-entry-size entry) 0)))))
-                                    (%link-hash-fields context target)))))))))
-      (:on-error (code message &key repairs)
-        (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))
+     (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+     (:on-ready (context)
+       (let* ((target (probe-target context path))
+                      (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))
+                 (flet ((with-stat (fields)
+                          (multiple-value-bind (mode mtime) (%stat-fields context target)
+                            (append fields
+                                    (list (cons "mode" (json-or-null (and mode (format-file-mode mode))))
+                                          (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime)))))))))
+                   (case (file-target-kind target)
+                     (:absent
+                      (if allow-missing
+                          (report-ok (append path-fields (%link-hash-fields context target)))
+                          (fail-missing context target #'report-error)))
+                     (:file
+                      (aitools.kernel.domain:flow-call
+                       (record-read/k context target)
+                       (:on-recorded ()
+                         (multiple-value-bind (octets problem)
+                             (read-target-octets context target)
+                           (if octets
+                               (let* ((content (%content-fields octets target digest))
+                                      (hash-tail (member "hash" content :key #'car :test #'string=)))
+                                 ;; Keep mode and mtime between layout fields and hash.
+                                 (report-ok (append path-fields
+                                                    (with-stat (ldiff content hash-tail))
+                                                    hash-tail)))
+                               (fail-target-read context target #'report-error problem))))
+                       (:on-error (code message &key repairs)
+                         (aitools.kernel.domain:flow-continue
+                          :on-error code message :repairs repairs))))
+                     (t
+                      (let ((entry
+       (and (file-target-real target)
+            (host-stat (context-host context)
+                       (file-target-real target)))))
+  ;; hash follows mode and mtime, as it does for a file.
+  (report-ok
+   (append
+    (with-stat
+     (append path-fields
+             (list
+              (cons "size"
+                    (if entry (workspace-entry-size entry) 0)))))
+    (%link-hash-fields context target)))))))))
+     (:on-error (code message &key repairs)
+       (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))

@@ -7,12 +7,12 @@
 ;;;; once per requested region, not per line.
 (in-package #:aitools.inspect.domain)
 
-(deftype octet-vector () '(simple-array (unsigned-byte 8) (*)))
+(deftype octet-vector ()
+  '(simple-array (unsigned-byte 8) (*)))
 
 ;;; SPLIT-TEXT-LINES and DECODE-TEXT-LINES are core text operations shared by
 ;;; the inspect and vcs contexts; they live in AITOOLS.TEXT.DOMAIN (see
 ;;; packages/core/text/src/domain/lines.lisp) and are imported here.
-
 (defun %utf8-cut (octets start cut)
   "CUT moved back to the start of the UTF-8 character it would split, but
 never before START and at most three bytes (an invalid run is cut as is)."
@@ -33,38 +33,57 @@ decoded."
     ((> first last) (values (vector) 0 '()))
     ((null max-line-bytes)
      (let ((start (line-index-bounds index octets first)))
-       (multiple-value-bind (last-start last-end) (line-index-bounds index octets last)
+       (multiple-value-bind (last-start last-end)
+           (line-index-bounds index octets last)
          (declare (ignore last-start))
-         (multiple-value-bind (string errors) (decode-utf8 octets :start start :end last-end)
+         (multiple-value-bind (string errors)
+             (decode-utf8 octets :start start :end last-end)
            (values (split-text-lines string :keep-cr keep-cr) errors '())))))
     (t
-     (let ((lines (make-array (1+ (- last first)))) (errors 0) (cuts '()))
+     (let ((lines (make-array (1+ (- last first))))
+           (errors 0)
+           (cuts '()))
        (loop for line from first to last
              for slot from 0
-             do (multiple-value-bind (start end) (line-index-bounds index octets line)
-                  (when (and keep-cr (< end (length octets)) (= (aref octets end) 13))
+             do (multiple-value-bind (start end)
+                    (line-index-bounds index octets line)
+                  (when
+                      (and keep-cr
+                           (< end (length octets))
+                           (= (aref octets end) 13))
                     (incf end))
-                  (let ((stop (if (> (- end start) max-line-bytes)
-                                  (%utf8-cut octets start (+ start max-line-bytes))
-                                  end)))
-                    (when (< stop end) (push (cons line stop) cuts))
-                    (multiple-value-bind (string line-errors) (decode-utf8 octets :start start :end stop)
+                  (let ((stop
+                         (if (> (- end start) max-line-bytes)
+                             (%utf8-cut octets start (+ start max-line-bytes))
+                             end)))
+                    (when (< stop end)
+                      (push (cons line stop) cuts))
+                    (multiple-value-bind (string line-errors)
+                        (decode-utf8 octets :start start :end stop)
                       (setf (svref lines slot) string)
                       (incf errors line-errors)))))
        (values lines errors (nreverse cuts))))))
 
-
-(defun decode-charset-lines/k (octets encoding &key keep-cr on-decoded)
-  "Decode OCTETS from ENCODING (a text-context encoding keyword) with
-replacement and call ON-DECODED (lines replacements). A leading U+FEFF is
-dropped, as the BOM is for UTF-8."
-  (declare (type function on-decoded))
-  (decode-octets/k octets encoding
-                   :replace t
-                   :on-decoded (lambda (string replacements)
-                                 (let ((string (if (and (plusp (length string))
-                                                        (char= (char string 0) (code-char #xFEFF)))
-                                                   (subseq string 1)
-                                                   string)))
-                                   (funcall on-decoded (split-text-lines string :keep-cr keep-cr)
-                                            replacements)))))
+(aitools.kernel.domain:define-flow
+ (decode-charset-lines/k octets encoding &key keep-cr on-decoded)
+ "Decode OCTETS with ENCODING (a text-context encoding keyword), replacing
+invalid sequences and dropping a leading BOM. Call ON-DECODED with lines and
+the replacement count."
+ (declare (type function on-decoded))
+ (decode-octets/k octets
+                  encoding
+                  :replace
+                  t
+                  :on-decoded
+                  (lambda (string replacements)
+                    (let ((string
+                           (if (and (plusp (length string))
+                                    (char= (char string 0) (code-char #xFEFF)))
+                               (subseq string 1)
+                               string)))
+                      (aitools.kernel.domain:flow-continue :on-decoded
+                                                           (split-text-lines
+                                                            string
+                                                            :keep-cr
+                                                            keep-cr)
+                                                           replacements)))))

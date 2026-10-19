@@ -2,7 +2,6 @@
 ;;;;
 ;;;; `read` through fake ports.
 (in-package #:aitools.inspect.test)
-
 (defun numbered-lines (count)
   (format nil "~{line ~D~%~}" (loop for n from 1 to count collect n)))
 
@@ -30,6 +29,15 @@ beta
       (expect (length (field fields "lines")) :to-be 80)
       (expect (json-false-value-p (field fields "truncated")) :to-be nil)
       (expect (field fields "next_commands") :to-equal '("aitools read big.txt --range 81:160"))))
+  (it "keeps explicit UTF-8 line cuts byte-addressable"
+    (multiple-value-bind (kind fields)
+        (read-file `(("/work/long.txt" . ,(format nil "~A~%short~%" (make-string 20000 :initial-element #\a))))
+                   "long.txt" :encoding "utf-8")
+      (expect kind :to-be :partial)
+      (expect (field fields "encoding") :to-equal "utf-8")
+      (expect (length (first (field fields "lines"))) :to-be 16384)
+      (expect (field fields "next_commands")
+              :to-contain "aitools read long.txt --as hex --bytes 16384:16640")))
 
   (it "names the next window after an explicit --range that ends early, without truncating"
     (multiple-value-bind (kind fields) (read-file `(("/work/big.txt" . ,(numbered-lines 200))) "big.txt" :range "5:9")
@@ -237,225 +245,3 @@ B
       (expect (getf fields :message) :to-equal "d is a directory, not a file")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools find --depth 1 d"))))
 
-(describe "read windows and continuations"
-  (it-each (("the byte path" () "aitools read big.txt --range 41:120")
-            ("the decoded path" (:escape-invisible t) "aitools read big.txt --range 41:120 --escape-invisible"))
-      "names the window before a truncated --tail on ~A"
-      (label options next)
-    (declare (ignore label))
-    (multiple-value-bind (kind fields)
-        (apply #'read-file `(("/work/big.txt" . ,(numbered-lines 200))) "big.txt" :tail 100 options)
-      (expect kind :to-be :partial)
-      (expect (field fields "start_line") :to-be 121)
-      (expect (length (field fields "lines")) :to-be 80)
-      (expect (field fields "next_commands") :to-equal (list next))))
-
-  (it-each (("the byte path" ())
-            ("the decoded path" (:escape-invisible t)))
-      "reads an empty file as no lines on ~A"
-      (label options)
-    (declare (ignore label))
-    (multiple-value-bind (kind fields) (apply #'read-file '(("/work/e.txt" . "")) "e.txt" options)
-      (expect kind :to-be :ok)
-      (expect (field fields "lines") :to-be nil)
-      (expect (field fields "total_lines") :to-be 0)))
-
-  (it "reports a --range on an empty file as selection.no-match without candidates"
-    (multiple-value-bind (kind fields) (read-file '(("/work/e.txt" . "")) "e.txt" :range "1")
-      (expect kind :to-be :error)
-      (expect (error-code fields) :to-equal "selection.no-match")
-      (expect (getf fields :candidates) :to-be nil)))
-
-  (it "shows no lines for --between --exclusive around adjacent lines"
-    (multiple-value-bind (kind fields) (read-file '(("/work/b.txt" . "a
-b
-c
-")) "b.txt" :between '("^a" "^b") :exclusive t)
-      (expect kind :to-be :ok)
-      (expect (field fields "start_line") :to-be 2)
-      (expect (field fields "lines") :to-be nil)))
-
-  (it "names every --match line, keeping --invert, when --max-lines cuts them"
-    (multiple-value-bind (kind fields) (read-file `(("/work/m.txt" . ,(numbered-lines 5))) "m.txt"
-                                                  :match "line [12]" :invert t :max-lines 1)
-      (expect kind :to-be :partial)
-      (expect (field fields "line_numbers") :to-equal '(3))
-      (expect (field fields "next_commands")
-              :to-equal '("aitools read m.txt --match 'line [12]' --invert --max-lines 3")))))
-
-(describe "read hex and strings arguments"
-  (it-each (("--bytes without --as hex" (:bytes "0:4") "--bytes needs --as hex")
-            ("--encoding with --as hex" (:as "hex" :encoding "shift_jis")
-             "--encoding and --escape-invisible apply to --as text only")
-            ("--escape-invisible with --as strings" (:as "strings" :escape-invisible t)
-             "--encoding and --escape-invisible apply to --as text only")
-            ("a reversed --bytes span" (:as "hex" :bytes "5:2") "--bytes \"5:2\" is not S:E or S:")
-            ("a --bytes without a colon" (:as "hex" :bytes "12") "--bytes \"12\" is not S:E or S:"))
-      "rejects ~A"
-      (label options message)
-    (declare (ignore label))
-    (multiple-value-bind (kind fields) (apply #'read-file '(("/work/h.bin" . "0123456789")) "h.bin" options)
-      (expect kind :to-be :error)
-      (expect (error-code fields) :to-equal "argument.invalid")
-      (expect (getf fields :message) :to-contain message)))
-
-  (it "dumps --bytes S: to the end of the file"
-    (multiple-value-bind (kind fields) (read-file '(("/work/h.bin" . "0123456789")) "h.bin" :as "hex" :bytes "6:")
-      (expect kind :to-be :ok)
-      (expect (list (field fields "start") (field fields "end")) :to-equal '(6 10))
-      (expect (json-object-get (first (field fields "rows")) "hex") :to-equal "36 37 38 39")))
-
-  (it "names the next 256 bytes after the default hex window"
-    (let ((octets (make-array 300 :element-type '(unsigned-byte 8) :initial-element 65)))
-      (multiple-value-bind (kind fields) (read-file `(("/work/h.bin" . ,octets)) "h.bin" :as "hex")
-        (expect kind :to-be :ok)
-        (expect (field fields "end") :to-be 256)
-        (expect (field fields "next_commands") :to-equal '("aitools read h.bin --as hex --bytes 256:300")))))
-
-  (it "names every run when --max-lines cuts --as strings"
-    (let ((octets (concatenate '(vector (unsigned-byte 8)) (string-bytes "first") #(0) (string-bytes "second") #(0))))
-      (multiple-value-bind (kind fields) (read-file `(("/work/s.bin" . ,octets)) "s.bin" :as "strings" :max-lines 1)
-        (expect kind :to-be :partial)
-        (expect (field fields "total") :to-be 2)
-        (expect (field fields "next_commands")
-                :to-equal '("aitools read s.bin --as strings --min-length 4 --max-lines 2"))))))
-
-(describe "missing-path candidates on a large workspace"
-  (it "ranks only the first 20000 scanned paths"
-    (let ((files (cons '("/work/z/target-near.txt" . "late")
-                       (loop for index below 20000
-                             collect (cons (format nil "/work/a/f~5,'0D.txt" index) "")))))
-      (multiple-value-bind (kind fields) (read-file files "z/target-nea.txt")
-        (expect kind :to-be :error)
-        (expect (error-code fields) :to-equal "input.not-found")
-        ;; z/target-near.txt is the nearest path but lies past the scan bound.
-        (expect (find "z/target-near.txt" (getf fields :candidates)
-                      :key (lambda (candidate) (json-object-get candidate "path")) :test #'string=)
-                :to-be nil))))
-
-  (it "offers z/target-near.txt when the workspace is small"
-    (multiple-value-bind (kind fields) (read-file '(("/work/z/target-near.txt" . "x") ("/work/a/f.txt" . ""))
-                                                  "z/target-nea.txt")
-      (expect kind :to-be :error)
-      (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "z/target-near.txt"))))
-
-(defun %recording-read-ports (octets reads &key range)
-  "Ports over the one file /work/big.bin (OCTETS) whose TEXT-SOURCE pushes an
-(operation . arguments) record onto (car READS) for every read. With RANGE
-the source also has a ranged read; without it the port composes one."
-  (let ((nodes (make-fake-filesystem :files `(("/work/big.bin" . ,octets)) :directories '("/work"))))
-    (flet ((note (&rest record) (push record (car reads))))
-      (make-inspect-ports
-       :workspace-host (make-fake-host nodes)
-       :text-source (apply #'aitools.text.application:make-text-source
-                           :file-size (lambda (path) (note :size path) (length octets))
-                           :read-prefix (lambda (path count)
-                                          (note :prefix path count)
-                                          (subseq octets 0 (min count (length octets))))
-                           :read-octets (lambda (path) (note :all path) octets)
-                           :call-with-chunks (lambda (path size function)
-                                               (note :chunks path size)
-                                               (loop for start from 0 below (length octets) by size
-                                                     until (eq (funcall function
-                                                                        (subseq octets start
-                                                                                (min (length octets) (+ start size))))
-                                                               :stop))
-                                               t)
-                           (when range
-                             (list :read-range
-                                   (lambda (path start end)
-                                     (note :range path start end)
-                                     (let ((end (min end (length octets))))
-                                       (values (subseq octets (min start end) end) (length octets)))))))
-       :open-store (lambda (root) (fail (format nil "open-store ~A" root)))
-       :state-directory-function (constantly nil)))))
-
-(defun %patterned-octets (size)
-  (let ((octets (make-array size :element-type '(unsigned-byte 8))))
-    (dotimes (index size octets) (setf (aref octets index) (mod index 251)))))
-
-(describe "read --as hex and --as strings read only what they show"
-  (it-each (("a composed ranged read" nil) ("the source's ranged read" t))
-      "dumps a --bytes window of a large file through ~A without reading the whole file"
-      (label range)
-    (declare (ignore label))
-    (let ((reads (list nil)))
-      (multiple-value-bind (kind fields)
-          (run-flow #'read-flow (%recording-read-ports (%patterned-octets (* 1024 1024)) reads :range range)
-                    "big.bin" :as "hex" :bytes "600000:600020")
-        (expect kind :to-be :ok)
-        (expect (list (field fields "size") (field fields "start") (field fields "end"))
-                :to-equal (list (* 1024 1024) 600000 600020))
-        (expect (mapcar (lambda (row) (json-object-get row "offset")) (field fields "rows")) :to-equal '(600000 600016))
-        (expect (json-object-get (second (field fields "rows")) "hex")
-                :to-equal (format nil "~{~(~2,'0x~)~^ ~}" (loop for index from 600016 below 600020 collect (mod index 251))))
-        (expect (find :all (car reads) :key #'first) :to-be nil))))
-
-  (it "asks the source's ranged read for the window and a bounded redaction margin only"
-    (let ((reads (list nil)))
-      (run-flow #'read-flow (%recording-read-ports (%patterned-octets (* 1024 1024)) reads :range t)
-                "big.bin" :as "hex" :bytes "600000:600020")
-      (let ((ranges (remove :range (car reads) :key #'first :test-not #'eq)))
-        (expect (length ranges) :to-be 1)
-        (destructuring-bind (operation path start end) (first ranges)
-          (declare (ignore operation path))
-          (expect (<= start 600000) :to-be t)
-          (expect (>= end 600020) :to-be t)
-          (expect (<= (- end start) (+ 20 (* 2 4096))) :to-be t)))))
-
-  (it "lists --as strings of a large file chunk by chunk, keeping runs and characters split across chunks"
-    (let* ((octets (make-array (* 3 65536) :element-type '(unsigned-byte 8) :initial-element 0))
-           (straddling (string-bytes (format nil "straddle~Crun" (code-char #x3042))))
-           (reads (list nil)))
-      (replace octets (string-bytes "first") :start1 10)
-      ;; The run starts before the 64 KiB chunk edge and its 3-byte character
-      ;; sits across it.
-      (replace octets straddling :start1 (- 65536 9))
-      (replace octets (string-bytes "last") :start1 (- (* 3 65536) 4))
-      (multiple-value-bind (kind fields)
-          (run-flow #'read-flow (%recording-read-ports octets reads) "big.bin" :as "strings")
-        (expect kind :to-be :ok)
-        (expect (field fields "size") :to-be (* 3 65536))
-        (expect (mapcar (lambda (item) (list (json-object-get item "offset") (json-object-get item "text")))
-                        (field fields "strings"))
-                :to-equal (list (list 10 "first")
-                                (list (- 65536 9) (format nil "straddle~Crun" (code-char #x3042)))
-                                (list (- (* 3 65536) 4) "last")))
-        (expect (find :all (car reads) :key #'first) :to-be nil)))))
-
-(describe "read cuts a line longer than the per-line byte cap"
-  (flet ((long-file (line) `(("/work/long.txt" . ,(format nil "~A~%short~%" line)))))
-    (it-each (("the byte path" ())
-              ("the decoded path" (:escape-invisible t))
-              ("a --match selection" (:match "a")))
-        "returns the first 16384 bytes, marks the line, and names the --as hex rest on ~A"
-        (label options)
-      (declare (ignore label))
-      (multiple-value-bind (kind fields)
-          (apply #'read-file (long-file (make-string 50000 :initial-element #\a)) "long.txt" options)
-        (expect kind :to-be :partial)
-        (expect (length (first (field fields "lines"))) :to-be 16384)
-        (expect (field fields "cut_lines") :to-equal '(1))
-        (expect (json-false-value-p (field fields "truncated")) :to-be nil)
-        (expect (field fields "next_commands") :to-contain "aitools read long.txt --as hex --bytes 16384:16640")))
-
-    (it "cuts before a multi-byte character the cap would split"
-      (multiple-value-bind (kind fields)
-          (read-file (long-file (make-string 6000 :initial-element (code-char #x3042))) "long.txt")
-        (expect kind :to-be :partial)
-        (expect (field fields "lines") :to-equal (list (make-string 5461 :initial-element (code-char #x3042)) "short"))
-        (expect (field fields "encoding_errors") :to-be 0)
-        (expect (field fields "next_commands") :to-contain "aitools read long.txt --as hex --bytes 16383:16639")))
-
-    (it "leaves a line of exactly 16384 bytes whole"
-      (multiple-value-bind (kind fields) (read-file (long-file (make-string 16384 :initial-element #\a)) "long.txt")
-        (expect kind :to-be :ok)
-        (expect (length (first (field fields "lines"))) :to-be 16384)
-        (expect (field fields "cut_lines") :to-be nil)))
-
-    (it "cuts by characters with --encoding and still marks the line"
-      (multiple-value-bind (kind fields)
-          (read-file (long-file (make-string 20000 :initial-element #\a)) "long.txt" :encoding "iso-8859-1")
-        (expect kind :to-be :partial)
-        (expect (length (first (field fields "lines"))) :to-be 16384)
-        (expect (field fields "cut_lines") :to-equal '(1))))))

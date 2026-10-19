@@ -16,13 +16,13 @@
          options))
 
 (defun resolve (lines selector &key path)
-  "(VALUES outcome payload) of RESOLVE-SELECTOR/K."
+  "Returns the outcome and payload, plus the invalid message when present."
   (resolve-selector/k lines selector
                       :path path
                       :on-selected (lambda (ranges) (values :selected ranges))
                       :on-no-match (lambda (candidates) (values :no-match candidates))
                       :on-ambiguous (lambda (candidates) (values :ambiguous candidates))
-                      :on-invalid (lambda (code message) (declare (ignore message)) (values :invalid code))))
+                      :on-invalid (lambda (code message) (values :invalid code message))))
 
 (defun symbol-range (text path name &key kind)
   (multiple-value-bind (outcome ranges)
@@ -230,7 +230,12 @@ function g() {}" "a.js" "f")
       "rejects an invalid start or end pattern ~S ~S as input.syntax-error"
       (start end)
     (expect (nth-value 1 (resolve (lines-of "a" "b") (aitools.kernel.domain:make-between-selector start end)))
-            :to-equal "input.syntax-error")))
+            :to-equal "input.syntax-error"))
+  (it "reports input.syntax-error when a --between regex exhausts the step budget"
+    (expect (nth-value 2
+                       (resolve (lines-of (make-string 40 :initial-element #\a))
+                                (aitools.kernel.domain:make-between-selector "(a+)+(?=[bc])" "^z")))
+            :to-contain "the --between pattern is too complex")))
 
 (describe "sexp-end-line"
   (it "ends at the last line when the form never closes"

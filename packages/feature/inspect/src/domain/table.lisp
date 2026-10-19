@@ -50,38 +50,74 @@ when neither decides. ws, sep, and lines are never detected."
 
 ;;; ------------------------------------------------------------ splitting
 
-(defun %csv-records/k (text delimiter on-records on-error)
-  "RFC 4180 records of TEXT (lists of strings). ON-ERROR (message line) for
+(aitools.kernel.domain:define-flow
+ (%csv-records/k text delimiter &key on-records on-error)
+ "RFC 4180 records of TEXT (lists of strings). ON-ERROR (message line) for
 a quoted field left open."
-  (let ((records '()) (record '()) (field (make-string-output-stream))
-        (index 0) (length (length text)) (line 1) (quoted nil) (quote-line 1) (any nil))
-    (flet ((end-field () (push (get-output-stream-string field) record) (setf any t))
-           (end-record ()
-             (push (nreverse record) records)
-             (setf record '() any nil)))
-      (loop while (< index length)
-            do (let ((char (char text index)))
-                 (cond
-                   (quoted
-                    (cond ((and (char= char #\") (< (1+ index) length) (char= (char text (1+ index)) #\"))
-                           (write-char #\" field) (incf index 2))
-                          ((char= char #\") (setf quoted nil) (incf index))
-                          (t (when (char= char #\Newline) (incf line))
-                             (write-char char field) (incf index))))
-                   ((char= char #\")
-                    (setf quoted t quote-line line any t) (incf index))
-                   ((char= char delimiter) (end-field) (incf index))
-                   ((char= char #\Newline)
-                    (end-field) (end-record) (incf line) (incf index))
-                   ((and (char= char #\Return) (< (1+ index) length) (char= (char text (1+ index)) #\Newline))
-                    (incf index))
-                   (t (write-char char field) (setf any t) (incf index)))))
-      (when quoted
-        (return-from %csv-records/k (funcall on-error "unterminated quoted field" quote-line)))
-      (when (or any record)
-        (end-field)
-        (end-record))
-      (funcall on-records (nreverse records)))))
+ (declare (type function on-records on-error))
+ (let ((records '())
+       (record '())
+       (field (make-string-output-stream))
+       (index 0)
+       (length (length text))
+       (line 1)
+       (quoted nil)
+       (quote-line 1)
+       (any nil))
+   (flet ((end-field ()
+            (push (get-output-stream-string field) record)
+            (setf any t))
+          (end-record ()
+            (push (nreverse record) records)
+            (setf record '()
+                  any nil)))
+     (loop while (< index length)
+           do (let ((char (char text index)))
+                (cond
+                  (quoted
+                   (cond ((and (char= char #\") (< (1+ index) length)
+                               (char= (char text (1+ index)) #\"))
+                          (write-char #\" field)
+                          (incf index 2))
+                         ((char= char #\")
+                          (setf quoted nil)
+                          (incf index))
+                         (t
+                          (when (char= char #\Newline)
+                            (incf line))
+                          (write-char char field)
+                          (incf index))))
+                  ((char= char #\")
+                   (setf quoted t
+                         quote-line line
+                         any t)
+                   (incf index))
+                  ((char= char delimiter)
+                   (end-field)
+                   (incf index))
+                  ((char= char #\Newline)
+                   (end-field)
+                   (end-record)
+                   (incf line)
+                   (incf index))
+                  ((and (char= char #\Return)
+                        (< (1+ index) length)
+                        (char= (char text (1+ index)) #\Newline))
+                   (incf index))
+                  (t
+                   (write-char char field)
+                   (setf any t)
+                   (incf index)))))
+     (if quoted
+         (aitools.kernel.domain:flow-continue
+          :on-error "unterminated quoted field" quote-line)
+         (progn
+           (when (or any record)
+             (end-field)
+             (end-record))
+           (aitools.kernel.domain:flow-continue
+            :on-records
+            (nreverse records)))))))
 
 (defun %split-on (line delimiter)
   "LINE split at every occurrence of the non-empty string DELIMITER."
@@ -146,9 +182,14 @@ fields, the last holding the rest of the line verbatim (the --ws-columns opt-in)
          (body (if (or (zerop (length body)) (not (char<= #\0 (char body 0) #\9)))
                    (concatenate 'string "0" body)
                    body)))
-    (parse-json-document/k (if negative (concatenate 'string "-" body) body)
-                           :on-value (lambda (value) (and (numberp value) value))
-                           :on-error (lambda (message line column) (declare (ignore message line column)) nil))))
+    (aitools.kernel.domain:flow-call
+        (parse-json-document/k
+         (if negative (concatenate 'string "-" body) body))
+      (:on-value (value)
+        (and (numberp value) value))
+      (:on-error (message line column)
+        (declare (ignore message line column))
+        nil))))
 
 (defun %cell-class (text)
   (cond ((zerop (length text)) :null)

@@ -162,6 +162,10 @@ with its scanner dialect, or NIL when the extension names neither."
 (defun json-diagnostics (text)
   "NIL when TEXT is one valid JSON document, else a one-element list
 (line col message)."
-  (parse-json-document/k text
-                         :on-value (lambda (value) (declare (ignore value)) nil)
-                         :on-error (lambda (message line column) (list (list line column message)))))
+  (aitools.kernel.domain:flow-call
+   (parse-json-document/k text)
+   (:on-value (value)
+     (declare (ignore value))
+     nil)
+   (:on-error (message line column)
+     (list (list line column message)))))

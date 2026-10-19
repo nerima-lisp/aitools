@@ -14,27 +14,41 @@
            (let ((number (parse-integer spec)))
              (and (<= 1 number (length (table-columns table))) (1- number))))))
 
-(defun table-comparison/k (table text &key on-comparison on-error)
-  "Parse `--where <column><op><value>` against TABLE and call ON-COMPARISON
+(aitools.kernel.domain:define-flow
+ (table-comparison/k table text &key on-comparison on-error)
+ "Parse a column comparison against TABLE and call ON-COMPARISON
 (comparison) keyed by the column index, or ON-ERROR (message). A string
 column compares with the value's text as typed."
-  (declare (type function on-comparison on-error))
-  (multiple-value-bind (left operator right) (split-comparison text)
-    (let ((index (and left (table-column-index table left))))
-      (cond
-        ((null left) (funcall on-error (format nil "--where ~S has no operator (= != < <= > >= ~~)" text)))
-        ((null index) (funcall on-error (format nil "--where names no column ~S; columns: ~{~A~^, ~}"
-                                                left (table-columns table))))
-        (t
-         (make-comparison/k index operator right
-                            :on-error on-error
-                            :on-comparison
-                            (lambda (comparison)
-                              (funcall on-comparison
-                                       (if (and (string= (nth index (table-types table)) "string")
-                                                (not (eq (comparison-operator comparison) :match)))
-                                           (%make-comparison index (comparison-operator comparison) right nil)
-                                           comparison)))))))))
+ (declare (type function on-comparison on-error))
+ (multiple-value-bind (left operator right) (split-comparison text)
+   (let ((index (and left (table-column-index table left))))
+     (cond
+       ((null left)
+        (aitools.kernel.domain:flow-continue
+         :on-error
+         (format nil "--where ~S has no operator (= != < <= > >= ~~)"
+                 text)))
+       ((null index)
+        (aitools.kernel.domain:flow-continue
+         :on-error
+         (format nil "--where names no column ~S; columns: ~{~A~^, ~}"
+                 left (table-columns table))))
+       (t
+        (aitools.kernel.domain:flow-call
+            (make-comparison/k index operator right)
+          (:on-error (message)
+            (aitools.kernel.domain:flow-continue
+             :on-error message))
+          (:on-comparison (comparison)
+            (aitools.kernel.domain:flow-continue
+             :on-comparison
+             (if (and (string= (nth index (table-types table)) "string")
+                      (not (eq (comparison-operator comparison) :match)))
+                 (%make-comparison index
+                                   (comparison-operator comparison)
+                                   right
+                                   nil)
+                 comparison)))))))))
 
 (defun table-row-matches-p (row comparisons)
   (every (lambda (comparison)

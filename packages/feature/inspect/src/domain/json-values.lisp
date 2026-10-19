@@ -43,23 +43,30 @@ keys, the last one wins, as JSON parsers commonly resolve them."
   "VALUE as compact JSON text."
   (json-kit:stringify value))
 
-(defun parse-json-document/k (text &key on-value on-error)
-  "Parse TEXT as one JSON document and call exactly one continuation:
+(aitools.kernel.domain:define-flow
+ (parse-json-document/k text &key on-value on-error)
+ "Parse TEXT as one JSON document and call exactly one continuation:
 ON-VALUE (value) or ON-ERROR (message line column), LINE and COLUMN 1-based.
 Objects keep their key order; a repeated key keeps its last value."
-  (declare (type function on-value on-error))
-  (let ((value (handler-case
-                   (json-kit:parse text :object-type :alist :array-type :vector
-                                        :duplicate-key-policy :last
-                                        :object-hook #'json-kit:make-json-object)
-                 (json-kit:json-parse-error (condition)
-                   (return-from parse-json-document/k
-                     (funcall on-error
-                              (format nil "expected ~A"
-                                      (or (json-kit:json-parse-error-expected condition) "valid JSON"))
-                              (json-kit:json-parse-error-line condition)
-                              (json-kit:json-parse-error-column condition)))))))
-    (funcall on-value value)))
+ (declare (type function on-value on-error))
+ (multiple-value-bind (value condition)
+     (handler-case
+         (values
+          (json-kit:parse text :object-type :alist :array-type :vector
+                              :duplicate-key-policy :last
+                              :object-hook #'json-kit:make-json-object)
+          nil)
+       (json-kit:json-parse-error (condition)
+         (values nil condition)))
+   (if condition
+       (aitools.kernel.domain:flow-continue
+        :on-error
+        (format nil "expected ~A"
+                (or (json-kit:json-parse-error-expected condition)
+                    "valid JSON"))
+        (json-kit:json-parse-error-line condition)
+        (json-kit:json-parse-error-column condition))
+       (aitools.kernel.domain:flow-continue :on-value value))))
 
 (defun json-type-name (value)
   (cond ((json-object-value-p value) "object")

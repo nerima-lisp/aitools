@@ -3,19 +3,19 @@
 
 (defpackage #:aitools.test.support
   (:use #:cl)
-  (:export
+  (:export #:call-with-temporary-directory
    #:call-with-workspace
-   #:with-workspace
-   #:with-temporary-directory
-   #:run-aitools
    #:envelope-value
-   #:read-bytes
-   #:write-bytes
-   #:read-text
-   #:write-text
-   #:tool-path
-   #:skip-unless-tools
-   #:to-match-envelope
    #:json-alist
    #:json-alist-value
-   #:string-bytes))
+   #:read-bytes
+   #:read-text
+   #:run-aitools
+   #:skip-unless-tools
+   #:string-bytes
+   #:to-match-envelope
+   #:tool-path
+   #:with-temporary-directory
+   #:with-workspace
+   #:write-bytes
+   #:write-text))

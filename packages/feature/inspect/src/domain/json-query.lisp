@@ -43,11 +43,27 @@
   "(VALUES child present-p) of VALUE under one reference TOKEN."
   (aitools.kernel.domain:json-model-child *json-value-model* value token))
 
-(defun resolve-json-pointer/k (document tokens &key on-found on-missing)
-  "Walk TOKENS from DOCUMENT and call ON-FOUND (value) or ON-MISSING
-  (parent-tokens parent token), PARENT being the deepest value that exists."
-  (aitools.kernel.domain:json-model-resolve/k
-   *json-value-model* document tokens :on-found on-found :on-missing on-missing))
+(aitools.kernel.domain:define-flow
+ (resolve-json-pointer/k document tokens &key on-found on-missing)
+ "Walk TOKENS from DOCUMENT and continue with ON-FOUND (value) or ON-MISSING
+ (parent-tokens parent token), PARENT being the deepest value that exists."
+ (let ((value document)
+       (missing nil))
+   (loop for token in tokens
+         for depth from 0
+         while (null missing)
+         do (multiple-value-bind (child present) (json-child value token)
+              (if present
+                  (setf value child)
+                  (setf missing
+                        (list (subseq tokens 0 depth) value token)))))
+   (if missing
+       (aitools.kernel.domain:flow-continue
+        :on-missing
+        (first missing)
+        (second missing)
+        (third missing))
+       (aitools.kernel.domain:flow-continue :on-found value))))
 
 (defun json-child-names (value)
   "The keys of an object, or the indexes (as strings) of an array."
@@ -59,28 +75,41 @@
 
 ;;; ------------------------------------------------------------ comparison
 
-(defparameter *comparison-operators* '("!=" "<=" ">=" "=" "<" ">" "~")
-  "The `--where` comparison operators, two-character ones first so `<=` is not
+(progn
+ (defparameter *comparison-operators* '("!=" "<=" ">=" "=" "<" ">" "~")
+   "The `--where` comparison operators, two-character ones first so `<=` is not
 read as `<`.")
+ (defparameter *comparison-position-before-form*
+   '(lambda (position best)
+      (or (null best) (< position best))))
+ (defparameter *comparison-position-before-p*
+   (compile nil *comparison-position-before-form*)))
 
 (defun split-comparison (text)
-  "(VALUES left operator right) splitting TEXT at the earliest operator
+ "(VALUES left operator right) splitting TEXT at the earliest operator
 (the longest one at that position), or NIL when TEXT has none."
-  (let ((best nil) (best-operator nil))
-    (dolist (operator *comparison-operators*)
-      (let ((position (search operator text)))
-        (when (and position (or (null best) (< position best)))
-          (setf best position best-operator operator))))
-    (when best
-      (values (subseq text 0 best) best-operator (subseq text (+ best (length best-operator)))))))
+ (let ((best nil) (best-operator nil))
+   (dolist (operator *comparison-operators*)
+     (let ((position (search operator text)))
+       (when (and position
+                  (funcall *comparison-position-before-p* position best))
+         (setf best position best-operator operator))))
+   (when best
+     (values (subseq text 0 best)
+             best-operator
+             (subseq text (+ best (length best-operator)))))))
 
-(defun parse-comparison-value (text)
-  "TEXT as a JSON value when it parses as one, else as a plain string, so
+(aitools.kernel.domain:define-flow
+ (parse-comparison-value text &key on-value)
+ "TEXT as a JSON value when it parses as one, else as a plain string, so
 `--where /name=alice` works without JSON quotes."
-  (parse-json-document/k text :on-value #'identity
-                              :on-error (lambda (message line column)
-                                          (declare (ignore message line column))
-                                          text)))
+ (aitools.kernel.domain:flow-call
+  (parse-json-document/k text)
+  (:on-value (value)
+    (aitools.kernel.domain:flow-continue :on-value value))
+  (:on-error (message line column)
+    (declare (ignore message line column))
+    (aitools.kernel.domain:flow-continue :on-value text))))
 
 (defstruct (comparison (:constructor %make-comparison (key operator value regex)) (:copier nil))
   "KEY is what the left side names (pointer tokens or a column name);
@@ -95,16 +124,27 @@ OPERATOR a keyword; VALUE the right side; REGEX the compiled `~` pattern."
                          (">" . :greater) (">=" . :greater-equal) ("~" . :match))
               :test #'string=)))
 
-(defun make-comparison/k (key operator right &key on-comparison on-error)
-  "A COMPARISON of KEY OPERATOR RIGHT (the texts from SPLIT-COMPARISON);
+(aitools.kernel.domain:define-flow
+ (make-comparison/k key operator right &key on-comparison on-error)
+ "A COMPARISON of KEY OPERATOR RIGHT (the texts from SPLIT-COMPARISON);
 ON-ERROR (message) for a bad `~` pattern."
-  (declare (type function on-comparison on-error))
-  (let ((keyword (%operator-keyword operator)))
-    (if (eq keyword :match)
-        (compile-pattern/k right :on-error on-error
-                                 :on-compiled (lambda (regex)
-                                                (funcall on-comparison (%make-comparison key keyword right regex))))
-        (funcall on-comparison (%make-comparison key keyword (parse-comparison-value right) nil)))))
+ (declare (type function on-comparison on-error))
+ (let ((keyword (%operator-keyword operator)))
+   (if (eq keyword :match)
+       (aitools.kernel.domain:flow-call
+        (compile-pattern/k right)
+        (:on-compiled (regex)
+          (aitools.kernel.domain:flow-continue
+           :on-comparison
+           (%make-comparison key keyword right regex)))
+        (:on-error (message)
+          (aitools.kernel.domain:flow-continue :on-error message)))
+       (aitools.kernel.domain:flow-call
+        (parse-comparison-value right)
+        (:on-value (value)
+          (aitools.kernel.domain:flow-continue
+           :on-comparison
+           (%make-comparison key keyword value nil)))))))
 
 (defun %ordered-compare (left right)
   "-1, 0, or 1 for two numbers or two strings, else NIL."
