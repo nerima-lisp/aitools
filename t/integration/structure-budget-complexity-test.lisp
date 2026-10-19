@@ -68,7 +68,9 @@
 
 (defun complex-function-inventory (root)
   (let ((depths (make-hash-table :test #'equal)))
-    (dolist (pathname (%budget-pathnames root "packages/**/src/**/*.lisp"))
+    (dolist (pathname
+              (append (%budget-pathnames root "src/**/*.lisp")
+                      (%budget-pathnames root "packages/**/src/**/*.lisp")))
       (dolist (platform (list :darwin :linux))
         (dolist (form (%budget-read-source-forms pathname platform))
           (multiple-value-bind (name body)
@@ -106,12 +108,19 @@
         (if match
             (let ((maximum (third (nth match remaining))))
               (setf (nth match remaining) nil)
-              (when (> depth maximum)
-                (push
-                 (format nil
-                         "~A:~A nesting depth ~D exceeds its ratchet of ~D"
-                         path name depth maximum)
-                 violations)))
+              (cond
+                ((> depth maximum)
+                 (push
+                  (format nil
+                          "~A:~A nesting depth ~D exceeds its ratchet of ~D"
+                          path name depth maximum)
+                  violations))
+                ((< depth maximum)
+                 (push
+                  (format nil
+                          "~A:~A nesting depth ~D is below its ratchet of ~D; lower the ratchet"
+                          path name depth maximum)
+                  violations))))
             (push
              (format nil
                      "~A:~A has new control nesting depth ~D (limit ~D)"
@@ -125,27 +134,79 @@
          violations)))
     (sort violations #'string<)))
 
+(defun %complex-budget-fixture-violations (depth ratchet)
+  (aitools.test.support:call-with-workspace
+   (lambda (root state)
+     (declare (ignore state))
+     (let* ((root-pathname (uiop:ensure-directory-pathname root))
+            (source-path
+              (merge-pathnames "src/composition.lisp" root-pathname))
+            (form "nil"))
+       (loop repeat depth
+             do (setf form (format nil "(if t ~A nil)" form)))
+       (ensure-directories-exist source-path)
+       (with-open-file (output source-path
+                               :direction :output
+                               :if-exists :supersede)
+         (format output "(defun fixture () ~A)~%" form))
+       (let ((*complex-function-ratchet* ratchet))
+         (complex-function-violations root-pathname))))
+   :prefix "aitools-complex-budget"))
 (describe "aitools structure budgets (control nesting)"
-          (it
-           "keeps the fixed inventory of deeply nested functions at or below its measured depths"
-           (expect *complex-function-depth-limit* :to-equal 4)
-           (expect (length *complex-function-ratchet*) :to-equal 19)
-           (let ((inventory (complex-function-inventory (repository-root))))
-             (expect
-              (member
-               (list "packages/feature/process/src/infrastructure/signal-host.lisp"
-                     "%DARWIN-ARGV"
-                     6)
-               inventory
-               :test #'equal)
-              :to-be-truthy)
-             (expect
-              (member
-               (list "packages/feature/process/src/infrastructure/signal-host.lisp"
-                     "%HOST-PROCESS-INFO"
-                     5)
-               inventory
-               :test #'equal)
-              :to-be-truthy)
-             (expect (complex-function-violations (repository-root))
-                     :to-equal nil))))
+  (it "keeps the fixed inventory of deeply nested functions at or below measured depths"
+    (expect *complex-function-depth-limit* :to-equal 4)
+    (expect (length *complex-function-ratchet*) :to-equal 19)
+    (let ((inventory (complex-function-inventory (repository-root))))
+      (expect
+       (member
+        (list "packages/feature/process/src/infrastructure/signal-host.lisp"
+              "%DARWIN-ARGV"
+              6)
+        inventory
+        :test #'equal)
+       :to-be-truthy)
+      (expect
+       (member
+        (list "packages/feature/process/src/infrastructure/signal-host.lisp"
+              "%HOST-PROCESS-INFO"
+              5)
+        inventory
+        :test #'equal)
+       :to-be-truthy)
+      (expect (complex-function-violations (repository-root)) :to-equal nil)))
+  (it "passes a clean top-level src fixture with a matching depth ratchet"
+    (expect
+     (%complex-budget-fixture-violations
+      5
+      '(("src/composition.lisp" "FIXTURE" 5)))
+     :to-equal nil))
+  (it "rejects new deeply nested functions in top-level src"
+    (expect
+     (some (lambda (violation)
+             (search "new control nesting depth" violation))
+           (%complex-budget-fixture-violations 5 nil))
+     :to-be-truthy))
+  (it "rejects nesting depths above their ratchets"
+    (expect
+     (some (lambda (violation)
+             (search "exceeds its ratchet" violation))
+           (%complex-budget-fixture-violations
+            6
+            '(("src/composition.lisp" "FIXTURE" 5))))
+     :to-be-truthy))
+  (it "rejects nesting ratchets above the measured depths"
+    (expect
+     (some (lambda (violation)
+             (search "below its ratchet" violation))
+           (%complex-budget-fixture-violations
+            5
+            '(("src/composition.lisp" "FIXTURE" 6))))
+     :to-be-truthy))
+  (it "rejects stale complex-function ratchets"
+    (expect
+     (some (lambda (violation)
+             (search "stale complex-function ratchet entry" violation))
+           (%complex-budget-fixture-violations
+            4
+            '(("src/composition.lisp" "FIXTURE" 5))))
+     :to-be-truthy)))

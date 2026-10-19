@@ -29,7 +29,9 @@
     (t nil)))
 
 (defun literal-table-inventory (root)
-  (loop for pathname in (%budget-pathnames root "packages/**/src/**/*.lisp")
+  (loop for pathname in
+          (append (%budget-pathnames root "src/**/*.lisp")
+                  (%budget-pathnames root "packages/**/src/**/*.lisp"))
         for platform-candidates =
           (loop for platform in (list :darwin :linux)
                 collect
@@ -78,12 +80,19 @@
                 (t
                  (loop for size in sizes
                        for maximum in maximum-sizes
-                       when (> size maximum)
-                         do (push
-                             (format nil
-                                     "~A has a quoted table of size ~D, above its ratchet of ~D"
-                                     path size maximum)
-                             violations))))))))
+                       do (cond
+                            ((> size maximum)
+                             (push
+                              (format nil
+                                      "~A has a quoted table of size ~D, above its ratchet of ~D"
+                                      path size maximum)
+                              violations))
+                            ((< size maximum)
+                             (push
+                              (format nil
+                                      "~A has a quoted table of size ~D, below its ratchet of ~D; lower the ratchet"
+                                      path size maximum)
+                              violations))))))))))
     (dolist (entry ratchet)
       (unless (assoc (first entry) inventory :test #'equal)
         (push
@@ -92,18 +101,64 @@
          violations)))
     (sort violations #'string<)))
 
+(defun %literal-budget-fixture-violations (size ratchet)
+  (aitools.test.support:call-with-workspace
+   (lambda (root state)
+     (declare (ignore state))
+     (let* ((root-pathname (uiop:ensure-directory-pathname root))
+            (source-path
+              (merge-pathnames "src/composition.lisp" root-pathname)))
+       (ensure-directories-exist source-path)
+       (with-open-file (output source-path
+                               :direction :output
+                               :if-exists :supersede)
+         (format output "(defparameter +fixture+ '~S)~%"
+                 (loop for number below size collect number)))
+       (let ((*literal-table-ratchet* ratchet))
+         (literal-table-violations root-pathname))))
+   :prefix "aitools-literal-budget"))
 (describe "aitools structure budgets (quoted tables)"
-          (it "ratchets quoted list and vector literals by source file"
-              (expect *literal-table-limit* :to-equal 16)
-              (expect
-               (search "15 is the largest below"
-                       *literal-table-limit-rationale*)
-               :to-be-truthy)
-              (expect
-               (search "19 is the smallest above"
-                       *literal-table-limit-rationale*)
-               :to-be-truthy)
-              (expect (length *literal-table-ratchet*) :to-equal 4)
-              (expect (literal-table-violations (repository-root))
-                      :to-equal
-                      nil)))
+  (it "ratchets quoted list and vector literals by source file"
+    (expect *literal-table-limit* :to-equal 16)
+    (expect (search "15 is the largest below" *literal-table-limit-rationale*)
+            :to-be-truthy)
+    (expect (search "19 is the smallest above" *literal-table-limit-rationale*)
+            :to-be-truthy)
+    (expect (length *literal-table-ratchet*) :to-equal 4)
+    (expect (literal-table-violations (repository-root)) :to-equal nil))
+  (it "passes a clean top-level src fixture with matching ratchets"
+    (expect
+     (%literal-budget-fixture-violations
+      17
+      '(("src/composition.lisp" (17))))
+     :to-equal nil))
+  (it "rejects new quoted-table violations in top-level src"
+    (expect
+     (some (lambda (violation)
+             (search "unapproved quoted tables" violation))
+           (%literal-budget-fixture-violations 17 nil))
+     :to-be-truthy))
+  (it "rejects quoted-table values above their ratchets"
+    (expect
+     (some (lambda (violation)
+             (search "above its ratchet" violation))
+           (%literal-budget-fixture-violations
+            18
+            '(("src/composition.lisp" (17)))))
+     :to-be-truthy))
+  (it "rejects quoted-table ratchets above the measured values"
+    (expect
+     (some (lambda (violation)
+             (search "below its ratchet" violation))
+           (%literal-budget-fixture-violations
+            17
+            '(("src/composition.lisp" (18)))))
+     :to-be-truthy))
+  (it "rejects stale quoted-table ratchets"
+    (expect
+     (some (lambda (violation)
+             (search "no remaining candidates" violation))
+           (%literal-budget-fixture-violations
+            16
+            '(("src/composition.lisp" (17)))))
+     :to-be-truthy)))

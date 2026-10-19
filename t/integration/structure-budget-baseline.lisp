@@ -27,7 +27,7 @@
     ("packages/feature/search/src/domain/matcher.lisp" 312)
     ("packages/feature/util/src/domain/calc.lisp" 274)
     ("src/batch.lisp" 283)
-    ("src/dispatch.lisp" 275)
+    ("src/dispatch.lisp" 258)
     ("t/e2e/process-env-cases.lisp" 336)
     ("t/e2e/transform-file-cases.lisp" 325)
     ("t/integration/batch-test.lisp" 294)
@@ -46,7 +46,7 @@
     ("t/integration/store-security-test.lisp" 635)
     ("t/integration/store-tx-test.lisp" 610)
     ("t/integration/store-write-protocol-test.lisp" 268)
-    ("t/integration/structure-test.lisp" 419)
+    ("t/integration/structure-test.lisp" 389)
     ("t/integration/util-cli-test.lisp" 259)
     ("t/integration/vcs-git-test.lisp" 309)
     ("t/unit/edit/domain-edge-test.lisp" 283)
@@ -103,6 +103,3 @@
     ("packages/feature/vcs/src/application/blame-show-flows.lisp" "%SHOW-BLOB" 5)
     ("packages/feature/vcs/src/domain/diff.lisp" "DIFF-FILES/K" 6)))
 
-(defparameter *process-spawn-exception-ratchet*
-  '(("packages/feature/process/src/infrastructure/bg-launcher.lisp" 1
-                                                                    "Detached background children must outlive the launching command and use the native session API.")))
