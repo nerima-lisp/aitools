@@ -9,4 +9,4 @@
                  (:file "guard") (:file "duration") (:file "time") (:file "size")
                  (:file "digest") (:file "token-estimate")
                  (:file "unified-diff") (:file "unified-diff-patch")
-                 (:file "json") (:file "json-model")))))
+                 (:file "json") (:file "json-model") (:file "flow")))))

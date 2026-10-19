@@ -128,4 +128,7 @@
    #:json-model-value-length
    #:json-model-diff-ops
    #:iso8601-utc
-   #:octal-mode))
+   #:octal-mode
+   #:define-flow
+   #:flow-call
+   #:flow-continue))

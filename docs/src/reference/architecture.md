@@ -67,6 +67,11 @@ command reads or writes.
 | infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
 
+The `define-flow`, `flow-call`, and `flow-continue` macros live in
+`aitools.kernel.domain`. The kernel domain has no application dependencies,
+so domain and application flows can share the DSL without reversing the
+dependency direction.
+
 Each context/layer pair is one package, `aitools.<context>.<layer>`
 (`aitools.search.domain`). Table data lives in the shared `aitools.data`
 package, filled by `data/<layer>/<context>/*-data.lisp` files that each

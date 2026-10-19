@@ -165,6 +165,7 @@
                                            (:file "cli")
                                            (:file "envelope-matchers")))
                              (:file "unit/kernel/package")
+                             (:file "unit/kernel/flow-test")
                              (:file "unit/kernel/path-test")
                              (:file "unit/kernel/selector-test")
                              (:file "unit/kernel/guard-test")
