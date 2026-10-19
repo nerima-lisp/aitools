@@ -62,15 +62,17 @@ command reads or writes.
 
 | Layer | Holds | May reference |
 |---|---|---|
-| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, the pure kits `cl-regex-kit`, `json-kit`, `cl-codec-kit` |
+| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and the pure kits (deterministic functions without I/O) `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit` |
 | application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications |
 | infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
-`aitools.kernel.domain`. The kernel domain has no application dependencies,
-so domain and application flows can share the DSL without reversing the
-dependency direction.
+`aitools.kernel.domain`. The kernel domain wraps `crypto-kit:digest-hex` from
+`cl-crypto-kit` to compute standard digests and content hashes. The function
+maps an octet vector to a lowercase hexadecimal digest without I/O. The kernel
+domain has no application dependencies, so domain and application flows can
+share the DSL without reversing the dependency direction.
 
 Each context/layer pair is one package, `aitools.<context>.<layer>`
 (`aitools.search.domain`). Table data lives in the shared `aitools.data`
@@ -287,7 +289,7 @@ with the number of non-matching lines. See
 
 | Computation | Function | File |
 |---|---|---|
-| Content hash and digests | `content-hash`, `sha256-hex`, `sha1-hex`, `md5-hex` | `packages/core/kernel/src/domain/digest.lisp` |
+| Content hash and digests | `content-hash`, `sha256-hex`, `sha1-hex`, `md5-hex` | `packages/core/kernel/src/domain/digest-kit.lisp` |
 | Token estimate | `approx-token-count` | `packages/core/kernel/src/domain/token-estimate.lisp` |
 | Masking one string | `redact-secrets` | `packages/core/protocol/src/domain/redaction.lisp` |
 | Diff generation (LCS) | `generate-diff-hunks`, `generate-unified-diff` | `packages/core/kernel/src/domain/unified-diff.lisp` |
