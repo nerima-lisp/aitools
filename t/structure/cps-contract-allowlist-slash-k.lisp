@@ -170,4 +170,5 @@
      ("src/batch.lisp" "%BATCH-FLOW/K")
      ("src/batch.lisp" "%BATCH-PLAIN/K")
      ("src/schema.lisp" "%SCHEMA-FLOW/K")
-     ("src/workspace-context.lisp" "CALL-WITH-INVOCATION-WORKSPACE/K")))
+     ("src/workspace-context.lisp" "CALL-WITH-INVOCATION-WORKSPACE/K")
+     ("packages/feature/process/src/application/run-flow.lisp" "RUN-COMMAND/K")))
