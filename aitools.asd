@@ -191,6 +191,7 @@
                              (:file "unit/workspace/git-data-test")
                              (:file "unit/workspace/scan-test")
                              (:file "unit/workspace/scan-worker-pool-test")
+                             (:file "unit/workspace/scan-git-config-test")
                              (:file "integration/workspace-test-support")
                              (:file "integration/workspace-gitignore-parity-test")
                              (:file "integration/workspace-host-test")

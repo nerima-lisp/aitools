@@ -62,8 +62,7 @@
     ("t/unit/text/archive-test.lisp" 415)
     ("t/unit/text/codec-test.lisp" 268)
     ("t/unit/vcs/domain-test.lisp" 270)
-    ("t/unit/vcs/flows-test.lisp" 268)
-    ("t/unit/workspace/scan-test.lisp" 277)))
+    ("t/unit/vcs/flows-test.lisp" 268)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
