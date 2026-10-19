@@ -4,45 +4,20 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # v0.6.0: mkExecutable drives asdf:program-op on every platform,
-    # including aarch64-darwin, and $out/bin/<pname> is the real executable
-    # program-op wrote (no wrapper unless native libraries need one). This
-    # delivers a single Darwin binary for aitools's purposes -- verified
-    # directly (`git log v0.5.0..v0.6.0`: "feat(nix): deliver a real
-    # executable on Darwin through program-op"), not assumed from a message
-    # alone.
+    # cl-nix-forge v0.6.0 added Darwin support for building the executable
+    # with asdf:program-op, so aitools can use the same delivery path there.
     cl-nix-forge = {
       url = "github:nerima-lisp/cl-nix-forge/v0.6.1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Every sibling package below is pinned to a release tag, never a bare
-    # `github:nerima-lisp/<pkg>` (which would follow that repo's default
-    # branch and break this repo's CI without warning). `flake = false`: only
-    # the source tree is needed, to build a `lispDerivation` below, never
-    # these repos' own flake outputs.
+    # Sibling package inputs use release tags; only their source trees are
+    # needed by the lispDerivation outputs below.
     cl-cli = {
       url = "github:nerima-lisp/cl-cli/v1.4.0";
       flake = false;
     };
 
-    # v2.0.0 already contains the bounded advanced executor (backreferences,
-    # lookaround) and the Rust-style replace templates ($1, ${name}, $$)
-    # aitools' regex search relies on -- verified directly against that
-    # tag (src/advanced-*.lisp, src/api-replace.lisp, and README.md's own
-    # description are all present there, not only on a later commit).
-    # v2.1.0 is a strict superset: `git diff --name-status v2.0.0 v2.1.0`
-    # adds src/literal-prefilter.lisp and src/lazy-dfa.lisp (a required-literal
-    # prefilter and a lazy DFA for match detection) with no change to
-    # cl-regex-kit.asd's own :depends-on, which is exactly the
-    # requirement that cl-regex-kit itself gain literal prefiltering and a
-    # lazy DFA -- useful to the
-    # future `search` context, not required by anything built in this task.
-    # v2.1.1 (pinned here) adds only bug fixes over v2.1.0 (`git log
-    # v2.1.0..v2.1.1`: "keep lower-priority Pike VM matches and bound byte
-    # word-boundary cost", touching src/pike-vm-capture.lisp and
-    # src/text-boundaries.lisp), which unblock the two search regex specs left
-    # it-todo under v2.1.0.
     cl-regex-kit = {
       url = "github:nerima-lisp/cl-regex-kit/v2.2.0";
       flake = false;
@@ -83,13 +58,9 @@
       flake = false;
     };
 
-    # Transitive-only: no aitools system names these in :depends-on, but
-    # cl-concurrent-kit.asd, cl-process-kit.asd, and cl-vcs-kit.asd (via
-    # cl-log-kit.asd) each name ONE of these in their OWN :depends-on, and
-    # Nix builds every lispDerivation as its own sandboxed derivation, so
-    # each kit's dependencies must be satisfied by ITS OWN lispDependencies
-    # list below -- flattening these into aitools's own list would not reach
-    # a nested build.
+    # These inputs satisfy transitive kit ASDF dependencies. Each kit is built
+    # in its own derivation, so its dependencies belong in its own
+    # lispDependencies list below.
     cl-date-kit = {
       url = "github:nerima-lisp/cl-date-kit/v1.2.0";
       flake = false;
@@ -187,11 +158,7 @@
       treefmt-nix,
     }:
     let
-      # x86_64-linux is what CI gates; aarch64-darwin is the development
-      # machine. CI only requires x86_64-linux; aarch64-darwin is included
-      # because cl-nix-forge v0.6.0's `mkExecutable` now drives a real
-      # `asdf:program-op` on Darwin too (see the cl-nix-forge input comment
-      # above), so building or running aitools on this platform is not blocked.
+      # CI gates both systems listed here.
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
@@ -208,9 +175,8 @@
 
       root = ./.;
 
-      # mkLispSource does not retain nested ASDF files automatically. Keep the
-      # context definitions beside the aggregate system so its bootstrap can
-      # register them in the build source as well as in a checkout.
+      # Integration specs read SKILL.md, and nested ASDF systems need their
+      # .asd files in the filtered source tree.
       sourceInclude = [
         ./skills/aitools/SKILL.md
         ./packages/core/kernel/kernel.asd
@@ -227,8 +193,8 @@
         ./packages/feature/util/util.asd
         ./packages/feature/vcs/vcs.asd
       ];
-      # Path-based builds also see untracked Lisp probes. Exclude scratch
-      # directories without requiring them to exist in a clean checkout.
+      # Exclude temporary scratch directories from path-based source builds.
+      # Match their prefixes so clean checkouts need not contain them.
       sourceExclude =
         let
           scratchPrefixes = [
@@ -252,8 +218,8 @@
       };
 
       # Runtime dependency closure for both the "aitools" library system and
-      # the separate "aitools/cli" executable. These are BUILT DERIVATIONS,
-      # not CL_SOURCE_REGISTRY strings -- cl-nix-forge assembles the registry
+      # the separate "aitools/cli" executable. These are built derivations,
+      # not CL_SOURCE_REGISTRY strings; cl-nix-forge assembles the registry
       # transitively from them.
       lispDependencies =
         ctx:
@@ -441,7 +407,7 @@
           })
         ];
 
-      # Test-only: cl-weave, the org's test framework everywhere.
+      # Test-only: cl-weave, the framework used by this project's specs.
       lispCheckDependencies = ctx: [
         (ctx.cl.lispDerivation {
           pname = "cl-weave";
@@ -455,35 +421,30 @@
       # system. installSource lets it find its installed source tree if
       # ASDF needs to re-resolve the system at runtime.
       #
-      # programPath must be given explicitly: mkExecutable's own default is
-      # the ASDF SYSTEM NAME ("aitools/cli", which is not even a valid
-      # pathname fragment), not :build-pathname. aitools.asd's "aitools/cli"
-      # system has `:pathname "."` (repo root) and `:build-pathname
-      # "aitools"`, so ASDF's program-op writes the binary to
-      # "<root>/aitools" -- verified locally via `asdf:operate
-      # 'asdf:program-op "aitools/cli"'`, which produced exactly that file.
+      # mkExecutable defaults to the ASDF system name "aitools/cli"; this
+      # system's program-op writes to "aitools", so keep the output path aligned.
       executable = {
         installSource = true;
         lispSystem = "aitools/cli";
         programPath = "aitools";
       };
 
-      # The full integration and e2e suite exceeds cl-nix-forge's 600-second
-      # default on aarch64-darwin. Keep the test gate bounded, but allow the
-      # supported Darwin build to finish without weakening any assertions.
+      # Give the Linux checks.default full-suite derivation 1800 seconds.
       timeoutSeconds = 1800;
 
       docs.root = ./docs;
 
-      # ONE treefmt evaluation drives both `nix fmt` and `checks.formatting`.
+      # The shared treefmt evaluation drives both `nix fmt` and
+      # `checks.formatting`.
       treefmt.evalModule = treefmt-nix.lib.evalModule;
 
       # `bg start` detaches through cl-process-kit's native spawn trampoline,
       # which its lispDerivation (Lisp sources only) does not build. The
       # delivered package carries a copy next to bin/aitools, where the
-      # process context looks for it relative to the running executable, and
-      # the test check points CL_PROCESS_KIT_SPAWN at it so the bg specs run
-      # instead of skipping. Flags match cl-process-kit's own `spawnCflags`.
+      # process context looks for it relative to the running executable. The
+      # Linux check and Darwin apps.test runner set CL_PROCESS_KIT_SPAWN so
+      # the bg specs run instead of being skipped. Flags match cl-process-kit's
+      # own `spawnCflags`.
       overrideOutputs =
         ctx:
         let
@@ -493,17 +454,8 @@
               -o $out/bin/cl-process-kit-spawn
           '';
 
-          # Dump the delivered image in TWO SBCL processes instead of one.
-          # cl-nix-forge's mkExecutable drives `asdf:program-op` in a single
-          # process, which compiles every fasl and dumps the core in that same
-          # process; under SBCL 2.6.0's mark-region GC the compile-time
-          # fragmentation stays in the dumped core (~159 MB measured locally).
-          # Compiling the fasls in one process and dumping from a FRESH process
-          # that only LOADS them yields ~109 MB and ~23% fewer --version
-          # startup instructions, with identical output. cl-nix-forge cannot be
-          # asked for this split, so it is done here from ctx.lispDerivationArgs
-          # (the exact attrset the preset fed lispDerivation, which mkExecutable
-          # documents as what its own `args` wants) -- aitools.asd is unchanged.
+          # Compile the fasls and dump the executable in separate SBCL
+          # processes so compile-time heap state does not carry into the core.
           #
           # Stage 1: compile every fasl in the aitools/cli closure. The
           # lispDerivation default build-op is `asdf:load-system`, so this
@@ -516,12 +468,7 @@
               lispSystem = "aitools/cli";
             }
           );
-          # Stage 2: run program-op over that pre-compiled tree in a fresh
-          # process. The fasls carry the same normalized store mtime as their
-          # sources, so ASDF finds them current and loads them without
-          # recompiling (verified locally: the dumping process runs zero
-          # compile-file calls), and the dumped core never shares a heap with
-          # the compiler.
+          # Stage 2: run program-op in a fresh process over the pre-compiled tree.
           twoStageExecutable = ctx.cl.mkExecutable {
             inherit (ctx.cl) lispDerivation;
             args = ctx.lispDerivationArgs // {
@@ -580,7 +527,8 @@
           hostTestRunner = ctx.pkgs.writeShellApplication {
             name = "aitools-host-tests";
             text = ''
-              # Native Darwin ps/top need host entitlements; grep -P needs GNU grep.
+              # Prefer native Darwin ps/top for host process visibility; grep -P
+              # uses GNU grep.
               export PATH=${
                 if ctx.pkgs.stdenv.hostPlatform.isDarwin then
                   "${nixpkgs.lib.makeBinPath [ ctx.pkgs.gnugrep ]}:/usr/bin:/bin:/usr/sbin:/sbin:"
@@ -620,16 +568,10 @@
             program = "${hostTestRunner}/bin/aitools-host-tests";
             meta.description = "Run every spec against the Nix delivery on the host; no skips or todos";
           };
-          # AITOOLS_E2E_BINARY makes t/e2e exercise the delivered package
-          # instead of building its own copy in the sandbox.
-          # git, zip and unzip are the oracles the gitignore-parity, vcs,
-          # archive-interop and e2e tests compare against; the rest back the
-          # correspondence-table e2e oracles (jq for json/table; perl for the
-          # invisible/normalize/blame rows; which/ps/lsof/getconf/uuidgen/
-          # hostname/openssl for the sys and util rows). Without them each of
-          # those specs reports a counted skip instead of comparing aitools
-          # against the real tool. TZDIR points the time-zone specs at tzdata's
-          # zoneinfo so the --tz rows resolve Asia/Tokyo in the sandbox.
+          # Run end-to-end specs against the delivered package with the
+          # external tools and time-zone data they require.
+          # Linux's checks.default runs the full suite. Darwin's checks.default
+          # validates delivery and schema; Darwin CI runs all specs via apps.test.
           checks.default =
             if ctx.pkgs.stdenv.hostPlatform.isDarwin then
               ctx.pkgs.runCommand "aitools-delivery-check" { nativeBuildInputs = [ ctx.pkgs.jq ]; } ''
@@ -656,18 +598,14 @@
         in
         {
           checks = {
-            # Structural parse gate over every Lisp source in the filtered
-            # tree: fails if any .lisp/.asd file is not a balanced S-expression
-            # document, catching an unbalanced components.sexp-driven file
-            # before ASDF fails to load the system with a confusing error.
+            # Check balanced delimiters in every .lisp and .asd file in the
+            # filtered tree before ASDF loads the systems.
             paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
               inherit (ctx) src;
               name = "aitools-paredit-lint";
             };
           }
           // ctx.pkgs.lib.optionalAttrs (!ctx.pkgs.stdenv.hostPlatform.isDarwin) {
-            # Darwin CI runs the full suite on the host because its Nix build
-            # sandbox blocks the `top` oracle and process-signal calls.
             coverage = ctx.generated.checks.default.overrideAttrs (old: {
               AITOOLS_COVERAGE = "1";
               CL_PROCESS_KIT_SPAWN = "${spawnTrampoline}/bin/cl-process-kit-spawn";
