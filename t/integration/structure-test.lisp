@@ -54,8 +54,6 @@
      "pure UTF-8 decoding; no portable equivalent in CL")
     ((:application) "SB-INT" "CHARACTER-DECODING-ERROR"
      "the condition OCTETS-TO-STRING signals on invalid UTF-8")
-    ((:domain) "SB-MD5" "MD5SUM-SEQUENCE"
-     "pure digest of an octet vector")
     ((:domain) "SB-UNICODE" "NORMALIZE-STRING"
      "pure Unicode normalization")))
 
@@ -79,7 +77,9 @@ is in neither context list)."
      (list own)
      (ecase layer
        (:domain
-        (append core-domains '("CL-REGEX-KIT" "JSON-KIT" "CL-CODEC-KIT")))
+        (append core-domains
+                '("CL-REGEX-KIT" "JSON-KIT"
+                  "CL-CODEC-KIT" "CRYPTO-KIT")))
        (:application
         ;; A core context's application may reach only core contexts
         ;; ("core 文脈から feature 文脈への参照" is its own violation); a

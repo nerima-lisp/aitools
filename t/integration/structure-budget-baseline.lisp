@@ -76,8 +76,7 @@
   "Measured quoted collections have a gap: 15 is the largest below the threshold and 19 is the smallest above it.")
 
 (defparameter *literal-table-ratchet*
-  '(("packages/core/kernel/src/domain/digest.lisp" (64))
-    ("packages/core/text/src/domain/charset.lisp" (19))
+  '(("packages/core/text/src/domain/charset.lisp" (19))
     ("packages/core/text/src/domain/codec-deflate.lisp" (29 29 30 30 19))
     ("packages/feature/edit/src/domain/transform.lisp" (21))))
 
