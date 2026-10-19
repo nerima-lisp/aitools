@@ -69,10 +69,12 @@
   (it "matches only version 2 envelopes"
     (let ((v1 (json-kit:parse "{\"schema_version\":1,\"status\":\"ok\"}"))
           (missing (json-kit:parse "{\"status\":\"ok\"}"))
-          (v2 (json-kit:parse "{\"schema_version\":2,\"status\":\"ok\"}")))
-      (expect v1 :not :to-match-envelope (quote ("status" "ok")))
-      (expect missing :not :to-match-envelope (quote ("status" "ok")))
-      (expect v2 :to-match-envelope (quote ("status" "ok"))))))
+          (v2 (json-kit:parse "{\"schema_version\":2,\"status\":\"ok\"}"))
+          (upper-case-status (json-kit:parse "{\"schema_version\":2,\"status\":\"OK\"}")))
+      (expect v1 :not :to-match-envelope "status" "ok")
+      (expect missing :not :to-match-envelope "status" "ok")
+      (expect upper-case-status :not :to-match-envelope "status" "ok")
+      (expect v2 :to-match-envelope "status" "ok"))))
 
 (describe "aitools.protocol.domain envelope helpers"
   (it "builds a JSON object from alternating keys and values in argument order"

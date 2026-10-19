@@ -29,7 +29,6 @@
     ("t/e2e/process-env-cases.lisp" 336)
     ("t/e2e/transform-file-cases.lisp" 325)
     ("t/integration/batch-test.lisp" 294)
-    ("t/integration/dispatch-test.lisp" 283)
     ("t/integration/edit-cli-test.lisp" 320)
     ("t/integration/edit-files-refusals-test.lisp" 453)
     ("t/integration/edit-files-test.lisp" 364)

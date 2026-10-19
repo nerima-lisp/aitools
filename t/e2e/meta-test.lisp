@@ -75,7 +75,9 @@ also an aitools command (find, diff, git, ...) must dispatch to it instead."
         (progn
           (expect (aitools-exit-code result) :to-be 1)
           (expect (aitools-stream result) :to-be :stderr)
-          (expect (jget (aitools-envelope result) "error" "code") :to-equal "argument.invalid")
+          (progn
+            (expect (aitools-envelope result) :to-match-envelope "status" "error" "command" name)
+            (expect (jget (aitools-envelope result) "error" "code") :to-equal "argument.invalid"))
           (expect (mapcar (lambda (repair) (jget repair "command"))
                           (jlist (jget (aitools-envelope result) "error" "repairs")))
                   :to-equal (mapcar (lambda (repair) (getf repair :command)) (getf entry :repairs)))))))

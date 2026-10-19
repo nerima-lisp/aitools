@@ -37,3 +37,16 @@
                         (aitools.protocol.infrastructure:envelope-too-large (condition) condition))))
       (expect (aitools.protocol.infrastructure:envelope-too-large-limit condition) :to-be 16777216)
       (expect (length (get-output-stream-string out)) :to-be 0))))
+
+(describe "aitools.protocol.infrastructure write-envelope JSON round trip"
+  (it-property "preserves generated strings through JSON encoding and parsing"
+      ((value (gen-string :min-length 0 :max-length 80
+                          :alphabet (format nil "aB09\"\\~%~C" #\Tab))))
+    (let* ((text (with-output-to-string (out)
+                   (aitools.protocol.infrastructure:write-envelope
+                    (make-ok-envelope "read" (list (cons "text" value))) out)))
+           (envelope (json-kit:parse text)))
+      (expect (json-alist-value envelope "schema_version") :to-be 2)
+      (expect (json-alist-value envelope "status") :to-equal "ok")
+      (expect (json-alist-value envelope "command") :to-equal "read")
+      (expect (json-alist-value envelope "text") :to-equal value))))

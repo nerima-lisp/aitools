@@ -8,7 +8,7 @@
         (list :key "schema_version" :expected 2 :actual version))))
   (loop for (key value) on expected by #'cddr
         for actual-value = (envelope-value actual key)
-        unless (equalp actual-value value)
+        unless (equal actual-value value)
           return (list :key key :expected value :actual actual-value)))
 
 (cl-weave:defmatcher :to-match-envelope (actual expected)

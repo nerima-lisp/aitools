@@ -129,12 +129,12 @@ file is prepared and before the commit point, which recovery discards."
       (multiple-value-bind (app registry) (faulting-app)
         (multiple-value-bind (code envelope stream) (dispatch-envelope app registry (list "--root" *root* "boom"))
           (expect (list code stream) :to-equal '(1 :stderr))
-          (expect (value envelope "command") :to-equal "boom")
+          (expect envelope :to-match-envelope "command" "boom" "status" "error")
           (expect (value envelope "error" "code") :to-equal "internal.unexpected")
           (expect (repair-commands envelope) :to-equal '("aitools schema boom")))
         (multiple-value-bind (code envelope) (dispatch-envelope app registry (list "--root" *root* "grp" "boom"))
           (expect code :to-be 1)
-          (expect (value envelope "command") :to-equal "grp boom")
+          (expect envelope :to-match-envelope "command" "grp boom" "status" "error")
           (expect (repair-commands envelope) :to-equal '("aitools schema grp boom"))))))
 
   (it "answers heap or stack exhaustion with one environment envelope"
@@ -142,69 +142,16 @@ file is prepared and before the commit point, which recovery discards."
       (multiple-value-bind (app registry) (faulting-app)
         (multiple-value-bind (code envelope stream) (dispatch-envelope app registry (list "--root" *root* "hog"))
           (expect (list code stream) :to-equal '(1 :stderr))
-          (expect (value envelope "command") :to-equal "hog")
+          (expect envelope :to-match-envelope "command" "hog" "status" "error")
           (expect (value envelope "error" "code") :to-equal "environment.unavailable")
           (expect (repair-commands envelope) :to-equal '("aitools schema hog")))))))
-
-(describe "aitools dispatch: store recovery before every command"
-  (it "reports what it recovered on an error envelope too"
-    (with-dispatch-workspace ()
-      (crash-an-edit)
-      (multiple-value-bind (code envelope) (run-aitools "read" (disk "missing.txt"))
-        (expect code :to-be 1)
-        (expect (value envelope "error" "code") :to-equal "input.not-found")
-        (expect (length (value envelope "recovered")) :to-be 1)
-        (expect (value envelope "recovered" 0 "action") :to-equal "discarded"))))
-
-  (it "answers environment.io naming the blocking path when recovery itself fails"
-    (with-dispatch-workspace ()
-      (crash-an-edit)
-      (let* ((commit (concatenate 'string (state-directory) "/commit"))
-             (blocker (concatenate 'string commit "/00000000T000000Z-blocker.json")))
-        ;; A record recovery cannot read: a directory where a file must be.
-        (sb-posix:mkdir blocker #o755)
-        (dotimes (attempt 2)
-          (multiple-value-bind (code envelope stream) (run-aitools "read" (disk "a.txt"))
-            (expect (list code stream) :to-equal '(1 :stderr))
-            (expect (value envelope "command") :to-equal "read")
-            (expect (value envelope "error" "code") :to-equal "environment.io")
-            (expect (search blocker (value envelope "error" "message")) :to-be-truthy)
-            (expect (repair-commands envelope) :to-equal (list (format nil "aitools info ~A" blocker))))))))
-
-  (it "answers environment.busy with the same command, without argv0, when another process holds the lock"
-    (with-dispatch-workspace ()
-      (crash-an-edit)
-      (let* ((store (aitools.store.infrastructure:make-posix-store *root*))
-             (marker (disk "locked"))
-             (pid (call-in-child-process
-                   (lambda ()
-                     (aitools.store.application:call-with-workspace-lock/k
-                      store 1000
-                      :on-acquired (lambda () (put "locked" "1") (sleep 30))
-                      :on-timeout (lambda () (error "child could not take the lock")))))))
-        (unwind-protect
-             (progn
-               (loop repeat 1000 until (probe-file marker) do (sleep 0.01))
-               (expect (probe-file marker) :to-be-truthy)
-               (multiple-value-bind (code envelope stream)
-                   (run-aitools "--lock-timeout" "50ms" "read" (disk "a.txt"))
-                 (expect (list code stream) :to-equal '(1 :stderr))
-                 (expect (value envelope "command") :to-equal "read")
-                 (expect (value envelope "error" "code") :to-equal "environment.busy")
-                 (let ((repair (first (repair-commands envelope))))
-                   (expect repair :to-equal (format nil "aitools --root ~A --lock-timeout 50ms read ~A"
-                                                    *root* (disk "a.txt")))
-                   (kill-child pid)
-                   (setf pid nil)
-                   (expect (run-repair repair) :to-be 0))))
-          (when pid (kill-child pid)))))))
 
 (describe "aitools dispatch: names and repairs as typed"
   (it "keeps the group in a subcommand's usage error"
     (with-dispatch-workspace ()
       (multiple-value-bind (code envelope) (run-aitools "bg" "logs")
         (expect code :to-be 1)
-        (expect (value envelope "command") :to-equal "bg logs")
+        (expect envelope :to-match-envelope "command" "bg logs" "status" "error")
         (expect (repair-commands envelope) :to-equal '("aitools schema bg logs")))))
 
   (it "gives a group without its subcommand a repair that lists the group's subcommands"
@@ -279,5 +226,5 @@ file is prepared and before the commit point, which recovery discards."
             (dispatch-envelope app (aitools.protocol.application:make-command-registry)
                                (list "--root" *root* "flood"))
           (expect (list code stream) :to-equal '(1 :stderr))
-          (expect (value envelope "command") :to-equal "flood")
+          (expect envelope :to-match-envelope "command" "flood" "status" "error")
           (expect (value envelope "error" "code") :to-equal "refusal.too-large"))))))

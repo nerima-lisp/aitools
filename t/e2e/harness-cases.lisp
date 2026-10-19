@@ -112,10 +112,9 @@ removing it and its state directory afterwards."
           keys :initial-value value))
 
 (defun ok (result)
-  "RESULT's envelope, failing the case unless the command succeeded with
-exit 0 and status ok."
-  (unless (and (eql (aitools-exit-code result) 0)
-               (equal (jget (aitools-envelope result) "status") "ok"))
+  "Return the envelope for a successful command."
+  (expect (aitools-envelope result) :to-match-envelope "status" "ok")
+  (unless (eql (aitools-exit-code result) 0)
     (fail "~A" (format nil "aitools ~{~A~^ ~} exited ~A: ~A"
                        (aitools-argv result) (aitools-exit-code result)
                        (if (eq (aitools-stream result) :stdout) (aitools-stdout result) (aitools-stderr result)))))

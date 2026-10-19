@@ -38,8 +38,7 @@
     (multiple-value-bind (app registry) (aitools/cli:build-app)
       (multiple-value-bind (code envelope stream) (dispatch-envelope app registry '("--version"))
         (expect (list code stream) :to-equal '(0 :stdout))
-        (expect (value envelope "status") :to-equal "ok")
-        (expect (value envelope "command") :to-equal "version")
+        (expect envelope :to-match-envelope "status" "ok" "command" "version")
         (expect (value envelope "name") :to-equal "aitools")
         (expect (stringp (cl-cli:app-version app)) :to-be t)
         (expect (value envelope "version") :to-equal (cl-cli:app-version app)))))
@@ -47,7 +46,7 @@
   (it "answers --help with the same command listing as schema"
     (multiple-value-bind (code help stream) (run-plain "--help")
       (expect (list code stream) :to-equal '(0 :stdout))
-      (expect (value help "command") :to-equal "schema")
+      (expect help :to-match-envelope "status" "ok" "command" "schema")
       (let ((names (map 'list (lambda (command) (value command "name")) (value help "commands"))))
         (expect (and (member "read" names :test #'string=) (member "batch" names :test #'string=) t) :to-be t)
         (expect names :to-equal (map 'list (lambda (command) (value command "name"))
