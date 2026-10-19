@@ -1,1 +1,1 @@
-(:expression 0.0 :branch 0.0)
+(:context :aggregate :state :bootstrap :source :bootstrap :expression-covered 1 :expression-total 1000000000 :branch-covered 1 :branch-total 1000000000)
