@@ -190,7 +190,7 @@
                              (:file "unit/workspace/gitignore-test")
                              (:file "unit/workspace/root-boundary-test")
                              (:file "unit/workspace/git-data-test")
-                             (:file "unit/workspace/scan-test")
+                             (:file "unit/workspace/scan-test") (:file "unit/workspace/scan-worker-pool-test")
                              (:file "integration/workspace-test-support")
                              (:file "integration/workspace-gitignore-parity-test")
                              (:file "integration/workspace-host-test")
