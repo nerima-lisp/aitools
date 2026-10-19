@@ -27,7 +27,6 @@
                (parsed (uiop:symbol-call :json-kit :parse report))
                (selected (gethash "events" parsed)))
           (setf events run-events)
-          (write-string report)
           (multiple-value-bind (problems executed)
               (uiop:symbol-call :aitools/test :%policy-problems
                                 (coerce selected (quote list)))

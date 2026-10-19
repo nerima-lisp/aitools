@@ -317,5 +317,7 @@
                                            (:file "meta-test"))))))
   :perform (test-op (op system)
              (declare (ignore op system))
-             (unless (uiop:symbol-call :aitools/test :run-tests)
+             (unless (uiop:symbol-call :aitools/test :%call-with-test-runner-reporting
+                          (lambda ()
+                            (uiop:symbol-call :aitools/test :run-tests)))
                (error "aitools self test suite failed."))))

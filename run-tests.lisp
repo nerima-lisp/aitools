@@ -64,7 +64,6 @@
            (report (get-output-stream-string json))
            (parsed (uiop:symbol-call :json-kit :parse report))
            (events (coerce (gethash "events" parsed) (quote list))))
-      (write-string report)
       (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
             (cons :json events))
       (unless passed

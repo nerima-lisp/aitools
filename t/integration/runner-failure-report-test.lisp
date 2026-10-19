@@ -38,9 +38,7 @@
                   (%run-runner-failure-fixture)
                 (declare (ignore stderr))
                 (expect status :to-be 1)
-                (expect stdout
-                        :to-contain
-                        "fixture runner failed: SIMPLE-ERROR: fixture policy failure")
+                (expect stdout :to-contain "aitools tests failed: SIMPLE-ERROR: fixture policy failure")
                 (expect stdout
                         :to-contain
                         "failed, errored, or skipped specs (3)")
@@ -58,8 +56,7 @@
                         "[skip] runner failure report fixture > skips with a reason")
                 (expect stdout :to-contain "reason: fixture skip reason")
                 (let ((runner-error
-                        (search "fixture runner failed: SIMPLE-ERROR: fixture policy failure"
-                                stdout))
+                        (search "aitools tests failed: SIMPLE-ERROR: fixture policy failure" stdout))
                       (summary
                         (search "failed, errored, or skipped specs (3)" stdout))
                       (skip-reason (search "reason: fixture skip reason" stdout)))
@@ -81,7 +78,7 @@
                       (gethash "pathString" skip-event) "coverage > skipped setup"
                       (gethash "condition" skip-event) json-kit:+json-null+
                       (gethash "assertion" skip-event) json-kit:+json-null+
-                      (gethash "reason" skip-event) "coverage fixture skip reason")
+                      (gethash "reason" skip-event) json-kit:+json-null+)
                 (%report-test-runner-outcomes
                  (cons :json (list condition-event skip-event)) stream)
                 (let ((output (get-output-stream-string stream)))
@@ -90,9 +87,7 @@
                           :to-contain
                           "[error] coverage > failing setup condition SIMPLE-ERROR: coverage fixture condition")
                   (progn
-                    (expect output
-                          :to-contain
-                          "[skip] coverage > skipped setup reason: coverage fixture skip reason")
+                    (expect output :to-contain "[skip] coverage > skipped setup reason: unspecified")
                     (expect (search "#S(JSON-SENTINEL" output) :to-be nil)))))
           (it "prints typed errors from host runner load failures"
               (multiple-value-bind (status stdout stderr)

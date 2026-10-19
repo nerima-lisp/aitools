@@ -148,19 +148,22 @@ the reported path."
       (length outcomes)))
   (defun %report-json-test-outcomes (events &optional (stream *standard-output*))
     (let ((outcomes
-            (remove-if-not
-             (lambda (event)
-               (member (gethash "status" event) (list "fail" "error" "skip")
-                       :test (function string=)))
-             events)))
+           (remove-if-not
+            (lambda (event)
+              (member (gethash "status" event) (list "fail" "error" "skip")
+                      :test (function string=)))
+            events)))
       (when outcomes
         (format stream "~&aitools/test: failed, errored, or skipped specs (~D):~%"
                 (length outcomes))
         (dolist (event outcomes)
-          (let ((status (gethash "status" event))
-                (condition (gethash "condition" event))
-                (reason (gethash "reason" event))
-                (assertion (gethash "assertion" event)))
+          (let* ((status (gethash "status" event))
+                 (condition (gethash "condition" event))
+                 (raw-reason (gethash "reason" event))
+                 (reason (unless (or (null raw-reason)
+                                     (json-kit:json-null-p raw-reason))
+                           raw-reason))
+                 (assertion (gethash "assertion" event)))
             (format stream "  [~A] ~A" status (gethash "pathString" event))
             (when (and condition (not (json-kit:json-null-p condition)))
               (format stream " condition ~A" condition))
@@ -169,12 +172,8 @@ the reported path."
                       (gethash "matcher" assertion)
                       (gethash "expected" assertion)
                       (gethash "actual" assertion)))
-            (when (or (and reason (not (json-kit:json-null-p reason)))
-              (string= status "skip"))
-              (format stream " reason: ~A"
-                      (if (and reason (not (json-kit:json-null-p reason)))
-                          reason
-                          "unspecified")))
+            (when (or reason (string= status "skip"))
+              (format stream " reason: ~A" (or reason "unspecified")))
             (terpri stream)))
         (finish-output stream))
       (length outcomes)))
@@ -205,3 +204,12 @@ when too few ran, or when a spec was skipped for a reason
               executed))
     (%report-test-outcomes events))
   t)
+(defun %call-with-test-runner-reporting (thunk)
+  (handler-case
+      (funcall thunk)
+    (error (condition)
+      (format t "~&aitools tests failed: ~A: ~A~%"
+              (type-of condition) condition)
+      (%report-test-runner-outcomes *last-test-outcomes*)
+      (finish-output *standard-output*)
+      (error condition))))
