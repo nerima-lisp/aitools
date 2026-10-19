@@ -300,11 +300,11 @@
                              (:module "integration"
                               :pathname "integration/"
                               :components ((:file "dispatch-test")
-                                           (:file "dispatch-recovery-failure-test")
-                                           (:file "dispatch-invocation-test")
+                                           (:file "dispatch-recovery-failure-test") (:file "dispatch-invocation-test")
                                            (:file "batch-test") (:file "batch-failure-test")
-                                           (:file "cli-schema-drift-test") (:file "skill-contract-test") (:file "runner-failure-report-test")
-                                           (:file "structure-test") (:file "structure-timeout-test") (:file "structure-budget-baseline") (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test") (:file "structure-budget-complexity-test")))
+                                           (:file "cli-schema-drift-test") (:file "skill-contract-test") (:file "runner-failure-report-test") (:file "structure-test")
+                                           (:file "coverage-baseline-reader") (:file "coverage-baseline-test") (:file "structure-timeout-test") (:file "structure-budget-baseline")
+                                           (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test") (:file "structure-budget-complexity-test")))
                              ;; Keep meta-test last; it checks that every correspondence row has an earlier case.
                              (:module "e2e"
                               :pathname "e2e/"
