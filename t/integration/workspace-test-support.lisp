@@ -27,9 +27,9 @@
     (dotimes (i (length result) result)
       (setf (aref result i) (parse-integer hex :start (* 2 i) :end (+ 2 (* 2 i)) :radix 16)))))
 
-(defun program-path (name)
-  "The absolute path of executable NAME on PATH, or NIL."
-  (loop for directory in (uiop:split-string (or (sb-posix:getenv "PATH") "") :separator ":")
+(defun program-path (name &optional (search-path (sb-posix:getenv "PATH")))
+  "The absolute path of executable NAME on SEARCH-PATH, or NIL."
+  (loop for directory in (uiop:split-string (or search-path "") :separator ":")
         for candidate = (concatenate 'string directory "/" name)
         when (and (plusp (length directory))
                   (handler-case (sb-posix:s-isreg (sb-posix:stat-mode (sb-posix:stat candidate)))
@@ -37,11 +37,16 @@
                   (zerop (sb-posix:access candidate sb-posix:x-ok)))
           return candidate))
 
-(defun run-command (directory program arguments &key environment (input nil))
-  "Run PROGRAM with ARGUMENTS in DIRECTORY. ENVIRONMENT is an alist added to
-the inherited environment. Returns (VALUES exit-code stdout-octets
-stderr-string); signals when PROGRAM is not on PATH."
-  (let* ((path (or (program-path program) (error "~A is not on PATH" program)))
+(defun run-command (directory program arguments &key environment search-path (input nil))
+  "Run PROGRAM with ARGUMENTS in DIRECTORY, resolving it on SEARCH-PATH.
+SEARCH-PATH defaults to PATH; ENVIRONMENT is added to the inherited environment.
+Returns (VALUES exit-code stdout-octets stderr-string); signals when PROGRAM
+is not found on SEARCH-PATH."
+  (let* ((path
+          (or (program-path
+               program
+               (or search-path (sb-posix:getenv "PATH")))
+              (error "~A is not on PATH" program)))
          (overridden (mapcar #'car environment))
          (env (append (loop for (name . value) in environment collect (format nil "~A=~A" name value))
                       (remove-if (lambda (entry)

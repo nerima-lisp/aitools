@@ -1,13 +1,21 @@
 (in-package #:aitools/test)
 
 (progn
+  (defun %runner-search-path ()
+    (let ((directory
+            (string-right-trim
+             "/"
+             (namestring
+              (uiop:pathname-directory-pathname sb-ext:*runtime-pathname*)))))
+      (format nil "~A:~A" directory (or (uiop:getenv "PATH") ""))))
   (defun %run-runner-failure-fixture ()
     (multiple-value-bind (status stdout stderr)
         (aitools.workspace.integration-support:run-command
          (namestring (asdf:system-source-directory "aitools"))
          "sbcl"
          (list "--noinform" "--no-sysinit" "--no-userinit" "--script"
-               "t/integration/fixtures/runner-failure-report.lisp"))
+               "t/integration/fixtures/runner-failure-report.lisp")
+         :search-path (%runner-search-path))
       (values status
               (sb-ext:octets-to-string stdout :external-format :utf-8)
               stderr)))
@@ -18,6 +26,7 @@
          "sbcl"
          (list "--noinform" "--no-sysinit" "--no-userinit" "--load"
                "run-host-tests.lisp")
+         :search-path (%runner-search-path)
          :environment (list (cons "AITOOLS_HOST_CACHE_DIR" "/dev/null")))
       (values status
               (sb-ext:octets-to-string stdout :external-format :utf-8)
