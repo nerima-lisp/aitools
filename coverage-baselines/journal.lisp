@@ -1,1 +1,1 @@
-(:context :journal :state :bootstrap :expression-covered 1 :expression-total 1000000000 :branch-covered 1 :branch-total 1000000000)
+(:context :journal :state :measured :source :linux-ci :expression-covered 1374 :expression-total 1403 :branch-covered 60 :branch-total 62)
