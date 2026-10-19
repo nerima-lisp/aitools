@@ -190,3 +190,40 @@ else under $TMPDIR; removed afterwards."
 
   (it "answers NIL for the space of a path that does not exist"
     (expect (port "FILE-SYSTEM-SPACE" "/nonexistent/aitools-no-such-directory") :to-be nil)))
+
+(describe "aitools.env production CPU counters"
+  (it "uses the portable fallback when uname fails"
+    (expect
+     (multiple-value-list
+      (aitools.env.infrastructure::%system-identity-from-uname-status
+       1 (lambda () (error "uname reader should not run"))))
+     :to-equal (list (software-type) "" (string-downcase (machine-type)))))
+
+  (it "maps successful four-tick host statistics samples"
+    (let* ((ticks #(11 22 33 44))
+           (tick-at (lambda (index) (aref ticks index))))
+      (expect (aitools.env.infrastructure::%cpu-counters-from-host-statistics
+               0 4 tick-at)
+              :to-equal '(11 44 22 33 0 0 0 0))
+      (expect (aitools.env.infrastructure::%cpu-counters-from-host-statistics
+               1 4 tick-at)
+              :to-be nil)
+      (expect (aitools.env.infrastructure::%cpu-counters-from-host-statistics
+               0 3 tick-at)
+              :to-be nil)))
+
+  (it "returns eight nonnegative counters on Darwin and NIL elsewhere"
+    (let ((counters (port "CPU-COUNTERS")))
+      #+darwin
+      (expect (and (listp counters) (= (length counters) 8)
+                   (every (lambda (counter) (and (integerp counter) (not (minusp counter)))) counters))
+              :to-be t)
+      #-darwin
+      (expect counters :to-be nil))))
+
+(describe "aitools.env unsupported disk host"
+  (it "reports unavailable filesystem capacity"
+    (multiple-value-bind (kind error)
+        (run-flow #'sys-disk/k (make-fake-ports :identity '("Other" "1" "generic")))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable"))))

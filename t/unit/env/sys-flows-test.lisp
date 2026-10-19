@@ -16,7 +16,7 @@
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
       (expect (run-flow #'sys-network/k (make-fake-ports :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
       (expect (fake-host-runs host) :to-equal '(("/usr/sbin/netstat" ("-ibn"))))))
-  (it-each ((0) (1001) (-1)) "rejects out of range network limit ~S" (limit)
+  (it-each ((0) (1001) (-1) (1.5)) "rejects out of range network limit ~S" (limit)
     (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-ports) :limit limit)
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid")))

@@ -96,27 +96,33 @@ f_bavail). Darwin's struct is 2168 bytes, hence the 4 KiB buffer."
                (values (* block-size blocks) (* block-size available)))))
       (sb-alien:free-alien buffer))))
 
+(defun %system-identity-from-uname-status (status read-fields)
+  (if (zerop status)
+      (funcall read-fields)
+      (values (software-type) "" (string-downcase (machine-type)))))
+
 (defun %system-identity ()
   "(VALUES SYSNAME RELEASE MACHINE) from uname(2). struct utsname holds
 fixed char arrays: 256 bytes each on Darwin, 65 on Linux."
   (let ((field-size #+darwin 256 #-darwin 65)
         (buffer (sb-alien:make-alien (sb-alien:unsigned 8) 2048)))
     (unwind-protect
-         (if (zerop (sb-alien:alien-funcall
-                     (sb-alien:extern-alien "uname" (function sb-alien:int (* (sb-alien:unsigned 8))))
-                     buffer))
-             (let ((sap (sb-alien:alien-sap buffer)))
-               (flet ((field (index)
-                        (let* ((start (* index field-size))
-                               (octets (loop for offset from start below (+ start field-size)
-                                             for octet = (sb-sys:sap-ref-8 sap offset)
-                                             until (zerop octet)
-                                             collect octet)))
-                          (sb-ext:octets-to-string (coerce octets '(vector (unsigned-byte 8)))
-                                                   :external-format :utf-8))))
-                 ;; utsname order: sysname, nodename, release, version, machine.
-                 (values (field 0) (field 2) (field 4))))
-             (values (software-type) "" (string-downcase (machine-type))))
+         (%system-identity-from-uname-status
+          (sb-alien:alien-funcall
+           (sb-alien:extern-alien "uname" (function sb-alien:int (* (sb-alien:unsigned 8))))
+           buffer)
+          (lambda ()
+            (let ((sap (sb-alien:alien-sap buffer)))
+              (flet ((field (index)
+                       (let* ((start (* index field-size))
+                              (octets (loop for offset from start below (+ start field-size)
+                                            for octet = (sb-sys:sap-ref-8 sap offset)
+                                            until (zerop octet)
+                                            collect octet)))
+                         (sb-ext:octets-to-string (coerce octets '(vector (unsigned-byte 8)))
+                                                  :external-format :utf-8))))
+                ;; utsname order: sysname, nodename, release, version, machine.
+                (values (field 0) (field 2) (field 4))))))
       (sb-alien:free-alien buffer))))
 
 (defun %workspace-root ()
@@ -131,6 +137,11 @@ holding `.git`, else the working directory. Does not start git."
           when (equal namestring "/")
             return start)))
 
+(defun %cpu-counters-from-host-statistics (status count tick-at)
+  (when (and (zerop status) (= count 4))
+    (list (funcall tick-at 0) (funcall tick-at 3)
+          (funcall tick-at 1) (funcall tick-at 2) 0 0 0 0)))
+
 (defun %cpu-counters ()
   #+darwin
   (let ((host (sb-alien:alien-funcall
@@ -139,16 +150,16 @@ holding `.git`, else the working directory. Does not start git."
          (sb-alien:with-alien ((ticks (array sb-alien:unsigned-int 4))
                               (count sb-alien:unsigned-int 4))
            ;; HOST_CPU_LOAD_INFO has four uint32 counters: user, system, idle, nice.
-           (when (and (zerop (sb-alien:alien-funcall
-                             (sb-alien:extern-alien
-                              "host_statistics"
-                              (function sb-alien:int sb-alien:unsigned-int sb-alien:int
-                                        (* sb-alien:unsigned-int) (* sb-alien:unsigned-int)))
-                             host 3 (sb-alien:cast (sb-alien:addr ticks) (* sb-alien:unsigned-int))
-                             (sb-alien:addr count)))
-                      (= count 4))
-             (list (sb-alien:deref ticks 0) (sb-alien:deref ticks 3)
-                   (sb-alien:deref ticks 1) (sb-alien:deref ticks 2) 0 0 0 0)))
+           (%cpu-counters-from-host-statistics
+            (sb-alien:alien-funcall
+             (sb-alien:extern-alien
+              "host_statistics"
+              (function sb-alien:int sb-alien:unsigned-int sb-alien:int
+                        (* sb-alien:unsigned-int) (* sb-alien:unsigned-int)))
+             host 3 (sb-alien:cast (sb-alien:addr ticks) (* sb-alien:unsigned-int))
+             (sb-alien:addr count))
+            count
+            (lambda (index) (sb-alien:deref ticks index))))
       (sb-alien:alien-funcall
        (sb-alien:extern-alien "mach_port_deallocate"
                              (function sb-alien:int sb-alien:unsigned-int sb-alien:unsigned-int))
