@@ -1,7 +1,7 @@
 (in-package #:aitools.process.test)
 
 (defun signal-fixture (&key (count 2) ignore-term unsafe missing-info nil-command-line
-                         change-on-send disappear-on-send)
+                         change-on-send disappear-on-send port-error-on-send)
   (let ((table (make-hash-table))
         (sent '())
         (clock 0))
@@ -14,7 +14,8 @@
                                     (format nil "sleep fixture-~D" pid)))))
     (values
      (aitools.process.application:make-process-ports
-      :list-pids (lambda () (loop for pid being the hash-keys of table collect pid))
+      :list-pids (lambda ()
+                   (sort (loop for pid being the hash-keys of table collect pid) #'<))
       :process-info (lambda (pid) (unless (eql pid missing-info) (gethash pid table)))
       :safe-target-p (lambda (target)
                        (and (stringp (aitools.process.domain:process-identity-command-line target))
@@ -22,23 +23,24 @@
                             (aitools.process.domain:same-process-p
                              target (gethash (aitools.process.domain:process-identity-pid target) table))))
       :signal-process (lambda (target number)
-                        (when change-on-send
-                          (setf (gethash (aitools.process.domain:process-identity-pid target) table)
-                                (aitools.process.domain:make-process-identity
-                                 :pid (aitools.process.domain:process-identity-pid target)
-                                 :ppid 100 :pgid (aitools.process.domain:process-identity-pid target)
-                                 :uid 501 :ruid 501 :start 99999
-                                 :command-line "replacement")))
-                        (unless (and (not (eql (aitools.process.domain:process-identity-pid target) unsafe))
-                                     (aitools.process.domain:same-process-p
-                                      target (gethash (aitools.process.domain:process-identity-pid target) table)))
-                          (error 'aitools.process.application::process-target-changed
-                                 :message "target changed"))
-                        (unless disappear-on-send
-                          (push (cons (aitools.process.domain:process-identity-pid target) number) sent)
-                          (unless (and ignore-term (= number 15))
-                            (remhash (aitools.process.domain:process-identity-pid target) table))
-                          t))
+                        (let ((pid (aitools.process.domain:process-identity-pid target)))
+                          (when change-on-send
+                            (setf (gethash pid table)
+                                  (aitools.process.domain:make-process-identity
+                                   :pid pid :ppid 100 :pgid pid :uid 501 :ruid 501
+                                   :start 99999 :command-line "replacement")))
+                          (unless (and (not (eql pid unsafe))
+                                       (aitools.process.domain:same-process-p target (gethash pid table)))
+                            (error 'aitools.process.application::process-target-changed
+                                   :message "target changed"))
+                          (when (eql pid port-error-on-send)
+                            (error 'aitools.process.application:process-port-error
+                                   :message "signal port failed"))
+                          (unless disappear-on-send
+                            (push (cons pid number) sent)
+                            (unless (and ignore-term (= number 15))
+                              (remhash pid table))
+                            t)))
       :monotonic-ms (lambda () clock)
       :sleep-ms (lambda (milliseconds) (incf clock milliseconds)))
      (lambda () (reverse sent))
@@ -207,4 +209,24 @@
     (expect (aitools.process.domain:signal-number "USR1")
             :to-be #+darwin 30 #+linux 10)
     (expect (aitools.process.domain:signal-number "USR2")
-            :to-be #+darwin 31 #+linux 12)))
+            :to-be #+darwin 31 #+linux 12))
+  (it "reports completed signals when a later process port fails"
+    (multiple-value-bind (ports sent)
+        (signal-fixture :port-error-on-send 2102)
+      (multiple-value-bind (kind fields)
+          (signal-flow ports :pattern "fixture-" :expect-count 2)
+        (expect kind :to-be :partial)
+        (expect (field fields "total") :to-be 2)
+        (expect (mapcar (lambda (item) (json-alist-value item "pid"))
+                        (field fields "items"))
+                :to-equal '(2101)))
+      (expect (funcall sent) :to-equal '((2101 . 15)))))
+  (it "reports environment.io when the first signal port fails"
+    (multiple-value-bind (ports sent)
+        (signal-fixture :count 1 :port-error-on-send 2101)
+      (multiple-value-bind (kind fields)
+          (signal-flow ports :pid 2101 :expect-command "fixture-2101")
+        (expect kind :to-be :error)
+        (expect (field fields :code) :to-equal "environment.io")
+        (expect (field fields :message) :to-equal "signal port failed"))
+      (expect (funcall sent) :to-equal '()))))
