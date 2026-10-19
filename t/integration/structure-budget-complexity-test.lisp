@@ -67,26 +67,29 @@
             (nthcdr (1+ lambda-list-position) tail))))))))
 
 (defun complex-function-inventory (root)
-  (let ((inventory '()))
+  (let ((depths (make-hash-table :test #'equal)))
     (dolist (pathname (%budget-pathnames root "packages/**/src/**/*.lisp"))
-      (dolist (form (%budget-read-source-forms pathname))
-        (multiple-value-bind (name body)
-            (%complex-definition-name-and-body form)
-          (when name
-            (let ((depth
-                   (loop for body-form in body
-                         maximize (%complex-control-depth body-form 0) into maximum
-                         finally (return (or maximum 0)))))
-              (when (> depth *complex-function-depth-limit*)
-                (push (list (%budget-relative-path pathname root) name depth)
-                      inventory)))))))
-    (sort inventory
-          (lambda (left right)
-            (or (string< (first left) (first right))
-                (and (string= (first left) (first right))
-                     (or (string< (second left) (second right))
-                         (and (string= (second left) (second right))
-                              (< (third left) (third right))))))))))
+      (dolist (platform (list :darwin :linux))
+        (dolist (form (%budget-read-source-forms pathname platform))
+          (multiple-value-bind (name body)
+              (%complex-definition-name-and-body form)
+            (when name
+              (let* ((key (list (%budget-relative-path pathname root) name))
+                     (depth
+                      (loop for body-form in body
+                            maximize (%complex-control-depth body-form 0)
+                              into maximum
+                            finally (return (or maximum 0)))))
+                (setf (gethash key depths)
+                      (max depth (gethash key depths 0)))))))))
+    (sort
+     (loop for key being the hash-keys of depths using (hash-value depth)
+           when (> depth *complex-function-depth-limit*)
+             collect (list (first key) (second key) depth))
+     (lambda (left right)
+       (or (string< (first left) (first right))
+           (and (string= (first left) (first right))
+                (string< (second left) (second right))))))))
 
 (defun complex-function-violations (root)
   (let ((remaining (copy-tree *complex-function-ratchet*))
@@ -126,7 +129,23 @@
           (it
            "keeps the fixed inventory of deeply nested functions at or below its measured depths"
            (expect *complex-function-depth-limit* :to-equal 4)
-           (expect (length *complex-function-ratchet*) :to-equal 18)
-           (expect (complex-function-violations (repository-root))
-                   :to-equal
-                   nil)))
+           (expect (length *complex-function-ratchet*) :to-equal 19)
+           (let ((inventory (complex-function-inventory (repository-root))))
+             (expect
+              (member
+               (list "packages/feature/process/src/infrastructure/signal-host.lisp"
+                     "%DARWIN-ARGV"
+                     6)
+               inventory
+               :test #'equal)
+              :to-be-truthy)
+             (expect
+              (member
+               (list "packages/feature/process/src/infrastructure/signal-host.lisp"
+                     "%HOST-PROCESS-INFO"
+                     5)
+               inventory
+               :test #'equal)
+              :to-be-truthy)
+             (expect (complex-function-violations (repository-root))
+                     :to-equal nil))))

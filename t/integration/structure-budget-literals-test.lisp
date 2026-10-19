@@ -30,10 +30,21 @@
 
 (defun literal-table-inventory (root)
   (loop for pathname in (%budget-pathnames root "packages/**/src/**/*.lisp")
-        for sizes = (sort
-                     (loop for form in (%budget-read-source-forms pathname)
-                           append (%quoted-table-sizes form))
-                     #'>)
+        for platform-candidates =
+          (loop for platform in (list :darwin :linux)
+                collect
+                (sort
+                 (loop for form in (%budget-read-source-forms pathname platform)
+                       append (%quoted-table-sizes form))
+                 #'>))
+        for candidate-count =
+          (loop for candidates in platform-candidates
+                maximize (length candidates))
+        for sizes =
+          (loop for index below candidate-count
+                collect
+                (loop for candidates in platform-candidates
+                      maximize (or (nth index candidates) 0)))
         when sizes
           collect (list (%budget-relative-path pathname root) sizes)))
 

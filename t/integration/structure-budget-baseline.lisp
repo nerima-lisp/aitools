@@ -85,39 +85,23 @@
 
 (defparameter *complex-function-ratchet*
   '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
-    ("packages/core/workspace/src/application/real-path.lisp"
-     "RESOLVE-REAL-PATH"
-     5)
-    ("packages/core/workspace/src/application/scan.lisp"
-     "CALL-WITH-WORKSPACE-SCAN/K"
-     5)
-    ("packages/core/workspace/src/domain/gitignore.lisp" "IGNORE-LIST-VERDICT"
-                                                         5)
+    ("packages/core/workspace/src/application/real-path.lisp" "RESOLVE-REAL-PATH" 5)
+    ("packages/core/workspace/src/application/scan.lisp" "CALL-WITH-WORKSPACE-SCAN/K" 5)
+    ("packages/core/workspace/src/domain/gitignore.lisp" "IGNORE-LIST-VERDICT" 5)
     ("packages/core/workspace/src/domain/wildmatch.lisp" "%DOWILD" 7)
-    ("packages/core/workspace/src/infrastructure/host.lisp"
-     "READ-REGULAR-FILE-OCTETS"
-     5)
-    ("packages/feature/edit/src/application/command-spec.lisp"
-     "PARSE-RECORDED-ARGV"
-     5)
+    ("packages/core/workspace/src/infrastructure/host.lisp" "READ-REGULAR-FILE-OCTETS" 5)
+    ("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
     ("packages/feature/edit/src/application/mktemp.lisp" "MKTEMP-FLOW" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "PARSE-MTIME" 6)
     ("packages/feature/edit/src/domain/table.lisp" "%SCAN-RECORDS" 5)
-    ("packages/feature/env/src/application/sys-flows.lisp"
-     "%LINUX-SOCKET-OWNERS"
-     5)
+    ("packages/feature/env/src/application/sys-flows.lisp" "%LINUX-SOCKET-OWNERS" 5)
     ("packages/feature/env/src/application/time-flows.lisp" "RESOLVE-ZONE/K" 5)
-    ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS"
-                                                          5)
-    ("packages/feature/process/src/application/signal-flow.lisp"
-     "SIGNAL-COMMAND/K"
-     5)
-    ("packages/feature/process/src/infrastructure/signal-host.lisp"
-     "%DARWIN-ARGV"
-     6)
-    ("packages/feature/vcs/src/application/blame-show-flows.lisp" "%SHOW-BLOB"
-                                                                  5)
+    ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS" 5)
+    ("packages/feature/process/src/application/signal-flow.lisp" "SIGNAL-COMMAND/K" 5)
+    ("packages/feature/process/src/infrastructure/signal-host.lisp" "%DARWIN-ARGV" 6)
+    ("packages/feature/process/src/infrastructure/signal-host.lisp" "%HOST-PROCESS-INFO" 5)
+    ("packages/feature/vcs/src/application/blame-show-flows.lisp" "%SHOW-BLOB" 5)
     ("packages/feature/vcs/src/domain/diff.lisp" "DIFF-FILES/K" 6)))
 
 (defparameter *process-spawn-exception-ratchet*

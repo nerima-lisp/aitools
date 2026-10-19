@@ -10,18 +10,32 @@
                      (char safe (1+ index)) #\Space))
     safe))
 
-(defun %budget-read-source-forms (pathname)
+(defun %budget-read-source-forms (pathname &optional platform)
   (let* ((text (uiop:read-file-string pathname))
          (safe (%budget-safe-read-text text))
+         (features
+          (if platform
+              (append
+               (ecase platform
+                 (:darwin (list :darwin :arm64))
+                 (:linux (list :linux :x86-64)))
+               (remove-if
+                (lambda (feature)
+                  (member feature
+                          (list :darwin :linux :arm64 :x86-64)
+                          :test #'eq))
+                *features*))
+              *features*))
          (forms '())
          (position 0))
     (with-standard-io-syntax
-        (let ((*read-eval* nil)
-              (*package* *reader-package*))
-          (loop (multiple-value-bind (form next)
-                    (read-from-string safe nil :eof :start position)
-                  (when (eq form :eof)
-                    (return))
-                  (push form forms)
-                  (setf position next)))))
+      (let ((*features* features)
+            (*read-eval* nil)
+            (*package* *reader-package*))
+        (loop (multiple-value-bind (form next)
+                  (read-from-string safe nil :eof :start position)
+                (when (eq form :eof)
+                  (return))
+                (push form forms)
+                (setf position next)))))
     (values (nreverse forms) text)))
