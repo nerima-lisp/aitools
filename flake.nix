@@ -91,7 +91,7 @@
     # list below -- flattening these into aitools's own list would not reach
     # a nested build.
     cl-date-kit = {
-      url = "github:nerima-lisp/cl-date-kit/v1.1.1";
+      url = "github:nerima-lisp/cl-date-kit/v1.2.0";
       flake = false;
     };
 
@@ -110,10 +110,45 @@
       flake = false;
     };
 
+    cl-crypto-kit = {
+      url = "github:nerima-lisp/cl-crypto-kit/v0.1.0";
+      flake = false;
+    };
+
+    cl-deflate-kit = {
+      url = "github:nerima-lisp/cl-deflate-kit/v0.2.0";
+      flake = false;
+    };
+
+    cl-resilience-kit = {
+      url = "github:nerima-lisp/cl-resilience-kit/v1.0.0";
+      flake = false;
+    };
+
+    cl-yaml-kit = {
+      url = "github:nerima-lisp/cl-yaml-kit/v0.1.0";
+      flake = false;
+    };
+
+    cl-toml-kit = {
+      url = "github:nerima-lisp/cl-toml-kit/v0.1.0";
+      flake = false;
+    };
+
+    cl-org-kit = {
+      url = "github:nerima-lisp/cl-org-kit/v0.1.0";
+      flake = false;
+    };
+
+    cl-observability-kit = {
+      url = "github:nerima-lisp/cl-observability-kit/v1.0.0";
+      flake = false;
+    };
+
     # Consumed for its `lib` output (`mkLintCheck`), which a `flake = false`
     # source tree cannot provide.
     paredit-cli = {
-      url = "github:nerima-lisp/paredit-cli/v1.6.3";
+      url = "github:nerima-lisp/paredit-cli/v1.7.1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -141,6 +176,13 @@
       cl-log-kit,
       cl-parser-kit,
       cl-weave,
+      cl-crypto-kit,
+      cl-deflate-kit,
+      cl-resilience-kit,
+      cl-yaml-kit,
+      cl-toml-kit,
+      cl-org-kit,
+      cl-observability-kit,
       paredit-cli,
       treefmt-nix,
     }:
@@ -307,6 +349,71 @@
               logKit
             ];
           };
+          cryptoKit = ctx.cl.lispDerivation {
+            pname = "cl-crypto-kit";
+            version = ctx.cl.fromAsdSystem "${cl-crypto-kit}/cl-crypto-kit.asd";
+            src = cl-crypto-kit;
+            lispSystem = "cl-crypto-kit";
+          };
+          deflateKit = ctx.cl.lispDerivation {
+            pname = "cl-deflate-kit";
+            version = ctx.cl.fromAsdSystem "${cl-deflate-kit}/cl-deflate-kit.asd";
+            src = cl-deflate-kit;
+            lispSystem = "cl-deflate-kit";
+          };
+          resilienceKit = ctx.cl.lispDerivation {
+            pname = "cl-resilience-kit";
+            version = ctx.cl.fromAsdSystem "${cl-resilience-kit}/cl-resilience-kit.asd";
+            src = cl-resilience-kit;
+            lispSystem = "cl-resilience-kit";
+            lispDependencies = [
+              boundaryKit
+              concurrentKit
+              dateKit
+            ];
+          };
+          yamlKit = ctx.cl.lispDerivation {
+            pname = "cl-yaml-kit";
+            version = ctx.cl.fromAsdSystem "${cl-yaml-kit}/cl-yaml-kit.asd";
+            src = cl-yaml-kit;
+            lispSystem = "cl-yaml-kit";
+            lispDependencies = [
+              regexKit
+              codecKit
+            ];
+          };
+          tomlKit = ctx.cl.lispDerivation {
+            pname = "cl-toml-kit";
+            version = ctx.cl.fromAsdSystem "${cl-toml-kit}/cl-toml-kit.asd";
+            src = cl-toml-kit;
+            lispSystem = "cl-toml-kit";
+            lispDependencies = [
+              parserKit
+              dateKit
+            ];
+          };
+          orgKit = ctx.cl.lispDerivation {
+            pname = "cl-org-kit";
+            version = ctx.cl.fromAsdSystem "${cl-org-kit}/cl-org-kit.asd";
+            src = cl-org-kit;
+            lispSystem = "cl-org-kit";
+            lispDependencies = [
+              parserKit
+              regexKit
+              codecKit
+              dateKit
+            ];
+          };
+          observabilityKit = ctx.cl.lispDerivation {
+            pname = "cl-observability-kit";
+            version = ctx.cl.fromAsdSystem "${cl-observability-kit}/cl-observability-kit.asd";
+            src = cl-observability-kit;
+            lispSystem = "cl-observability-kit";
+            lispDependencies = [
+              boundaryKit
+              concurrentKit
+            ];
+          };
         in
         [
           jsonKit
@@ -317,6 +424,13 @@
           concurrentKit
           processKit
           vcsKit
+          cryptoKit
+          deflateKit
+          resilienceKit
+          yamlKit
+          tomlKit
+          orgKit
+          observabilityKit
           (ctx.cl.lispDerivation {
             pname = "cl-cli";
             version = ctx.cl.fromAsdSystem "${cl-cli}/cl-cli.asd";

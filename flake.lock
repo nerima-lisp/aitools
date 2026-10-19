@@ -68,20 +68,54 @@
         "type": "github"
       }
     },
-    "cl-date-kit": {
+    "cl-crypto-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1790450959,
-        "narHash": "sha256-tB9CMfpnp0suzaXLRey5EKTbXvJ+3M64Uf0lhYD0c84=",
+        "lastModified": 1792247961,
+        "narHash": "sha256-kSQYmrtQTr0xAexzw0i26lc7u1OOW9UOdoBYcLb0gJ4=",
         "owner": "nerima-lisp",
-        "repo": "cl-date-kit",
-        "rev": "021c00df3f4dd18cad7206221125d1596db2fae5",
+        "repo": "cl-crypto-kit",
+        "rev": "e048eee9b20d806cda75239772969c6c80ade1e0",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v1.1.1",
+        "ref": "v0.1.0",
+        "repo": "cl-crypto-kit",
+        "type": "github"
+      }
+    },
+    "cl-date-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792242465,
+        "narHash": "sha256-d4KVhCjUZW3Oe2guxMZAEJkZGy+UCvrmlsXhQaEsX7E=",
+        "owner": "nerima-lisp",
         "repo": "cl-date-kit",
+        "rev": "c4bad809f913677fe5787bdfd604c2ac42252241",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v1.2.0",
+        "repo": "cl-date-kit",
+        "type": "github"
+      }
+    },
+    "cl-deflate-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792226960,
+        "narHash": "sha256-Kyn3EtlvuRZIJId6UL8C6ATqeIZPtDeHe03N13vmOKI=",
+        "owner": "nerima-lisp",
+        "repo": "cl-deflate-kit",
+        "rev": "776206ad8f8aa669b1c47ee1a8c63463cc668168",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.2.0",
+        "repo": "cl-deflate-kit",
         "type": "github"
       }
     },
@@ -158,6 +192,40 @@
         "type": "github"
       }
     },
+    "cl-observability-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786845981,
+        "narHash": "sha256-RXTnRtwddJr4SpKShRUE8R9gVUIwbPHhTpWyNOkGyt4=",
+        "owner": "nerima-lisp",
+        "repo": "cl-observability-kit",
+        "rev": "6c77d1eb71293474bb000184e9dad30034c791d2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v1.0.0",
+        "repo": "cl-observability-kit",
+        "type": "github"
+      }
+    },
+    "cl-org-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792024147,
+        "narHash": "sha256-40IgqFcQ5yXWPwOWV2rgjb15/6ZLjxd37MoRNvddiMI=",
+        "owner": "nerima-lisp",
+        "repo": "cl-org-kit",
+        "rev": "eabb99f77d3745c478372c8e8b4205084548b001",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.1.0",
+        "repo": "cl-org-kit",
+        "type": "github"
+      }
+    },
     "cl-parser-kit": {
       "flake": false,
       "locked": {
@@ -209,6 +277,40 @@
         "type": "github"
       }
     },
+    "cl-resilience-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786763915,
+        "narHash": "sha256-zKSL3mIsa783J8E2AD4tZUrQWaFuyMBjzLeE4wYYjVM=",
+        "owner": "nerima-lisp",
+        "repo": "cl-resilience-kit",
+        "rev": "741d42399ad781244bd36750c6626bd9f4e8b16b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v1.0.0",
+        "repo": "cl-resilience-kit",
+        "type": "github"
+      }
+    },
+    "cl-toml-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790469389,
+        "narHash": "sha256-X7+yB4fVHtEdilcMYgY9kUy4l+vqG0uQ6LYrxf40Ywk=",
+        "owner": "nerima-lisp",
+        "repo": "cl-toml-kit",
+        "rev": "654d6b6bf90edaec99ef079d583a21a32be89b04",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.1.0",
+        "repo": "cl-toml-kit",
+        "type": "github"
+      }
+    },
     "cl-vcs-kit": {
       "flake": false,
       "locked": {
@@ -240,6 +342,23 @@
         "owner": "nerima-lisp",
         "ref": "v1.4.0",
         "repo": "cl-weave",
+        "type": "github"
+      }
+    },
+    "cl-yaml-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790548989,
+        "narHash": "sha256-VqMiAdApc0t6FzCY7W3clg5hTR4lmf0RXU1n5thVMJU=",
+        "owner": "nerima-lisp",
+        "repo": "cl-yaml-kit",
+        "rev": "8ceb8f2495695ad888f828c9c852147873d0d559",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.1.0",
+        "repo": "cl-yaml-kit",
         "type": "github"
       }
     },
@@ -284,16 +403,16 @@
         "treefmt-nix": "treefmt-nix_2"
       },
       "locked": {
-        "lastModified": 1788540112,
-        "narHash": "sha256-UnHnKf6RiaOXOq2ZBoYLtE9/vDz05tFtI69juYrKPno=",
+        "lastModified": 1791722364,
+        "narHash": "sha256-0xS92nQS96/45SSECGANS8tnacLVFXpNnp+LY/ZsEwU=",
         "owner": "nerima-lisp",
         "repo": "paredit-cli",
-        "rev": "e8efd9528cf9a7acc98d3b99961bd657a0a9a62a",
+        "rev": "32d9dce56e5d2b6c2c369d36d54687f2053cb397",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v1.6.3",
+        "ref": "v1.7.1",
         "repo": "paredit-cli",
         "type": "github"
       }
@@ -304,16 +423,23 @@
         "cl-cli": "cl-cli",
         "cl-codec-kit": "cl-codec-kit",
         "cl-concurrent-kit": "cl-concurrent-kit",
+        "cl-crypto-kit": "cl-crypto-kit",
         "cl-date-kit": "cl-date-kit",
+        "cl-deflate-kit": "cl-deflate-kit",
         "cl-host-kit": "cl-host-kit",
         "cl-json-kit": "cl-json-kit",
         "cl-log-kit": "cl-log-kit",
         "cl-nix-forge": "cl-nix-forge",
+        "cl-observability-kit": "cl-observability-kit",
+        "cl-org-kit": "cl-org-kit",
         "cl-parser-kit": "cl-parser-kit",
         "cl-process-kit": "cl-process-kit",
         "cl-regex-kit": "cl-regex-kit",
+        "cl-resilience-kit": "cl-resilience-kit",
+        "cl-toml-kit": "cl-toml-kit",
         "cl-vcs-kit": "cl-vcs-kit",
         "cl-weave": "cl-weave",
+        "cl-yaml-kit": "cl-yaml-kit",
         "nixpkgs": "nixpkgs",
         "paredit-cli": "paredit-cli",
         "treefmt-nix": "treefmt-nix_3"
