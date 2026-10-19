@@ -319,7 +319,6 @@ line."
                           (scan-file pathname (enough-namestring pathname root) context layer core-or-feature
                                      (gethash (context-package-name context layer) nicknames))))))))
     (sort violations #'string<)))
-
 ;;; --------------------------------------------------------------- tests
 
 (defun repository-root ()

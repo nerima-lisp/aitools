@@ -301,7 +301,7 @@
                                            (:file "dispatch-invocation-test")
                                            (:file "batch-test") (:file "batch-failure-test")
                                            (:file "cli-schema-drift-test") (:file "skill-contract-test") (:file "runner-failure-report-test")
-                                           (:file "structure-test") (:file "structure-budget-baseline") (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test") (:file "structure-budget-complexity-test")))
+                                           (:file "structure-test") (:file "structure-timeout-test") (:file "structure-budget-baseline") (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test") (:file "structure-budget-complexity-test")))
                              ;; meta-test last: cl-weave runs specs in definition
                              ;; order, and it checks that every correspondence-table
                              ;; row registered a case above it.
@@ -314,9 +314,6 @@
                                            (:file "edit-cases") (:file "transform-file-cases")
                                            (:file "format-cases") (:file "process-env-cases")
                                            (:file "meta-test"))))))
-  :perform (test-op (op system)
-             (declare (ignore op system))
-             (unless (uiop:symbol-call :aitools/test :%call-with-test-runner-reporting
-                          (lambda ()
-                            (uiop:symbol-call :aitools/test :run-tests)))
-               (error "aitools self test suite failed."))))
+  :perform (test-op (op system) (declare (ignore op system))
+    (unless (uiop:symbol-call :aitools/test :%call-with-test-runner-reporting (lambda () (uiop:symbol-call :aitools/test :run-tests)))
+      (error "aitools self test suite failed."))))
