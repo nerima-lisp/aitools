@@ -25,5 +25,4 @@
               (apply make-executor arguments))))
         (expect (scan-paths host (resolved-root host) :work #'scan-entry-path)
                 :to-equal '("a.txt"))
-        (expect calls :to-be 0))))
-)
+        (expect calls :to-be 0)))))
