@@ -20,7 +20,6 @@
     ("packages/feature/env/src/domain/host-parsers.lisp" 373)
     ("packages/feature/inspect/src/application/json-flows.lisp" 303)
     ("packages/feature/inspect/src/application/read-flow.lisp" 423)
-    ("packages/feature/process/src/application/bg-flow.lisp" 327)
     ("packages/feature/search/src/application/search-flow.lisp" 259)
     ("packages/feature/search/src/application/session.lisp" 277)
     ("packages/feature/search/src/domain/code.lisp" 278)

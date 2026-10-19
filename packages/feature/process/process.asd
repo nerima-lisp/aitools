@@ -13,9 +13,15 @@
                  (:file "process-outcome") (:file "bg-record")
                  (:file "log-slice") (:file "wait-condition")
                  (:file "signal-target")))
-   (:module "application"
-    :components ((:file "package") (:file "ports") (:file "common")
-                 (:file "run-flow") (:file "bg-flow") (:file "wait-flow")
+   (:module "application" :serial t
+    :components ((:file "package")
+                 (:file "ports")
+                 (:file "common")
+                 (:file "run-flow")
+                 (:file "bg-flow")
+                 (:file "bg-query-flow")
+                 (:file "bg-stop-flow")
+                 (:file "wait-flow")
                  (:file "signal-flow")))
    (:module "infrastructure"
     :components ((:file "package") (:file "host") (:file "signal-host")

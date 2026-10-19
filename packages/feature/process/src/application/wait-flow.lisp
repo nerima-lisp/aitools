@@ -110,39 +110,63 @@ a condition known to turn true at that moment."
         file)))
 
 (defun wait-command/k (ports request &key on-ok on-partial on-error)
-  "Block until REQUEST's single condition holds or its timeout
-passes. A missing file or a refused connection is not an error; they are
-what `wait` waits out."
+  "Block until REQUEST's single condition holds or its timeout passes."
   (declare (ignore on-partial))
   (let ((duration-text (wait-request-duration request)))
     (flet ((with-condition (duration-ms)
              (multiple-value-bind (condition message)
                  (aitools.process.domain:make-wait-condition
-                  :file (%wait-file-path ports (wait-request-file request)) :pattern (wait-request-pattern request)
-                  :port (wait-request-port request) :bg (wait-request-bg request)
-                  :exit (wait-request-exit request) :duration-text duration-text :duration-ms duration-ms)
+                  :file (%wait-file-path ports (wait-request-file request))
+                  :pattern (wait-request-pattern request)
+                  :port (wait-request-port request)
+                  :bg (wait-request-bg request)
+                  :exit (wait-request-exit request)
+                  :duration-text duration-text
+                  :duration-ms duration-ms)
                (if (null condition)
-                   (funcall on-error "argument.invalid" message
+                   (funcall on-error
+                            "argument.invalid"
+                            message
                             :repairs (list (%schema-repair "wait")))
-                   (%call-with-duration-ms
-                    (wait-request-timeout request) "--timeout" "wait" on-error
-                    (lambda (timeout-ms)
-                      (%call-with-line-pattern
-                       (aitools.process.domain:wait-condition-pattern condition) "wait" on-error
-                       (lambda (pattern)
-                         (%reporting-port-errors (on-error "wait")
-                           (if (aitools.process.domain:wait-condition-bg-id condition)
-                               (%call-with-bg-directory
-                                ports "wait" on-error
-                                (lambda (directory)
-                                  (%call-with-bg-record
-                                   ports directory (aitools.process.domain:wait-condition-bg-id condition)
-                                   on-error
-                                   (lambda (record)
-                                     (%wait-for-condition ports condition pattern timeout-ms directory record
-                                                          on-ok on-error)))))
-                               (%wait-for-condition ports condition pattern timeout-ms nil nil
-                                                    on-ok on-error)))))))))))
+                   (aitools.kernel.domain:flow-call
+                       (%call-with-duration-ms
+                        (wait-request-timeout request)
+                        "--timeout"
+                        "wait")
+                     (:on-value (timeout-ms)
+                       (aitools.kernel.domain:flow-call
+                           (%call-with-line-pattern
+                            (aitools.process.domain:wait-condition-pattern condition)
+                            "wait")
+                         (:on-pattern (pattern)
+                           (%reporting-port-errors (on-error "wait")
+                             (if (aitools.process.domain:wait-condition-bg-id condition)
+                                 (%call-with-bg-directory
+                                  ports
+                                  "wait"
+                                  on-error
+                                  (lambda (directory)
+                                    (%call-with-bg-record
+                                     ports
+                                     directory
+                                     (aitools.process.domain:wait-condition-bg-id condition)
+                                     on-error
+                                     (lambda (record)
+                                       (%wait-for-condition
+                                        ports condition pattern timeout-ms directory
+                                        record on-ok on-error)))))
+                                 (%wait-for-condition
+                                  ports condition pattern timeout-ms nil nil
+                                  on-ok on-error))))
+                         (:on-error (code message &key repairs)
+                           (funcall on-error code message :repairs repairs))))
+                     (:on-error (code message &key repairs)
+                       (funcall on-error code message :repairs repairs)))))))
       (if duration-text
-          (%call-with-duration-ms duration-text "--duration" "wait" on-error #'with-condition)
+          (aitools.kernel.domain:flow-call
+              (%call-with-duration-ms duration-text "--duration" "wait")
+            (:on-value (duration-ms)
+              (with-condition duration-ms))
+            (:on-error (code message &key repairs)
+              (funcall on-error code message :repairs repairs)))
           (with-condition nil)))))

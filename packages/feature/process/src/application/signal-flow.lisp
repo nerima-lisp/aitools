@@ -122,5 +122,10 @@
                                               (cons "total" (length targets))))
                                (error condition)))))))))))
        (if grace
-           (%call-with-duration-ms grace "--grace" "signal" on-error #'run)
+           (aitools.kernel.domain:flow-call
+               (%call-with-duration-ms grace "--grace" "signal")
+             (:on-value (grace-ms)
+               (run grace-ms))
+             (:on-error (code message &key repairs)
+               (funcall on-error code message :repairs repairs)))
            (run nil))))))
