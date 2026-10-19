@@ -28,10 +28,12 @@
 
 (in-package #:aitools/test)
 
-(defparameter cl-weave:*default-timeout-ms* 30000
-  "Bound every cl-weave spec to 30 seconds unless it declares a tighter limit.
+(progn
+  (defparameter cl-weave:*default-timeout-ms* 30000
+    "Bound every cl-weave spec to 30 seconds unless it declares a tighter limit.
 The limit covers a single spec, while external-process helpers retain their
 own operation-specific budgets.")
+  (defvar *last-test-outcomes* nil))
 
 (defparameter *minimum-executed-specs* 2853
   "Fewer specs than this actually running (passed, failed or errored; not
@@ -115,21 +117,87 @@ the reported path."
                       (%event-field event "reason"))
               problems)))
     (values (nreverse problems) executed)))
+(progn
+  (defun %report-test-outcomes (events &optional (stream *standard-output*))
+    (let ((outcomes
+            (remove-if-not
+             (lambda (event)
+               (member (cl-weave::test-event-status event) (list :fail :error :skip)))
+             (cl-weave::normalize-run-results events))))
+      (when outcomes
+        (format stream "~&aitools/test: failed, errored, or skipped specs (~D):~%"
+                (length outcomes))
+        (dolist (event outcomes)
+          (let* ((status (cl-weave::test-event-status event))
+                 (condition (cl-weave::test-event-condition event))
+                 (reason (cl-weave::test-event-reason event))
+                 (assertion (cl-weave::test-event-assertion event)))
+            (format stream "  [~(~A~)] ~A"
+                    status (cl-weave::path-string (cl-weave::test-event-path event)))
+            (when condition
+              (format stream " condition ~A: ~A" (type-of condition) condition))
+            (when assertion
+              (format stream " assertion ~A expected ~S, got ~S"
+                      (cl-weave::assertion-detail-matcher assertion)
+                      (cl-weave::assertion-detail-expected assertion)
+                      (cl-weave::assertion-detail-actual assertion)))
+            (when (or reason (eq status :skip))
+              (format stream " reason: ~A" (or reason "unspecified")))
+            (terpri stream)))
+        (finish-output stream))
+      (length outcomes)))
+  (defun %report-json-test-outcomes (events &optional (stream *standard-output*))
+    (let ((outcomes
+            (remove-if-not
+             (lambda (event)
+               (member (gethash "status" event) (list "fail" "error" "skip")
+                       :test (function string=)))
+             events)))
+      (when outcomes
+        (format stream "~&aitools/test: failed, errored, or skipped specs (~D):~%"
+                (length outcomes))
+        (dolist (event outcomes)
+          (let ((status (gethash "status" event))
+                (condition (gethash "condition" event))
+                (reason (gethash "reason" event))
+                (assertion (gethash "assertion" event)))
+            (format stream "  [~A] ~A" status (gethash "pathString" event))
+            (when condition
+              (format stream " condition ~A" condition))
+            (when assertion
+              (format stream " assertion ~A expected ~S, got ~S"
+                      (gethash "matcher" assertion)
+                      (gethash "expected" assertion)
+                      (gethash "actual" assertion)))
+            (when (or reason (string= status "skip"))
+              (format stream " reason: ~A" (or reason "unspecified")))
+            (terpri stream)))
+        (finish-output stream))
+      (length outcomes)))
+  (defun %report-test-runner-outcomes (events &optional (stream *standard-output*))
+    (if (and (consp events) (eq (car events) :json))
+        (%report-json-test-outcomes (cdr events) stream)
+        (%report-test-outcomes events stream))))
 
 (defun run-tests ()
   "Run every registered cl-weave spec with the spec report on
 *STANDARD-OUTPUT*, and signal, so ASDF's TEST-OP fails, when a spec failed,
 when too few ran, or when a spec was skipped for a reason
 *ALLOWED-UNRUN-SPECS* does not list."
+  (setf *last-test-outcomes* nil)
   (let* ((json (make-string-output-stream))
          (events (call-with-spec-progress
                   (lambda () (cl-weave:run nil :reporter :json :stream json))))
          (report (json-kit:parse (get-output-stream-string json))))
+    (setf *last-test-outcomes* events)
     (cl-weave:explain! events)
-    (multiple-value-bind (problems executed) (%policy-problems (coerce (gethash "events" report) 'list))
+    (multiple-value-bind (problems executed)
+        (%policy-problems (coerce (gethash "events" report) (quote list)))
       (dolist (problem problems)
         (format t "~&aitools/test: ~A~%" problem))
       (unless (and (cl-weave:results-status events) (null problems))
         (error "aitools test suite failed"))
-      (format t "~&aitools/test: successful completion with 0 failures, ~D specs run~%" executed)))
+      (format t "~&aitools/test: successful completion with 0 failures, ~D specs run~%"
+              executed))
+    (%report-test-outcomes events))
   t)

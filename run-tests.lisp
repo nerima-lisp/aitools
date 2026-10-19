@@ -36,7 +36,7 @@
   (asdf:load-system "cl-weave")
   (uiop:symbol-call "CL-WEAVE" "REQUIRE-COVERAGE-SUPPORT")
   (proclaim
-   (list 'optimize
+   (list (quote optimize)
          (list (find-symbol "STORE-COVERAGE-DATA" "SB-COVER") 3)))
   (when (find-package "AITOOLS.DATA")
     (delete-package "AITOOLS.DATA"))
@@ -45,56 +45,79 @@
   (asdf:load-system "aitools/test")
   (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
         60000)
-  (let* ((include (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES" "aitools"))
-         (passed (uiop:symbol-call "CL-WEAVE" "RUN-ALL"
-                  :reporter :json
-                  :coverage t
-                  :coverage-output (merge-pathnames "coverage.json" root)
-                  :coverage-report-directory (merge-pathnames "coverage/" root)
-                  :coverage-include-pathnames include
-                  :coverage-minimum-expression 0
-                  :coverage-minimum-branch 0
-                  :pass-with-no-tests nil)))
-    (unless passed
-      (error "aitools coverage suite failed"))
-    (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                        :include-pathnames include))
-           (baseline (with-open-file (stream (merge-pathnames "coverage-baseline.lisp" root))
-                       (read stream)))
-           (expression-percentage (* 100.0
-                                    (/ (getf statistics :expression-covered)
-                                       (max 1 (getf statistics :expression-total)))))
-           (branch-percentage (* 100.0
-                                  (/ (getf statistics :branch-covered)
-                                     (max 1 (getf statistics :branch-total))))))
-      (unless (and (>= expression-percentage (getf baseline :expression))
-                   (>= branch-percentage (getf baseline :branch))
-                   (probe-file (merge-pathnames "coverage.json" root))
-                   (probe-file (merge-pathnames "coverage/cover-index.html" root)))
-        (error "aitools coverage is below baseline or has no report artifact"))
-      (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
-              (getf statistics :expression-covered)
-              (getf statistics :expression-total)
-              (getf statistics :branch-covered)
-              (getf statistics :branch-total)))))
+  (let* ((include
+           (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES" "aitools"))
+         (json (make-string-output-stream)))
+    (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
+          nil)
+    (let* ((passed
+             (uiop:symbol-call "CL-WEAVE" "RUN-ALL"
+                               :reporter :json
+                               :stream json
+                               :coverage t
+                               :coverage-output (merge-pathnames "coverage.json" root)
+                               :coverage-report-directory (merge-pathnames "coverage/" root)
+                               :coverage-include-pathnames include
+                               :coverage-minimum-expression 0
+                               :coverage-minimum-branch 0
+                               :pass-with-no-tests nil))
+           (report (get-output-stream-string json))
+           (parsed (uiop:symbol-call :json-kit :parse report))
+           (events (coerce (gethash "events" parsed) (quote list))))
+      (write-string report)
+      (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
+            (cons :json events))
+      (unless passed
+        (error "aitools coverage suite failed"))
+      (let* ((statistics
+               (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                                 :include-pathnames include))
+             (baseline
+               (with-open-file (stream (merge-pathnames "coverage-baseline.lisp" root))
+                 (read stream)))
+             (expression-percentage
+               (* 100.0
+                  (/ (getf statistics :expression-covered)
+                     (max 1 (getf statistics :expression-total)))))
+             (branch-percentage
+               (* 100.0
+                  (/ (getf statistics :branch-covered)
+                     (max 1 (getf statistics :branch-total))))))
+        (unless (and (>= expression-percentage (getf baseline :expression))
+                     (>= branch-percentage (getf baseline :branch))
+                     (probe-file (merge-pathnames "coverage.json" root))
+                     (probe-file (merge-pathnames "coverage/cover-index.html" root)))
+          (error "aitools coverage is below baseline or has no report artifact"))
+        (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
+                (getf statistics :expression-covered)
+                (getf statistics :expression-total)
+                (getf statistics :branch-covered)
+                (getf statistics :branch-total))))))
 
-(let ((root (script-directory)))
-  (configure-local-source-registry root)
-  (handler-case
-      (progn
-        (if (uiop:getenv "AITOOLS_COVERAGE")
-            (run-coverage root)
-            (progn
-              (asdf:load-system "aitools")
-              (asdf:load-system "aitools/test")
-              ;; Keep the suite's explicit policy checks in AITOOLS/TEST:RUN-TESTS,
-              ;; while preventing the framework's per-spec default from aborting a
-              ;; deliberately long integration or e2e case.
-              (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
-                    60000)
-              (unless (uiop:symbol-call :aitools/test :run-tests)
-                (error "aitools self test suite failed.")))))
-    (error (condition)
-      (format *error-output* "~&aitools tests failed: ~A~%" condition)
-      (uiop:quit 1)))
-  (uiop:quit 0))
+(handler-case
+    (let ((root (script-directory)))
+      (configure-local-source-registry root)
+      (if (uiop:getenv "AITOOLS_COVERAGE")
+          (run-coverage root)
+          (progn
+            (asdf:load-system "aitools")
+            (asdf:load-system "aitools/test")
+            (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
+                  60000)
+            (unless (uiop:symbol-call :aitools/test :run-tests)
+              (error "aitools self test suite failed."))))
+      (uiop:quit 0))
+  (error (condition)
+    (let* ((test-package (find-package "AITOOLS/TEST"))
+           (reporter (and test-package
+                          (find-symbol "%REPORT-TEST-RUNNER-OUTCOMES" test-package)))
+           (outcomes-symbol (and test-package
+                                 (find-symbol "*LAST-TEST-OUTCOMES*" test-package))))
+      (format t "~&aitools tests failed: ~A: ~A~%"
+              (type-of condition) condition)
+      (when (and reporter (fboundp reporter)
+                 outcomes-symbol (boundp outcomes-symbol))
+        (funcall (symbol-function reporter)
+                 (symbol-value outcomes-symbol) *standard-output*)))
+    (finish-output *standard-output*)
+    (uiop:quit 1)))
