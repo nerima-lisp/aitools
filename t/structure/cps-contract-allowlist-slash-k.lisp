@@ -5,7 +5,6 @@
 (:slash-k-defun
      ("packages/core/kernel/src/domain/json-model.lisp" "JSON-MODEL-RESOLVE/K")
      ("packages/core/kernel/src/domain/unified-diff-patch.lisp" "APPLY-HUNKS/K")
-     ("packages/core/protocol/src/application/command-result.lisp" "CALL-WITH-COMMAND-RESULT/K")
      ("packages/core/store/src/application/lock.lisp" "%CALL-WITH-FILE-LOCK/K")
      ("packages/core/store/src/application/lock.lisp" "CALL-WITH-TX-LOCK/K")
      ("packages/core/store/src/application/lock.lisp" "CALL-WITH-WORKSPACE-LOCK/K")

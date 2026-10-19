@@ -293,7 +293,7 @@
                              (:file "unit/util/flows-test")
                              (:file "integration/util-cli-test")
                              (:module "structure" :pathname "structure/" :serial t
-                              :components ((:file "cps-contract-analysis")
+                              :components ((:file "cps-contract-reader") (:file "cps-contract-analysis")
                                            (:file "cps-contract-allowlist-slash-k")
                                            (:file "cps-contract-allowlist-on-key")
                                            (:file "cps-contract-test")))

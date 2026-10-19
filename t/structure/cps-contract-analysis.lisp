@@ -1,39 +1,6 @@
 (in-package #:cl-user)
 
-(defpackage #:aitools.integration.cps-contract-test (:use #:cl) (:shadowing-import-from #:cl-weave #:describe) (:import-from #:cl-weave #:it #:expect))
-
 (in-package #:aitools.integration.cps-contract-test)
-
-(defvar *reader-package* (or (find-package "AITOOLS.CPS.CONTRACT.READER") (make-package "AITOOLS.CPS.CONTRACT.READER" :use '(#:cl))))
-
-(defun %reader-conditional-form (stream sub-character argument)
-  (declare (ignore sub-character argument))
-  (let ((*read-eval* nil))
-    (read stream t nil t)
-    (read stream t nil t)))
-
-(defun %reader-eval-form (stream sub-character argument)
-  (declare (ignore sub-character argument))
-  (let ((*read-eval* nil))
-    (read stream t nil t)))
-
-(defun %source-forms (text)
-  (with-standard-io-syntax
-    (let ((*package* *reader-package*)
-          (*read-eval* nil)
-          (*readtable* (copy-readtable nil)))
-      (set-dispatch-macro-character #\# #\+ #'%reader-conditional-form)
-      (set-dispatch-macro-character #\# #\- #'%reader-conditional-form)
-      (set-dispatch-macro-character #\# #\. #'%reader-eval-form)
-      (with-input-from-string (stream text)
-        (loop for form = (read stream nil stream)
-              until (eq form stream)
-              collect form)))))
-
-(defun %operator-name-p (form name)
-  (and (consp form)
-       (symbolp (first form))
-       (string-equal (symbol-name (first form)) name)))
 
 (defun %on-name-p (symbol)
   (and (symbolp symbol)
@@ -91,7 +58,13 @@
     (remove-if (lambda (name) (member name bound :test #'string=)) active)))
 
 (defun %function-name-string (name)
-  (and (symbolp name) (string-upcase (symbol-name name))))
+  (let ((symbol (if (symbolp name)
+                    name
+                    (and (consp name)
+                         (eq (first name) (find-symbol "SETF" "COMMON-LISP"))
+                         (second name)))))
+    (and (symbolp symbol)
+         (string-upcase (symbol-name symbol)))))
 
 (defun %slash-k-name-p (name)
   (and (stringp name)
@@ -99,6 +72,7 @@
        (string-equal name "/K" :start1 (- (length name) 2))))
 
 (defun %top-level-definitions (form)
+  ;; Recurse only through forms whose bodies may contain top-level definitions.
   (cond
     ((%operator-name-p form "DEFUN") (list form))
     ((%operator-name-p form "DEFINE-FLOW") (list form))
@@ -190,27 +164,39 @@
             (and positional-continuation-p (list :positional-continuation))
             (and apply-continuation-p (list :apply-continuation)))))
 
-(defun %definition-violations (form relative-path)
-  (let ((name (%function-name-string (second form)))
-        (lambda-list (third form)))
+(defun %definition-violations (form relative-path package-name)
+  (let* ((name (%function-name-string (second form)))
+         (symbol (second form))
+         (symbol-package (and (symbolp symbol) (symbol-package symbol))))
     (append (and (%slash-k-name-p name)
+                 ;; This adapter converts whichever flow callback fires into
+                 ;; COMMAND-RESULT; the design keeps that conversion at the
+                 ;; command boundary. See f0-core-design.md, "Existing /k
+                 ;; contract migration", lines 73-75.
+                 (not (and (string= relative-path "packages/core/protocol/src/application/command-result.lisp")
+                           (equal package-name "AITOOLS.PROTOCOL.APPLICATION")
+                           (eq symbol-package (find-package "AITOOLS.PROTOCOL.APPLICATION"))
+                           (string= name "CALL-WITH-COMMAND-RESULT/K")
+                           (symbolp symbol)
+                           (string= (symbol-name symbol) "CALL-WITH-COMMAND-RESULT/K")))
                  (list (list relative-path name :slash-k-defun)))
-            (and (%continuation-variables lambda-list)
+            (and (%continuation-variables (third form))
                  (list (list relative-path name :on-key-defun))))))
 
 (defun %flow-violations (form relative-path)
   (let* ((lambda-list (second form))
          (name (%function-name-string (first lambda-list)))
          (variables (%continuation-variables (rest lambda-list))))
-    (mapcar (lambda (kind) (list relative-path name kind))
-            (%flow-body-kinds (cddr form) variables))))
+    (mapcar (lambda (kind) (list relative-path name kind)) (%flow-body-kinds (cddr form) variables))))
 
 (defun %source-violations (text relative-path)
-  (loop for top-level in (%source-forms text)
-        append (loop for form in (%top-level-definitions top-level)
-                     append (if (%operator-name-p form "DEFUN")
-                                (%definition-violations form relative-path)
-                                (%flow-violations form relative-path)))))
+  (loop with package-name = nil for top-level in (%source-forms text)
+        do (when (%operator-name-p top-level "IN-PACKAGE")
+             (setf package-name (string-upcase (string (second top-level)))))
+        append (loop for form in (%top-level-definitions top-level) append
+                     (if (%operator-name-p form "DEFUN")
+                         (%definition-violations form relative-path package-name)
+                         (%flow-violations form relative-path)))))
 
 (defun %source-pathnames (root)
   (sort (remove-duplicates
@@ -236,8 +222,8 @@
   (loop for (kind . entries) in *legacy-cps-allowlist*
         append (mapcar (lambda (entry) (append entry (list kind))) entries)))
 
-(defun %fixture-violations (text)
-  (%source-violations text "fixture.lisp"))
+(defun %fixture-violations (text &optional (relative-path "fixture.lisp"))
+  (%source-violations text relative-path))
 
 (defun repository-root ()
   (asdf:system-source-directory "aitools"))

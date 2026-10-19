@@ -1,4 +1,3 @@
-;;;; t/structure/cps-contract-test.lisp
 (in-package #:aitools.integration.cps-contract-test)
 
 (defparameter *legacy-cps-allowlist* (list *legacy-cps-slash-k-allowlist* *legacy-cps-on-key-allowlist*))
@@ -10,9 +9,9 @@
            (unexpected (set-difference actual allowed :test #'equal))
            (stale (set-difference allowed actual :test #'equal)))
       (progn
-        (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 167)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 166)
         (expect (count :on-key-defun actual :key #'third) :to-equal 156)
+        ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
                    "RUN-COMMAND/K" :slash-k-defun)
@@ -33,9 +32,59 @@
 
   (it "rejects new legacy continuation definitions"
     (expect (%fixture-violations
-             "(defun new/k (value) value) (defun new-helper (&key on-ok) (funcall on-ok))")
-            :to-equal '(( "fixture.lisp" "NEW/K" :slash-k-defun)
-                        ("fixture.lisp" "NEW-HELPER" :on-key-defun))))
+             "(defun new/k (value) value) (defun new-helper (&key on-ok) (funcall on-ok)) (defun (setf new-setter/k) (value object) (setf object value))")
+            :to-equal (list (list "fixture.lisp" "NEW/K" :slash-k-defun)
+                            (list "fixture.lisp" "NEW-HELPER" :on-key-defun)
+                            (list "fixture.lisp" "NEW-SETTER/K" :slash-k-defun))))
+
+  (it "accepts the command-result boundary adapter in its declared package"
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal nil))
+
+  (it "rejects another slash-k definition in the adapter package"
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun alias/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "ALIAS/K" :slash-k-defun))))
+
+  (it "rejects the adapter symbol in a different package"
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application.other) (defun call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun cl-user::call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun aitools.cps.contract.reader::call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun))))
+
+  (it "rejects spoofed declarations and ignores a non-defun form"
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun call-with-command-result/k (flow-function) flow-function)")
+            :to-equal (list (list "fixture.lisp" "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (defun |call-with-command-result/k| (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(:in-package #:aitools.protocol.application) (defun call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
+                                  "CALL-WITH-COMMAND-RESULT/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(in-package #:aitools.protocol.application) (:defun call-with-command-result/k (flow-function) flow-function)"
+             "packages/core/protocol/src/application/command-result.lisp")
+            :to-equal nil))
 
   (it "rejects return-from in a flow, including a nested lambda"
     (expect (%fixture-violations
