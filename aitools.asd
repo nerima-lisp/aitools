@@ -146,8 +146,7 @@
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
-  ;; cl-weave is the org's only test framework. Do not
-  ;; introduce FiveAM, parachute, rove, or prove.
+  ;; This project uses cl-weave as its only test framework.
   :depends-on ("aitools" "aitools/cli" "cl-weave")
   :pathname "."
   ;; t/package and t/support come first, then every context's :TESTS file in
