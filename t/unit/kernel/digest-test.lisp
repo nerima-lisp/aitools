@@ -22,16 +22,29 @@
     (expect (md5-hex (string-bytes "abc")) :to-equal "900150983cd24fb0d6963f7d28e17f72"))
 
   (it "computes MD5 of the empty string"
-    (expect (md5-hex (string-bytes "")) :to-equal "d41d8cd98f00b204e9800998ecf8427e"))
+    (expect (md5-hex (string-bytes ""))
+            :to-equal "d41d8cd98f00b204e9800998ecf8427e"))
 
   (it "uses SHA-256 as the canonical content-hash"
-    (expect (content-hash (string-bytes "hello")) :to-equal (sha256-hex (string-bytes "hello"))))
+    (let ((bytes (string-bytes "hello")))
+      (expect (content-hash bytes)
+              :to-equal "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+      (expect (content-hash bytes) :to-equal (sha256-hex bytes))))
 
   (it "gives identical content the same hash"
-    (expect (content-hash (string-bytes "same")) :to-equal (content-hash (string-bytes "same"))))
+    (let ((bytes (string-bytes "same")))
+      (expect (content-hash bytes)
+              :to-equal "0967115f2813a3541eaef77de9d9d5773f1c0c04314b0bbfe4ff3b3b1c55b5d5")
+      (expect (content-hash bytes)
+              :to-equal (content-hash (string-bytes "same")))))
 
   (it "gives different content different hashes"
-    (expect (content-hash (string-bytes "a")) :not :to-equal (content-hash (string-bytes "b")))))
+    (let ((a (string-bytes "a"))
+          (b (string-bytes "b")))
+      (expect (content-hash a)
+              :to-equal "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb")
+      (expect (content-hash b)
+              :to-equal "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"))))
 
 ;; Lengths either side of the 55/56-byte padding boundary and the 64-byte
 ;; block boundary, where a padding bug would show. Expected digests are from
@@ -57,3 +70,16 @@
       (expect (sha256-hex bytes) :to-equal sha256)
       (expect (sha1-hex bytes) :to-equal sha1)
       (expect (md5-hex bytes) :to-equal md5))))
+(describe "aitools.kernel.domain digest large input"
+  (it "matches fixed hashes for 1 MiB of repeating bytes"
+    (let ((bytes (make-array 1048576 :element-type (quote (unsigned-byte 8)))))
+      (loop for index below (length bytes)
+            do (setf (aref bytes index) (mod index 256)))
+      (expect (md5-hex bytes)
+              :to-equal "c35cc7d8d91728a0cb052831bc4ef372")
+      (expect (sha1-hex bytes)
+              :to-equal "ecfc8e86fdd83811f9cc9bf500993b63069923be")
+      (expect (sha256-hex bytes)
+              :to-equal "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83")
+      (expect (content-hash bytes)
+              :to-equal "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83"))))

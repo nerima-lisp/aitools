@@ -67,7 +67,7 @@
    #:size-bytes
    #:invalid-size-error
    #:invalid-size-error-text
-   ;; digest.lisp
+   ;; digest-kit.lisp
    #:sha256-hex
    #:sha1-hex
    #:md5-hex

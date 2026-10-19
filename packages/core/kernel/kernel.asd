@@ -2,11 +2,12 @@
 
 (defsystem "aitools/core/kernel"
   :description "Shared kernel value types and pure algorithms."
+  :depends-on ("cl-crypto-kit")
   :pathname "src/"
   :components
   ((:module "domain"
     :components ((:file "package") (:file "path") (:file "selector")
                  (:file "guard") (:file "duration") (:file "time") (:file "size")
-                 (:file "digest") (:file "token-estimate")
+                 (:file "digest-kit") (:file "token-estimate")
                  (:file "unified-diff") (:file "unified-diff-patch")
                  (:file "json") (:file "json-model") (:file "flow")))))
