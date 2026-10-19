@@ -31,14 +31,21 @@ widen the threshold."
                      (- (sb-ext:get-bytes-consed) before)))))
 
 (defun %flow-allocation (line-count &rest arguments)
-  (let ((ports (make-fake-ports :files (list (list "/w/a.txt" (%non-matching-file line-count))))))
-    (%bytes-consed (lambda () (apply #'run-flow #'search/k ports arguments)))))
+  (let* ((ports (make-fake-ports :files (list (list "/w/a.txt" (%non-matching-file line-count)))))
+         (processor-count-symbol 'aitools.workspace.infrastructure:processor-count)
+         (original-processor-count (symbol-function processor-count-symbol)))
+    (unwind-protect
+         (progn
+           ;; One file uses the inline mapper; avoid a pool during this process-wide measurement.
+           (setf (symbol-function processor-count-symbol) (lambda () 1))
+           (%bytes-consed (lambda () (apply #'run-flow #'search/k ports arguments))))
+      (setf (symbol-function processor-count-symbol) original-processor-count))))
 
 (defparameter *allocation-slack* 65536
   "Allowed difference between 1,000 and 100,000 non-matching lines. One
 cons cell per line would already add 1.6 MB.")
 
-(describe "aitools.search allocation for non-matching lines"
+(cl-weave:describe-sequential "aitools.search allocation for non-matching lines"
   (it-each (("needle" ()) ("needle" (:ignore-case t)) ("need[a-z]e" (:word t)) ("needle" (:output :count))
             ("needle" (:output :matches)))
       "stays flat in N for ~S ~S"
