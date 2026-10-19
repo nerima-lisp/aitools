@@ -1,18 +1,7 @@
 ;;;; t/unit/protocol/command-placement-test.lisp
 (in-package #:aitools.protocol.test)
 
-(describe "aitools.protocol.domain command-placement"
-  (it "recognizes a top-level command"
-    (expect (top-level-command-p "read") :to-be-truthy)
-    (expect (top-level-command-p "edit") :to-be-truthy))
-
-  (it "does not recognize a group name as a top-level command"
-    (expect (top-level-command-p "util") :to-be-falsy))
-
-  (it "recognizes a group name"
-    (expect (group-command-p "util") :to-be-truthy)
-    (expect (group-command-p "json") :to-be-truthy))
-
+(describe "aitools.protocol.domain unknown-name repairs"
   (it "gives repairs pointing at `aitools read` for cat"
     (let ((repairs (repairs-for-unknown-name "cat")))
       (expect repairs :not :to-be-falsy)

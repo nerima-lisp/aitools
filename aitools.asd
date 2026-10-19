@@ -16,7 +16,6 @@
   ((:file "package")
    (:file "domain/protocol/error-catalog-data")
    (:file "domain/protocol/redaction-patterns-data")
-   (:file "domain/protocol/command-placement-data")
    (:file "domain/protocol/correspondence-table-data")
    (:file "domain/protocol/selector-options-data")
    (:file "domain/workspace/builtin-excludes-data")

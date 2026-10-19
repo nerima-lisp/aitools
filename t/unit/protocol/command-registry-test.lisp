@@ -91,8 +91,10 @@
                  (push ports calls)
                  :cli-command)
                "util")))
-        (aitools.protocol.application:register-command-declaration
-         registry declaration :ports)
+        (aitools.protocol.application:register-command-declarations
+         registry
+         (list declaration)
+         :ports)
         (expect calls :to-equal '(:ports))
         (expect (mapcar #'command-schema-name
                         (aitools.protocol.application:all-command-schemas registry))
@@ -101,18 +103,18 @@
   (it "rejects an existing command name before invoking its builder"
     (let ((calls 0)
           (registry (aitools.protocol.application:make-command-registry)))
-      (aitools.protocol.application:register-command-declaration
+      (aitools.protocol.application:register-command-declarations
        registry
-       (%test-command-declaration "read" (lambda (ports) (declare (ignore ports))))
+       (list (%test-command-declaration "read" (lambda (ports) (declare (ignore ports)))))
        nil)
       (signals error
-        (aitools.protocol.application:register-command-declaration
+        (aitools.protocol.application:register-command-declarations
          registry
-         (%test-command-declaration
-          "read"
-          (lambda (ports)
-            (declare (ignore ports))
-            (incf calls)))
+         (list (%test-command-declaration
+                "read"
+                (lambda (ports)
+                  (declare (ignore ports))
+                  (incf calls))))
          nil))
       (expect calls :to-be 0)
       (expect (mapcar #'command-schema-name

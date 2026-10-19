@@ -14,7 +14,8 @@
 
 (defstruct (command-result
             (:constructor %make-command-result (kind fields))
-            (:copier nil))
+            (:copier nil)
+            (:predicate nil))
   "KIND is :OK, :PARTIAL, or :ERROR. FIELDS is the plist of arguments the
 flow passed to whichever continuation fired: for :OK/:PARTIAL, the result
 plist/alist the flow built; for :ERROR, (:CODE :MESSAGE :CANDIDATES

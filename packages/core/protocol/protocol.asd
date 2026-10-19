@@ -14,6 +14,6 @@
    (:module "application"
     :components ((:file "package") (:file "command-result")
                  (:file "command-registry") (:file "redaction-flow")
-                 (:file "schema-flow") (:file "unknown-name")))
+                 (:file "schema-flow")))
    (:module "infrastructure"
     :components ((:file "package") (:file "json-writer")))))

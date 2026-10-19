@@ -1,20 +1,8 @@
-;;;; data/domain/protocol/correspondence-table-data.lisp
-;;;;
-;;;; The table of shell operations and their aitools replacements, as data
-;;;; shared by three consumers: docs/src/guide/agents.md, the
-;;;; unknown-command-name repair (AITOOLS.PROTOCOL.APPLICATION:REPAIRS-FOR-
-;;;; UNKNOWN-NAME), and the correspondence e2e tests. Each entry's :FOREIGN-NAMES lists
-;;;; the individual tokens a row's backtick-separated shell commands name;
-;;;; :REPAIRS is one or more {detail, command} suggestions, since a shell
-;;;; command like `sed` maps to different aitools commands depending on what
-;;;; it was doing.
-;;;;
-;;;; The data only has to serve the rule that a name not at the top level
-;;;; returns repairs drawn from this table (docs/src/reference/errors.md) --
-;;;; it intentionally does not transcribe every cell of the table;
-;;;; extend it as later tasks land the commands it points at, then
-;;;; regenerate the docs table (docs/src/project/development.md,
-;;;; "Regenerating the reference").
+;;;; The agent guide, protocol domain's unknown-name handling, and
+;;;; correspondence tests use this table. Each entry's :FOREIGN-NAMES lists
+;;;; names used in its guide rows, including command and subcommand names.
+;;;; :REPAIRS contains context-specific suggestions; `sed` can need different
+;;;; replacements depending on what it was doing.
 (in-package #:aitools.data)
 
 (defparameter *correspondence-table*
@@ -127,8 +115,7 @@
     (:foreign-names ("openssl")
      :repairs ((:detail "Generate cryptographically random bytes."
                 :command "aitools util random"))))
-  "Each entry's :FOREIGN-NAMES lists the shell command tokens unknown-name
-repair recognizes; :REPAIRS is that entry's list of {:detail :command} suggestions,
-in the order they should appear in the JSON error envelope's `repairs`.")
+  "The :FOREIGN-NAMES are matched by REPAIRS-FOR-UNKNOWN-NAME; :REPAIRS
+gives the matching details and command suggestions in order.")
 
 (export '(*correspondence-table*))

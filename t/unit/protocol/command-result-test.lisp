@@ -35,10 +35,14 @@
        (lambda (fields) fields)
        (lambda (code message &rest options)
          (declare (ignore code message options))))))
+  (it "accepts a continuation plist as one list argument"
+    (let* ((on-ok (lambda (fields) fields))
+           (on-partial (lambda (fields) fields))
+           (on-error (lambda (code message &rest options)
+                       (declare (ignore code message options))))
+           (actual (normalize-command-continuations
+                    (list :on-ok on-ok :on-partial on-partial :on-error on-error))))
+      (expect (eq (getf actual :on-ok) on-ok) :to-be t)
+      (expect (eq (getf actual :on-partial) on-partial) :to-be t)
+      (expect (eq (getf actual :on-error) on-error) :to-be t)))
 
-(describe "aitools.protocol.application unknown-command-error"
-  (it "always returns argument.invalid with at least one repair"
-    (multiple-value-bind (code message repairs) (unknown-command-error "cat")
-      (expect code :to-equal "argument.invalid")
-      (expect message :to-contain "cat")
-      (expect repairs :not :to-be-falsy))))

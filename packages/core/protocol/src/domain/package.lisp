@@ -16,7 +16,6 @@
    #:make-error-envelope
    ;; error-catalog.lisp
    #:error-code-exit-code
-   #:error-code-known-p
    #:*error-codes*
    ;; redaction.lisp
    #:redact-secrets
@@ -30,10 +29,6 @@
    #:schema-repair
    ;; command-placement.lisp
    #:correspondence-name-p
-   #:top-level-command-p
-   #:group-command-p
-   #:*top-level-commands*
-   #:*command-groups*
    #:repairs-for-unknown-name
    ;; schema-model.lisp
    #:make-command-schema

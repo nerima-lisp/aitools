@@ -1,8 +1,8 @@
 ;;;; data/domain/protocol/error-catalog-data.lisp
 ;;;;
 ;;;; The error.code table (docs/src/reference/errors.md). AITOOLS.PROTOCOL.
-;;;; DOMAIN:ERROR-CODE-EXIT-CODE and :ERROR-CODE-KNOWN-P read this list; it is
-;;;; the single place a new error code or a change to an exit code is added.
+;;;; DOMAIN:ERROR-CODE-EXIT-CODE reads this list as the canonical mapping
+;;;; between documented codes and exit codes.
 (in-package #:aitools.data)
 
 (defparameter *protocol-error-codes*

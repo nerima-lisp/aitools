@@ -13,7 +13,8 @@
 (defstruct (command-declaration
             (:constructor %make-command-declaration
                           (name &key group command-builder schema))
-            (:copier nil))
+            (:copier nil)
+            (:predicate nil))
            "A command's protocol-level declaration.
 
 COMMAND-BUILDER is called with the context's PORTS value and must return the
@@ -155,10 +156,6 @@ should equal NAME."
 (defun %ensure-command-name-available (registry name)
   (when (nth-value 1 (gethash name (command-registry-schemas registry)))
     (error "Command ~S is already registered." name)))
-
-(defun register-command-declaration (registry declaration ports)
-  "Build and register DECLARATION using PORTS, returning REGISTRY."
-  (register-command-declarations registry (list declaration) ports))
 
 (defun register-command-declarations (registry declarations ports)
   "Register DECLARATIONS in list order and return REGISTRY."
