@@ -162,15 +162,19 @@ the reported path."
                 (reason (gethash "reason" event))
                 (assertion (gethash "assertion" event)))
             (format stream "  [~A] ~A" status (gethash "pathString" event))
-            (when condition
+            (when (and condition (not (json-kit:json-null-p condition)))
               (format stream " condition ~A" condition))
-            (when assertion
+            (when (and assertion (hash-table-p assertion))
               (format stream " assertion ~A expected ~S, got ~S"
                       (gethash "matcher" assertion)
                       (gethash "expected" assertion)
                       (gethash "actual" assertion)))
-            (when (or reason (string= status "skip"))
-              (format stream " reason: ~A" (or reason "unspecified")))
+            (when (or (and reason (not (json-kit:json-null-p reason)))
+              (string= status "skip"))
+              (format stream " reason: ~A"
+                      (if (and reason (not (json-kit:json-null-p reason)))
+                          reason
+                          "unspecified")))
             (terpri stream)))
         (finish-output stream))
       (length outcomes)))

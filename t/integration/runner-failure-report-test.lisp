@@ -66,8 +66,12 @@
                       (gethash "pathString" condition-event) "coverage > failing setup"
                       (gethash "condition" condition-event)
                       "SIMPLE-ERROR: coverage fixture condition"
+                      (gethash "reason" condition-event) json-kit:+json-null+
+                      (gethash "assertion" condition-event) json-kit:+json-null+
                       (gethash "status" skip-event) "skip"
                       (gethash "pathString" skip-event) "coverage > skipped setup"
+                      (gethash "condition" skip-event) json-kit:+json-null+
+                      (gethash "assertion" skip-event) json-kit:+json-null+
                       (gethash "reason" skip-event) "coverage fixture skip reason")
                 (%report-test-runner-outcomes
                  (cons :json (list condition-event skip-event)) stream)
@@ -76,9 +80,11 @@
                   (expect output
                           :to-contain
                           "[error] coverage > failing setup condition SIMPLE-ERROR: coverage fixture condition")
-                  (expect output
+                  (progn
+                    (expect output
                           :to-contain
-                          "[skip] coverage > skipped setup reason: coverage fixture skip reason"))))
+                          "[skip] coverage > skipped setup reason: coverage fixture skip reason")
+                    (expect (search "#S(JSON-SENTINEL" output) :to-be nil)))))
           (it "prints typed errors from host runner load failures"
               (multiple-value-bind (status stdout stderr)
                   (%run-host-runner-error)
