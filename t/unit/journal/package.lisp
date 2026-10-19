@@ -10,7 +10,7 @@
 (defpackage #:aitools.journal.test
   (:use #:cl #:aitools.journal.domain #:aitools.journal.application #:aitools.store.test-support)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect #:expect-not)
+  (:import-from #:cl-weave #:it #:it-each #:expect)
   (:import-from #:aitools.test.support #:json-alist #:json-alist-value))
 
 (in-package #:aitools.journal.test)

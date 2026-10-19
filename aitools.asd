@@ -238,7 +238,7 @@
                              (:file "unit/journal/domain-test")
                              (:file "unit/journal/changes-json-test")
                              (:file "integration/journal-flows-test")
-                             (:file "integration/journal-tx-test")
+                             (:file "integration/journal-tx-test") (:file "integration/journal-tx-rebase-test")
                              (:file "integration/journal-tx-failure-test")
                              (:file "integration/journal-cli-test")
                              (:file "unit/edit/package")

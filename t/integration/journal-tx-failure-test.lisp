@@ -99,36 +99,48 @@ condition a failing rename or fsync raises, at the first POINT."
             (expect (disk-text store "a.txt") :to-equal expected-text))))))
 
   (it-each (("store-io-error" aitools.store.application:store-io-error
-                              (:operation "open" :path "state" :detail "disk gone") nil)
+                         (:operation "open" :path "state" :detail "disk gone") nil)
             ("store-format-error" aitools.store.domain:store-format-error (:detail "bad intent") nil)
             ("store-committed-error" aitools.store.application:store-committed-error
                                      (:op-id "op-20260101T000000Z-0000000a" :operation "rename" :path "a.txt") t))
-      "reports a ~A escaping the store as environment.io"
-      (label condition-type initargs committed)
-    (declare (ignore label))
-    (with-temp-store (store)
-      (let ((ports (make-journal-ports
-                    :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
-                                     :current-directory (constantly (aitools.store.application:store-root store))
-                                     :getenv (constantly nil))
-                    :open-store (lambda (real-root)
-                                  (declare (ignore real-root))
-                                  (apply #'error condition-type initargs)))))
-        (multiple-value-bind (kind error) (run-with ports (context-for store) #'tx-status-flow nil)
-          (expect kind :to-be :error)
-          (expect (getf error :code) :to-equal "environment.io")
-          (expect (getf error :message)
-                  :to-equal (princ-to-string (apply #'make-condition condition-type initargs)))
-          (if committed
-              (progn
-                (expect (mapcar #'json-alist (getf error :diagnostics))
-                        :to-equal '((("op_id" . "op-20260101T000000Z-0000000a") ("recovery" . "pending"))))
-                (expect (repair-commands error)
-                        :to-equal (list (format nil "aitools --root ~A history"
-                                                (aitools.store.application:store-root store)))))
-              (progn
-                (expect (getf error :diagnostics) :to-be nil)
-                (expect (repair-commands error) :to-equal '("aitools schema tx status"))))))))
+    "reports a ~A escaping the store as environment.io"
+    (label condition-type initargs committed)
+  (declare (ignore label))
+  (with-temp-store (store)
+    (let* ((ports (make-journal-ports
+                   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
+                                    :current-directory (constantly (aitools.store.application:store-root store))
+                                    :getenv (constantly nil))
+                   :open-store (lambda (real-root)
+                                 (declare (ignore real-root))
+                                 (apply #'error condition-type initargs))))
+           (flows '((tx-begin-flow "tx begin" (:name "demo"))
+                    (tx-status-flow "tx status" (nil))
+                    (tx-diff-flow "tx diff" ("tx-20260101T000000Z-00000000"))
+                    (tx-drop-flow "tx drop" ("tx-20260101T000000Z-00000000" "1"))
+                    (tx-rebase-flow "tx rebase" ("tx-20260101T000000Z-00000000"))
+                    (tx-commit-flow "tx commit" ("tx-20260101T000000Z-00000000"))
+                    (tx-abort-flow "tx abort" ("tx-20260101T000000Z-00000000"))
+                    (history-flow "history" ()))))
+      (dolist (flow-call flows)
+        (destructuring-bind (flow words arguments) flow-call
+          (multiple-value-bind (kind error)
+              (apply #'run-with ports (context-for store) flow arguments)
+            (expect kind :to-be :error)
+            (expect (getf error :code) :to-equal "environment.io")
+            (expect (getf error :message)
+                    :to-equal (princ-to-string (apply #'make-condition condition-type initargs)))
+            (if committed
+                (progn
+                  (expect (mapcar #'json-alist (getf error :diagnostics))
+                          :to-equal '((("op_id" . "op-20260101T000000Z-0000000a") ("recovery" . "pending"))))
+                  (expect (repair-commands error)
+                          :to-equal (list (format nil "aitools --root ~A history"
+                                                  (aitools.store.application:store-root store)))))
+                (progn
+                  (expect (getf error :diagnostics) :to-be nil)
+                  (expect (repair-commands error)
+                          :to-equal (list (format nil "aitools schema ~A" words)))))))))))
 
   (it-each ((tx-begin-flow "tx begin" ())
             (tx-status-flow "tx status" (nil))

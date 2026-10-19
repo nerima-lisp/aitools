@@ -35,7 +35,6 @@
     ("t/integration/edit-text-commands-paths-test.lisp" 292)
     ("t/integration/edit-text-commands-test.lisp" 257)
     ("t/integration/edit-tx-and-limits-test.lisp" 262)
-    ("t/integration/journal-tx-test.lisp" 306)
     ("t/integration/process-bg-test.lisp" 271)
     ("t/integration/process-ports-test.lisp" 312)
     ("t/integration/process-test.lisp" 421)
