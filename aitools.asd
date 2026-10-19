@@ -1,8 +1,6 @@
-;;;; This form comes FIRST, before any defsystem. ASDF binds *package* to
-;;;; ASDF-USER only for a file it loads itself; read any other way -- a REPL
-;;;; `load`, an editor evaluating the buffer, flake.nix parsing :version --
-;;;; the file is read in whatever package happens to be current, and an
-;;;; unqualified `defsystem` then fails to read at all. See
+;;;; This form must precede defsystem: ASDF binds *package* to ASDF-USER
+;;;; only when it reads this file itself. Other readers use the current
+;;;; package, so unqualified defsystem can fail. See
 ;;;; docs/src/reference/architecture.md for the system layout.
 (in-package #:asdf-user)
 
@@ -149,8 +147,7 @@
   ;; This project uses cl-weave as its only test framework.
   :depends-on ("aitools" "aitools/cli" "cl-weave")
   :pathname "."
-  ;; t/package and t/support come first, then every context's :TESTS file in
-  ;; module order, then the cross-context integration and e2e modules last.
+  ;; t/package and support lead, context tests follow, then structure, integration, and e2e suites.
   :components ((:module "t"
                 :pathname "t/"
                 :components ((:file "package")
@@ -295,6 +292,11 @@
                              (:file "unit/util/uuid-random-test")
                              (:file "unit/util/flows-test")
                              (:file "integration/util-cli-test")
+                             (:module "structure" :pathname "structure/" :serial t
+                              :components ((:file "cps-contract-analysis")
+                                           (:file "cps-contract-allowlist-slash-k")
+                                           (:file "cps-contract-allowlist-on-key")
+                                           (:file "cps-contract-test")))
                              (:module "integration"
                               :pathname "integration/"
                               :components ((:file "dispatch-test")
