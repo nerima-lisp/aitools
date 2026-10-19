@@ -7,6 +7,7 @@
   :components
   ((:module "domain"
     :components ((:file "package") (:file "error-catalog")
+                 (:file "redaction-patterns") (:file "redaction-pem")
                  (:file "redaction") (:file "shell-words")
                  (:file "command-placement") (:file "envelope")
                  (:file "schema-model")))

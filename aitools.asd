@@ -178,6 +178,7 @@
                              (:file "unit/protocol/schema-flow-test")
                              (:file "unit/protocol/command-result-test") (:file "unit/protocol/command-registry-test")
                              (:file "unit/protocol/json-writer-test")
+                             (:file "unit/protocol/redaction-edges-test") (:file "unit/protocol/redaction-helpers-test")
                              (:file "unit/workspace/package")
                              (:file "unit/workspace/fake-host")
                              (:file "unit/workspace/wildmatch-test")
