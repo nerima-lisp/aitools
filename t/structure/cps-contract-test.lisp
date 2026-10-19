@@ -11,8 +11,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 168)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 162)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 167)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 156)
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
                    "RUN-COMMAND/K" :slash-k-defun)

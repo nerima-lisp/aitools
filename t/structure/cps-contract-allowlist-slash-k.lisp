@@ -91,7 +91,6 @@
      ("packages/feature/env/src/application/time-flows.lisp" "TIME-NOW/K")
      ("packages/feature/inspect/src/application/archive-flows.lisp" "%CHOOSE-ITEM/K")
      ("packages/feature/inspect/src/application/archive-flows.lisp" "CALL-WITH-ARCHIVE/K")
-     ("packages/feature/inspect/src/application/context.lisp" "CALL-WITH-INSPECT-CONTEXT/K")
      ("packages/feature/inspect/src/application/files.lisp" "CALL-WITH-INSPECT-FILE/K")
      ("packages/feature/inspect/src/application/files.lisp" "CALL-WITH-READABLE-FILE/K")
      ("packages/feature/inspect/src/application/files.lisp" "CALL-WITH-TARGET-TEXT/K")

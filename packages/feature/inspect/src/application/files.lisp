@@ -228,7 +228,7 @@ when RECORD (and --tx), record the read before calling ON-FILE (context
 target). The context/readable-file/record chain every single-file flow opens
 with."
   (declare (type function on-file on-error))
-  (call-with-inspect-context/k
+  (inspect-context-flow
    ports :root root :tx tx :lock-timeout lock-timeout :on-error on-error
    :on-ready (lambda (context)
                (call-with-readable-file/k

@@ -86,43 +86,55 @@ rule, so the value is the one --expect-hash compares), else nothing."
                          (file-target-absolute target))))
     (when hash (list (cons "hash" hash)))))
 
-(defun info-flow (ports path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (info-flow ports path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
   "`info`. Calls ON-OK (fields) or ON-ERROR."
   (declare (ignore on-partial) (type function on-ok on-error))
-  (call-with-inspect-context/k
-   ports :root root :tx tx :lock-timeout lock-timeout :on-error on-error
-   :on-ready
-   (lambda (context)
-     (let* ((target (probe-target context path))
-            (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))
-       (flet ((with-stat (fields)
-                (multiple-value-bind (mode mtime) (%stat-fields context target)
-                  (append fields
-                          (list (cons "mode" (json-or-null (and mode (format-file-mode mode))))
-                                (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime)))))))))
-         (case (file-target-kind target)
-           (:absent
-            (if allow-missing
-                (funcall on-ok (append path-fields (%link-hash-fields context target)))
-                (fail-missing context target on-error)))
-           (:file
-            (record-read/k
-             context target
-             :on-error on-error
-             :on-recorded
-             (lambda ()
-               (multiple-value-bind (octets problem) (read-target-octets context target)
-                 (if octets
-                     (let* ((content (%content-fields octets target digest))
-                            (hash-tail (member "hash" content :key #'car :test #'string=)))
-                       ;; mode and mtime sit between the layout fields and hash.
-                       (funcall on-ok (append path-fields
-                                              (with-stat (ldiff content hash-tail))
-                                              hash-tail)))
-                     (fail-target-read context target on-error problem))))))
-           (t
-            (let ((entry (and (file-target-real target) (host-stat (context-host context) (file-target-real target)))))
-              ;; hash follows mode and mtime, as it does for a file.
-              (funcall on-ok (append (with-stat (append path-fields
-                                                        (list (cons "size" (if entry (workspace-entry-size entry) 0)))))
-                                     (%link-hash-fields context target)))))))))))
+  (labels ((report-ok (fields)
+             (aitools.kernel.domain:flow-continue :on-ok fields))
+           (report-error (code message &rest keys)
+             (if (member :candidates keys)
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message
+                  :candidates (getf keys :candidates)
+                  :repairs (getf keys :repairs))
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message :repairs (getf keys :repairs)))))
+    (aitools.kernel.domain:flow-call
+        (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+      (:on-ready (context)
+        (let* ((target (probe-target context path))
+               (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))
+          (flet ((with-stat (fields)
+                   (multiple-value-bind (mode mtime) (%stat-fields context target)
+                     (append fields
+                             (list (cons "mode" (json-or-null (and mode (format-file-mode mode))))
+                                   (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime)))))))))
+            (case (file-target-kind target)
+              (:absent
+               (if allow-missing
+                   (report-ok (append path-fields (%link-hash-fields context target)))
+                   (fail-missing context target #'report-error)))
+              (:file
+               (record-read/k
+                context target
+                :on-error #'report-error
+                :on-recorded
+                (lambda ()
+                  (multiple-value-bind (octets problem) (read-target-octets context target)
+                    (if octets
+                        (let* ((content (%content-fields octets target digest))
+                               (hash-tail (member "hash" content :key #'car :test #'string=)))
+                          ;; mode and mtime sit between the layout fields and hash.
+                          (report-ok (append path-fields
+                                             (with-stat (ldiff content hash-tail))
+                                             hash-tail)))
+                        (fail-target-read context target #'report-error problem))))))
+              (t
+               (let ((entry (and (file-target-real target) (host-stat (context-host context) (file-target-real target)))))
+                 ;; hash follows mode and mtime, as it does for a file.
+                 (report-ok (append (with-stat (append path-fields
+                                                       (list (cons "size" (if entry (workspace-entry-size entry) 0)))))
+                                    (%link-hash-fields context target)))))))))
+      (:on-error (code message &key repairs)
+        (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))

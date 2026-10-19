@@ -116,17 +116,25 @@ ordered mapper."
 
 ;;; ------------------------------------------------------------ create
 
-(defun snapshot-create-flow (ports &key root lock-timeout glob lang no-ignore skip-larger-than newer
-                                        on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (snapshot-create-flow ports &key root lock-timeout glob lang no-ignore skip-larger-than newer
+                          on-ok on-partial on-error)
   "`snapshot create`. Calls ON-OK (fields) or ON-ERROR."
   (declare (ignore on-partial) (type function on-ok on-error))
-  (call-with-inspect-context/k
-   ports :root root :lock-timeout lock-timeout :on-error on-error
-   :on-ready (lambda (context)
-               (%scan-options/k context :glob glob :lang lang :no-ignore no-ignore
-                                        :skip-larger-than skip-larger-than :newer newer
-                                        :on-error on-error
-                                        :on-options (lambda (options) (%create-snapshot context options on-ok))))))
+  (labels ((report-ok (fields)
+             (aitools.kernel.domain:flow-continue :on-ok fields))
+           (report-error (code message &key repairs)
+             (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))
+    (aitools.kernel.domain:flow-call
+        (inspect-context-flow ports :root root :lock-timeout lock-timeout)
+      (:on-ready (context)
+        (%scan-options/k context :glob glob :lang lang :no-ignore no-ignore
+                         :skip-larger-than skip-larger-than :newer newer
+                         :on-error #'report-error
+                         :on-options (lambda (options)
+                                       (%create-snapshot context options #'report-ok))))
+      (:on-error (code message &key repairs)
+        (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))
 
 (defun %create-snapshot (context options on-ok)
   (multiple-value-bind (files source) (%scan-files context options :hash t)
@@ -195,12 +203,24 @@ ordered mapper."
                        (cons "modified" (%limit-list modified limit))
                        (cons "truncated" (json-bool truncated))))))))
 
-(defun snapshot-diff-flow (ports id &key root lock-timeout (limit 100) on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (snapshot-diff-flow ports id &key root lock-timeout (limit 100) on-ok on-partial on-error)
   "`snapshot diff`. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
   (declare (type function on-ok on-partial on-error))
-  (call-with-inspect-context/k
-   ports :root root :lock-timeout lock-timeout :on-error on-error
-   :on-ready (lambda (context)
-               (%load-snapshot/k context id
-                                 (lambda (snapshot) (%diff-snapshot context snapshot limit on-ok on-partial))
-                                 on-error))))
+  (labels ((report-ok (fields)
+             (aitools.kernel.domain:flow-continue :on-ok fields))
+           (report-partial (fields)
+             (aitools.kernel.domain:flow-continue :on-partial fields))
+           (report-error (code message &key candidates repairs)
+             (aitools.kernel.domain:flow-continue :on-error code message
+                                                  :candidates candidates
+                                                  :repairs repairs)))
+    (aitools.kernel.domain:flow-call
+        (inspect-context-flow ports :root root :lock-timeout lock-timeout)
+      (:on-ready (context)
+        (%load-snapshot/k context id
+                          (lambda (snapshot)
+                            (%diff-snapshot context snapshot limit #'report-ok #'report-partial))
+                          #'report-error))
+      (:on-error (code message &key repairs)
+        (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))

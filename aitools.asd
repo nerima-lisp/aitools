@@ -2,7 +2,6 @@
 ;;;; only when it reads this file itself. Other readers use the current
 ;;;; package, so unqualified defsystem can fail; see docs/src/reference/architecture.md.
 (in-package #:asdf-user)
-
 ;; Context systems live in their own ASDF files under packages/.  ASDF's
 ;; source registry does not discover this repository's two-level layout, so
 ;; the aggregate system registers those definitions before referring to them.
@@ -222,6 +221,7 @@
                              (:file "integration/search-host-test")
                              (:file "unit/inspect/package")
                              (:file "unit/inspect/support")
+                             (:file "unit/inspect/context-test")
                              (:file "unit/inspect/read-test")
                              (:file "unit/inspect/json-query-test")
                              (:file "unit/inspect/table-test")

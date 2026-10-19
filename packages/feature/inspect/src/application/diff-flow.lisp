@@ -180,26 +180,42 @@ the file on disk when that still has the recorded hash."
                          (cons "argv" (journal-entry-argv entry))
                          (cons "changes" (mapcar (lambda (change) (%op-change context change)) shown))))))))
 
-(defun diff-flow (ports &key a b op root tx lock-timeout (context 3) (output "unified") ignore-whitespace ignore-eol
-                          (limit 100) on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (diff-flow ports &key a b op root tx lock-timeout (context 3) (output "unified") ignore-whitespace ignore-eol
+               (limit 100) on-ok on-partial on-error)
   "`diff`. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
   (declare (type function on-ok on-partial on-error))
-  (let ((lines-context context))
-    (flet ((invalid (message)
-             (fail on-error "argument.invalid" message
-                   :repairs (list (repair "diff-files" "Compare two files." "aitools diff a.txt b.txt")
-                                  (repair "diff-op" "Show a journal op's changes." "aitools history")))))
-      (cond
-        ((and op (or a b)) (invalid "--op takes no paths"))
-        ((and (not op) (not (and a b))) (invalid "diff needs two paths, or --op <op_id>"))
-        (t
-         (call-with-inspect-context/k
-          ports :root root :tx tx :lock-timeout lock-timeout :on-error on-error
-          :on-ready (lambda (context)
-                      (if op
-                          (%op-diff context op limit on-ok on-partial on-error)
-                          (%compare-paths context a b
-                                          (list :context lines-context :output output
-                                                :ignore-whitespace ignore-whitespace :ignore-eol ignore-eol
-                                                :limit limit)
-                                          on-ok on-partial on-error)))))))))
+  (labels ((report-ok (fields)
+             (aitools.kernel.domain:flow-continue :on-ok fields))
+           (report-partial (fields)
+             (aitools.kernel.domain:flow-continue :on-partial fields))
+           (report-error (code message &rest keys)
+             (if (member :candidates keys)
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message
+                  :candidates (getf keys :candidates)
+                  :repairs (getf keys :repairs))
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message :repairs (getf keys :repairs)))))
+    (let ((lines-context context))
+      (flet ((invalid (message)
+               (aitools.kernel.domain:flow-continue
+                :on-error "argument.invalid" message
+                :repairs (list (repair "diff-files" "Compare two files." "aitools diff a.txt b.txt")
+                               (repair "diff-op" "Show a journal op's changes." "aitools history")))))
+        (cond
+          ((and op (or a b)) (invalid "--op takes no paths"))
+          ((and (not op) (not (and a b))) (invalid "diff needs two paths, or --op <op_id>"))
+          (t
+           (aitools.kernel.domain:flow-call
+               (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+             (:on-ready (inspect-context)
+               (if op
+                   (%op-diff inspect-context op limit #'report-ok #'report-partial #'report-error)
+                   (%compare-paths inspect-context a b
+                                   (list :context lines-context :output output
+                                         :ignore-whitespace ignore-whitespace :ignore-eol ignore-eol
+                                         :limit limit)
+                                   #'report-ok #'report-partial #'report-error)))
+             (:on-error (code message &key repairs)
+               (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))))))
