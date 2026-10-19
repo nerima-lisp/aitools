@@ -54,6 +54,17 @@
 (define-flow (flow-test-redefined value &key on-old)
   value)
 
+(define-flow
+  (flow-test-lambda-sections
+    &optional (value :default)
+    &rest arguments
+    &key ((:on-ready on-ready) nil)
+    &allow-other-keys
+    &aux (marker :aux))
+  "Checks optional, rest, keyword, and auxiliary flow parameters."
+  (declare (ignore arguments))
+  (flow-continue :on-ready (list value marker)))
+
 (describe "aitools.kernel.domain flow macro boundaries"
   (it "rejects flow-continue outside a flow during macro expansion"
     (signals error
@@ -72,3 +83,30 @@
       (macroexpand-1
        '(flow-call (flow-test-redefined nil)
           (:on-old () :old))))))
+
+(describe "aitools.kernel.domain flow lambda lists"
+  (it "tracks optional, rest, keyword, and auxiliary parameters"
+    (expect (flow-test-lambda-sections :provided :on-ready (function identity))
+            :to-equal (quote (:provided :aux))))
+
+  (it "requires &allow-other-keys to follow &key"
+    (signals error
+      (macroexpand-1
+       (quote (define-flow (flow-test-invalid &allow-other-keys) nil)))))
+
+  (it "rejects unsupported lambda-list keywords"
+    (signals error
+      (macroexpand-1
+       (quote (define-flow (flow-test-invalid &unsupported) nil)))))
+
+  (it "rejects an empty ampersand marker as an unsupported keyword"
+    (signals error
+      (macroexpand-1
+       (quote (define-flow (flow-test-invalid |&|) nil)))))
+
+  (it "registers an implicit :ON-* keyword when expanding a flow"
+    (macroexpand-1
+     (quote (define-flow (flow-test-simple-key &optional (value nil) &key on-ready)
+              value)))
+    (expect (gethash (quote flow-test-simple-key) aitools.kernel.domain::*flow-signatures*)
+            :to-equal (quote (:on-ready)))))
