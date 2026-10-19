@@ -77,9 +77,7 @@ removing it and its state directory afterwards."
   exit-code envelope stream stdout stderr argv)
 
 (defun aitools (workspace arguments &key stdin env (directory ""))
-  "Run the executable with ARGUMENTS from WORKSPACE's DIRECTORY and return an
-AITOOLS-RESULT. The output contract is checked on every call: exactly one of stdout and
-stderr carries output, and it parses as one JSON object."
+  "Run the executable and require one version 2 JSON envelope."
   (let* ((binary (aitools-binary))
          (result (run-process (native binary) arguments
                               :directory (ws-path workspace directory)
@@ -90,13 +88,17 @@ stderr carries output, and it parses as one JSON object."
          (text (cond ((and (plusp (length stdout)) (zerop (length stderr))) stdout)
                      ((and (zerop (length stdout)) (plusp (length stderr))) stderr)
                      (t (fail "~A" (format nil "aitools ~{~A~^ ~}: expected one JSON envelope on exactly one stream, got stdout ~S and stderr ~S"
-                                          arguments stdout stderr))))))
+                                          arguments stdout stderr)))))
+         (envelope (handler-case (json-kit:parse text :false-value nil :null-value nil)
+                     (json-kit:json-kit-error (condition)
+                       (fail "~A" (format nil "aitools ~{~A~^ ~}: output is not JSON (~A): ~S" arguments condition text))))))
+    (unless (eql (jget envelope "schema_version") 2)
+      (fail "aitools ~{~A~^ ~}: expected schema_version 2, got ~S"
+            arguments (jget envelope "schema_version")))
+    (when (nth-value 1 (gethash "meta" envelope)) (fail "aitools ~{~A~^ ~}: expected meta to be absent without trace instrumentation" arguments))
     (make-aitools-result
      :exit-code (result-exit-code result)
-     :envelope (handler-case (json-kit:parse text :false-value nil :null-value nil)
-                 (json-kit:json-kit-error (condition)
-                   (fail "~A" (format nil "aitools ~{~A~^ ~}: output is not JSON (~A): ~S"
-                                      arguments condition text))))
+     :envelope envelope
      :stream (if (eq text stdout) :stdout :stderr)
      :stdout stdout :stderr stderr :argv arguments)))
 

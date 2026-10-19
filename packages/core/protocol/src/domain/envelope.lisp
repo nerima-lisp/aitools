@@ -57,40 +57,43 @@ an absent scalar is built through this."
 (defun %recovered-entry (entry)
   (json-object-from-alist (list (cons "op_id" (getf entry :op-id)) (cons "action" (getf entry :action)))))
 
-(defun make-ok-envelope (command fields &key (status "ok") next-commands recovered)
-  "Build a success envelope. COMMAND is the dispatched command's name.
+(defun make-ok-envelope (command fields &key (status "ok") next-commands recovered meta)
+  "Build a schema version 2 success envelope. COMMAND is the dispatched command's name.
 FIELDS is an alist of (STRING . VALUE) command-specific fields, in the order
-they should appear after \"command\". STATUS is \"ok\" or \"partial\"
-(docs/src/reference/json-schema.md). NEXT-COMMANDS and RECOVERED are omitted
-entirely when NIL: the envelope omits an empty next_commands."
+they should appear after \"command\". STATUS is \"ok\" or \"partial\".
+NEXT-COMMANDS, RECOVERED, and META are omitted when NIL; META follows the
+payload fields."
   (json-object-from-alist
-   (append (list (cons "schema_version" 1) (cons "status" status) (cons "command" command))
+   (append (list (cons "schema_version" 2) (cons "status" status) (cons "command" command))
            fields
            (when next-commands (list (cons "next_commands" next-commands)))
-           (when recovered (list (cons "recovered" (mapcar #'%recovered-entry recovered)))))))
+           (when recovered (list (cons "recovered" (mapcar #'%recovered-entry recovered))))
+           (when meta (list (cons "meta" meta))))))
 
 (defun %repair-entry (repair)
   (json-object-from-alist (list (cons "action" (getf repair :action))
                       (cons "detail" (getf repair :detail))
                       (cons "command" (getf repair :command)))))
 
-(defun make-error-envelope (command code message &key repairs candidates diagnostics conflicts)
-  "Build an error envelope for error.code CODE (looked up in *ERROR-CODES*
-for its exit code). REPAIRS is required and non-empty -- every error
-carries at least one `repairs[].command` (docs/src/reference/errors.md) --
-and is a list
-of (:ACTION :DETAIL :COMMAND) plists. CANDIDATES, DIAGNOSTICS, and CONFLICTS
-are command-specific JSON values (already in json-kit form) included only
-when given: they appear only on the errors they apply to."
+(defun make-error-envelope (command code message &key repairs candidates diagnostics conflicts recovered meta)
+  "Build a schema version 2 error envelope for error.code CODE. REPAIRS is
+required and non-empty; every error carries at least one
+`repairs[].command` (docs/src/reference/errors.md), as a list of
+(:ACTION :DETAIL :COMMAND) plists. CANDIDATES, DIAGNOSTICS, and CONFLICTS are
+command-specific JSON values included only when given. RECOVERED and META
+follow the error payload when present."
   (unless repairs
     (error "make-error-envelope: ~A/~A has no repairs, but every error requires at least one" command code))
   (json-object-from-alist
-   (list (cons "schema_version" 1) (cons "status" "error") (cons "command" command)
-         (cons "error"
-               (json-object-from-alist
-                (append (list (cons "code" code) (cons "message" message)
-                             (cons "exit_code" (error-code-exit-code code))
-                             (cons "repairs" (mapcar #'%repair-entry repairs)))
-                       (when candidates (list (cons "candidates" candidates)))
-                       (when diagnostics (list (cons "diagnostics" diagnostics)))
-                       (when conflicts (list (cons "conflicts" conflicts)))))))))
+   (append
+    (list (cons "schema_version" 2) (cons "status" "error") (cons "command" command)
+          (cons "error"
+                (json-object-from-alist
+                 (append (list (cons "code" code) (cons "message" message)
+                              (cons "exit_code" (error-code-exit-code code))
+                              (cons "repairs" (mapcar #'%repair-entry repairs)))
+                         (when candidates (list (cons "candidates" candidates)))
+                         (when diagnostics (list (cons "diagnostics" diagnostics)))
+                         (when conflicts (list (cons "conflicts" conflicts)))))))
+    (when recovered (list (cons "recovered" (mapcar #'%recovered-entry recovered))))
+    (when meta (list (cons "meta" meta))))))

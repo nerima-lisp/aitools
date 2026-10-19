@@ -8,8 +8,8 @@
 ;;;; aitools writes to STDOUT/STDERR or calls SB-EXT:EXIT.
 ;;;;
 ;;;; Recovery of interrupted operations runs before every dispatched command, through
-;;;; CALL-WITH-INVOCATION-WORKSPACE/K (src/workspace-context.lisp); what it
-;;;; recovered appears as the success envelope's `recovered`.
+;;;; CALL-WITH-INVOCATION-WORKSPACE/K (src/workspace-context.lisp); its result
+;;;; appears in the response envelope's top-level `recovered` member.
 (in-package #:aitools/cli)
 
 (defun %full-command-name (invocation)
@@ -30,31 +30,14 @@ repairs; registry lookups keep the dotted dispatch name (\"json.get\")."
        (format nil "aitools schema ~A" (%display-name command-name))
        "aitools schema")))
 
-(defun %recovered-json (recovered)
-  "RECOVERED, a list of (:op-id ID :action ACTION) plists, as the JSON objects
-MAKE-OK-ENVELOPE's `recovered[]` uses. Built here because MAKE-ERROR-ENVELOPE
-takes no :RECOVERED key: the composition root appends the field itself through
-the exported JSON seams so a recovery followed by a failing command still
-reports what it recovered."
-  (mapcar (lambda (entry)
-            (aitools.protocol.domain:json-object-from-alist
-             (list (cons "op_id" (getf entry :op-id))
-                   (cons "action" (getf entry :action)))))
-          recovered))
-
 (defun %write-error (command-name code message stderr
                      &key repairs candidates diagnostics conflicts recovered)
   (let ((envelope (aitools.protocol.domain:make-error-envelope
                    (or (%display-name command-name) "aitools") code message
                    :repairs (or repairs (list (%generic-repair command-name)))
-                   :candidates candidates :diagnostics diagnostics :conflicts conflicts)))
-    (aitools.protocol.infrastructure:write-envelope
-     (if recovered
-         (aitools.protocol.domain:json-object-from-alist
-          (append (aitools.protocol.domain:json-object-members envelope)
-                  (list (cons "recovered" (%recovered-json recovered)))))
-         envelope)
-     stderr))
+                   :candidates candidates :diagnostics diagnostics :conflicts conflicts
+                   :recovered recovered)))
+    (aitools.protocol.infrastructure:write-envelope envelope stderr))
   (aitools.protocol.domain:error-code-exit-code code))
 
 (defun %write-command-result (command-name result stdout stderr &key recovered)
@@ -86,7 +69,7 @@ reports what it recovered."
      (if schema
          (aitools.protocol.application:render-command-detail schema)
          (aitools.protocol.domain:json-object-from-alist
-          (list (cons "schema_version" 1) (cons "status" "ok") (cons "command" "schema")
+          (list (cons "schema_version" 2) (cons "status" "ok") (cons "command" "schema")
                 (cons "commands" (mapcar #'aitools.protocol.application:render-command-summary
                                          (all-command-schemas registry))))))
      stdout))

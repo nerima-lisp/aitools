@@ -30,7 +30,7 @@ A write given `--tx` returns `tx` and `tx_op` (the operation's number inside
 the tx) instead of `op_id`:
 
 ```json
-{"schema_version":1,"status":"ok","command":"edit","changes":[{"path":"a.txt","action":"modified", ...}],"tx":"tx-20260926T011551Z-67a7c1ac","tx_op":1,"strategy":"exact"}
+{"schema_version":2,"status":"ok","command":"edit","changes":[{"path":"a.txt","action":"modified", ...}],"tx":"tx-20260926T011551Z-67a7c1ac","tx_op":1,"strategy":"exact"}
 ```
 
 ## What a tx stores
@@ -93,7 +93,7 @@ A conflict detected before the durable commit writes nothing, exits with code 2
 resolve it:
 
 ```json
-{"schema_version":1,"status":"error","command":"tx commit","error":{"code":"refusal.target-changed","message":"2 paths changed outside tx tx-20260926T011551Z-67a7c1ac","exit_code":2,
+{"schema_version":2,"status":"error","command":"tx commit","error":{"code":"refusal.target-changed","message":"2 paths changed outside tx tx-20260926T011551Z-67a7c1ac","exit_code":2,
  "repairs":[
   {"action":"rebase","detail":"Re-apply the tx's content-based operations onto the current files.","command":"aitools tx rebase tx-20260926T011551Z-67a7c1ac"},
   {"action":"reread","detail":"Read the changed file again through the tx to refresh the read set.","command":"aitools read b.txt --tx tx-20260926T011551Z-67a7c1ac"},
@@ -113,7 +113,7 @@ touched drifted paths, against the current disk content. On success, each
 rebased path's `base` moves to the current file:
 
 ```json
-{"schema_version":1,"status":"ok","command":"tx rebase","tx":"tx-20260926T011551Z-67a7c1ac","rebased":["a.txt"]}
+{"schema_version":2,"status":"ok","command":"tx rebase","tx":"tx-20260926T011551Z-67a7c1ac","rebased":["a.txt"]}
 ```
 
 Content-based operations search again: `--old`, `--between`, and `--match`
@@ -133,7 +133,7 @@ Rebase resolves write conflicts only. A stale read still needs a re-read or
 restoring each path's staged state from before that operation:
 
 ```json
-{"schema_version":1,"status":"ok","command":"tx drop","tx":"tx-20260926T011559Z-e9eaeac3","dropped":[2]}
+{"schema_version":2,"status":"ok","command":"tx drop","tx":"tx-20260926T011559Z-e9eaeac3","dropped":[2]}
 ```
 
 Later operations build on earlier ones, so aitools does not remove an
@@ -171,7 +171,7 @@ commit of a tx with no staged changes returns `"op_id":null`.
 touch the working tree, and returns the paths the tx had staged:
 
 ```json
-{"schema_version":1,"status":"ok","command":"tx abort","tx":"tx-20260926T011559Z-e9eaeac3","discarded":["a.txt"]}
+{"schema_version":2,"status":"ok","command":"tx abort","tx":"tx-20260926T011559Z-e9eaeac3","discarded":["a.txt"]}
 ```
 
 ## `batch --atomic`

@@ -27,12 +27,12 @@ accepted before or after the command name.
 |---|---|
 | `--root <dir>` | Workspace root. Without it, aitools uses the enclosing git root, then the working directory. |
 | `--lock-timeout <duration>` | How long a write, or recovery before a command, waits for the workspace lock. Default `10s`. |
-| `--version` | Prints `{"schema_version":1,"status":"ok","command":"version","name":"aitools","version":...}`. |
+| `--version` | Prints `{"schema_version":2,"status":"ok","command":"version","name":"aitools","version":...}`. |
 | `--help` | After a command name, prints that command's schema detail object. Without a command, prints the command list. |
 
 `--help` output is the bare schema object (`name`, `summary`, `description`,
 `args`, `output_fields`, `error_codes`) for a command, or
-`{"schema_version":1,"status":"ok","command":"schema","commands":[...]}`
+`{"schema_version":2,"status":"ok","command":"schema","commands":[...]}`
 without one. It is not wrapped in the success envelope that `aitools schema`
 uses.
 

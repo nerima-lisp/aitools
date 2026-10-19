@@ -50,7 +50,7 @@ was not in the state the call assumed:
 
 ```console
 $ aitools cat README.md
-{"schema_version":1,"status":"error","command":"cat","error":{"code":"argument.invalid","message":"unknown command cat","exit_code":1,"repairs":[{"action":"run-instead","detail":"Read a file with line numbers and range control.","command":"aitools read"}]}}
+{"schema_version":2,"status":"error","command":"cat","error":{"code":"argument.invalid","message":"unknown command cat","exit_code":1,"repairs":[{"action":"run-instead","detail":"Read a file with line numbers and range control.","command":"aitools read"}]}}
 ```
 
 ## Install

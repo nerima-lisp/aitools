@@ -16,7 +16,7 @@ journaled writes return an operation that `aitools undo` can revert. External-pr
 ## Overview
 
 **Output and exit codes.** Success goes to standard output, errors to standard error, each exactly one JSON object:
-`{"schema_version":1,"status":"ok"|"partial"|"error","command":"<as typed>", ...}`. Branch on the exit code
+`{"schema_version":2,"status":"ok"|"partial"|"error","command":"<as typed>", ...}`. Branch on the exit code
 first, then on `error.code`. The exit codes come from `data/domain/protocol/error-catalog-data.lisp`:
 
 - 0: `status:"ok"`. `run` also exits 0 after the child starts, even on timeout, unless `--grep-limit`

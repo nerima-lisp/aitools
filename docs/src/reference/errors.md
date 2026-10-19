@@ -18,7 +18,7 @@ catalog below.
 Every error is one JSON object on standard error:
 
 ```json
-{"schema_version":1,"status":"error","command":"edit",
+{"schema_version":2,"status":"error","command":"edit",
  "error":{"code":"selection.ambiguous","message":"...","exit_code":2,
           "repairs":[{"action":"read","detail":"...","command":"aitools read dup.txt"}],
           "candidates":[{"line":1,"text":"x"},{"line":2,"text":"x"}]}}
@@ -27,9 +27,9 @@ Every error is one JSON object on standard error:
 - `repairs` always has at least one entry. `make-error-envelope`
   (`packages/core/protocol/src/domain/envelope.lisp`) signals an internal
   error rather than build an envelope without one.
-- `repairs[].command` is an aitools invocation to run next. Some repairs
-  name only the command to use (`aitools read` for `cat`), not a complete
-  invocation.
+- `repairs[].command` suggests an aitools invocation. It is not run
+  automatically. Some repairs name only the command to use (`aitools read` for
+  `cat`), not a complete invocation.
 - `candidates`, `diagnostics`, and `conflicts` appear only when the error
   has them.
 - When no command-specific repair applies, the repair is
@@ -128,10 +128,10 @@ this order:
 
 ```console
 $ aitools cat hello.lisp
-{"schema_version":1,"status":"error","command":"cat","error":{"code":"argument.invalid","message":"unknown command cat","exit_code":1,"repairs":[{"action":"run-instead","detail":"Read a file with line numbers and range control.","command":"aitools read"}]}}
+{"schema_version":2,"status":"error","command":"cat","error":{"code":"argument.invalid","message":"unknown command cat","exit_code":1,"repairs":[{"action":"run-instead","detail":"Read a file with line numbers and range control.","command":"aitools read"}]}}
 
 $ aitools uuid
-{"schema_version":1,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is the `util` group's subcommand; include the group name.","command":"aitools util uuid"}]}}
+{"schema_version":2,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is the `util` group's subcommand; include the group name.","command":"aitools util uuid"}]}}
 ```
 
 `schema` also reports near-miss candidates as an agent types them (`json get`,

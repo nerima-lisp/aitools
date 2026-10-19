@@ -28,7 +28,7 @@ field, and the error codes the command declares. The
 | 0 | Use the result on standard output. |
 | 3 | The result on standard output is incomplete (`status:"partial"`). Follow `next_commands` when present, or narrow the request. For `run`, check the child outcome before considering a retry; see [Run an external program](#run-an-external-program). |
 | 2 | The file is not in the state you assumed. Read it again, then retry with a fresh selection, hash, or count. |
-| 1 | Read `error.code` and run a command from `error.repairs`. |
+| 1 | Read `error.code`; treat `error.repairs` as suggestions and review a command before running it. |
 
 Standard output carries success; standard error carries the error envelope.
 Each is exactly one JSON object.
@@ -59,7 +59,7 @@ Every read has a limit, and a cut result says how to continue:
 
 ```console
 $ aitools read nums.txt --max-lines 3
-{"schema_version":1,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
+{"schema_version":2,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
 ```
 
 `approx_tokens` estimates the size of the returned text as
@@ -94,7 +94,7 @@ writing when the file differs.
 
 ```console
 $ aitools edit hello.lisp --old 'Hello' --new 'Hi'
-{"schema_version":1,"status":"ok","command":"edit","changes":[{"path":"hello.lisp","action":"modified","hash_before":"de2187a5...","hash_after":"5f132d76...","diff":"@@ -1,2 +1,2 @@\n (defun greet (name)\n-  (format t \"Hello, ~a\" name))\n+  (format t \"Hi, ~a\" name))\n"}],"op_id":"op-20260926T011541Z-4a125e73","strategy":"exact"}
+{"schema_version":2,"status":"ok","command":"edit","changes":[{"path":"hello.lisp","action":"modified","hash_before":"de2187a5...","hash_after":"5f132d76...","diff":"@@ -1,2 +1,2 @@\n (defun greet (name)\n-  (format t \"Hello, ~a\" name))\n+  (format t \"Hi, ~a\" name))\n"}],"op_id":"op-20260926T011541Z-4a125e73","strategy":"exact"}
 ```
 
 Hashes above are shortened for the page; real output carries the full

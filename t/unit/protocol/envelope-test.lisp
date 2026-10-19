@@ -5,7 +5,7 @@
   (it "builds an ok envelope with schema_version, status, and command first"
     (let* ((envelope (make-ok-envelope "read" (list (cons "path" "a.lisp"))))
            (alist (json-alist envelope)))
-      (expect (json-alist-value envelope "schema_version") :to-be 1)
+      (expect (json-alist-value envelope "schema_version") :to-be 2)
       (expect (json-alist-value envelope "status") :to-equal "ok")
       (expect (json-alist-value envelope "command") :to-equal "read")
       (expect (json-alist-value envelope "path") :to-equal "a.lisp")
@@ -19,6 +19,13 @@
     (let ((envelope (make-ok-envelope "read" nil :next-commands (list "aitools read a --range 2:3"))))
       (expect (json-alist-value envelope "next_commands") :to-equal (list "aitools read a --range 2:3"))))
 
+  (it "appends supplied metadata after the success payload"
+    (let* ((meta (aitools.protocol.domain:json-object "trace" (aitools.protocol.domain:json-object "spans" nil)))
+           (envelope (make-ok-envelope "read" (list (cons "path" "a.lisp")) :meta meta)))
+      (expect (json-alist-value envelope "meta") :to-be meta)
+      (expect (mapcar #'car (json-alist envelope))
+              :to-equal (list "schema_version" "status" "command" "path" "meta"))))
+
   (it "builds a partial-status envelope"
     (let ((envelope (make-ok-envelope "read" nil :status "partial")))
       (expect (json-alist-value envelope "status") :to-equal "partial")))
@@ -29,16 +36,24 @@
         (expect (json-alist-value recovered "op_id") :to-equal "op-1")
         (expect (json-alist-value recovered "action") :to-equal "rolled-forward"))))
 
-  (it "builds an error envelope with the catalog's exit code"
-    (let ((envelope (make-error-envelope "edit" "selection.no-match" "no match"
-                                        :repairs (list (list :action "a" :detail "d" :command "c")))))
-      (let ((error-object (json-alist-value envelope "error")))
-        (expect (json-alist-value envelope "status") :to-equal "error")
-        (expect (json-alist-value error-object "code") :to-equal "selection.no-match")
-        (expect (json-alist-value error-object "exit_code") :to-be 2)
-        (expect (json-alist-value error-object "message") :to-equal "no match")
-        (let ((repair (first (json-alist-value error-object "repairs"))))
-          (expect (json-alist-value repair "command") :to-equal "c")))))
+  (it "builds an error envelope with recovered data and metadata"
+    (let* ((meta (aitools.protocol.domain:json-object "trace" (aitools.protocol.domain:json-object "spans" nil)))
+           (envelope (make-error-envelope "edit" "selection.no-match" "no match"
+                                          :repairs (list (list :action "a" :detail "d" :command "c"))
+                                          :recovered (list (list :op-id "op-1" :action "rolled-forward"))
+                                          :meta meta))
+           (error-object (json-alist-value envelope "error"))
+           (recovered (first (json-alist-value envelope "recovered"))))
+      (expect (json-alist-value envelope "schema_version") :to-be 2)
+      (expect (json-alist-value envelope "status") :to-equal "error")
+      (expect (json-alist-value error-object "code") :to-equal "selection.no-match")
+      (expect (json-alist-value error-object "exit_code") :to-be 2)
+      (expect (json-alist-value error-object "message") :to-equal "no match")
+      (expect (json-alist-value (first (json-alist-value error-object "repairs")) "command") :to-equal "c")
+      (expect (json-alist-value recovered "action") :to-equal "rolled-forward")
+      (expect (json-alist-value envelope "meta") :to-be meta)
+      (expect (mapcar #'car (json-alist envelope))
+              :to-equal (list "schema_version" "status" "command" "error" "recovered" "meta"))))
 
   (it "omits candidates/diagnostics/conflicts when not given"
     (let* ((envelope (make-error-envelope "edit" "argument.invalid" "m"
@@ -49,7 +64,15 @@
       (expect (assoc "conflicts" (json-alist error-object) :test #'string=) :to-be-falsy)))
 
   (it "signals when no repairs are given"
-    (signals error (make-error-envelope "edit" "argument.invalid" "m" :repairs nil))))
+    (signals error (make-error-envelope "edit" "argument.invalid" "m" :repairs nil)))
+
+  (it "matches only version 2 envelopes"
+    (let ((v1 (json-kit:parse "{\"schema_version\":1,\"status\":\"ok\"}"))
+          (missing (json-kit:parse "{\"status\":\"ok\"}"))
+          (v2 (json-kit:parse "{\"schema_version\":2,\"status\":\"ok\"}")))
+      (expect v1 :not :to-match-envelope (quote ("status" "ok")))
+      (expect missing :not :to-match-envelope (quote ("status" "ok")))
+      (expect v2 :to-match-envelope (quote ("status" "ok"))))))
 
 (describe "aitools.protocol.domain envelope helpers"
   (it "builds a JSON object from alternating keys and values in argument order"

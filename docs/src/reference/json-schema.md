@@ -13,24 +13,26 @@ The shapes of individual commands' fields are in
 ## Success envelope
 
 ```json
-{"schema_version":1,"status":"ok","command":"mkdir",
+{"schema_version":2,"status":"ok","command":"mkdir",
  "changes":[],"op_id":null}
 ```
 
 | Field | Presence | Meaning |
 |---|---|---|
-| `schema_version` | always | `1`. |
+| `schema_version` | always | `2`. |
 | `status` | always | `"ok"` (exit code 0) or `"partial"` (exit code 3). |
 | `command` | always | The command as typed: `"read"`, `"json get"`, `"tx commit"`. |
 | command fields | per command | Listed in each command's schema. |
 | `next_commands` | when non-empty | Complete aitools invocations that continue the result. |
 | `recovered` | after a recovery | See [Recovered operations](#recovered-operations). |
+| `meta` | when supplied | Additional envelope metadata. See [Metadata](#metadata). |
 | `redactions` | when anything was masked | Count of masked regions, not distinct secret values. See [Redactions](#redactions). |
 
 `next_commands` is one of the command's own fields, so its position among
-them depends on the command. `recovered` follows the command fields, and
-`redactions` may be added by the command or by the final serialization pass;
-its position is not fixed.
+them depends on the command. `recovered` and `meta` follow the envelope
+payload. Version 1 and a missing `schema_version` are not interpreted as
+version 2. The final serialization pass may append `redactions`, so its
+position is not fixed.
 
 ### Partial results
 
@@ -39,7 +41,7 @@ code 3, with `next_commands` holding a command for the next page. Follow each
 page's continuation until the result is no longer partial:
 
 ```json
-{"schema_version":1,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
+{"schema_version":2,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
 ```
 
 Totals such as `total_lines`, `total`, and `total_matches` count the whole
@@ -77,7 +79,7 @@ for `mktemp` and `run --stdout-to`. Hashes in the examples are abbreviated;
 real content hashes contain 64 hexadecimal characters.
 
 ```json
-{"schema_version":1,"status":"ok","command":"edit",
+{"schema_version":2,"status":"ok","command":"edit",
  "changes":[{"path":"hello.lisp","action":"modified","hash_before":"de2187a5...","hash_after":"5f132d76...","diff":"@@ -1 +1 @@\n-old\n+new"}],
  "op_id":"op-20260926T011541Z-4a125e73","strategy":"exact"}
 ```
@@ -123,7 +125,7 @@ absolute `{path, bytes}` object in its `stdout` field for the file it writes.
 ## Error envelope
 
 ```json
-{"schema_version":1,"status":"error","command":"edit",
+{"schema_version":2,"status":"error","command":"edit",
  "error":{"code":"selection.no-match","message":"--old matches nothing in nums.txt","exit_code":2,
           "repairs":[{"action":"read","detail":"Read the file to choose a unique, current selection.","command":"aitools read nums.txt"}],
           "candidates":[{"line":1,"text":"1"},{"line":2,"text":"2"},{"line":3,"text":"3"}]}}
@@ -134,31 +136,62 @@ absolute `{path, bytes}` object in its `stdout` field for the file it writes.
 | `error.code` | always | `<namespace>.<name>`; see [Errors and exit codes](errors.md). |
 | `error.message` | always | A sentence for the agent. |
 | `error.exit_code` | always | The process exit code, from the error catalog. |
-| `error.repairs` | always, at least one | `{action, detail, command}`; `command` is the aitools invocation to run next. |
+| `error.repairs` | always, at least one | `{action, detail, command}`; `command` suggests an aitools invocation and is not run automatically. |
 | `error.candidates` | when relevant | Near matches: lines for selectors, paths for missing files, command names for `schema`. |
 | `error.diagnostics` | when relevant | Positions, such as `{line, col, message}` for `check` syntax errors. |
 | `error.conflicts` | when relevant | `{path, kind, base, current}` for `tx commit` and `tx rebase`; the changed paths for `undo`. |
 
 `command` is `"aitools"` when the failure happened before a command was
-identified. An error envelope carries no `recovered` member, even when
-recovery ran first.
+identified. If workspace recovery ran before a command failed,
+`recovered` appears at the envelope's top level after `error`.
 
 ## Recovered operations
 
 Before executing a workspace command, aitools checks `commit/` inside the
 workspace's state directory, not inside the workspace file tree, for intent
-records a crashed writer left behind. When there are any, it
-takes the workspace lock, finishes or discards each operation, and reports
-the result in the success envelope of the command that triggered it:
+records a crashed writer left behind. When there are any, it takes the
+workspace lock, finishes or discards each operation, and reports the result
+in the response envelope of the command that triggered recovery. If that
+command fails, `recovered` remains at the top level beside `error`:
 
 ```json
-{"schema_version":1,"status":"ok","command":"mkdir","changes":[],"op_id":null,
+{"schema_version":2,"status":"ok","command":"mkdir","changes":[],"op_id":null,
  "recovered":[{"op_id":"op-20260926T000000Z-deadbeef","action":"discarded"}]}
 ```
 
 `action` is `"rolled-forward"` when the intent record was complete (the
 write is finished) or `"discarded"` when it was incomplete (the workspace
 was never changed and the operation's temporary files are removed).
+
+## Metadata
+
+An envelope may include a `meta` object after its payload and `recovered`.
+Constructors accept metadata, but the current CLI does not collect trace data.
+When a caller supplies `meta.trace`, it has this shape:
+
+```json
+{"meta":{"trace":{"spans":[{"span_id":0,"parent_span_id":null,"kind":"command","name":"read","start_ns":0,"duration_ns":1200,"outcome":"ok"}],"metrics":{"span_count":1,"command_count":1,"child_process_count":0,"io_count":0,"duration_ns":1200}}}}
+```
+
+`spans` is ordered by `start_ns`, with lower `span_id` first for ties. Each
+span contains:
+
+| Field | Shape |
+|---|---|
+| `span_id` | Non-negative integer, assigned from 0 within the response trace. |
+| `parent_span_id` | A span ID, or `null` for the root command span. |
+| `kind` | `command`, `child_process`, or `io`. |
+| `name` | The dispatch command name or a fixed operation name such as `process.run` or `store.read`. |
+| `start_ns` | Non-negative integer monotonic offset from the root start. |
+| `duration_ns` | Non-negative integer monotonic duration. |
+| `outcome` | `ok`, `partial`, `error`, `timeout`, or `unavailable`. |
+
+`metrics` always contains non-negative integers for `span_count`,
+`command_count`, `child_process_count`, `io_count`, and `duration_ns`.
+`span_count` is the number of spans; each kind count includes spans of that
+kind, including the root command. `duration_ns` is the root span duration.
+Trace data does not contain wall-clock timestamps, argv, environment values,
+file paths, or body content.
 
 ## Redactions
 
@@ -190,7 +223,7 @@ merge and count once; the same secret appearing in separate regions can
 count more than once. The envelope gains a top-level `redactions` count:
 
 ```json
-{"schema_version":1,"status":"ok","command":"read","mode":"text","path":"cfg.env","start_line":1,"lines":["api_key=[REDACTED_SECRET]","[REDACTED_SECRET]"],"total_lines":2,"hash":"02886ad6...","truncated":false,"encoding_errors":0,"approx_tokens":11,"redactions":2}
+{"schema_version":2,"status":"ok","command":"read","mode":"text","path":"cfg.env","start_line":1,"lines":["api_key=[REDACTED_SECRET]","[REDACTED_SECRET]"],"total_lines":2,"hash":"02886ad6...","truncated":false,"encoding_errors":0,"approx_tokens":11,"redactions":2}
 ```
 
 Object keys are masked by the same patterns as string values, so a key
