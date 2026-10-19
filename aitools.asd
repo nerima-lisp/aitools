@@ -1,7 +1,6 @@
 ;;;; This form must precede defsystem: ASDF binds *package* to ASDF-USER
 ;;;; only when it reads this file itself. Other readers use the current
-;;;; package, so unqualified defsystem can fail. See
-;;;; docs/src/reference/architecture.md for the system layout.
+;;;; package, so unqualified defsystem can fail; see docs/src/reference/architecture.md.
 (in-package #:asdf-user)
 
 ;; Context systems live in their own ASDF files under packages/.  ASDF's
@@ -264,6 +263,7 @@
                              (:file "unit/process/domain-records-test")
                              (:file "unit/process/flows-test")
                              (:file "unit/process/flows-bg-control-test")
+                             (:file "unit/process/flows-bg-error-test")
                              (:file "unit/process/signal-flow-test")
                              (:file "integration/process-test")
                              (:file "integration/process-bg-test")
