@@ -183,6 +183,7 @@
                              (:file "unit/protocol/redaction-flow-test")
                              (:file "unit/protocol/schema-flow-test")
                              (:file "unit/protocol/command-result-test")
+                             (:file "unit/protocol/command-registry-test")
                              (:file "unit/protocol/json-writer-test")
                              (:file "unit/workspace/package")
                              (:file "unit/workspace/fake-host")
