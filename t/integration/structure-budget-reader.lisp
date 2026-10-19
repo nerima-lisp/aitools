@@ -1,0 +1,27 @@
+(in-package #:aitools.integration.structure-test)
+
+(defun %budget-safe-read-text (text)
+  (let* ((stripped (%strip-prose text))
+         (safe (copy-seq text)))
+    (loop for index from 0 below (1- (length stripped))
+          when (and (char= (char stripped index) #\#)
+                    (char= (char stripped (1+ index)) #\.))
+            do (setf (char safe index) #\Space
+                     (char safe (1+ index)) #\Space))
+    safe))
+
+(defun %budget-read-source-forms (pathname)
+  (let* ((text (uiop:read-file-string pathname))
+         (safe (%budget-safe-read-text text))
+         (forms '())
+         (position 0))
+    (with-standard-io-syntax
+        (let ((*read-eval* nil)
+              (*package* *reader-package*))
+          (loop (multiple-value-bind (form next)
+                    (read-from-string safe nil :eof :start position)
+                  (when (eq form :eof)
+                    (return))
+                  (push form forms)
+                  (setf position next)))))
+    (values (nreverse forms) text)))
