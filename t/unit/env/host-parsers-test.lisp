@@ -78,6 +78,10 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
                       "Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll"
                       "a0* 16384 <Link#1> 8 9 700 11 12 1000 0 extra more")
               :darwin))
+            :to-equal '(nil nil)))
+  (it "rejects unsupported network counter operating systems"
+    (expect (multiple-value-list
+             (parse-network-counters *network-linux-text* :other))
             :to-equal '(nil nil))))
 
 (describe "aitools.env.domain metrics parsers"

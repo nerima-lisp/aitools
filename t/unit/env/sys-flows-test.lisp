@@ -64,6 +64,23 @@
         (expect (object-field (object-field sections "network") "status") :to-equal "unavailable")
         (expect (object-field (object-field sections "metrics") "status") :to-equal "unavailable")
         (expect (object-field (object-field sections "ports") "status") :to-equal "unavailable"))))
+  (it "continues after the info flow reports an error"
+    (cl-weave:with-mocked-functions
+        (((symbol-function 'sys-info/k)
+          (lambda (ports &key on-ok on-error)
+            (declare (ignore ports on-ok))
+            (funcall on-error "environment.unavailable" "fixture"))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'sys-snapshot/k (make-fake-ports))
+        (expect kind :to-be :partial)
+        (let* ((sections (field fields "sections"))
+               (info (object-field sections "info"))
+               (reason (object-field info "reason")))
+          (expect (object-field info "status") :to-equal "unavailable")
+          (expect (object-field reason "code")
+                  :to-equal "environment.unavailable")
+          (expect (object-field (object-field sections "disk") "status")
+                  :to-equal "ok")))))
   (it "bounds port results without changing the standalone ports flow"
     (let ((ports (make-fake-ports :host (darwin-host))))
       (multiple-value-bind (kind fields) (run-flow #'sys-snapshot/k ports :port-limit 1)

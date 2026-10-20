@@ -131,9 +131,12 @@
       (expect kind :to-be :ok)
       (expect (field fields "human") :to-equal "3h")))
 
-  (it "rejects an unreadable value with input.syntax-error"
-    (expect (first (nth-value 1 (run-flow #'time-diff/k (make-fake-ports) "now" "later")))
-            :to-equal "input.syntax-error")))
+  (it "rejects an unreadable first or second value with input.syntax-error"
+    (dolist (values '(("later" "now") ("now" "later")))
+      (expect (first (nth-value 1
+                               (apply #'run-flow #'time-diff/k
+                                      (make-fake-ports) values)))
+              :to-equal "input.syntax-error"))))
 
 (describe "aitools.env.application time zones and targets at their edges"
   (it "rejects an output format the flow does not know, pointing at an example"
