@@ -24,8 +24,7 @@
 ;;; unbounded. *REGEX-RUN-DEADLINE* is an INTERNAL-REAL-TIME the flow sets for
 ;;; the whole run (shared by the worker threads through the value each binds
 ;;; on its own thread); MAP-MATCHES gives up once it is past, so the file is
-;;; reported skipped `regex-limit` like a per-call exhaustion. The per-call
-;;; reset itself is a cl-regex-kit matter, reported upstream, not patched here.
+;;; reported skipped `regex-limit`, the same result as a per-call exhaustion.
 (defvar *regex-run-deadline* nil
   "INTERNAL-REAL-TIME after which MAP-MATCHES aborts with
 REGEX-BUDGET-EXHAUSTED, or NIL for no cap.")

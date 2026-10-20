@@ -29,13 +29,12 @@ group that did not participate."
                 (svref ends group) (+ (cl-regex-kit:match-group-end result group) offset)))))
     (%make-hit starts ends)))
 
-(defun scan-line (regex octets line-start line-end &optional (from line-start))
-  "The first HIT of REGEX in the line [LINE-START, LINE-END) of OCTETS that
-starts at or after FROM, or NIL. cl-regex-kit v2.1.1 bounds a byte-regex
-`\\b`'s cost to the bytes around the position rather than the whole buffer,
-so the scan runs in place: `:end` keeps the match inside the line, and a
-line edge is what `^`, `$`, and `\\b` see there in any case."
-  (declare (type octets octets) (type fixnum line-start line-end from))
+(defun scan-line (regex octets from line-end)
+  "The HIT of REGEX in OCTETS with the earliest start at or after FROM;
+REGEX alternative order breaks ties. LINE-END is the exclusive upper
+bound for matched bytes, but an empty HIT at LINE-END is allowed. Offsets
+remain relative to OCTETS."
+  (declare (type octets octets) (type fixnum from line-end))
   (let ((result (cl-regex-kit:scan regex octets :start from :end line-end)))
     (and result (%hit regex result 0))))
 
@@ -61,8 +60,7 @@ line edge is what `^`, `$`, and `\\b` see there in any case."
                             (return (%hit regex result 0))
                             (cl-regex-kit:match-start result))))))
             (let* ((line-start (line-start-at octets candidate))
-                   (hit (scan-line regex octets line-start (line-content-end octets candidate)
-                                   (max pos line-start))))
+                   (hit (scan-line regex octets (max pos line-start) (line-content-end octets candidate))))
               (when hit (return hit))
               (setf pos (max (1+ pos) (next-line-start octets candidate)))))))))
 

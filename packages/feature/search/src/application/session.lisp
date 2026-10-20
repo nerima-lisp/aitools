@@ -32,7 +32,7 @@
     (:builtin "builtin")
     (:none "none")))
 
-;;; ------------------------------------------------------------ the tx overlay
+;;; Transaction overlay
 
 (defun %staged-tables (staged)
   "(VALUES children implied): CHILDREN maps a directory's relative path to
@@ -95,7 +95,7 @@ below them."
                             (aitools.store.application:view-read-file view relative)))
              (values nil nil)))))))
 
-;;; ------------------------------------------------------------ session setup
+;;; Session setup
 
 (aitools.kernel.domain:define-flow (%unavailable command &key on-error)
   (aitools.kernel.domain:flow-continue :on-error "internal.unexpected"
@@ -166,7 +166,7 @@ COMMAND names the command used to build repairs."
                             (aitools.kernel.domain:flow-continue
                              :on-session (%make-session ports workspace-root nil nil nil))))))))
 
-;;; ------------------------------------------------------------ paths
+;;; Paths
 
 (defun %absolute (session path)
   "PATH (absolute, or relative to the working directory) made absolute and
@@ -191,7 +191,7 @@ working directory is a real path even when --root names the root through a
 symlink."
   (aitools.workspace.application:workspace-relative-path (%host session) (session-root session) absolute))
 
-;;; ------------------------------------------------------------ scan options
+;;; Scan options
 
 (aitools.kernel.domain:define-flow (%argument-error message command &key on-error)
   (aitools.kernel.domain:flow-continue :on-error "argument.invalid" message

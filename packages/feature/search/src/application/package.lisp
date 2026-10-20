@@ -14,7 +14,6 @@
   (:export
    ;; ports.lisp
    #:search-ports
-   #:search-ports-p
    #:make-search-ports
    ;; search-flow.lisp
    #:search/k

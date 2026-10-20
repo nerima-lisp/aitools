@@ -10,7 +10,7 @@
 ;;;;
 ;;;; A definition's end line is an estimate by the language's :EXTENT rule
 ;;;; (balanced parentheses, balanced braces, indentation, or the next heading
-;;;; of the same or a higher level), as `--symbol` is described.
+;;;; of the same or a higher level).
 (in-package #:aitools.search.domain)
 
 (defstruct (language-index (:constructor %make-language-index (language matcher kinds name-groups
@@ -59,16 +59,14 @@
 
 (defparameter *language-indexes*
   (mapcar (lambda (name) (%build-language-index (aitools.text.domain:find-language name)))
-          (aitools.text.domain:language-names))
-  "One LANGUAGE-INDEX per language of the text context's table, built when
-this file loads.")
+          (aitools.text.domain:language-names)))
 
 (defun language-index-for-path (path)
   "The LANGUAGE-INDEX of PATH's language, or NIL for an unsupported file."
   (let ((language (language-for-path path)))
     (and language (find language *language-indexes* :key #'language-index-language))))
 
-;;; ------------------------------------------------------------ definitions
+;;; Definitions
 
 (defun %group-text (octets hit group)
   (let ((start (and group (hit-group-start hit group))))
@@ -122,7 +120,7 @@ OCTETS opens, or NIL."
                  (return (values (svref (language-index-kinds index) pattern)
                                  (%group-text octets result (svref (language-index-name-groups index) pattern)))))))))
 
-;;; ------------------------------------------------------------ references
+;;; References
 
 (defun %char-bounds-before (octets position)
   "(VALUES start end) of the UTF-8 character ending at POSITION, or NIL."

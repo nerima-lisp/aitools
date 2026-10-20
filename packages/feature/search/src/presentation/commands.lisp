@@ -64,7 +64,7 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun %keyword (text)
   (and text (cdr (assoc text *choice-keywords* :test #'string=))))
 
-;;; ------------------------------------------------------------ search
+;;; Search
 
 (defun %path-values (invocation)
   (positional-value invocation :paths))
@@ -72,10 +72,9 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun %search-command (ports)
   (make-command
    :name "search" :description (%summary "search")
-   ;; One :REST-P positional for the paths. cl-cli v1.4.0 interleaves
-   ;; options with a rest positional (a token after the first path is still
-   ;; read as an option), so `search foo src --output count` no longer
-   ;; searches a path named `--output`.
+   ;; One :REST-P positional for the paths. cl-cli interleaves options with
+   ;; a rest positional, so `--output count` is parsed as an option after the
+   ;; first path rather than as a path named `--output`.
    :positionals (list (make-positional :key :pattern :name "pattern" :required-p nil)
                       (make-positional :key :paths :name "path" :rest-p t :required-p nil))
    :options (append
@@ -119,7 +118,7 @@ continuations, returning the resulting COMMAND-RESULT."
               :limit (option-value invocation :limit)
               (%scan-arguments invocation))))))
 
-;;; ------------------------------------------------------------ find
+;;; Find
 
 (defun %find-command (ports)
   (make-command
@@ -156,7 +155,7 @@ continuations, returning the resulting COMMAND-RESULT."
               :limit (option-value invocation :limit)
               (%scan-arguments invocation))))))
 
-;;; ------------------------------------------------------------ code, overview
+;;; Code and overview
 
 (defun %outline-command (ports)
   (make-command

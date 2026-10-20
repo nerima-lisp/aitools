@@ -57,7 +57,7 @@ order, so the result is deterministic."
                                     (aitools.kernel.domain:unix-seconds-to-universal-time
                                      (found-entry-mtime entry)))))))
 
-;;; ------------------------------------------------------------ tree
+;;; Tree
 
 (defstruct (tree-node (:constructor %make-tree-node (name kind size)) (:copier nil))
   (name "" :type string :read-only t)

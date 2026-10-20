@@ -37,14 +37,12 @@
    #:command-line
    ;; matcher.lisp
    #:matcher
-   #:matcher-p
    #:matcher-programs
    #:build-matcher/k
    #:call-with-regex-budget/k
    #:*regex-run-deadline*
    ;; results.lisp
    #:file-outcome
-   #:file-outcome-p
    #:file-outcome-octets
    #:file-outcome-selected
    #:file-outcome-selected-count

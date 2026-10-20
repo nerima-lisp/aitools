@@ -1,9 +1,9 @@
 ;;;; packages/feature/search/src/domain/results.lisp
 ;;;;
-;;;; One file's `search` outcome and its rendering. SEARCH-FILE runs on the
-;;;; scan's worker threads and keeps only byte offsets; strings are made
-;;;; later, by BUILD-BLOCKS and RENDER-MATCH, and only for the lines and
-;;;; matches that fit under `--limit` (decode only output lines, so non-matching lines allocate nothing).
+;;;; One file's `search` outcome and its rendering. SEARCH-FILE retains the
+;;;; file octets and match offsets, without decoding strings. BUILD-BLOCKS
+;;;; and RENDER-MATCH decode only selected output lines and matches within
+;;;; `--limit`, so non-matching lines allocate no strings.
 (in-package #:aitools.search.domain)
 
 (defstruct (selected-line (:constructor %make-selected-line (number start end)) (:copier nil))
@@ -84,7 +84,7 @@ contribute more than `--limit` of them), while the counts stay exact."
                (map-selected-lines #'on-line matcher octets))
              (%make-file-outcome nil '() count 0 '())))))))
 
-;;; ------------------------------------------------------------ rendering
+;;; Rendering
 
 (defun %decode (octets start end)
   (values (decode-utf8 octets :start start :end end)))
