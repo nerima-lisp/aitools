@@ -103,7 +103,24 @@
       (dolist (source sources)
         (let ((text (uiop:read-file-string source)))
           (dolist (needle '("process-kit:" "vcs-kit:" "run-program" "run-git"))
-            (expect (search needle text :test #'char-equal) :to-be nil)))))))
+            (expect (search needle text :test #'char-equal) :to-be nil))))))
+  (it "reads from disk when a tx has no staged paths"
+    (aitools.store.test-support:with-temp-store (store)
+      (let* ((root (%real-root (aitools.store.application:store-root store)))
+             (ports (%host-ports root :open-store (constantly store))))
+        (%write-file (format nil "~A/a.txt" root) "disk hit")
+        (let ((tx (aitools.store.application:tx-begin/k
+                   store
+                   :on-begun (lambda (id name created)
+                               (declare (ignore name created))
+                               id)
+                   :on-busy (lambda () (fail "tx begin busy")))))
+          (multiple-value-bind (kind fields)
+              (run-flow #'search/k ports :patterns '("hit") :tx tx)
+            (expect kind :to-be :ok)
+            (expect (%block-paths fields) :to-equal '("a.txt"))
+            (expect (jfield (first (field fields "blocks")) "lines")
+                    :to-equal '("disk hit"))))))))
 
 (defun %begin-staged-tx (store requests)
   "A new tx of STORE with REQUESTS staged in it; its id."

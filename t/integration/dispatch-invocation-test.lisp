@@ -90,15 +90,17 @@
         (put "a.txt" (format nil "one~%"))
         (let ((*standard-output* out)
               (*error-output* err))
-          (expect
-           (aitools/cli:image-entry-point
-            :main-function
-            (lambda ()
-              (aitools/cli:main
-               :argv (list* +argv0+ "--root" root "edit" target
-                            "--old" "one" "--new" "two")
-               :quit-function (function identity))))
-           :to-be 0))
+          (let ((code
+                 (aitools/cli:image-entry-point
+                  :main-function
+                  (lambda ()
+                    (aitools/cli:main
+                     :argv (list* +argv0+ "--root" root "edit" target
+                                  "--old" "one" "--new" "two")
+                     :quit-function (function identity))))))
+            (unless (zerop code)
+              (fail (format nil "image entry point returned ~D; stdout ~S; stderr ~S"
+                            code (get-output-stream-string out) (get-output-stream-string err))))))
         (expect (length (get-output-stream-string err)) :to-be 0)
         (expect (value (json-kit:parse (get-output-stream-string out)) "status")
                 :to-equal "ok")
