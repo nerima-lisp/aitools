@@ -77,31 +77,31 @@ content before it; returns that blob's name."
              (original-unlink #'store-io-unlink)
              (failing-store (make-store io (store-root store) (state-home-of store))))
         (flet ((collect-with-unlink (unlink)
-                 (cl-weave:with-mocked-functions
-                     (((symbol-function 'aitools.store.application:store-io-unlink)
-                       (lambda (candidate)
-                         (if (eq candidate io)
-                             unlink
-                             (funcall original-unlink candidate)))))
-                   (collect-garbage failing-store)))
-          (plant-blob-files store ".vanishing.tmp")
-          (collect-with-unlink
-           (lambda (path)
-             (sb-posix:unlink path)
-             (error 'store-io-error :operation "unlink" :path path :detail "raced")))
-          (expect (member ".vanishing.tmp" (blob-listing store) :test #'string=) :to-be nil)
-          (plant-blob-files store ".stuck.tmp")
-          (let ((condition (handler-case
-                               (progn
-                                 (collect-with-unlink
-                                  (lambda (path)
-                                    (error 'store-io-error :operation "unlink" :path path
-                                           :detail "denied")))
-                                 nil)
-                             (store-io-error (condition) condition))))
-            (expect (store-io-error-detail condition) :to-equal "denied")
-            (expect (store-io-error-path condition)
-                    :to-equal (join-path (blobs-directory (store-state-directory store))
-                                         ".stuck.tmp"))))))))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.store.application:store-io-unlink)
+               (lambda (candidate)
+                 (if (eq candidate io)
+                     unlink
+                     (funcall original-unlink candidate)))))
+           (collect-garbage failing-store))))
+  (plant-blob-files store ".vanishing.tmp")
+  (collect-with-unlink
+   (lambda (path)
+     (sb-posix:unlink path)
+     (error 'store-io-error :operation "unlink" :path path :detail "raced")))
+  (expect (member ".vanishing.tmp" (blob-listing store) :test #'string=) :to-be nil)
+  (plant-blob-files store ".stuck.tmp")
+  (let ((condition (handler-case
+                       (progn
+                         (collect-with-unlink
+                          (lambda (path)
+                            (error 'store-io-error :operation "unlink" :path path
+                                   :detail "denied")))
+                         nil)
+                     (store-io-error (condition) condition))))
+    (expect (store-io-error-detail condition) :to-equal "denied")
+    (expect (store-io-error-path condition)
+            :to-equal (join-path (blobs-directory (store-state-directory store))
+                                 ".stuck.tmp")))))))
 )
 
