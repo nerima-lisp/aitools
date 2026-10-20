@@ -91,10 +91,13 @@
         (let ((*standard-output* out)
               (*error-output* err))
           (expect
-           (aitools/cli:main
-            :argv (list* +argv0+ "--root" root "edit" target
-                         "--old" "one" "--new" "two")
-            :quit-function (function identity))
+           (aitools/cli:image-entry-point
+            :main-function
+            (lambda ()
+              (aitools/cli:main
+               :argv (list* +argv0+ "--root" root "edit" target
+                            "--old" "one" "--new" "two")
+               :quit-function (function identity))))
            :to-be 0))
         (expect (length (get-output-stream-string err)) :to-be 0)
         (expect (value (json-kit:parse (get-output-stream-string out)) "status")
