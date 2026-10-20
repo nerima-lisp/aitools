@@ -17,14 +17,13 @@
                        (:copier nil))
   "RANDOM-OCTETS (COUNT) returns COUNT fresh octets from a cryptographic
 source. UUID-V4 () returns a version-4 UUID string. UNIX-MS () returns the
-wall-clock Unix time in milliseconds. READ-FILE-OCTETS (PATH LIMIT &key
-ON-OCTETS ON-MISSING ON-TOO-LARGE ON-FAILURE) reads at most LIMIT bytes of
-PATH and calls exactly one continuation: ON-OCTETS (octets), ON-MISSING (),
-ON-TOO-LARGE (), or ON-FAILURE (message). READ-STDIN-OCTETS (LIMIT &key
-ON-OCTETS ON-TOO-LARGE ON-FAILURE) does the same for standard input.
-WORKSPACE-HOST and OPEN-STORE are the composition root's workspace host and
-store constructor, which `util decode --to` hands to the edit context's
-write pipeline."
+wall-clock Unix time in milliseconds. READ-FILE-OCTETS (PATH LIMIT) returns
+a status and payload: :OCTETS with the byte vector, :MISSING, :TOO-LARGE, or
+:FAILURE with its message. READ-STDIN-OCTETS (LIMIT) returns :OCTETS with
+the byte vector, :TOO-LARGE, or :FAILURE with its message. WORKSPACE-HOST
+and OPEN-STORE are the composition root's workspace host and store
+constructor, which `util decode --to` hands to the edit context's write
+pipeline."
   (random-octets nil :type (or null function) :read-only t)
   (uuid-v4 nil :type (or null function) :read-only t)
   (unix-ms nil :type (or null function) :read-only t)

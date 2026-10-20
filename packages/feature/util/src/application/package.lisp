@@ -13,8 +13,7 @@
    ;; input.lisp
    #:input-request
    #:make-input-request
-   #:resolve-input/k
-   ;; flows.lisp
+   ;; flow modules
    #:+util-codec-schemes+
    #:+util-random-alphabets+
    #:+util-uuid-kinds+

@@ -179,9 +179,11 @@
                                               (:file "integration/env-host-test")
                                               (:file "unit/util/package")
                                               (:file "unit/util/codec-test")
+                                              (:file "unit/util/data-tables-test")
                                               (:file "unit/util/calc-test")
                                               (:file "unit/util/uuid-random-test")
                                               (:file "unit/util/flows-test")
+                                              (:file "unit/util/flow-errors-test")
                                               (:file "integration/util-cli-test")
                                               (:module "structure" :pathname "structure/" :serial t
                                                        :components ((:file "cps-contract-reader") (:file "cps-contract-analysis")

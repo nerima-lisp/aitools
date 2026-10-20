@@ -13,19 +13,19 @@
    #:+codec-schemes+
    #:codec-scheme-p
    #:encode-octets
-   #:decode-text/k
+   #:decode-text
    #:utf-8-octets
-   #:octets->utf-8/k
+   #:octets->utf-8
    #:octets->lenient-text
    #:octets->hex
    ;; text-stats.lisp
    #:text-statistics
-   ;; calc.lisp
+   ;; calc.lisp and calc-parser.lisp
    #:+calc-max-input-length+
    #:+calc-max-depth+
    #:+calc-max-bits+
    #:+calc-max-decimals+
-   #:evaluate-expression/k
+   #:evaluate-expression
    #:format-decimal
    #:format-exact
    ;; uuid.lisp

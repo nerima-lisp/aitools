@@ -168,17 +168,6 @@
             (expect kind :to-be :ok)
             (expect (mapcar (lambda (item) (jfield item "path")) (field fields "items")) :to-equal '("fresh/c.py"))))))))
 
-(defmacro %with-stdin-from ((path) &body body)
-  "Run BODY with file descriptor 0 reading PATH, restoring the original
-standard input afterwards."
-  (let ((saved (gensym "SAVED")) (fd (gensym "FD")))
-    `(let ((,saved (sb-posix:dup 0))
-           (,fd (sb-posix:open ,path sb-posix:o-rdonly)))
-       (unwind-protect (progn (sb-posix:dup2 ,fd 0) ,@body)
-         (sb-posix:dup2 ,saved 0)
-         (sb-posix:close ,saved)
-         (sb-posix:close ,fd)))))
-
 (defun %production-stdin (limit)
   "The outcome of the production search READ-STDIN-OCTETS port with LIMIT."
   (funcall (aitools.search.application::search-ports-read-stdin-octets
@@ -193,14 +182,14 @@ standard input afterwards."
     (%with-temp-workspace (root)
       (let ((path (format nil "~A/in" root)))
         (%write-file path (make-array 10000 :element-type '(unsigned-byte 8) :initial-element 255))
-        (%with-stdin-from (path) (expect (%production-stdin 10000) :to-equal '(:octets 10000 255)))
-        (%with-stdin-from (path) (expect (%production-stdin 9999) :to-equal '(:too-large)))
+        (aitools.test.support:with-stdin-from (path) (expect (%production-stdin 10000) :to-equal '(:octets 10000 255)))
+        (aitools.test.support:with-stdin-from (path) (expect (%production-stdin 9999) :to-equal '(:too-large)))
         (%write-file path "")
-        (%with-stdin-from (path) (expect (%production-stdin 10) :to-equal '(:octets 0 nil))))))
+        (aitools.test.support:with-stdin-from (path) (expect (%production-stdin 10) :to-equal '(:octets 0 nil))))))
 
   (it "reports a standard input that cannot be read as a failure"
     (%with-temp-workspace (root)
-      (%with-stdin-from (root) (expect (%production-stdin 10) :to-equal '(:failure t)))))
+      (aitools.test.support:with-stdin-from (root) (expect (%production-stdin 10) :to-equal '(:failure t)))))
 
   (it "tells the Unix time in seconds"
     (let ((now (funcall (aitools.search.application::search-ports-unix-now

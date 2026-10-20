@@ -6,10 +6,25 @@
   :pathname "src/"
   :components
   ((:module "domain"
-    :components ((:file "package") (:file "codec") (:file "text-stats")
-                 (:file "calc") (:file "uuid") (:file "random-string")))
+    :components
+    ((:file "package")
+     (:file "codec")
+     (:file "text-stats")
+     (:file "calc")
+     (:file "calc-parser")
+     (:file "uuid")
+     (:file "random-string")))
    (:module "application"
-    :components ((:file "package") (:file "ports") (:file "input")
-                 (:file "flows")))
+    :components
+    ((:file "package")
+     (:file "ports")
+     (:file "input")
+     (:file "flows")
+     (:file "codec-flows")
+     (:file "calc-flow")
+     (:file "random-flows")))
    (:module "infrastructure"
-    :components ((:file "package") (:file "os-random") (:file "ports")))))
+    :components
+    ((:file "package")
+     (:file "os-random")
+     (:file "ports")))))

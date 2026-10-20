@@ -18,7 +18,18 @@
   (it "writes lowercase hex pairs"
     (expect (encode-octets "hex" (octets 0 15 16 255)) :to-equal "000f10ff")))
 
-(describe "aitools.util.domain decode-text/k"
+(describe "aitools.util.domain decode-text"
+  (it-property "round-trips generated octet vectors through every codec"
+      ((octets (gen-list (gen-integer :min 0 :max 255)
+                         :min-length 0 :max-length 64)))
+    (let ((vector (make-array (length octets)
+                              :element-type '(unsigned-byte 8)
+                              :initial-contents octets)))
+      (dolist (scheme '("base64" "url" "hex"))
+        (multiple-value-bind (kind decoded)
+            (decode scheme (encode-octets scheme vector))
+          (expect kind :to-be :decoded)
+          (expect decoded :to-equalp vector)))))
   (it-each (("base64") ("url") ("hex"))
       "round-trips every byte value through ~A"
       (scheme)
@@ -49,13 +60,13 @@ YmE")) :to-equalp (string-bytes "fooba")))
 
 (describe "aitools.util.domain UTF-8 helpers"
   (it "reports the offset of invalid UTF-8"
-    (expect (octets->utf-8/k (octets 104 105 255) :on-text (lambda (text) text) :on-invalid (lambda (offset) offset))
+    (expect (octets->utf-8 (octets 104 105 255) :on-text (lambda (text) text) :on-invalid (lambda (offset) offset))
             :to-be 2))
 
   (it "replaces invalid sequences leniently"
     (expect (octets->lenient-text (octets 104 255)) :to-equal (format nil "h~C" (code-char #xfffd)))))
 
-(describe "aitools.util.domain decode-text/k error reports"
+(describe "aitools.util.domain decode-text error reports"
   (it-each (("base64" "Zg=" 3 "truncated base64 padding")
             ("base64" "Zm9==" 5 "excess base64 padding")
             ("base64" "Z" 1 "truncated base64 group")
@@ -67,7 +78,7 @@ YmE")) :to-equalp (string-bytes "fooba")))
             ("url" "a%zz" 1 "'%' is not followed by two hex digits"))
       "rejects ~A ~S at offset ~D: ~A"
       (scheme text offset reason)
-    (expect (decode-text/k scheme (string-bytes text) :on-decoded (constantly :decoded) :on-invalid #'list)
+    (expect (decode-text scheme (string-bytes text) :on-decoded (constantly :decoded) :on-invalid #'list)
             :to-equal (list offset reason)))
 
   (it-each (("Zg==" (102)) ("Zm8=" (102 111)) ("Zm9v" (102 111 111)) ("Zm9vYg" (102 111 111 98)))

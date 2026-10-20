@@ -1,7 +1,14 @@
 ;;;; t/unit/util/calc-test.lisp
 (in-package #:aitools.util.test)
 
-(describe "aitools.util.domain evaluate-expression/k"
+(describe "aitools.util.domain evaluate-expression"
+  (it-property "evaluates generated parenthesized arithmetic exactly"
+      ((left (gen-integer :min -1000000 :max 1000000))
+       (right (gen-integer :min -1000000 :max 1000000)))
+    (multiple-value-bind (kind value)
+        (calc (format nil "~D + (~D * 2)" left right))
+      (expect kind :to-be :value)
+      (expect value :to-equal (+ left (* right 2)))))
   (it-each (("1 + 2 * 3" 7) ("(1 + 2) * 3" 9) ("2 ** 3 ** 2" 512) ("-2 ** 2" -4) ("(-2) ** 2" 4)
             ("10 - 4 - 3" 3) ("2 * 3 % 4" 2) ("2 ** -1" 1/2) ("- - 3" 3) ("8 / 4 / 2" 1))
       "evaluates ~A with standard precedence and associativity"
@@ -73,10 +80,98 @@
     (expect (calc (make-string 5000 :initial-element #\1)) :to-be :error))
 
   (it "reports the character offset of a syntax error"
-    (expect (evaluate-expression/k "1 + $" :on-value #'identity :on-error (lambda (offset reason)
+    (expect (evaluate-expression "1 + $" :on-value #'identity :on-error (lambda (offset reason)
                                                                          (declare (ignore reason))
                                                                          offset))
-            :to-be 4)))
+            :to-be 4))
+  (it "observes the real parser through util-calc-flow"
+    (let ((spy (cl-weave:spy-on 'aitools.util.domain:evaluate-expression)))
+      (unwind-protect
+           (multiple-value-bind (kind fields)
+               (run-flow #'util-calc-flow (test-ports) "1 + 2" nil 0)
+             (expect kind :to-be :ok)
+             (expect (field fields "result") :to-equal "3")
+             (expect (first (first (cl-weave:mock-calls spy))) :to-equal "1 + 2"))
+        (cl-weave:mock-restore spy)
+        (cl-weave:dispose-mock spy))))
+  (it "benchmarks calc and codec workloads without timing gates"
+    (let* ((expression "1 + 2 * 3")
+           (bytes (string-bytes "calc 1+2*3"))
+           (calc-benchmark
+             (cl-weave:benchmark (:warmup 0 :samples 3 :iterations 2)
+               (evaluate-expression expression
+                                   :on-value #'identity
+                                   :on-error (lambda (offset reason)
+                                               (declare (ignore offset reason))
+                                               nil))))
+           (codec-benchmark
+             (cl-weave:benchmark (:warmup 0 :samples 3 :iterations 2)
+               (encode-octets "hex" bytes))))
+      (expect (nth-value 1 (calc expression)) :to-equal 7)
+      (expect (encode-octets "hex" bytes) :to-equal "63616c6320312b322a33")
+      (expect (length (cl-weave:benchmark-result-samples calc-benchmark)) :to-be 3)
+      (expect (length (cl-weave:benchmark-result-samples codec-benchmark)) :to-be 3)))
+  (it "meets the mutation score for production binary arithmetic"
+    (let ((function-name (gensym "%MUTATED-APPLY-BINARY-")))
+      (flet ((production-form ()
+               (let ((*package* (find-package "AITOOLS.UTIL.DOMAIN")))
+                 (with-open-file
+                     (source
+                      (asdf:system-relative-pathname
+                       "aitools" "packages/feature/util/src/domain/calc.lisp"))
+                   (loop for form = (read source nil :eof)
+                         until (eq form :eof)
+                         when (and (consp form)
+                                   (eq (first form) 'defun)
+                                   (eq (second form) (find-symbol "%APPLY-BINARY" *package*)))
+                           return form
+                         finally (error "Production %APPLY-BINARY form was not found."))))))
+        (let ((form (production-form)))
+          (expect form :to-be-truthy)
+          (setf (second form) function-name)
+          (unwind-protect
+               (progn
+                 (eval form)
+                 (expect (funcall (symbol-function function-name) "+" 2 3 0) :to-be 5)
+                 (let ((results
+                         (cl-weave:run-mutations
+                          form
+                          (lambda (mutation-form mutation)
+                            (declare (ignore mutation))
+                            (handler-case
+                                (progn
+                                  (eval mutation-form)
+                                  (and
+                                   (every
+                                    (lambda (case)
+                                      (destructuring-bind (operator left right expected) case
+                                        (handler-case
+                                            (= (funcall (symbol-function function-name)
+                                                        operator left right 0)
+                                               expected)
+                                          (error () nil))))
+                                    '(("+" 2 3 5) ("-" 7 2 5) ("*" 3 4 12)
+                                      ("/" 7 2 7/2) ("%" -7 3 2) ("**" 2 3 8)))
+                                   (every
+                                    (lambda (operator)
+                                      (handler-case
+                                          (progn
+                                            (funcall (symbol-function function-name)
+                                                     operator 7 0 0)
+                                            nil)
+                                        (aitools.util.domain::%calc-error (condition)
+                                          (search "division by zero"
+                                                  (aitools.util.domain::%calc-error-reason
+                                                   condition)))
+                                        (error () nil)))
+                                    '("/" "%"))))
+                              (error () nil)))
+                          :operators '(:arithmetic-operator))))
+                   (expect (length results) :to-be 4)
+                   (expect (getf (cl-weave:assert-mutation-score results 1.0) :score)
+                           :to-be 1.0)))
+            (when (fboundp function-name)
+              (fmakunbound function-name))))))))
 
 (describe "aitools.util.domain format-decimal and format-exact"
   (it-each ((1/3 10 "0.3333333333") (2/3 2 "0.67") (1/2 10 "0.5") (-1/2 0 "-1") (5 3 "5")
@@ -92,9 +187,9 @@
 
 (defun calc-failure (text)
   "(OFFSET REASON) of TEXT's evaluation error, or :VALUE when it evaluates."
-  (evaluate-expression/k text :on-value (constantly :value) :on-error #'list))
+  (evaluate-expression text :on-value (constantly :value) :on-error #'list))
 
-(describe "aitools.util.domain evaluate-expression/k error reports"
+(describe "aitools.util.domain evaluate-expression error reports"
   (it-each (("1 = 2" 2 "assignment is not supported")
             (".5" 0 "a decimal literal must start with a digit")
             ("1." 1 "a decimal point must be followed by digits")

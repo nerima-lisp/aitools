@@ -14,6 +14,7 @@
   :pathname "data/"
   :components
   ((:file "package")
+   (:file "table-macros" :depends-on ("package"))
    (:file "domain/protocol/error-catalog-data")
    (:file "domain/protocol/redaction-patterns-data")
    (:file "domain/protocol/correspondence-table-data")
@@ -34,7 +35,7 @@
    (:file "presentation/process/command-schema-data")
    (:file "presentation/vcs/command-schema-data")
    (:file "domain/env/tools-data")
-   (:file "domain/util/util-tables-data")
+   (:file "domain/util/util-tables-data" :depends-on ("table-macros"))
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
    (:file "presentation/edit/command-schema-data")))

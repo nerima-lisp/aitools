@@ -4,13 +4,12 @@
 (defpackage #:aitools.util.test
   (:use #:cl #:aitools.util.domain)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect #:expect-not #:signals #:fail)
+  (:import-from #:cl-weave #:it #:it-each #:it-property #:gen-integer #:gen-list #:expect #:signals
+                #:make-mock-function #:mock-calls)
   (:import-from #:aitools.test.support #:string-bytes)
   (:import-from #:aitools.util.application
                 #:make-input-request #:util-encode-flow #:util-decode-flow #:util-redact-flow
-                #:util-tokens-flow #:util-calc-flow #:util-uuid-flow #:util-random-flow)
-  (:import-from #:aitools.util.infrastructure
-                #:make-util-ports-from-boundaries #:make-os-random-source))
+                #:util-tokens-flow #:util-calc-flow #:util-uuid-flow #:util-random-flow))
 
 (in-package #:aitools.util.test)
 
@@ -19,36 +18,39 @@
 
 (defun calc (text)
   "(VALUES :VALUE rational) or (VALUES :ERROR reason) for TEXT."
-  (evaluate-expression/k text
+  (evaluate-expression text
                          :on-value (lambda (value) (values :value value))
                          :on-error (lambda (offset reason) (declare (ignore offset)) (values :error reason))))
 
 (defun decode (scheme text)
   "(VALUES :DECODED octets) or (VALUES :INVALID offset) for TEXT's bytes."
-  (decode-text/k scheme (string-bytes text)
+  (decode-text scheme (string-bytes text)
                  :on-decoded (lambda (octets) (values :decoded octets))
                  :on-invalid (lambda (offset reason) (declare (ignore reason)) (values :invalid offset))))
 
-(defun failing-port (name)
-  "A port closure that fails the test if a flow ever calls it."
-  (lambda (&rest arguments)
-    (declare (ignore arguments))
-    (error "port ~A was called but must not be" name)))
+(defun unused-port (name)
+  (make-mock-function
+   (lambda (&rest arguments)
+     (declare (ignore arguments))
+     (error "port ~A was called but must not be" name))))
 
 (defun test-ports (&key (random-source (cl-boundary-kit:make-deterministic-random-source :seed 7))
                      (uuid-source (cl-boundary-kit:make-test-uuid-source))
                      (clock (cl-boundary-kit:make-fake-clock :start 1700000000000))
-                     (read-file-octets (failing-port "read-file-octets"))
-                     (read-stdin-octets (failing-port "read-stdin-octets")))
-  "UTIL-PORTS over cl-boundary-kit fakes, adapted by the production
-adapter code. The input readers fail loudly unless a test supplies one."
-  (make-util-ports-from-boundaries :random-source random-source :uuid-source uuid-source :clock clock
+                     (read-file-octets (unused-port "read-file-octets"))
+                     (read-stdin-octets (unused-port "read-stdin-octets")))
+  "UTIL-PORTS over deterministic cl-boundary-kit fakes. Input reader ports
+default to fail-fast cl-weave mocks."
+  (aitools.util.infrastructure::make-util-ports-from-boundaries :random-source random-source :uuid-source uuid-source :clock clock
                                    :read-file-octets read-file-octets :read-stdin-octets read-stdin-octets))
 
 (defun stdin-port (text)
-  (lambda (limit &key on-octets on-too-large on-failure)
-    (declare (ignore limit on-too-large on-failure))
-    (funcall on-octets (string-bytes text))))
+  (make-mock-function
+   (lambda (limit)
+     (let ((octets (string-bytes text)))
+       (if (> (length octets) limit)
+           (values :too-large)
+           (values :octets octets))))))
 
 (defun run-flow (function &rest arguments)
   "Run a util flow under CALL-WITH-COMMAND-RESULT/K; return (VALUES KIND

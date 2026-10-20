@@ -10,20 +10,24 @@
   (apply #'make-input-request arguments))
 
 (defun file-port (files)
-  "A READ-FILE-OCTETS port serving FILES, an alist of (PATH . OCTETS)."
-  (lambda (path limit &key on-octets on-missing on-too-large on-failure)
-    (declare (ignore on-failure))
-    (let ((entry (assoc path files :test #'string=)))
-      (cond ((null entry) (funcall on-missing))
-            ((> (length (cdr entry)) limit) (funcall on-too-large))
-            (t (funcall on-octets (cdr entry)))))))
+  "A cl-weave mock for the synchronous READ-FILE-OCTETS port."
+  (make-mock-function
+   (lambda (path limit)
+     (let ((entry (assoc path files :test #'string=)))
+       (cond ((null entry) (values :missing))
+             ((> (length (cdr entry)) limit) (values :too-large))
+             (t (values :octets (cdr entry))))))))
 
 (describe "aitools.util.application input rules"
   (it "fails with argument.invalid, without reading standard input, when no input is given"
-    (multiple-value-bind (kind fields) (run-flow #'util-encode-flow (test-ports) "base64" (request))
-      (expect kind :to-be :error)
-      (expect (getf fields :code) :to-equal "argument.invalid")
-      (expect (getf fields :repairs) :not :to-be-falsy)))
+    (let* ((stdin-reader (unused-port "read-stdin-octets"))
+           (ports (test-ports :read-stdin-octets stdin-reader)))
+      (multiple-value-bind (kind fields)
+          (run-flow #'util-encode-flow ports "base64" (request))
+        (expect kind :to-be :error)
+        (expect (getf fields :code) :to-equal "argument.invalid")
+        (expect (getf fields :repairs) :not :to-be-falsy))
+      (expect (mock-calls stdin-reader) :to-equal '())))
 
   (it "rejects more than one input source"
     (expect (getf (nth-value 1 (run-flow #'util-tokens-flow (test-ports) (request :content "a" :stdin t))) :code)
@@ -36,9 +40,10 @@
       (expect (field fields "output") :to-equal "6869")))
 
   (it "rejects standard input that is not UTF-8 text"
-    (let ((port (lambda (limit &key on-octets on-too-large on-failure)
-                  (declare (ignore limit on-too-large on-failure))
-                  (funcall on-octets (octets 255)))))
+    (let ((port (make-mock-function
+                 (lambda (limit)
+                   (declare (ignore limit))
+                   (values :octets (octets 255))))))
       (expect (getf (nth-value 1 (run-flow #'util-tokens-flow (test-ports :read-stdin-octets port) (request :stdin t)))
                     :code)
               :to-equal "input.not-utf8")))
@@ -52,9 +57,10 @@
     (let ((ports (test-ports :read-file-octets (file-port '()))))
       (expect (getf (nth-value 1 (run-flow #'util-encode-flow ports "hex" (request :content-file "nope"))) :code)
               :to-equal "input.not-found"))
-    (let ((ports (test-ports :read-file-octets (lambda (path limit &key on-octets on-missing on-too-large on-failure)
-                                                 (declare (ignore path limit on-octets on-missing on-failure))
-                                                 (funcall on-too-large)))))
+    (let ((ports (test-ports :read-file-octets (make-mock-function
+       (lambda (path limit)
+         (declare (ignore path limit))
+         (values :too-large))))))
       (expect (getf (nth-value 1 (run-flow #'util-encode-flow ports "hex" (request :content-file "big"))) :code)
               :to-equal "argument.invalid"))))
 
@@ -158,10 +164,16 @@
               :to-be-truthy)))
 
   (it "draws from the random-source port"
-    (let* ((recording (cl-boundary-kit:make-recording-random-source
-                       :delegate (cl-boundary-kit:make-deterministic-random-source :seed 3))))
-      (run-flow #'util-random-flow (test-ports :random-source recording) 8 "hex" 1)
-      (expect (cl-boundary-kit:recording-random-source-calls recording) :not :to-be-falsy)))
+    (let* ((source (cl-boundary-kit:make-deterministic-random-source :seed 3))
+           (original (symbol-function (quote cl-boundary-kit:random-source-bytes)))
+           (draws nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote cl-boundary-kit:random-source-bytes))
+            (lambda (actual-source size)
+              (when (eq actual-source source) (push size draws))
+              (funcall original actual-source size))))
+        (run-flow (function util-random-flow) (test-ports :random-source source) 8 "hex" 1))
+      (expect draws :not :to-be-falsy)))
 
   (it "rejects out-of-range --length and an unknown alphabet"
     (expect (getf (nth-value 1 (run-flow #'util-random-flow (test-ports) 0 "hex" 1)) :code) :to-equal "argument.invalid")
@@ -170,7 +182,7 @@
 
 (describe "aitools.util.infrastructure os-random-source"
   (it "serves the cl-boundary-kit random-source protocol from the OS source"
-    (let ((source (make-os-random-source)))
+    (let ((source (aitools.util.infrastructure::make-os-random-source)))
       (expect (length (cl-boundary-kit:random-source-bytes source 32)) :to-be 32)
       (expect (loop repeat 200 always (< (cl-boundary-kit:random-source-random source 62) 62)) :to-be-truthy)
       (expect (cl-boundary-kit:random-source-random source 1) :to-be 0)
@@ -178,21 +190,23 @@
               :to-be-truthy)))
 
   (it "does not repeat 16-byte draws"
-    (let ((source (make-os-random-source)))
+    (let ((source (aitools.util.infrastructure::make-os-random-source)))
       (expect (equalp (cl-boundary-kit:random-source-bytes source 16) (cl-boundary-kit:random-source-bytes source 16))
               :to-be nil))))
 
 (defun outcome-port (outcome &rest arguments)
-  "An input port (file or stdin shape) that calls the OUTCOME continuation
-with ARGUMENTS."
-  (lambda (&rest call)
-    (let ((keys (member-if #'keywordp call)))
-      (apply (getf keys outcome) arguments))))
+  "A cl-weave mock returning one synchronous input-port outcome."
+  (make-mock-function
+   (lambda (&rest call-arguments)
+     (declare (ignore call-arguments))
+     (if (eq outcome :failure)
+         (values :failure (first arguments))
+         (values outcome)))))
 
 (describe "aitools.util.application input failures"
-  (it-each ((:content-file :on-failure ("boom") "environment.io" "cannot read f: boom")
-            (:stdin :on-too-large () "argument.invalid" "standard input exceeds the 67108864 byte input limit")
-            (:stdin :on-failure ("boom") "environment.io" "cannot read standard input: boom"))
+  (it-each ((:content-file :failure ("boom") "environment.io" "cannot read f: boom")
+            (:stdin :too-large () "argument.invalid" "standard input exceeds the 67108864 byte input limit")
+            (:stdin :failure ("boom") "environment.io" "cannot read standard input: boom"))
       "maps a ~S reader's ~S to ~*~A"
       (source outcome arguments code message)
     (let* ((port (apply #'outcome-port outcome arguments))
@@ -222,3 +236,4 @@ with ARGUMENTS."
     (dolist (count '(0 1001))
       (expect (getf (nth-value 1 (run-flow #'util-random-flow (test-ports) 8 "hex" count)) :code)
               :to-equal "argument.invalid"))))
+

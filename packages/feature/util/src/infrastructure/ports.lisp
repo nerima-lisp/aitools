@@ -11,56 +11,49 @@
   (multiple-value-bind (seconds microseconds) (sb-ext:get-time-of-day)
     (+ (* seconds 1000) (floor microseconds 1000))))
 
-(defun %read-bounded (stream limit on-octets on-too-large)
-  "Read STREAM to its end, at most LIMIT octets: one extra octet proves the
-input is larger, so the limit bounds the read itself rather than a result
-already in memory."
+(defun %read-bounded (stream limit)
+  "Read at most LIMIT plus one octet to distinguish a complete input from an oversized one."
   (let ((buffer (make-array (min (1+ limit) 65536) :element-type '(unsigned-byte 8)
-                                                    :adjustable t :fill-pointer 0))
+                            :adjustable t :fill-pointer 0))
         (chunk (make-array 65536 :element-type '(unsigned-byte 8))))
-    (loop for count = (read-sequence chunk stream :end (min (length chunk) (- (1+ limit) (fill-pointer buffer))))
+    (loop for count = (read-sequence chunk stream
+                                     :end (min (length chunk)
+                                               (- (1+ limit) (fill-pointer buffer))))
           until (zerop count)
-          do (loop for index below count do (vector-push-extend (aref chunk index) buffer))
-             (when (> (fill-pointer buffer) limit)
-               (return-from %read-bounded (funcall on-too-large))))
-    (funcall on-octets (coerce buffer '(simple-array (unsigned-byte 8) (*))))))
+          do (loop for index below count
+                   do (vector-push-extend (aref chunk index) buffer)))
+    (if (> (fill-pointer buffer) limit)
+        (values :too-large nil)
+        (values :octets (coerce buffer '(simple-array (unsigned-byte 8) (*)))))))
 
-(defun read-file-octets (path limit &key on-octets on-missing on-too-large on-failure)
-  "The production READ-FILE-OCTETS port: PATH is taken literally (no
-wildcard parsing), relative to the process's current directory."
-  (declare (type function on-octets on-missing on-too-large on-failure))
-  (let ((stream (handler-case (open (uiop:parse-native-namestring path) :element-type '(unsigned-byte 8)
-                                                                       :if-does-not-exist nil)
-                  (error (condition) (return-from read-file-octets (funcall on-failure (princ-to-string condition)))))))
-    (if (null stream)
-        (funcall on-missing)
-        (let ((outcome (handler-case
-                           (unwind-protect
-                                (%read-bounded stream limit
-                                               (lambda (octets) (list :octets octets))
-                                               (lambda () (list :too-large)))
-                             (close stream))
-                         (error (condition) (list :failure (princ-to-string condition))))))
-          (ecase (first outcome)
-            (:octets (funcall on-octets (second outcome)))
-            (:too-large (funcall on-too-large))
-            (:failure (funcall on-failure (second outcome))))))))
+(defun read-file-octets (path limit)
+  "Read PATH literally, relative to the process's current directory."
+  (let ((outcome
+          (handler-case
+              (let ((stream (open (uiop:parse-native-namestring path)
+                                  :element-type '(unsigned-byte 8)
+                                  :if-does-not-exist nil)))
+                (if stream
+                    (unwind-protect
+                         (multiple-value-list (%read-bounded stream limit))
+                      (close stream))
+                    (list :missing nil)))
+            (error (condition)
+              (list :failure (princ-to-string condition))))))
+    (values-list outcome)))
 
-(defun read-stdin-octets (limit &key on-octets on-too-large on-failure)
-  "The production READ-STDIN-OCTETS port: reads file descriptor 0 as raw
-octets, independent of the Lisp character external format."
-  (declare (type function on-octets on-too-large on-failure))
-  (let ((outcome (handler-case
-                     (let ((stream (sb-sys:make-fd-stream 0 :input t :element-type '(unsigned-byte 8)
-                                                            :buffering :full)))
-                       (%read-bounded stream limit
-                                      (lambda (octets) (list :octets octets))
-                                      (lambda () (list :too-large))))
-                   (error (condition) (list :failure (princ-to-string condition))))))
-    (ecase (first outcome)
-      (:octets (funcall on-octets (second outcome)))
-      (:too-large (funcall on-too-large))
-      (:failure (funcall on-failure (second outcome))))))
+(defun read-stdin-octets (limit)
+  "Read file descriptor 0 as raw octets, independent of the character external format."
+  (let ((outcome
+          (handler-case
+              (multiple-value-list
+               (%read-bounded
+                (sb-sys:make-fd-stream 0 :input t :element-type '(unsigned-byte 8)
+                                       :buffering :full)
+                limit))
+            (error (condition)
+              (list :failure (princ-to-string condition))))))
+    (values-list outcome)))
 
 (defun make-util-ports-from-boundaries (&key random-source uuid-source clock
                                           (read-file-octets #'read-file-octets)

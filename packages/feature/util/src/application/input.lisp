@@ -21,58 +21,88 @@
         (repair
          "pass-stdin" "Read the input text from standard input." (format nil "aitools ~A --stdin" command))))
 
-(defun resolve-input/k (ports request command &key on-input on-error)
-  "Read REQUEST's one input source. Calls ON-INPUT with (OCTETS &key TEXT):
-TEXT is the input as a string for `--content` and `--stdin`, and absent for
-`--content-file`, whose bytes are never decoded here. Calls ON-ERROR with
-the command-result error arguments otherwise. COMMAND is the invoked command
-line prefix (\"util encode base64\") used to build repairs."
+(aitools.kernel.domain:define-flow
+    (resolve-input ports request command &key on-input on-error)
+  "Read REQUEST's one input source. ON-INPUT receives (OCTETS &key TEXT):
+TEXT is present for inline and standard input, and absent for content files.
+ON-ERROR receives the command-result error arguments. COMMAND is the invoked
+command-line prefix used to build repairs."
   (declare (type function on-input on-error))
-  (let ((given (count-if #'identity (list (input-request-content request)
-                                          (input-request-content-file request)
-                                          (input-request-stdin request)))))
+  (let ((given (count-if #'identity
+                         (list (input-request-content request)
+                               (input-request-content-file request)
+                               (input-request-stdin request)))))
     (cond
       ((zerop given)
-       (funcall on-error "argument.invalid" "no input given: pass one of --content, --content-file, or --stdin"
-                :repairs (%input-repairs command)))
+       (aitools.kernel.domain:flow-continue
+        :on-error "argument.invalid"
+        "no input given: pass one of --content, --content-file, or --stdin"
+        :repairs (%input-repairs command)))
       ((> given 1)
-       (funcall on-error "argument.invalid" "--content, --content-file, and --stdin are mutually exclusive"
-                :repairs (%input-repairs command)))
+       (aitools.kernel.domain:flow-continue
+        :on-error "argument.invalid"
+        "--content, --content-file, and --stdin are mutually exclusive"
+        :repairs (%input-repairs command)))
       ((input-request-content request)
        (let ((text (input-request-content request)))
-         (funcall on-input (aitools.util.domain:utf-8-octets text) :text text)))
+         (aitools.kernel.domain:flow-continue
+          :on-input (aitools.util.domain:utf-8-octets text)
+          :text text)))
       ((input-request-content-file request)
        (let ((path (input-request-content-file request)))
-         (funcall (util-ports-read-file-octets ports) path +util-max-input-bytes+
-                  :on-octets (lambda (octets) (funcall on-input octets))
-                  :on-missing (lambda ()
-                                (funcall on-error "input.not-found" (format nil "no such file: ~A" path)
-                                         :repairs (%input-repairs command)))
-                  :on-too-large (lambda ()
-                                  (funcall on-error "argument.invalid"
-                                           (format nil "~A exceeds the ~D byte input limit" path +util-max-input-bytes+)
-                                           :repairs (%input-repairs command)))
-                  :on-failure (lambda (message)
-                                (funcall on-error "environment.io" (format nil "cannot read ~A: ~A" path message)
-                                         :repairs (%input-repairs command))))))
+         (multiple-value-bind (status payload)
+             (funcall (util-ports-read-file-octets ports)
+                      path +util-max-input-bytes+)
+           (case status
+             (:octets
+              (aitools.kernel.domain:flow-continue :on-input payload))
+             (:missing
+              (aitools.kernel.domain:flow-continue
+               :on-error "input.not-found" (format nil "no such file: ~A" path)
+               :repairs (%input-repairs command)))
+             (:too-large
+              (aitools.kernel.domain:flow-continue
+               :on-error "argument.invalid"
+               (format nil "~A exceeds the ~D byte input limit"
+                       path +util-max-input-bytes+)
+               :repairs (%input-repairs command)))
+             (:failure
+              (aitools.kernel.domain:flow-continue
+               :on-error "environment.io" (format nil "cannot read ~A: ~A" path payload)
+               :repairs (%input-repairs command)))
+             (otherwise
+              (error "Unknown content-file result ~S." status))))))
       (t
-       (funcall (util-ports-read-stdin-octets ports) +util-max-input-bytes+
-                :on-octets
-                (lambda (octets)
-                  (aitools.util.domain:octets->utf-8/k
-                   octets
-                   :on-text (lambda (text) (funcall on-input octets :text text))
-                   :on-invalid (lambda (offset)
-                                 (funcall on-error "input.not-utf8"
-                                          (format nil "standard input is not valid UTF-8 at byte ~D" offset)
-                                          :repairs (list
-                                                    (repair
-                                                     "pass-file" "Pass bytes through a file instead; --content-file does not decode."
-                                                     (format nil "aitools ~A --content-file <path>" command)))))))
-                :on-too-large (lambda ()
-                                (funcall on-error "argument.invalid"
-                                         (format nil "standard input exceeds the ~D byte input limit" +util-max-input-bytes+)
-                                         :repairs (%input-repairs command)))
-                :on-failure (lambda (message)
-                              (funcall on-error "environment.io" (format nil "cannot read standard input: ~A" message)
-                                       :repairs (%input-repairs command))))))))
+       (multiple-value-bind (status payload)
+           (funcall (util-ports-read-stdin-octets ports) +util-max-input-bytes+)
+         (case status
+           (:octets
+            (aitools.kernel.domain:flow-call
+                (aitools.util.domain:octets->utf-8 payload)
+              (:on-text (text)
+                (aitools.kernel.domain:flow-continue
+                 :on-input payload :text text))
+              (:on-invalid (offset)
+                (aitools.kernel.domain:flow-continue
+                 :on-error "input.not-utf8"
+                 (format nil "standard input is not valid UTF-8 at byte ~D" offset)
+                 :repairs
+                 (list
+                  (repair
+                   "pass-file"
+                   "Pass bytes through a file instead; --content-file does not decode."
+                   (format nil "aitools ~A --content-file <path>" command)))))))
+           (:too-large
+            (aitools.kernel.domain:flow-continue
+             :on-error "argument.invalid"
+             (format nil "standard input exceeds the ~D byte input limit"
+                     +util-max-input-bytes+)
+             :repairs (%input-repairs command)))
+           (:failure
+            (aitools.kernel.domain:flow-continue
+             :on-error "environment.io"
+             (format nil "cannot read standard input: ~A" payload)
+             :repairs (%input-repairs command)))
+           (otherwise
+            (error "Unknown standard-input result ~S." status))))))));
+

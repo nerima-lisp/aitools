@@ -18,4 +18,5 @@
    #:with-temporary-directory
    #:with-workspace
    #:write-bytes
-   #:write-text))
+   #:write-text
+   #:with-stdin-from))

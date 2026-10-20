@@ -5,9 +5,9 @@
 ;;;; untrusted input, so it is never handed to the Lisp reader or evaluator:
 ;;;; a hand-written tokenizer accepts only ASCII digits, `.`, the operators
 ;;;; `+ - * / % **`, parentheses, commas, ASCII whitespace, and the six
-;;;; function names below, and a recursive-descent parser calls fixed Lisp
-;;;; functions directly. There are no variables, no assignment, and no way to
-;;;; define or name any other function.
+;;;; function names in `data/domain/util/util-tables-data.lisp`. The parser
+;;;; calls fixed Lisp functions directly. It has no variables or assignment,
+;;;; and users cannot define or name another function.
 ;;;;
 ;;;; Budgets, each enforced before the work it bounds:
 ;;;; - input length, before tokenizing;
@@ -50,8 +50,6 @@
 (defun %ascii-letter-p (char)
   (or (char<= #\a char #\z) (char<= #\A char #\Z) (char= char #\_)))
 
-;;; ------------------------------------------------------------- tokenizer
-
 (defstruct (%token (:constructor %make-token (kind value offset)) (:copier nil))
   (kind nil :type keyword :read-only t)
   (value nil :read-only t)
@@ -76,36 +74,38 @@
     (loop while (< index length)
           do (let ((char (char text index)))
                (cond
-                 ((member char '(#\Space #\Tab #\Newline #\Return)) (incf index))
-                 ((%ascii-digit-p char)
-                  (multiple-value-bind (value end) (%scan-number text index)
-                    (push (%make-token :number value index) tokens)
-                    (setf index end)))
-                 ((%ascii-letter-p char)
-                  (let* ((end (or (position-if-not (lambda (c) (or (%ascii-letter-p c) (%ascii-digit-p c)))
-                                                   text :start index)
-                                  length))
-                         (name (string-downcase (subseq text index end))))
-                    (unless (assoc name +calc-functions+ :test #'string=)
-                      (%calc-fail index "unknown name; only min, max, abs, floor, ceil, and round are available (no variables)"))
-                    (push (%make-token :name name index) tokens)
-                    (setf index end)))
-                 ((and (char= char #\*) (< (1+ index) length) (char= (char text (1+ index)) #\*))
-                  (push (%make-token :op "**" index) tokens)
-                  (incf index 2))
-                 ((find char "+-*/%")
-                  (push (%make-token :op (string char) index) tokens)
-                  (incf index))
-                 ((char= char #\() (push (%make-token :open nil index) tokens) (incf index))
-                 ((char= char #\)) (push (%make-token :close nil index) tokens) (incf index))
-                 ((char= char #\,) (push (%make-token :comma nil index) tokens) (incf index))
-                 ((char= char #\.) (%calc-fail index "a decimal literal must start with a digit"))
-                 ((char= char #\=) (%calc-fail index "assignment is not supported"))
-                 (t (%calc-fail index "unexpected character")))))
+                ((member char '(#\Space #\Tab #\Newline #\Return)) (incf index))
+                ((%ascii-digit-p char)
+                 (multiple-value-bind (value end) (%scan-number text index)
+                   (push (%make-token :number value index) tokens)
+                   (setf index end)))
+                ((%ascii-letter-p char)
+                 (let* ((end (or (position-if-not (lambda (c) (or (%ascii-letter-p c) (%ascii-digit-p c)))
+                                                  text :start index)
+                                 length))
+                        (name (string-downcase (subseq text index end))))
+                   (unless (assoc name +calc-functions+ :test #'string=)
+                     (%calc-fail
+                      index
+                      (concatenate 'string
+                                   "unknown name; only min, max, abs, floor, ceil, and round are "
+                                   "available (no variables)")))
+                   (push (%make-token :name name index) tokens)
+                   (setf index end)))
+                ((and (char= char #\*) (< (1+ index) length) (char= (char text (1+ index)) #\*))
+                 (push (%make-token :op "**" index) tokens)
+                 (incf index 2))
+                ((find char "+-*/%")
+                 (push (%make-token :op (string char) index) tokens)
+                 (incf index))
+                ((char= char #\() (push (%make-token :open nil index) tokens) (incf index))
+                ((char= char #\)) (push (%make-token :close nil index) tokens) (incf index))
+                ((char= char #\,) (push (%make-token :comma nil index) tokens) (incf index))
+                ((char= char #\.) (%calc-fail index "a decimal literal must start with a digit"))
+                ((char= char #\=) (%calc-fail index "assignment is not supported"))
+                (t (%calc-fail index "unexpected character")))))
     (push (%make-token :end nil length) tokens)
     (coerce (nreverse tokens) 'simple-vector)))
-
-;;; ---------------------------------------------------------- arithmetic
 
 (defun %value-bits (value)
   (max (integer-length (abs (numerator value))) (integer-length (denominator value))))
@@ -143,118 +143,6 @@
           (mod left right))
          ((string= op "**") (%power left right offset)))
    offset))
-
-;;; -------------------------------------------------------------- parser
-
-(defstruct (%parser (:constructor %make-parser (tokens)) (:copier nil))
-  (tokens #() :type simple-vector :read-only t)
-  (position 0 :type fixnum)
-  (depth 0 :type fixnum))
-
-(defun %peek (parser)
-  (svref (%parser-tokens parser) (%parser-position parser)))
-
-(defun %advance (parser)
-  (prog1 (%peek parser) (incf (%parser-position parser))))
-
-(defun %peek-op-p (parser &rest ops)
-  (let ((token (%peek parser)))
-    (and (eq (%token-kind token) :op) (member (%token-value token) ops :test #'string=))))
-
-(defun %expect (parser kind reason)
-  (let ((token (%peek parser)))
-    (unless (eq (%token-kind token) kind) (%calc-fail (%token-offset token) reason))
-    (%advance parser)))
-
-(defmacro %with-depth ((parser offset) &body body)
-  `(progn
-     (when (> (incf (%parser-depth ,parser)) +calc-max-depth+)
-       (%calc-fail ,offset (format nil "nesting exceeds ~D levels" +calc-max-depth+)))
-     (multiple-value-prog1 (progn ,@body) (decf (%parser-depth ,parser)))))
-
-(defun %parse-additive (parser)
-  (let ((value (%parse-multiplicative parser)))
-    (loop while (%peek-op-p parser "+" "-")
-          do (let ((token (%advance parser)))
-               (setf value (%apply-binary (%token-value token) value (%parse-multiplicative parser)
-                                          (%token-offset token)))))
-    value))
-
-(defun %parse-multiplicative (parser)
-  (let ((value (%parse-unary parser)))
-    (loop while (%peek-op-p parser "*" "/" "%")
-          do (let ((token (%advance parser)))
-               (setf value (%apply-binary (%token-value token) value (%parse-unary parser)
-                                          (%token-offset token)))))
-    value))
-
-(defun %parse-unary (parser)
-  (if (%peek-op-p parser "+" "-")
-      (let ((token (%advance parser)))
-        (%with-depth (parser (%token-offset token))
-          (let ((operand (%parse-unary parser)))
-            (if (string= (%token-value token) "-") (- operand) operand))))
-      (%parse-power parser)))
-
-(defun %parse-power (parser)
-  (let ((base (%parse-primary parser)))
-    (if (%peek-op-p parser "**")
-        (let ((token (%advance parser)))
-          (%with-depth (parser (%token-offset token))
-            (%apply-binary "**" base (%parse-unary parser) (%token-offset token))))
-        base)))
-
-(defun %parse-call (parser token)
-  (destructuring-bind (arity function) (rest (assoc (%token-value token) +calc-functions+ :test #'string=))
-    (%expect parser :open "a function name must be followed by '('")
-    (let ((arguments (list (%parse-additive parser))))
-      (loop while (eq (%token-kind (%peek parser)) :comma)
-            do (%advance parser)
-               (push (%parse-additive parser) arguments))
-      (%expect parser :close "expected ')' after function arguments")
-      (when (and (integerp arity) (/= arity (length arguments)))
-        (%calc-fail (%token-offset token) (format nil "~A takes exactly ~D argument" (%token-value token) arity)))
-      (%checked (apply (if (eq function :round-half-away-from-zero) #'%round-half-away function)
-                       (nreverse arguments))
-                (%token-offset token)))))
-
-(defun %parse-primary (parser)
-  (let ((token (%advance parser)))
-    (ecase (%token-kind token)
-      (:number (%checked (%token-value token) (%token-offset token)))
-      (:name (%with-depth (parser (%token-offset token)) (%parse-call parser token)))
-      (:open
-       (%with-depth (parser (%token-offset token))
-         (prog1 (%parse-additive parser)
-           (%expect parser :close "expected ')'"))))
-      ((:op :close :comma :end)
-       (%calc-fail (%token-offset token)
-                   (if (eq (%token-kind token) :end) "unexpected end of expression" "expected a number, '(' or a function"))))))
-
-(defun evaluate-expression/k (text &key on-value on-error)
-  "Evaluate the arithmetic expression TEXT. Calls ON-VALUE with the exact
-rational result, or ON-ERROR with (OFFSET REASON) for a syntax error,
-division by zero, or an exceeded budget; OFFSET is a character index into
-TEXT."
-  (declare (type function on-value on-error))
-  (let ((value (handler-case
-                   (progn
-                     (when (> (length text) +calc-max-input-length+)
-                       (%calc-fail +calc-max-input-length+
-                                   (format nil "expression exceeds ~D characters" +calc-max-input-length+)))
-                     (let ((parser (%make-parser (%tokenize text))))
-                       (when (eq (%token-kind (%peek parser)) :end)
-                         (%calc-fail 0 "empty expression"))
-                       (prog1 (%parse-additive parser)
-                         (let ((rest (%peek parser)))
-                           (unless (eq (%token-kind rest) :end)
-                             (%calc-fail (%token-offset rest) "unexpected trailing input"))))))
-                 (%calc-error (condition)
-                   (return-from evaluate-expression/k
-                     (funcall on-error (%calc-error-offset condition) (%calc-error-reason condition)))))))
-    (funcall on-value value)))
-
-;;; ------------------------------------------------------------ rendering
 
 (defun format-decimal (value decimals)
   "Render the rational VALUE in decimal, rounded half away from zero to

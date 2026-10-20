@@ -17,8 +17,7 @@
 (defun codec-scheme-p (name)
   (and (member name +codec-schemes+ :test #'string=) t))
 
-(defparameter +base64-alphabet+
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+(defparameter +base64-alphabet+ aitools.data:*util-base64-alphabet*)
 
 (defparameter +hex-digits+ "0123456789abcdef")
 
@@ -48,15 +47,19 @@
   "STRING as a fresh UTF-8 octet vector."
   (cl-codec-kit:string-to-octets string :encoding :utf-8 :errorp nil))
 
-(defun octets->utf-8/k (octets &key on-text on-invalid)
+(aitools.kernel.domain:define-flow
+    (octets->utf-8 octets &key on-text on-invalid)
   "Decode OCTETS strictly as UTF-8. Calls ON-TEXT with the string, or
 ON-INVALID with the byte offset of the first invalid sequence."
   (declare (type function on-text on-invalid))
-  (let ((text (handler-case (cl-codec-kit:octets-to-string octets :encoding :utf-8)
-                (cl-codec-kit:decode-error (condition)
-                  (return-from octets->utf-8/k
-                    (funcall on-invalid (cl-codec-kit:decode-error-position condition)))))))
-    (funcall on-text text)))
+  (multiple-value-bind (success-p text offset)
+      (handler-case
+          (values t (cl-codec-kit:octets-to-string octets :encoding :utf-8) nil)
+        (cl-codec-kit:decode-error (condition)
+          (values nil nil (cl-codec-kit:decode-error-position condition))))
+    (if success-p
+        (aitools.kernel.domain:flow-continue :on-text text)
+        (aitools.kernel.domain:flow-continue :on-invalid offset))))
 
 (defun octets->lenient-text (octets)
   "Decode OCTETS as UTF-8, replacing each invalid sequence with U+FFFD."
@@ -176,17 +179,24 @@ the ASCII result string."
                         (incf index 3))
                       (progn (funcall emit octet) (incf index)))))))))
 
-(defun decode-text/k (scheme octets &key on-decoded on-invalid)
+(aitools.kernel.domain:define-flow
+    (decode-text scheme octets &key on-decoded on-invalid)
   "Decode the encoded OCTETS with SCHEME. Calls ON-DECODED with the decoded
 octet vector, or ON-INVALID with (OFFSET REASON): the input byte offset where
 decoding failed and a fixed description."
   (declare (type function on-decoded on-invalid))
-  (let ((decoded (handler-case
-                     (cond ((string= scheme "base64") (%decode-base64 octets))
-                           ((string= scheme "url") (%decode-url octets))
-                           ((string= scheme "hex") (%decode-hex octets)))
-                   (%invalid-encoding (condition)
-                     (return-from decode-text/k
-                       (funcall on-invalid (%invalid-encoding-offset condition)
-                                (%invalid-encoding-reason condition)))))))
-    (funcall on-decoded decoded)))
+  (multiple-value-bind (success-p decoded offset reason)
+      (handler-case
+          (values
+           t
+           (cond ((string= scheme "base64") (%decode-base64 octets))
+                 ((string= scheme "url") (%decode-url octets))
+                 ((string= scheme "hex") (%decode-hex octets)))
+           nil
+           nil)
+        (%invalid-encoding (condition)
+          (values nil nil (%invalid-encoding-offset condition)
+                  (%invalid-encoding-reason condition))))
+    (if success-p
+        (aitools.kernel.domain:flow-continue :on-decoded decoded)
+        (aitools.kernel.domain:flow-continue :on-invalid offset reason))))
