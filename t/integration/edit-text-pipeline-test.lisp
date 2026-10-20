@@ -135,6 +135,15 @@
       (with-error (code message keys) (run-in "no-such-tx" "edit" '("a.txt") :old "a" :new "b" :dry-run dry-run)
         (expect code :to-equal "input.not-found")
         (expect (repair-commands keys) :to-equal '("aitools tx status")))))
+  (it "reports a missing tx after replace scans the workspace"
+    (with-workspace ()
+      (put "a.txt" (format nil "foo~%"))
+      (with-error (code message keys)
+          (run-in "no-such-tx" "replace" (list "foo" "bar") :expect-count "1")
+        (expect code :to-equal "input.not-found")
+        (expect message :to-equal "no open tx no-such-tx")
+        (expect (repair-commands keys) :to-equal (list "aitools tx status")))
+      (expect (text "a.txt") :to-equal (format nil "foo~%"))))
 
   (it "plans a directory delete inside a tx without writing"
     (with-workspace ()
