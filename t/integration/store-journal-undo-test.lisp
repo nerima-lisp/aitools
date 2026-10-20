@@ -6,14 +6,24 @@
   (it "records argv, time, and every change's before/after"
     (with-temp-store (store)
       (put-file store "a.txt" "a")
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "b"))) :argv '("write" "a.txt")))))
+      (let ((op-id
+             (nth-value
+              1
+              (commit store
+                      (list (write-file-request "a.txt" (bytes "b")))
+                      :argv '("write" "a.txt")))))
         (let ((entry (find-journal-entry store op-id)))
           (expect (journal-entry-argv entry) :to-equal '("write" "a.txt"))
           (expect (length (journal-entry-time entry)) :to-be 20)
           (expect (entry-state-hash (change-result-before (first (journal-entry-changes entry))))
                   :to-equal (aitools.kernel.domain:content-hash (bytes "a")))
-          (expect (octets-string (read-blob store (entry-state-hash (change-result-before (first (journal-entry-changes entry))))))
-                  :to-equal "a")))))
+          (expect
+           (octets-string
+            (read-blob store
+                       (entry-state-hash
+                        (change-result-before
+                         (first (journal-entry-changes entry))))))
+           :to-equal "a")))))
 
   (it "restores bytes, mode, and existence for every action, as a new op with undoes"
     (with-temp-store (store)

@@ -157,8 +157,14 @@
         (expect (disk-mode store "a/b") :to-be #o700)
         (sb-posix:symlink "a" (disk-path store "via"))
         ;; Darwin checks O_DIRECTORY first (ENOTDIR), Linux O_NOFOLLOW (ELOOP).
-        (expect (member (io-failure (lambda () (funcall (store-io-create-file io) (disk-path store "via/b/x") (bytes "x"))))
-                        '(("open" "Not a directory") ("open" "Too many levels of symbolic links"))
-                        :test #'equal)
-                :to-be-truthy)
+        (expect
+         (member
+          (io-failure
+           (lambda ()
+             (funcall (store-io-create-file io)
+                      (disk-path store "via/b/x")
+                      (bytes "x"))))
+          '(("open" "Not a directory") ("open" "Too many levels of symbolic links"))
+          :test #'equal)
+         :to-be-truthy)
         (expect (disk-text store "a/b/x") :to-be :absent)))))

@@ -37,7 +37,10 @@ redirected to a scratch directory so the CLI opens its own store there."
      (lambda (root store)
        (put-file store "cfg.txt" "secret" :mode #o644)
        (let ((tx (envelope-field (nth-value 1 (run-cli root "tx" "begin")) "tx")))
-         (multiple-value-bind (code envelope) (run-cli root "chmod" "--mode" "600" (disk-path store "cfg.txt") "--tx" tx)
+         (multiple-value-bind (code envelope)
+             (run-cli root "chmod" "--mode" "600"
+                      (disk-path store "cfg.txt")
+                      "--tx" tx)
            (expect (list code (envelope-field envelope "error" "code")) :to-equal '(0 nil))
            (expect (envelope-field envelope "tx") :to-equal tx)
            (expect (envelope-field envelope "tx_op") :to-be 1))
@@ -75,7 +78,10 @@ redirected to a scratch directory so the CLI opens its own store there."
   (tx-rebase/k store tx-id replay
                :on-rebased (lambda (paths) (list :rebased paths))
                :on-conflict (lambda (conflicts)
-                              (list :conflict (mapcar (lambda (c) (list (conflict-path c) (conflict-kind c))) conflicts)))
+                              (list :conflict
+                                    (mapcar (lambda (c)
+                                              (list (conflict-path c) (conflict-kind c)))
+                                            conflicts)))
                :on-not-found (lambda () :not-found) :on-busy (lambda () :busy)))
 
 (describe "aitools.store tx-stage/k outcomes"

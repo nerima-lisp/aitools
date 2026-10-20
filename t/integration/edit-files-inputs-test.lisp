@@ -28,7 +28,8 @@
         (expect (repair-commands keys) :to-equal '("aitools json get c.json")))
       (with-error (code message keys) (run "json.set" '("c.json" "/a/b/c" "1"))
         (expect code :to-equal "input.not-found")
-        (expect (repair-commands keys) :to-equal '("aitools json get c.json /a/b"))))))(describe "aitools archive extract and create: formats, sources and refusals"
+        (expect (repair-commands keys) :to-equal '("aitools json get c.json /a/b"))))))
+(describe "aitools archive extract and create: formats, sources and refusals"
   (it "round-trips one file through .gz under its own name"
     (with-workspace ()
       (put "notes.txt" (format nil "n~%"))
@@ -50,9 +51,15 @@
   (it "extracts only --entry names, from an archive outside the workspace"
     (with-workspace ()
       (let ((outside (concatenate 'string *root* "/../outside.tar")))
-        (with-open-file (out (sb-ext:parse-native-namestring outside) :direction :output :element-type '(unsigned-byte 8)
-                                                                      :if-exists :supersede)
-          (write-sequence (aitools.text.domain:write-tar (list (member-file "a.txt" "A") (member-file "b.txt" "B"))) out))
+        (with-open-file (out (sb-ext:parse-native-namestring outside)
+                     :direction :output
+                     :element-type '(unsigned-byte 8)
+                     :if-exists :supersede)
+          (write-sequence
+           (aitools.text.domain:write-tar
+            (list (member-file "a.txt" "A")
+                  (member-file "b.txt" "B")))
+           out))
         (unwind-protect
              (progn
                (expect (run "archive.extract" (list outside) :to "out" :entry '("b.txt")) :to-be :ok)
@@ -72,8 +79,12 @@
 
   (it "refuses a hard link past --max-bytes as too large, not as a syntax error"
     (with-workspace ()
-      (put "h.tar" (retype-tar-entry (aitools.text.domain:write-tar (list (member-file "a" "0123456789") (member-file "h" "")))
-                                     1024 #\1 :link "a"))
+      (put "h.tar"
+           (retype-tar-entry
+            (aitools.text.domain:write-tar
+             (list (member-file "a" "0123456789")
+                   (member-file "h" "")))
+            1024 #\1 :link "a"))
       (with-error (code) (run "archive.extract" '("h.tar") :to "out" :max-bytes "15")
         (expect code :to-equal "refusal.too-large"))
       (expect (run "archive.extract" '("h.tar") :to "out" :max-bytes "20") :to-be :ok)
@@ -92,7 +103,9 @@
     (with-workspace ()
       (put "a.txt" (format nil "a~%"))
       (sb-posix:mkdir (disk "d") #o755)
-      (with-error (code message) (run "move" '("d" "a.txt") :overwrite t :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))))
+      (with-error (code message)
+        (run "move" '("d" "a.txt") :overwrite t
+             :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))))
         (expect code :to-equal "refusal.exists")
         (expect message :to-equal "a.txt already exists (directories are never merged)"))
       (with-error (code message) (run "move" '("a.txt" "d") :overwrite t)
@@ -118,9 +131,13 @@
     (with-workspace ()
       (put "a.txt" "a")
       (let ((result nil))
-        (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
+        (run-edit-command *ports* "mktemp" '() '()
+                          :root (disk "a.txt")
                           :on-ok (lambda (fields) (setf result fields))
-                          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
+                          :on-error
+                          (lambda (code message &rest keys)
+                            (declare (ignore keys))
+                            (setf result (list code message))))
         (expect (first result) :to-equal "argument.invalid")
         (expect (search "is not a usable directory" (second result)) :to-be-truthy))))
 
