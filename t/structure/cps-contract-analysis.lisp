@@ -126,13 +126,14 @@
                     (setf return-from-p t)
                     (dolist (item (cdr form)) (walk item active ignore-continuations)))
                    ((%operator-name-p form "APPLY")
-                    (let ((function-designator (second form)))
-                      (when (%continuation-reference-p function-designator active)
+                    (let* ((function-designator (second form))
+                           (continuation-callback-p
+                             (and (symbolp function-designator)
+                                  (%continuation-reference-p function-designator active))))
+                      (when continuation-callback-p
                         (setf apply-continuation-p t))
-                      (walk function-designator
-                            active
-                            (or (%continuation-reference-p function-designator active)
-                                ignore-continuations))
+                      (walk function-designator active
+                            (or continuation-callback-p ignore-continuations))
                       (dolist (item (cddr form)) (walk item active ignore-continuations))))
                    ((%operator-name-p form "LAMBDA")
                     (let ((inner-active (without-bound-variables active (second form))))

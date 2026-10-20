@@ -55,6 +55,11 @@
                    "(flow-continue :on-ok value)))"))
      :to-equal nil))
 
+  (it "handles dotted destructuring in flow bodies"
+    (expect (%fixture-violations
+             "(define-flow (dotted-flow blocks &key on-ok) (loop for (start . end) in blocks collect (cons start end)))")
+            :to-equal nil))
+
   (it "rejects new legacy continuation definitions"
     (expect (%fixture-violations
              "(defun new/k (value) value) (defun new-helper (&key on-ok) (funcall on-ok)) (defun (setf new-setter/k) (value object) (setf object value))")
