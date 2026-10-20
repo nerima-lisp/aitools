@@ -72,6 +72,9 @@
             (call-with-path (uiop:native-namestring directory)
                             (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
           (expect kind :to-be :error)
+          (expect (aitools.vcs.infrastructure::%git-marker-state
+                 (merge-pathnames "missing/" directory))
+                :to-be :unknown)
           (expect (getf fields :code) :to-equal "environment.unavailable")
           (expect (getf fields :message)
                   :to-equal "the working directory is not inside a git work tree")))))
