@@ -170,12 +170,18 @@
 
 (defun %production-stdin (limit)
   "The outcome of the production search READ-STDIN-OCTETS port with LIMIT."
-  (funcall (aitools.search.application::search-ports-read-stdin-octets
-            (aitools.search.infrastructure:make-production-search-ports))
-           limit
-           :on-octets (lambda (octets) (list :octets (length octets) (and (plusp (length octets)) (aref octets 0))))
-           :on-too-large (lambda () (list :too-large))
-           :on-failure (lambda (message) (list :failure (stringp message)))))
+  (let ((outcome
+         (funcall (aitools.search.application::search-ports-read-stdin-octets
+                   (aitools.search.infrastructure:make-production-search-ports))
+                  limit)))
+    (ecase (first outcome)
+      (:octets
+       (let ((octets (second outcome)))
+         (list :octets
+               (length octets)
+               (and (plusp (length octets)) (aref octets 0)))))
+      (:too-large (list :too-large))
+      (:failure (list :failure (stringp (second outcome)))))))
 
 (describe "aitools.search production ports"
   (it "reads standard input as raw octets up to the limit, over several reads"

@@ -102,12 +102,11 @@ reader (NIL for none); OPEN-STORE is passed through."
        :open-store open-store
        :unix-now (constantly now)
        :read-stdin-octets (if (eq stdin-port :fake)
-                              (lambda (limit &key on-octets on-too-large on-failure)
-                                (declare (ignore on-failure))
+                              (lambda (limit)
                                 (let ((octets (%bytes (or stdin ""))))
                                   (if (> (length octets) limit)
-                                      (funcall on-too-large)
-                                      (funcall on-octets octets))))
+                                      (list :too-large)
+                                      (list :octets octets))))
                               stdin-port)))))
 
 (defun run-flow (flow &rest arguments)

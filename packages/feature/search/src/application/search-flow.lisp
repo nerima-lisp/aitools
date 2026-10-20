@@ -1,22 +1,22 @@
 ;;;; packages/feature/search/src/application/search-flow.lisp
 ;;;;
-;;;; `search`. The workspace scan hands each file to a worker on the ordered
-;;;; worker pool; a worker reads the file and keeps only byte
-;;;; offsets (SEARCH-FILE). Results arrive back in path order, and only then
-;;;; are lines decoded, for as many as `--limit` still allows. Counting
-;;;; continues to the end, so `total_matches` is exact even when the output
-;;;; is cut short.
+;;;; SEARCH-FILE receives each whole file as octets. For blocks and matches,
+;;;; it retains those octets and the byte offsets needed for output, without
+;;;; decoding strings. Results arrive in path order; only output lines or
+;;;; matches within `--limit` are decoded. Scanning continues to the end, so
+;;;; `total_matches` stays exact even when output is cut short.
 ;;;;
-;;;; The unit `--limit` and `total_matches` count depends on the mode:
-;;;; selected lines for blocks, count, files, and files-without-match; matches
-;;;; for matches. In count, files, and files-without-match `--limit` bounds
-;;;; the entries returned and `total` gives their full number.
+;;;; For blocks, `--limit` counts selected lines; for matches, it counts
+;;;; match occurrences. For count, files, and files-without-match, it bounds
+;;;; returned file entries, and `total` reports the full entry count.
+;;;; `total_matches` counts selected lines in all modes except matches, where
+;;;; it counts match occurrences.
 (in-package #:aitools.search.application)
 
 (aitools.kernel.domain:define-flow
     (%read-stdin-pattern/k ports &key on-pattern on-error)
-  "`search --stdin`: the pattern as raw UTF-8 text. One trailing newline
-(LF or CR LF), as `echo` adds, is dropped; nothing else is changed."
+  "Read the raw UTF-8 pattern for search --stdin. One trailing newline
+(LF or CR LF), as echo adds, is dropped; nothing else is changed."
   (let ((reader (search-ports-read-stdin-octets ports)))
     (if (null reader)
         (aitools.kernel.domain:flow-call
@@ -24,64 +24,60 @@
           (:on-error (code message &key repairs)
             (aitools.kernel.domain:flow-continue
              :on-error code message :repairs repairs)))
-        (funcall reader
-                 +stdin-pattern-limit+
-                 :on-octets
-                 (lambda (octets)
-                   (let* ((end (length octets))
-                          (end (if (and (plusp end)
-                                        (= (aref octets (1- end)) 10))
-                                   (1- end)
-                                   end))
-                          (end (if (and (plusp end)
-                                        (= (aref octets (1- end)) 13))
-                                   (1- end)
-                                   end)))
-                     (aitools.text.domain:decode-utf8-strict/k
-                      (coerce octets '(simple-array (unsigned-byte 8) (*)))
-                      :end end
-                      :on-decoded
-                      (lambda (pattern)
-                        (aitools.kernel.domain:flow-continue
-                         :on-pattern pattern))
-                      :on-invalid
-                      (lambda (position)
-                        (aitools.kernel.domain:flow-continue
-                         :on-error
-                         "argument.invalid"
-                         (format nil
-                                 "the pattern on standard input is not UTF-8 (byte ~D)"
-                                 position)
-                         :repairs
-                         (list
-                          (repair
-                           "pass-pattern"
-                           "Pass the pattern as an argument."
-                           "aitools search --pattern PATTERN")))))))
-                 :on-too-large
-                 (lambda ()
-                   (aitools.kernel.domain:flow-continue
-                    :on-error
-                    "argument.invalid"
-                    "the pattern on standard input exceeds 1 MiB"
-                    :repairs
-                    (list
-                     (repair
-                      "pass-pattern"
-                      "Pass the pattern as an argument."
-                      "aitools search --pattern PATTERN"))))
-                 :on-failure
-                 (lambda (message)
-                   (aitools.kernel.domain:flow-continue
-                    :on-error
-                    "environment.io"
-                    message
-                    :repairs
-                    (list
-                     (repair
-                      "pass-pattern"
-                      "Pass the pattern as an argument."
-                      "aitools search --pattern PATTERN"))))))));
+        (let ((result (funcall reader +stdin-pattern-limit+)))
+          (ecase (first result)
+            (:octets
+             (let* ((octets (second result))
+                    (end (length octets))
+                    (end (if (and (plusp end)
+                                  (= (aref octets (1- end)) 10))
+                             (if (and (> end 1)
+                                      (= (aref octets (- end 2)) 13))
+                                 (- end 2)
+                                 (1- end))
+                             end)))
+               (aitools.text.domain:decode-utf8-strict/k
+                (coerce octets (quote (simple-array (unsigned-byte 8) (*))))
+                :end end
+                :on-decoded
+                (lambda (pattern)
+                  (aitools.kernel.domain:flow-continue :on-pattern pattern))
+                :on-invalid
+                (lambda (position)
+                  (aitools.kernel.domain:flow-continue
+                   :on-error
+                   "argument.invalid"
+                   (format nil
+                           "the pattern on standard input is not UTF-8 (byte ~D)"
+                           position)
+                   :repairs
+                   (list
+                    (repair
+                     "pass-pattern"
+                     "Pass the pattern as an argument."
+                     "aitools search --pattern PATTERN")))))))
+            (:too-large
+             (aitools.kernel.domain:flow-continue
+              :on-error
+              "argument.invalid"
+              "the pattern on standard input exceeds 1 MiB"
+              :repairs
+              (list
+               (repair
+                "pass-pattern"
+                "Pass the pattern as an argument."
+                "aitools search --pattern PATTERN"))))
+            (:failure
+             (aitools.kernel.domain:flow-continue
+              :on-error
+              "environment.io"
+              (second result)
+              :repairs
+              (list
+               (repair
+                "pass-pattern"
+                "Pass the pattern as an argument."
+                "aitools search --pattern PATTERN")))))))));
 
 
 (aitools.kernel.domain:define-flow
@@ -168,8 +164,8 @@
                 (context 2) before after (output :blocks) (limit 15) paths root tx
                 glob lang no-ignore skip-larger-than newer
                 on-ok on-partial on-error)
-  "`search`. PATTERNS is the list of patterns (the positional pattern, or
-each `--pattern`); with STDIN the one pattern is read from standard input
+  "PATTERNS is the list of patterns (the positional pattern, or each
+`--pattern`); with STDIN the one pattern is read from standard input
 instead. PATHS are the scan starts. BEFORE and AFTER default to CONTEXT.
 OUTPUT is :BLOCKS, :MATCHES, :COUNT, :FILES, or :FILES-WITHOUT-MATCH."
   (declare (ignore fixed ignore-case word line-regexp invert multiline paths

@@ -28,20 +28,14 @@ input is larger, so LIMIT bounds the read itself. Return (:OCTETS octets) or
         (list :too-large)
         (list :octets (coerce buffer '(simple-array (unsigned-byte 8) (*)))))))
 
-(aitools.kernel.domain:define-flow
-    (read-stdin-octets limit &key on-octets on-too-large on-failure)
-  "Standard input (file descriptor 0) as raw octets, at most LIMIT of them.
-The continuation runs after the handler has returned, so its own errors are
-not reported as read failures."
-  (let ((outcome (handler-case
-                     (let ((stream (sb-sys:make-fd-stream 0 :input t :element-type '(unsigned-byte 8)
-                                                            :buffering :full)))
-                       (%read-bounded stream limit))
-                   (error (condition) (list :failure (princ-to-string condition))))))
-    (ecase (first outcome)
-      (:octets (aitools.kernel.domain:flow-continue :on-octets (second outcome)))
-      (:too-large (aitools.kernel.domain:flow-continue :on-too-large))
-      (:failure (aitools.kernel.domain:flow-continue :on-failure (second outcome))))))
+(defun read-stdin-octets (limit)
+  "Read standard input as raw octets up to LIMIT.
+Return (:OCTETS octets), (:TOO-LARGE), or (:FAILURE message)."
+  (handler-case
+      (let ((stream (sb-sys:make-fd-stream 0 :input t :element-type (quote (unsigned-byte 8))
+                                           :buffering :full)))
+        (%read-bounded stream limit))
+    (error (condition) (list :failure (princ-to-string condition)))))
 
 (defun make-production-search-ports (&key workspace-host text-source open-store &allow-other-keys)
   "The production SEARCH-PORTS from the composition root's WORKSPACE-HOST,

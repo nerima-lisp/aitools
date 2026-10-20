@@ -23,7 +23,8 @@
                                            :stdin t :fixed t :output :matches))
                     "total_matches")))
       (expect (matches (format nil "ab~C~%" (code-char 13))) :to-be 2)
-      (expect (matches (format nil "ab ~C~%" (code-char 13))) :to-be 1))
+      (expect (matches (format nil "ab ~C~%" (code-char 13))) :to-be 1)
+      (expect (matches (format nil "ab~C" (code-char 13))) :to-be 0))
     ;; A lone newline leaves the empty pattern, which selects every line.
     (expect (field (nth-value 1 (run-flow (function search/k)
                                           (make-fake-ports :files (list (list "/w/a.txt" (format nil "x~%y~%")))
@@ -56,9 +57,9 @@
         (:failure
          (cl-weave:with-mocked-functions
           (((symbol-function (quote aitools.search.infrastructure::read-stdin-octets))
-            (lambda (limit &key on-octets on-too-large on-failure)
-              (declare (ignore limit on-octets on-too-large))
-              (funcall on-failure "stdin closed"))))
+            (lambda (limit)
+              (declare (ignore limit))
+              (list :failure "stdin closed"))))
           (verify (aitools.search.infrastructure:make-production-search-ports))))
         (:no-port
          (verify (make-fake-ports :stdin-port nil))))))
@@ -72,6 +73,23 @@
                                          :output :count))))
       (expect kind :to-be :ok)
       (expect (field fields "total_matches") :to-be 1))))
+
+(describe "aitools.search.application search/k standard input result propagation"
+  (it "forwards a partial result when the pattern comes from standard input"
+    (multiple-value-bind (kind fields)
+        (run-flow (function search/k)
+                  (make-fake-ports :files (list (list "/w/a.txt" (format nil "hit~%hit~%")))
+                                   :stdin "hit")
+                  :stdin t :context 0 :limit 1)
+      (expect kind :to-be :partial)
+      (expect (field fields "total_matches") :to-be 2)))
+
+  (it "forwards a regex error after reading the pattern from standard input"
+    (multiple-value-bind (kind fields)
+        (run-flow (function search/k) (make-fake-ports :stdin "a(") :stdin t)
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.syntax-error")
+      (expect (getf (first (getf fields :repairs)) :command) :to-contain "--fixed"))))
 
 (describe "aitools.search.application search/k next commands"
   (it "reproduces every flag of a cut-short run with the full --limit"

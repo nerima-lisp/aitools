@@ -124,3 +124,31 @@ b" (1 2)))
   (it "folds ASCII case when the needle starts with a non-letter"
     (expect (octets-find (%bytes "_x") (%bytes "A_X") 0 :fold t) :to-be 1)
     (expect (octets-find (%bytes "_x") (%bytes "A_Y") 0 :fold t) :to-be nil)))
+
+(describe "aitools.search.domain byte offsets"
+  (it "finds line starts and content ends across LF, CR LF, and final lines"
+    (let ((octets (%bytes (format nil "one~%two~C~%last" (code-char 13)))))
+      (expect (funcall (symbol-function (quote aitools.search.domain:line-content-end)) octets 0) :to-be 3)
+      (expect (funcall (symbol-function (quote aitools.search.domain:line-content-end)) octets 4) :to-be 7)
+      (expect (funcall (symbol-function (quote aitools.search.domain:line-content-end)) octets 9) :to-be 13)
+      (expect (funcall (symbol-function (quote aitools.search.domain:line-start-at)) octets 0) :to-be 0)
+      (expect (funcall (symbol-function (quote aitools.search.domain:line-start-at)) octets 8) :to-be 4)
+      (expect (funcall (symbol-function (quote aitools.search.domain:next-line-start)) octets 0) :to-be 4)
+      (expect (funcall (symbol-function (quote aitools.search.domain:next-line-start)) octets 4) :to-be 9)
+      (expect (funcall (symbol-function (quote aitools.search.domain:next-line-start)) octets 9) :to-be 13)
+      (expect (aitools.search.domain::count-newlines octets 0 13) :to-be 2)
+      (expect (aitools.search.domain::count-newlines octets 4 9) :to-be 1)))
+
+  (it "counts UTF-8 character columns and advances over complete characters"
+    (let ((octets (%bytes (format nil "a~C~C~C" (code-char #x00E9) (code-char #x732B) (code-char 120)))))
+      (expect (aitools.search.domain::utf8-column octets 0 3) :to-be 3)
+      (expect (aitools.search.domain::utf8-column octets 0 6) :to-be 4)
+      (expect (funcall (symbol-function (quote aitools.search.domain::next-char-boundary)) octets 1) :to-be 3)
+      (expect (funcall (symbol-function (quote aitools.search.domain::next-char-boundary)) octets 3) :to-be 6)
+      (expect (funcall (symbol-function (quote aitools.search.domain::next-char-boundary)) octets 6) :to-be 7)))
+
+  (it "strips only a leading UTF-8 byte-order mark"
+    (let ((bom (coerce #(239 187 191 97) (quote (simple-array (unsigned-byte 8) (*)))))
+          (plain (%bytes "a")))
+      (expect (equalp (strip-bom bom) (%bytes "a")) :to-be t)
+      (expect (eq (strip-bom plain) plain) :to-be t))))
