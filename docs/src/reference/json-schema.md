@@ -21,7 +21,7 @@ The shapes of individual commands' fields are in
 |---|---|---|
 | `schema_version` | always | `2`. |
 | `status` | always | `"ok"` (exit code 0) or `"partial"` (exit code 3). |
-| `command` | always | The command as typed: `"read"`, `"json get"`, `"tx commit"`. |
+| `command` | always | The command name. Existing commands use CLI words such as `"json get"`; Org envelopes use the full dotted dispatch name, such as `"org.outline"`. |
 | command fields | per command | Listed in each command's schema. |
 | `next_commands` | when non-empty | Complete aitools invocations that continue the result. |
 | `recovered` | after a recovery | See [Recovered operations](#recovered-operations). |
