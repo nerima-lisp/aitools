@@ -8,11 +8,6 @@
 
 (defun error-message (fields) (getf fields :message))
 
-(defun failing-stdin (message)
-  (lambda (limit &key on-octets on-too-large on-failure)
-    (declare (ignore limit on-octets on-too-large))
-    (funcall on-failure message)))
-
 (describe "aitools.search.application search/k standard input and patterns"
   (it "rejects a request with no pattern"
     (multiple-value-bind (kind fields) (search-in (list (list "/w/a.txt" "x")))
@@ -46,9 +41,20 @@
                    (:invalid-utf8 (make-fake-ports :stdin (coerce #(97 255) '(vector (unsigned-byte 8)))))
                    (:too-large (make-fake-ports :stdin (make-array (1+ (* 1024 1024)) :element-type '(unsigned-byte 8)
                                                                                       :initial-element 97)))
-                   (:failure (make-fake-ports :stdin-port (failing-stdin "stdin closed")))
+                   (:failure (make-fake-ports :stdin-port nil))
                    (:no-port (make-fake-ports :stdin-port nil)))))
-      (multiple-value-bind (kind fields) (run-flow #'search/k ports :stdin t)
+      (multiple-value-bind (kind fields)
+          (if (eq case :failure)
+              (cl-weave:with-mocked-functions
+                  (((symbol-function
+                     'aitools.search.application::search-ports-read-stdin-octets)
+                    (lambda (ports)
+                      (declare (ignore ports))
+                      (lambda (limit &key on-octets on-too-large on-failure)
+                        (declare (ignore limit on-octets on-too-large))
+                        (funcall on-failure "stdin closed")))))
+                (run-flow #'search/k ports :stdin t))
+              (run-flow #'search/k ports :stdin t))
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal code)
         (expect (error-message fields) :to-contain message))))

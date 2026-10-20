@@ -85,7 +85,8 @@
   :components ((:module "feature-search"
                 :pathname "packages/feature/search/src/"
                 :components ((:file "presentation/package")
-                             (:file "presentation/commands")))
+                             (:file "presentation/commands")
+                             (:file "presentation/command-registration")))
                (:module "feature-inspect"
                 :pathname "packages/feature/inspect/src/"
                 :components ((:file "presentation/package")

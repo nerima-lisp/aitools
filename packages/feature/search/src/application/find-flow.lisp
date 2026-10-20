@@ -35,14 +35,24 @@
 (defun kind-option-name (kind)
   (ecase kind (:file "file") (:directory "dir") (:symlink "symlink")))
 
-(defun %parse-size-option/k (text option on-size on-error)
+(aitools.kernel.domain:define-flow
+    (%parse-size-option/k text option &key on-value on-error)
   (if (null text)
-      (funcall on-size nil)
-      (handler-case (funcall on-size (aitools.kernel.domain:size-bytes (aitools.kernel.domain:parse-size text)))
+      (aitools.kernel.domain:flow-continue :on-value nil)
+      (handler-case
+          (aitools.kernel.domain:flow-continue
+           :on-value
+           (aitools.kernel.domain:size-bytes
+            (aitools.kernel.domain:parse-size text)))
         (aitools.kernel.domain:invalid-size-error ()
-          (%argument-error on-error (format nil "~A: not a size: ~A" option text) "find")))))
+          (aitools.kernel.domain:flow-call
+              (%argument-error (format nil "~A: not a size: ~A" option text) "find")
+            (:on-error (code message &key repairs)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message :repairs repairs)))))))
 
-(defun %collect-entries (session scan-options start on-collected on-error)
+(aitools.kernel.domain:define-flow
+    (%collect-entries session scan-options start &key on-collected on-error)
   "Scan below START (absolute) and call ON-COLLECTED with (entries
 directory-sizes non-empty-directories ignore-source start-relative
 start-kind): ENTRIES are the scan entries in path order."
@@ -51,7 +61,13 @@ start-kind): ENTRIES are the scan entries in path order."
     (apply #'aitools.workspace.application:call-with-workspace-scan/k
            (%host session) (session-root session)
            :paths (list start)
-           :on-error (lambda (reason path) (scan-error on-error "find" reason path))
+           :on-error
+           (lambda (reason path)
+             (aitools.kernel.domain:flow-call
+                 (scan-error "find" reason path)
+               (:on-error (code message &key repairs)
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message :repairs repairs))))
            :emit (lambda (entry result)
                    (declare (ignore result))
                    (let ((path (aitools.workspace.application:scan-entry-path entry)))
@@ -62,7 +78,8 @@ start-kind): ENTRIES are the scan entries in path order."
                        (loop for directory = (aitools.workspace.domain:path-parent path)
                                then (aitools.workspace.domain:path-parent directory)
                              while directory
-                             do (incf (gethash directory sizes 0) (aitools.workspace.application:scan-entry-size entry))
+                             do (incf (gethash directory sizes 0)
+                                      (aitools.workspace.application:scan-entry-size entry))
                              until (string= directory start-relative))))
                    nil)
            :on-complete (lambda (source stopped)
@@ -70,12 +87,14 @@ start-kind): ENTRIES are the scan entries in path order."
                           (let* ((entries (nreverse entries))
                                  (own (find start-relative entries
                                             :key #'aitools.workspace.application:scan-entry-path :test #'string=)))
-                            (funcall on-collected entries sizes occupied source start-relative
-                                     (if own (aitools.workspace.application:scan-entry-kind own) :directory))))
+                            (aitools.kernel.domain:flow-continue
+                             :on-collected entries sizes occupied source start-relative
+                             (if own (aitools.workspace.application:scan-entry-kind own) :directory))))
            scan-options)))
 
-(defun %find-results (request entries sizes occupied source start-relative start-kind
-                      on-ok on-partial min-size max-size)
+(aitools.kernel.domain:define-flow
+    (%find-results request entries sizes occupied source start-relative start-kind
+                   &key min-size max-size on-ok on-partial)
   (destructuring-bind (&key pattern type depth sort empty executable output ((:sizes with-sizes)) limit
                        &allow-other-keys)
       request
@@ -98,7 +117,8 @@ start-kind): ENTRIES are the scan entries in path order."
                            (:directory (not (gethash path occupied)))
                            (t nil)))
                      (or (not executable) (and (eq kind :file) (logtest mode #o111))))
-            (push (make-found-entry path kind size mode (aitools.workspace.application:scan-entry-mtime entry))
+            (push (make-found-entry
+                   path kind size mode (aitools.workspace.application:scan-entry-mtime entry))
                   found))))
       (let* ((found (nreverse found))
              (total (length found))
@@ -108,51 +128,74 @@ start-kind): ENTRIES are the scan entries in path order."
                 (list (cons "mode" (if (eq output :tree) "tree" "flat")))
                 (if (eq output :tree)
                     (list (cons "tree" (build-find-tree start-relative start-kind found limit)))
-                    (list (cons "items" (mapcar #'found-entry-json
-                                                (let ((sorted (sort-found-entries found sort)))
-                                                  (subseq sorted 0 (min limit total)))))))
+                    (list (cons "items"
+                                (mapcar #'found-entry-json
+                                        (let ((sorted (sort-found-entries found sort)))
+                                          (subseq sorted 0 (min limit total)))))))
                 (list (cons "total" total)
                       (cons "ignore_source" (%ignore-source-name source))
                       (cons "truncated" (json-boolean truncated))))))
         (if truncated
-            (%finish on-partial fields (list (%find-command-line request total)))
-            (%finish on-ok fields))))))
+            (aitools.kernel.domain:flow-continue
+             :on-partial
+             (%result-fields fields (list (%find-command-line request total))))
+            (aitools.kernel.domain:flow-continue
+             :on-ok (%result-fields fields)))))))
 
-(defun find/k (ports &rest request
-               &key pattern path type depth (sort :path) min-size max-size empty executable
-                 (output :flat) sizes (limit 50) root tx glob lang no-ignore skip-larger-than newer
-                 on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (find/k ports &rest request
+            &key pattern path type depth (sort :path) min-size max-size empty executable
+              (output :flat) sizes (limit 50) root tx glob lang no-ignore skip-larger-than newer
+              on-ok on-partial on-error)
   "`find`. TYPE is :FILE, :DIRECTORY, :SYMLINK, or NIL; SORT :PATH, :MTIME,
 or :SIZE; OUTPUT :FLAT or :TREE; MIN-SIZE and MAX-SIZE are size strings."
   (declare (ignore pattern type depth empty executable sizes))
   (declare (type function on-ok on-partial on-error))
   (let ((request (list* :sort sort :output output :limit limit request)))
-    (%parse-size-option/k
-     min-size "--min-size"
-     (lambda (min-bytes)
-       (%parse-size-option/k
-        max-size "--max-size"
-        (lambda (max-bytes)
-          (call-with-session/k
-           ports "find" :root root :tx tx :on-error on-error
-           :on-session
-           (lambda (session)
-             (scan-options/k
-              session "find" :glob glob :lang lang :no-ignore no-ignore
-                             :skip-larger-than skip-larger-than :newer newer
-              :on-error on-error
-              :on-options
-              (lambda (options)
-                (%collect-entries
-                 session
-                 ;; `find` lists large files rather than skipping them unless
-                 ;; `--skip-larger-than` is given explicitly.
-                 (list* :skip-larger-than (and skip-larger-than (getf options :skip-larger-than)) options)
-                 (first (or (%start-paths session (and path (list path))) (list (%root-path session))))
-                 (lambda (entries sizes occupied source start-relative start-kind)
-                   (%find-results request entries sizes occupied source start-relative start-kind
-                                  on-ok on-partial min-bytes max-bytes))
-                 on-error))))))
-        on-error))
-     on-error)))
+    (aitools.kernel.domain:flow-call
+        (%parse-size-option/k min-size "--min-size")
+      (:on-value (min-bytes)
+        (aitools.kernel.domain:flow-call
+            (%parse-size-option/k max-size "--max-size")
+          (:on-value (max-bytes)
+            (aitools.kernel.domain:flow-call
+                (call-with-session/k ports "find" :root root :tx tx)
+              (:on-session (session)
+                (aitools.kernel.domain:flow-call
+                    (scan-options/k session "find" :glob glob :lang lang :no-ignore no-ignore
+                                    :skip-larger-than skip-larger-than :newer newer)
+                  (:on-options (options)
+                    (aitools.kernel.domain:flow-call
+                        (%collect-entries
+                         session
+                         ;; `find` lists large files rather than skipping them unless
+                         ;; `--skip-larger-than` is given explicitly.
+                         (list* :skip-larger-than
+                                (and skip-larger-than (getf options :skip-larger-than)) options)
+                         (first (or (%start-paths session (and path (list path)))
+                                    (list (%root-path session)))))
+                      (:on-collected (entries found-sizes occupied source start-relative start-kind)
+                        (aitools.kernel.domain:flow-call
+                            (%find-results request entries found-sizes occupied source
+                                           start-relative start-kind
+                                           :min-size min-bytes :max-size max-bytes)
+                          (:on-ok (fields)
+                            (aitools.kernel.domain:flow-continue :on-ok fields))
+                          (:on-partial (fields)
+                            (aitools.kernel.domain:flow-continue :on-partial fields))))
+                      (:on-error (code message &key repairs)
+                        (aitools.kernel.domain:flow-continue
+                         :on-error code message :repairs repairs))))
+                  (:on-error (code message &key repairs)
+                    (aitools.kernel.domain:flow-continue
+                     :on-error code message :repairs repairs))))
+              (:on-error (code message &key repairs)
+                (aitools.kernel.domain:flow-continue
+                 :on-error code message :repairs repairs))))
+          (:on-error (code message &key repairs)
+            (aitools.kernel.domain:flow-continue
+             :on-error code message :repairs repairs))))
+      (:on-error (code message &key repairs)
+        (aitools.kernel.domain:flow-continue
+         :on-error code message :repairs repairs)))))
 

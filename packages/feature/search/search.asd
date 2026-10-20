@@ -9,11 +9,16 @@
   :components
   ((:module "domain"
     :components ((:file "package") (:file "bytes")
-                 (:file "matcher") (:file "results") (:file "find")
-                 (:file "code") (:file "overview")))
+                 (:file "matcher") (:file "matcher-scan")
+                 (:file "results") (:file "find")
+                 (:file "code-extents") (:file "code")
+                 (:file "overview")))
    (:module "application"
     :components ((:file "package") (:file "ports") (:file "session")
-                 (:file "search-flow") (:file "find-flow")
-                 (:file "code-flow") (:file "overview-flow")))
+                 (:file "session-file-read")
+                 (:file "search-command-line") (:file "search-worker")
+                 (:file "search-run") (:file "search-flow")
+                 (:file "find-flow") (:file "code-flow")
+                 (:file "overview-flow")))
    (:module "infrastructure"
     :components ((:file "package") (:file "ports")))))

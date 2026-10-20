@@ -16,11 +16,9 @@
   (view nil :read-only t)
   (staged nil :type (or null hash-table) :read-only t))
 
-(defun %finish (continuation fields &optional next-commands)
-  "Pass FIELDS to CONTINUATION, with `next_commands` appended when given.
-Secret masking and the `redactions` count are applied by the envelope
-writer to everything it writes."
-  (funcall continuation (append fields (when next-commands (list (cons "next_commands" next-commands))))))
+(defun %result-fields (fields &optional next-commands)
+  (append fields (when next-commands
+                   (list (cons "next_commands" next-commands)))))
 
 (defun %host (session)
   (search-ports-workspace-host (session-ports session)))
@@ -99,31 +97,33 @@ below them."
 
 ;;; ------------------------------------------------------------ session setup
 
-(defun %unavailable (on-error command)
-  (funcall on-error "internal.unexpected"
-           "the search context was built without its workspace host or text source"
-           :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
-                                   (format nil "aitools schema ~A" command)))))
+(aitools.kernel.domain:define-flow (%unavailable command &key on-error)
+  (aitools.kernel.domain:flow-continue :on-error "internal.unexpected"
+   "the search context was built without its workspace host or text source"
+   :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
+                          (format nil "aitools schema ~A" command)))))
 
 (defun %now (ports)
   (let ((clock (search-ports-unix-now ports)))
     (if clock (funcall clock) 0)))
 
-(defun %open-tx/k (ports workspace-root tx command on-session on-error)
-  "Open TX's read-through view of WORKSPACE-ROOT and call ON-SESSION with a
-session carrying the tx overlay, or ON-ERROR."
+(aitools.kernel.domain:define-flow
+    (%open-tx/k ports workspace-root tx command &key on-session on-error)
   (let ((open-store (search-ports-open-store ports)))
     (if (null open-store)
-        (%unavailable on-error command)
+        (aitools.kernel.domain:flow-call (%unavailable command)
+          (:on-error (code message &key repairs)
+            (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))
         (let ((store (funcall open-store (aitools.workspace.application:workspace-root-real workspace-root)))
               (staged (make-hash-table :test 'equal)))
           (flet ((missing ()
-                   (funcall on-error "input.not-found" (format nil "tx ~A does not exist" tx)
-                            :repairs (list (repair "list-tx" "List the open transactions." "aitools tx status"))))
+                   (aitools.kernel.domain:flow-continue :on-error
+                    "input.not-found" (format nil "tx ~A does not exist" tx)
+                    :repairs (list (repair "list-tx" "List the open transactions." "aitools tx status"))))
                  (with-view (view)
-                   (funcall on-session
-                            (%make-session ports workspace-root (%make-overlay view staged (%now ports))
-                                           view staged))))
+                   (aitools.kernel.domain:flow-continue :on-session
+                    (%make-session ports workspace-root (%make-overlay view staged (%now ports))
+                                   view staged))))
             (aitools.store.application:tx-status/k
              store tx
              :on-not-found #'missing
@@ -134,28 +134,37 @@ session carrying the tx overlay, or ON-ERROR."
                           (aitools.store.application:call-with-tx-view/k
                            store tx :on-view #'with-view :on-not-found #'missing))))))))
 
-(defun call-with-session/k (ports command &key root tx on-session on-error)
-  "Resolve the workspace root (the global `--root` ROOT, else git's top
-level, else the working directory), open TX's read-through view when TX is
-given, and call ON-SESSION (session), or ON-ERROR with an error code,
-message, and repairs. COMMAND names the command for repairs."
-  (declare (type function on-session on-error))
+(aitools.kernel.domain:define-flow
+    (call-with-session/k ports command &key root tx on-session on-error)
+  "Resolve the workspace root by --root, git top, then working directory. Open
+TX's read-through view when given and continue with the session or an error.
+COMMAND names the command used to build repairs."
   (let ((host (search-ports-workspace-host ports)))
     (if (not (and host (search-ports-text-source ports)))
-        (%unavailable on-error command)
+        (aitools.kernel.domain:flow-call (%unavailable command)
+          (:on-error (code message &key repairs)
+            (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))
         (aitools.workspace.application:call-with-resolved-root/k
-         host
-         :root root
+         host :root root
          :on-error (lambda (reason path)
-                     (funcall on-error (if (eq reason :not-found) "input.not-found" "argument.invalid")
-                              (format nil "workspace root ~A ~A" path
-                                      (if (eq reason :not-found) "does not exist" "is not a directory"))
-                              :repairs (list (repair "use-default-root" "Run from the workspace without --root."
-                                                      (format nil "aitools ~A" command)))))
+                     (aitools.kernel.domain:flow-continue :on-error
+                      (if (eq reason :not-found) "input.not-found" "argument.invalid")
+                      (format nil "workspace root ~A ~A" path
+                              (if (eq reason :not-found) "does not exist" "is not a directory"))
+                      :repairs
+                      (list (repair "use-default-root" "Run from the workspace without --root."
+                                    (format nil "aitools ~A" command)))))
          :on-resolved (lambda (workspace-root)
                         (if tx
-                            (%open-tx/k ports workspace-root tx command on-session on-error)
-                            (funcall on-session (%make-session ports workspace-root nil nil nil))))))))
+                            (aitools.kernel.domain:flow-call
+                                (%open-tx/k ports workspace-root tx command)
+                              (:on-session (session)
+                                (aitools.kernel.domain:flow-continue :on-session session))
+                              (:on-error (code message &key repairs)
+                                (aitools.kernel.domain:flow-continue
+                                 :on-error code message :repairs repairs)))
+                            (aitools.kernel.domain:flow-continue
+                             :on-session (%make-session ports workspace-root nil nil nil))))))))
 
 ;;; ------------------------------------------------------------ paths
 
@@ -182,62 +191,17 @@ working directory is a real path even when --root names the root through a
 symlink."
   (aitools.workspace.application:workspace-relative-path (%host session) (session-root session) absolute))
 
-;;; ------------------------------------------------------------ file reads
-
-(defconstant +read-chunk-size+ 65536)
-
-(defun %read-disk-file/k (source absolute on-text on-binary on-missing)
-  "Read ABSOLUTE through the text source in one open: the first chunk
-decides binary-ness (the first 8 KiB) before anything more is read
-(so a binary file costs one chunk), and a text file's chunks are joined into one buffer. This opens
-the file once, where the source's CALL-WITH-TEXT-FILE/K opens it for the
-size, the prefix, and the body separately."
-  (let ((chunks '()) (total 0) (binary nil))
-    (flet ((take (chunk)
-             (if (and (null chunks) (aitools.text.domain:binary-octets-p chunk))
-                 (progn (setf binary t) :stop)
-                 (progn (push chunk chunks) (incf total (length chunk)) nil))))
-      (declare (dynamic-extent #'take))
-      (cond
-        ((null (aitools.text.application:source-call-with-chunks source absolute +read-chunk-size+ #'take))
-         (funcall on-missing))
-        (binary (funcall on-binary))
-        ((null chunks) (funcall on-text (make-array 0 :element-type '(unsigned-byte 8))))
-        ((null (rest chunks)) (funcall on-text (first chunks)))
-        (t (let ((octets (make-array total :element-type '(unsigned-byte 8))) (offset 0))
-             (dolist (chunk (nreverse chunks))
-               (replace octets chunk :start1 offset)
-               (incf offset (length chunk)))
-             (funcall on-text octets)))))))
-
-(defun %read-file/k (session absolute relative &key on-text on-binary on-missing)
-  "Read one file for text use and call exactly one continuation: ON-TEXT
-(octets), ON-BINARY (), or ON-MISSING (). A path staged in the session's
-tx is read from the tx; anything else from disk through the text source (%READ-DISK-FILE/K)."
-  (declare (type function on-text on-binary on-missing))
-  (let ((staged (session-staged session)))
-    (multiple-value-bind (state present) (and staged relative (gethash relative staged))
-      (if present
-          (let ((octets (and (eq (aitools.store.domain:entry-state-kind state) :file)
-                             (aitools.store.application:view-read-file (session-view session) relative))))
-            (cond ((null octets) (funcall on-missing))
-                  ((aitools.text.domain:binary-octets-p octets) (funcall on-binary))
-                  (t (funcall on-text octets))))
-          (%read-disk-file/k (search-ports-text-source (session-ports session)) absolute
-                             on-text on-binary on-missing)))))
-
 ;;; ------------------------------------------------------------ scan options
 
-(defun %argument-error (on-error message command)
-  (funcall on-error "argument.invalid" message
-           :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
-                                   (format nil "aitools schema ~A" command)))))
+(aitools.kernel.domain:define-flow (%argument-error message command &key on-error)
+  (aitools.kernel.domain:flow-continue :on-error "argument.invalid" message
+   :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
+                          (format nil "aitools schema ~A" command)))))
 
-(defun scan-options/k (session command &key glob lang no-ignore skip-larger-than newer on-options on-error)
-  "Validate the common scan options and call ON-OPTIONS with the
-keyword arguments CALL-WITH-WORKSPACE-SCAN/K takes, or ON-ERROR.
-SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
-  (declare (type function on-options on-error))
+(aitools.kernel.domain:define-flow
+    (scan-options/k session command &key glob lang no-ignore skip-larger-than newer on-options on-error)
+  "Validate common scan options and call ON-OPTIONS with scan keywords or
+ON-ERROR. SKIP-LARGER-THAN is a size string; NEWER is a path or duration."
   (aitools.workspace.application:call-with-scan-options/k
    (%host session)
    :path-absolute (lambda (path) (%absolute session path))
@@ -247,31 +211,40 @@ SKIP-LARGER-THAN is a size string; NEWER a path or a duration."
    :glob glob :lang lang :no-ignore no-ignore
    :skip-larger-than skip-larger-than :newer newer
    :overlay (session-overlay session)
-   :on-error
-   (lambda (kind value names)
-     (case kind
-       (:unknown-language
-        (funcall on-error "argument.invalid"
-                 (format nil "unknown language ~A; known: ~{~A~^, ~}" value names)
-                 :repairs (list (repair "use-known-language" "Use one of the known language names."
-                                        (format nil "aitools ~A --lang ~A" command (first names))))))
-       (:invalid-size
-        (%argument-error on-error (format nil "--skip-larger-than: not a size: ~A" value) command))
-       (:invalid-newer
-        (%argument-error on-error
-                         (format nil "--newer: ~A is neither an existing path nor a duration" value)
-                         command))))
-   :on-options on-options))
+   :on-error (lambda (kind value names)
+               (case kind
+                 (:unknown-language
+                  (aitools.kernel.domain:flow-continue :on-error "argument.invalid"
+                   (format nil "unknown language ~A; known: ~{~A~^, ~}" value names)
+                   :repairs (list (repair "use-known-language" "Use one of the known language names."
+                                          (format nil "aitools ~A --lang ~A" command (first names))))))
+                 (:invalid-size
+                  (aitools.kernel.domain:flow-call
+                      (%argument-error (format nil "--skip-larger-than: not a size: ~A" value) command)
+                    (:on-error (code message &key repairs)
+                      (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))))
+                 (:invalid-newer
+                  (aitools.kernel.domain:flow-call
+                      (%argument-error
+                       (format nil "--newer: ~A is neither an existing path nor a duration" value)
+                       command)
+                    (:on-error (code message &key repairs)
+                      (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))))))
+   :on-options (lambda (options)
+                 (aitools.kernel.domain:flow-continue :on-options options))))
 
-(defun scan-error (on-error command reason path)
-  "Report a scan start the workspace scan rejected."
+(aitools.kernel.domain:define-flow
+    (scan-error command reason path &key on-error)
+  "Report a scan start rejected by workspace scan."
   (ecase reason
     (:outside-root
-     (funcall on-error "argument.invalid" (format nil "~A is outside the workspace root" path)
-              :repairs (list (repair "set-root" "Scan it as its own workspace."
-                                      (command-line (list "aitools" "--root" path command))))))
+     (aitools.kernel.domain:flow-continue :on-error "argument.invalid"
+      (format nil "~A is outside the workspace root" path)
+      :repairs (list (repair "set-root" "Scan it as its own workspace."
+                             (command-line (list "aitools" "--root" path command))))))
     (:not-found
-     (funcall on-error "input.not-found" (format nil "~A does not exist" path)
-              :repairs (list (repair "find-path" "Look for the path by name."
-                                      (command-line (list "aitools" "find"
-                                                          (aitools.workspace.domain:path-basename path)))))))))
+     (aitools.kernel.domain:flow-continue :on-error "input.not-found"
+      (format nil "~A does not exist" path)
+      :repairs (list (repair "find-path" "Look for the path by name."
+                             (command-line (list "aitools" "find"
+                                                 (aitools.workspace.domain:path-basename path)))))))))

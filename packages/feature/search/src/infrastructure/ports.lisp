@@ -9,34 +9,39 @@
 (defun %unix-now ()
   (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
 
-(defun %read-bounded (stream limit on-octets on-too-large)
+(defun %read-bounded (stream limit)
   "Read STREAM to its end, at most LIMIT octets: one extra octet proves the
-input is larger, so LIMIT bounds the read itself."
+input is larger, so LIMIT bounds the read itself. Return (:OCTETS octets) or
+(:TOO-LARGE)."
   (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0))
-        (chunk (make-array 4096 :element-type '(unsigned-byte 8))))
-    (loop for count = (read-sequence chunk stream :end (min (length chunk) (- (1+ limit) (fill-pointer buffer))))
-          until (zerop count)
-          do (loop for index below count do (vector-push-extend (aref chunk index) buffer))
-             (when (> (fill-pointer buffer) limit)
-               (return-from %read-bounded (funcall on-too-large))))
-    (funcall on-octets (coerce buffer '(simple-array (unsigned-byte 8) (*))))))
+        (chunk (make-array 4096 :element-type '(unsigned-byte 8)))
+        (eof-p nil)
+        (too-large-p nil))
+    (loop until (or eof-p too-large-p)
+          do (let ((count (read-sequence chunk stream :end (min (length chunk) (- (1+ limit) (fill-pointer buffer))))))
+               (if (zerop count)
+                   (setf eof-p t)
+                   (loop for index below count do (vector-push-extend (aref chunk index) buffer)))
+               (when (> (fill-pointer buffer) limit)
+                 (setf too-large-p t))))
+    (if too-large-p
+        (list :too-large)
+        (list :octets (coerce buffer '(simple-array (unsigned-byte 8) (*)))))))
 
-(defun read-stdin-octets (limit &key on-octets on-too-large on-failure)
+(aitools.kernel.domain:define-flow
+    (read-stdin-octets limit &key on-octets on-too-large on-failure)
   "Standard input (file descriptor 0) as raw octets, at most LIMIT of them.
 The continuation runs after the handler has returned, so its own errors are
 not reported as read failures."
-  (declare (type function on-octets on-too-large on-failure))
   (let ((outcome (handler-case
                      (let ((stream (sb-sys:make-fd-stream 0 :input t :element-type '(unsigned-byte 8)
                                                             :buffering :full)))
-                       (%read-bounded stream limit
-                                      (lambda (octets) (list :octets octets))
-                                      (lambda () (list :too-large))))
+                       (%read-bounded stream limit))
                    (error (condition) (list :failure (princ-to-string condition))))))
     (ecase (first outcome)
-      (:octets (funcall on-octets (second outcome)))
-      (:too-large (funcall on-too-large))
-      (:failure (funcall on-failure (second outcome))))))
+      (:octets (aitools.kernel.domain:flow-continue :on-octets (second outcome)))
+      (:too-large (aitools.kernel.domain:flow-continue :on-too-large))
+      (:failure (aitools.kernel.domain:flow-continue :on-failure (second outcome))))))
 
 (defun make-production-search-ports (&key workspace-host text-source open-store &allow-other-keys)
   "The production SEARCH-PORTS from the composition root's WORKSPACE-HOST,

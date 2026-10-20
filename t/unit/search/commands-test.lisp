@@ -42,12 +42,18 @@
       (expect (json-get stdout "mode") :to-equal "files")
       (expect (coerce (json-get stdout "paths") 'list) :to-equal '("src/a.lisp"))))
 
-  (it "accepts options after several paths"
+  (it "accepts options after several paths and returns a version 2 envelope"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files*) "search" "hit" "src" "b.txt" "--output" "count")
+        (dispatch-search
+         (make-fake-ports :files *command-files*)
+         "search" "hit" "src" "b.txt" "--output" "count")
       (expect code :to-be 0)
-      (expect (json-get stdout "mode") :to-equal "count")
-      (expect (json-get stdout "total_matches") :to-be 3)))
+      (expect (json-kit:parse stdout)
+              :to-match-envelope
+              "command" "search"
+              "status" "ok"
+              "mode" "count"
+              "total_matches" 3)))
 
   (it "exits 3 with status partial when --limit cuts the result"
     (multiple-value-bind (code stdout)

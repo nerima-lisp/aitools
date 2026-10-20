@@ -216,19 +216,3 @@ continuations, returning the resulting COMMAND-RESULT."
                          :no-ignore (and (option-value invocation :no-ignore) t)
                          :tx (option-value invocation :tx)
                          :root (option-value invocation :root)))))
-
-(defun register-search-commands (registry ports)
-  "Register `search`, `find`, `overview`, and `code outline|defs|refs` on
-REGISTRY. PORTS is the AITOOLS.SEARCH.APPLICATION:SEARCH-PORTS the
-composition root built."
-  (loop for (name group builder scan-args) in (list (list "search" nil #'%search-command t)
-                                                    (list "find" nil #'%find-command t)
-                                                    (list "overview" nil #'%overview-command nil)
-                                                    (list "code.outline" "code" #'%outline-command nil)
-                                                    (list "code.defs" "code" #'%defs-command nil)
-                                                    (list "code.refs" "code" #'%refs-command nil))
-        do (aitools.protocol.application:register-command
-            registry :name name :group group
-                     :cli-command (funcall builder ports)
-                     :schema (%schema name :scan-args scan-args)))
-  registry)

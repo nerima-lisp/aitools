@@ -213,3 +213,29 @@
                         (field fields "skipped"))
                 :to-equal '(("a.txt" "regex-limit")))
         (expect (field fields "total_matches") :to-be 0)))))
+
+(describe "aitools.search.application benchmark"
+  (it "records advisory timings for a correct in-memory search flow"
+    (let* ((files (list (list "/w/a.txt" (numbered-lines 128 :match-every 4))))
+           (ports (make-fake-ports :files files))
+           (runs 0)
+           (outputs nil))
+      (multiple-value-bind (kind fields)
+          (run-flow #'search/k ports :patterns '("hit") :context 0)
+        (expect kind :to-be :ok)
+        (expect (field fields "total_matches") :to-be 32))
+      (let* ((expected (multiple-value-call #'rendered
+                         (run-flow #'search/k ports :patterns '("hit") :context 0)))
+             (result (cl-weave:benchmark (:warmup 2 :samples 5 :iterations 5)
+                        (incf runs)
+                        (push (multiple-value-call #'rendered
+                                (run-flow #'search/k ports :patterns '("hit") :context 0))
+                              outputs))))
+        (expect runs :to-be 27)
+        (expect (length outputs) :to-be 27)
+        (expect (cl-weave:benchmark-result-warmup result) :to-be 2)
+        (expect (cl-weave:benchmark-result-iterations result) :to-be 5)
+        (expect (length (cl-weave:benchmark-result-samples result)) :to-be 5)
+        (expect (every #'realp (cl-weave:benchmark-result-samples result)) :to-be-truthy)
+        (expect (every (lambda (output) (string= output expected)) outputs)
+                :to-be-truthy)))))
