@@ -39,25 +39,14 @@ lock is held."
   (it "accepts a lock acquired after the deadline"
     (with-temp-store (plain)
       (let* ((base-io (store-io-port plain))
-             (real-try-lock (store-io-try-lock base-io))
-             (real-unlock (store-io-unlock base-io))
+             (real-try-lock (symbol-function 'store-io-try-lock))
+             (real-unlock (symbol-function 'store-io-unlock))
+             (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
              (clock-ms 0)
              (acquired-handle nil)
              (unlocked-handles nil)
              (lock-path nil)
-             (io (aitools.store.application::copy-store-io
-                  base-io
-                  :monotonic-ms (lambda () clock-ms)
-                  :try-lock (lambda (path &rest keys)
-                              (setf lock-path path)
-                              (let ((handle (apply real-try-lock path keys)))
-                                (setf acquired-handle handle)
-                                (when handle
-                                  (incf clock-ms 101))
-                                handle))
-                  :unlock (lambda (handle)
-                            (push handle unlocked-handles)
-                            (funcall real-unlock handle))))
+             (io (aitools.store.application::copy-store-io base-io))
              (store (make-store
                      io
                      (store-root plain)
@@ -65,21 +54,46 @@ lock is held."
                              0
                              (position (char "/" 0) (store-state-directory plain) :from-end t))))
              (outcome nil))
-        (unwind-protect
-             (progn
-               (setf outcome
-                     (with-workspace-lock (store 100 :on-timeout :busy)
-                       :acquired))
-               (expect outcome :to-be :acquired)
-               (expect acquired-handle :to-be-truthy)
-               (expect unlocked-handles :to-equal (list acquired-handle))
-               (let ((again (funcall real-try-lock lock-path)))
-                 (expect (integerp again) :to-be t)
-                 (when (integerp again)
-                   (funcall real-unlock again))))
-          (when (and acquired-handle
-                     (not (member acquired-handle unlocked-handles :test (function eql))))
-            (funcall real-unlock acquired-handle))))))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'store-io-try-lock)
+              (lambda (candidate-io)
+                (if (eq candidate-io io)
+                    (lambda (path &rest keys)
+                      (setf lock-path path)
+                      (let ((handle
+                              (apply (funcall real-try-lock base-io) path keys)))
+                        (setf acquired-handle handle)
+                        (when handle
+                          (incf clock-ms 101))
+                        handle))
+                    (funcall real-try-lock candidate-io))))
+             ((symbol-function 'store-io-unlock)
+              (lambda (candidate-io)
+                (if (eq candidate-io io)
+                    (lambda (handle)
+                      (push handle unlocked-handles)
+                      (funcall (funcall real-unlock base-io) handle))
+                    (funcall real-unlock candidate-io))))
+             ((symbol-function 'store-io-monotonic-ms)
+              (lambda (candidate-io)
+                (if (eq candidate-io io)
+                    (lambda () clock-ms)
+                    (funcall real-monotonic-ms candidate-io)))))
+          (unwind-protect
+               (progn
+                 (setf outcome
+                       (with-workspace-lock (store 100 :on-timeout :busy)
+                         :acquired))
+                 (expect outcome :to-be :acquired)
+                 (expect acquired-handle :to-be-truthy)
+                 (expect unlocked-handles :to-equal (list acquired-handle))
+                 (let ((again (funcall (funcall real-try-lock base-io) lock-path)))
+                   (expect (integerp again) :to-be t)
+                   (when (integerp again)
+                     (funcall (funcall real-unlock base-io) again))))
+            (when (and acquired-handle
+                       (not (member acquired-handle unlocked-handles :test (function eql))))
+              (funcall (funcall real-unlock base-io) acquired-handle)))))))
 
   (it "waits for the holder and then writes"
     (with-temp-store (store)

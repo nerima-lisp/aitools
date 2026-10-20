@@ -19,36 +19,42 @@
 
   (it "retries directory synchronization after the requested mode already took effect"
     (with-temp-store (plain)
-      (let* ((io (store-io-port plain))
-             (real-chmod (store-io-chmod-directory-identity io))
+      (let* ((base-io (store-io-port plain))
+             (io (aitools.store.application::copy-store-io base-io))
+             (accessor-name 'aitools.store.application:store-io-chmod-directory-identity)
+             (original-accessor (symbol-function accessor-name))
+             (real-chmod (funcall original-accessor io))
              (calls 0)
-             (failing (aitools.store.application::copy-store-io
-                       io :chmod-directory-identity
-                       (lambda (path mode identity)
-                         (incf calls)
-                         (if (= calls 1)
-                             (progn
-                               ;; Model fchmod succeeding and the subsequent fsync failing.
-                               (sb-posix:chmod path mode)
-                               (error 'store-io-error :operation "fsync" :path path))
-                             (funcall real-chmod path mode identity)))))
-             (store (make-store failing (store-root plain)
+             (store (make-store io (store-root plain)
                                 (subseq (store-state-directory plain) 0
                                         (position #\/ (store-state-directory plain) :from-end t)))))
-        (unwind-protect
-             (progn
-               (expect (handler-case (commit store (list (mkdir-request "private" :mode #o500)))
-                         (store-committed-error () :pending)) :to-be :pending)
-               (expect (disk-mode plain "private") :to-be #o500)
-               (expect (length (intent-files plain)) :to-be 1)
-               (expect (read-journal plain) :to-equal '())
-               (expect (recover store) :to-be :recovered)
-               (expect calls :to-be 2)
-               (expect (intent-files plain) :to-equal '())
-               (expect (length (read-journal plain)) :to-be 1)
-               (expect (recover store) :to-be :none))
-          (when (probe-file (disk-path plain "private"))
-            (sb-posix:chmod (disk-path plain "private") #o700))))))
+        (cl-weave:with-mocked-functions
+            (((symbol-function accessor-name)
+              (lambda (candidate-io)
+                (if (eq candidate-io io)
+                    (lambda (path mode identity)
+                      (incf calls)
+                      (if (= calls 1)
+                          (progn
+                            ;; Model fchmod succeeding and the subsequent fsync failing.
+                            (sb-posix:chmod path mode)
+                            (error 'store-io-error :operation "fsync" :path path))
+                          (funcall real-chmod path mode identity)))
+                    (funcall original-accessor candidate-io)))))
+          (unwind-protect
+               (progn
+                 (expect (handler-case (commit store (list (mkdir-request "private" :mode #o500)))
+                           (store-committed-error () :pending)) :to-be :pending)
+                 (expect (disk-mode plain "private") :to-be #o500)
+                 (expect (length (intent-files plain)) :to-be 1)
+                 (expect (read-journal plain) :to-equal '())
+                 (expect (recover store) :to-be :recovered)
+                 (expect calls :to-be 2)
+                 (expect (intent-files plain) :to-equal '())
+                 (expect (length (read-journal plain)) :to-be 1)
+                 (expect (recover store) :to-be :none))
+            (when (probe-file (disk-path plain "private"))
+              (sb-posix:chmod (disk-path plain "private") #o700)))))))
 
   (it-each ((nil) (t))
       "refuses a replaced directory after the initial mkdir apply step (symlink: ~A)"

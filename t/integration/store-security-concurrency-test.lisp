@@ -58,24 +58,31 @@
   (it "refuses a file swapped to a FIFO between lstat and open without blocking"
     (with-temp-store (store)
       (put-file store "victim" "before")
-      (expect
-       (bounded-child-result
-        (lambda ()
-          (let* ((path (disk-path store "victim"))
-                 (base (store-io-port store))
-                 (reader (store-io-read-file base))
-                 (io (aitools.store.application::copy-store-io base :read-file
-                      (lambda (name &rest keys)
-                        (when (string= name path)
-                          (sb-posix:unlink path)
-                          (sb-posix:mkfifo path #o600))
-                        (apply reader name keys))))
-                 (guarded (make-store io (store-root store) (state-home-of store))))
-            (handler-case
-                (progn (view-read-file (disk-view guarded) "victim")
-                       (error "FIFO read was accepted"))
-              (store-io-error () nil)))))
-       :to-be 0)))
+      (let* ((path (disk-path store "victim"))
+             (base-io (store-io-port store))
+             (io (aitools.store.application::copy-store-io base-io))
+             (original-read-file #'store-io-read-file)
+             (read-file (funcall original-read-file io))
+             (guarded (make-store io (store-root store) (state-home-of store))))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'aitools.store.application:store-io-read-file)
+              (lambda (candidate)
+                (if (eq candidate io)
+                    (lambda (name &rest keys)
+                      (when (string= name path)
+                        (sb-posix:unlink path)
+                        (sb-posix:mkfifo path #o600))
+                      (apply read-file name keys))
+                    (funcall original-read-file candidate)))))
+          (expect
+           (bounded-child-result
+            (lambda ()
+              (handler-case
+                  (progn (view-read-file (disk-view guarded) "victim")
+                         (error "FIFO read was accepted"))
+                (store-io-error () nil))))
+           :to-be 0)))))
+
 
   (it "preserves a same-content replacement inode after validation"
     (with-temp-store (store)

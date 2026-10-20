@@ -1,58 +1,69 @@
 (in-package #:aitools.store.test)
 
 (describe "aitools.store failures after the commit point"
-  (flet ((failing-apply-store (store)
-           ;; Every rename onto a workspace path fails: the first one is the
-           ;; apply step after the commit point.
-           (let* ((io (store-io-port store))
-                  (rename (store-io-rename io))
-                  (root (concatenate 'string (store-root store) "/")))
-             (make-store (aitools.store.application::copy-store-io io :rename (lambda (from to)
-                                                     (if (eql 0 (search root to))
-                                                         (error 'store-io-error :operation "rename" :path to
-                                                                                :detail "injected")
-                                                         (funcall rename from to))))
-                         (store-root store) (state-home-of store)))))
+  (flet ((call-with-failing-apply-store (store function)
+           (let* ((base-io (store-io-port store))
+                  (io (aitools.store.application::copy-store-io base-io))
+                  (original-rename #'store-io-rename)
+                  (rename (funcall original-rename io))
+                  (root (concatenate 'string (store-root store) "/"))
+                  (broken (make-store io (store-root store) (state-home-of store))))
+             (cl-weave:with-mocked-functions
+                 (((symbol-function 'aitools.store.application:store-io-rename)
+                   (lambda (candidate)
+                     (if (eq candidate io)
+                         (lambda (from to)
+                           (if (eql 0 (search root to))
+                               (error 'store-io-error :operation "rename" :path to
+                                      :detail "injected")
+                               (funcall rename from to)))
+                         (funcall original-rename candidate))))
+               (funcall function broken)))))
     (it "signals store-committed-error naming the op and path, and keeps the intent for recovery"
       (with-temp-store (store)
         (seed-state store)
-        (let* ((broken (failing-apply-store store))
-               (condition (handler-case (progn (commit broken (list (write-file-request "a.txt" (bytes "a")))) nil)
-                            (store-committed-error (condition) condition))))
-          (expect condition :to-be-truthy)
-          (expect (store-io-error-path condition) :to-equal (disk-path store "a.txt"))
-          (expect (store-io-error-operation condition) :to-equal "rename")
-          (expect (intent-files store)
-                  :to-equal (list (concatenate 'string (store-committed-error-op-id condition) ".json")))
-          (expect (recover store) :to-be :recovered)
-          (expect (disk-text store "a.txt") :to-equal "a"))))
-
+        (call-with-failing-apply-store
+         store
+         (lambda (broken)
+           (let* ((condition (handler-case
+                                 (progn (commit broken (list (write-file-request "a.txt" (bytes "a")))) nil)
+                               (store-committed-error (condition) condition))))
+             (expect condition :to-be-truthy)
+             (expect (store-io-error-path condition) :to-equal (disk-path store "a.txt"))
+             (expect (store-io-error-operation condition) :to-equal "rename")
+             (expect (intent-files store)
+                     :to-equal (list (concatenate 'string (store-committed-error-op-id condition) ".json")))
+             (expect (recover store) :to-be :recovered)
+             (expect (disk-text store "a.txt") :to-equal "a"))))))
     (it "reports a record recovery cannot complete through ON-FAILED instead of wedging"
       (with-temp-store (store)
         (seed-state store)
-        (let ((broken (failing-apply-store store)))
-          (handler-case (commit broken (list (write-file-request "a.txt" (bytes "a"))))
-            (store-committed-error () nil))
-          (let ((reported (recover/k broken
-                                     :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
-                                     :on-discarded (lambda (op-id) (declare (ignore op-id)))
-                                     :on-none (lambda () :none)
-                                     :on-busy (lambda () :busy)
-                                     :on-failed (lambda (condition entries)
-                                                  (list :failed (store-committed-error-op-id condition)
-                                                        (store-io-error-path condition) entries)))))
-            (expect (first reported) :to-be :failed)
-            (expect (third reported) :to-equal (disk-path store "a.txt"))
-            (expect (fourth reported) :to-equal '()))
-          (signals store-committed-error
-            (recover/k broken
-                       :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
-                       :on-discarded (lambda (op-id) (declare (ignore op-id)))
-                       :on-none (lambda () :none)
-                       :on-busy (lambda () :busy)))
-          (expect (length (intent-files store)) :to-be 1))
+        (call-with-failing-apply-store
+         store
+         (lambda (broken)
+           (handler-case (commit broken (list (write-file-request "a.txt" (bytes "a"))))
+             (store-committed-error () nil))
+           (let ((reported (recover/k broken
+                                      :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
+                                      :on-discarded (lambda (op-id) (declare (ignore op-id)))
+                                      :on-none (lambda () :none)
+                                      :on-busy (lambda () :busy)
+                                      :on-failed (lambda (condition entries)
+                                                   (list :failed (store-committed-error-op-id condition)
+                                                         (store-io-error-path condition) entries)))))
+             (expect (first reported) :to-be :failed)
+             (expect (third reported) :to-equal (disk-path store "a.txt"))
+             (expect (fourth reported) :to-equal '()))
+           (signals store-committed-error
+             (recover/k broken
+                        :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
+                        :on-discarded (lambda (op-id) (declare (ignore op-id)))
+                        :on-none (lambda () :none)
+                        :on-busy (lambda () :busy)))
+           (expect (length (intent-files store)) :to-be 1)))
         (expect (recover store) :to-be :recovered)
-        (expect (disk-text store "a.txt") :to-equal "a")))))
+        (expect (disk-text store "a.txt") :to-equal "a"))))))
+
 
 (describe "aitools.store stream errors"
   (it "reports a failed write as store-io-error, not a stream error"
