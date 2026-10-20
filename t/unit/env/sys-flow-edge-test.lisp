@@ -4,13 +4,18 @@
   (it "answers sys info on an unknown OS with null CPU and memory and no host command"
     (let ((host (darwin-host)))
       (multiple-value-bind (kind fields)
-          (run-flow #'sys-info/k (make-fake-ports :identity '("FreeBSD" "14.1" "amd64") :host host))
+          (run-flow #'sys-info/k (make-fake-ports :identity '("FreeBSD" "14.1" "amd64")
+                                                   :host host))
         (expect kind :to-be :ok)
         (expect (field fields "os") :to-equal "freebsd")
         (expect (null-or (field fields "cpus")) :to-be nil)
         (expect (null-or (object-field (field fields "memory") "total")) :to-be nil)
         (expect (object-field (field fields "disk") "total") :to-be 1000)
-        (expect (fake-host-runs host) :to-equal nil))))
+        (expect (fake-host-runs host) :to-equal nil))
+      (multiple-value-bind (kind error)
+          (run-flow #'sys-disk/k (make-fake-ports :identity '("FreeBSD" "14.1" "amd64")))
+        (expect kind :to-be :error)
+        (expect (first error) :to-equal "environment.unavailable"))))
 
   (it-each ((sys-procs/k "aitools sys tools ps") (sys-ports/k "aitools sys tools lsof"))
       "answers ~S on an unknown OS with environment.unavailable and `~A`"

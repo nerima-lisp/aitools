@@ -79,6 +79,7 @@
             ("2026-03-08T01:30:00.1234567890Z" "invalid fraction of a second")
             ("2026-03-08T01:3" "invalid time of day")
             ("2026-03-08T01" "expected HH:MM")
+            ("20260308T01" "invalid time of day")
             ("2026-3-08" "invalid date")
             ("not-a-time" "invalid date"))
       "rejects ~S: ~A"

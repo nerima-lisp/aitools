@@ -143,37 +143,47 @@
     host))
 
 (describe "aitools.env.application sys metrics"
-  (it-each (("/fixture/bin/ps" :ok 30 30d0)
-            ("/fixture/bin/ps" :ok 9 37.5d0)
-            (nil :error 30 nil))
-      "resolves Linux process metrics via PATH: ~S" (executable expected-kind iowait expected-cpu)
+  (it-each (("/fixture/bin/ps" :ok 30 30d0 1000)
+            ("/fixture/bin/ps" :ok 9 37.5d0 1000)
+            (nil :error 30 nil 1000)
+            ("/fixture/bin/ps" :error 30 nil 0))
+      "resolves Linux process metrics via PATH: ~S"
+      (executable expected-kind iowait expected-cpu total-memory)
     (let ((reads 0) (sleeps nil) (runs 0) (unused (constantly nil)))
       (let ((ports (make-env-ports
                     :now-milliseconds unused :environment-variables unused
                     :environment-variable (lambda (name) (when (equal name "PATH") "/fixture/bin"))
                     :list-directory unused :read-link unused
                     :executable-p (lambda (path) (equal path executable))
-                    :file-system-space unused :user-id unused :host-name unused :user-name unused :workspace-root unused
+                    :file-system-space unused :user-id unused :host-name unused :user-name unused
+                    :workspace-root unused
                     :system-identity (lambda () (values "Linux" "test" "generic"))
                     :sleep-seconds (lambda (seconds) (push seconds sleeps))
                     :read-file (lambda (path external-format)
                                  (declare (ignore external-format))
                                  (cond ((equal path "/proc/stat")
-                                        (if (= (incf reads) 1) "cpu 10 0 10 70 10 0 0 0" (format nil "cpu 30 0 20 120 ~D 0 0 0" iowait)))
-                                       ((equal path "/proc/cpuinfo") (format nil "processor : 0~%processor : 1~%"))
-                                       ((equal path "/proc/meminfo") (format nil "MemTotal: 1000 kB~%MemAvailable: 250 kB~%"))))
+                                        (if (= (incf reads) 1)
+                                            "cpu 10 0 10 70 10 0 0 0"
+                                            (format nil "cpu 30 0 20 120 ~D 0 0 0" iowait)))
+                                       ((equal path "/proc/cpuinfo")
+                                        (format nil "processor : 0~%processor : 1~%"))
+                                       ((equal path "/proc/meminfo")
+                                        (format nil
+                                                "MemTotal: ~D kB~%MemAvailable: 250 kB~%"
+                                                total-memory))))
                     :run-program (lambda (program arguments timeout)
                                    (declare (ignore timeout))
                                    (incf runs)
                                    (expect program :to-equal executable)
-                                   (expect arguments :to-equal '("-ax" "-o" "pid=,pcpu=,rss=,comm="))
+                                   (expect arguments :to-equal
+                                           '("-ax" "-o" "pid=,pcpu=,rss=,comm="))
                                    (values :exited 0 "10 120.0 100 worker" "")))))
         (multiple-value-bind (kind fields) (run-flow #'sys-metrics/k ports)
           (expect kind :to-be expected-kind)
           (expect runs :to-be (if executable 1 0))
           (expect reads :to-be 2)
           (expect sleeps :to-equal '(1))
-          (if executable
+          (if expected-cpu
               (progn
                 (expect (object-field (field fields "cpu") "busy_percent") :to-equal expected-cpu)
                 (expect (object-field (field fields "memory") "available_bytes") :to-be 256000)

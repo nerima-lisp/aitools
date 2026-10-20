@@ -7,6 +7,7 @@
 (defparameter *network-linux-text*
   "Inter-| Receive | Transmit
  face |bytes packets errs drop fifo frame compressed multicast|bytes packets errs drop fifo colls carrier compressed
+
  z0: 100 2 3 0 0 0 0 0 400 5 6 0 0 0 0 0
  a0: 700 8 9 0 0 0 0 0 1000 11 12 0 0 0 0 0
 ")

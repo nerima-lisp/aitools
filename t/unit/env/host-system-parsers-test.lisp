@@ -61,15 +61,40 @@ n*:8800
             :to-equal (list (* 16318212 1024) (* 11240304 1024))))
 
   (it "falls back to MemFree+Buffers+Cached without MemAvailable"
-    (expect (nth-value 1 (parse-meminfo "MemTotal: 100 kB
+    (let ((complete "MemTotal: 100 kB
 MemFree: 10 kB
 Buffers: 2 kB
 Cached: 3 kB
 "))
-            :to-be (* 15 1024)))
+      (expect (nth-value 1 (parse-meminfo complete)) :to-be (* 15 1024))
+      (expect (nth-value 1 (parse-meminfo complete :strict t)) :to-be (* 15 1024))
+      (expect (nth-value 1
+                         (parse-meminfo "MemTotal: 100 kB
+MemFree: 10 kB
+Buffers: 2 kB
+"
+                                        :strict t))
+              :to-be nil)
+      (expect (nth-value 1
+                         (parse-meminfo "MemTotal: 100 kB
+MemFree: 10 kB
+Cached: 3 kB
+"
+                                        :strict t))
+              :to-be nil)))
 
   (it "reads available memory from vm_stat pages"
-    (expect (parse-vm-stat *vm-stat-text*) :to-be (* 16384 (+ 2508908 2336582 97304))))
+    (expect (parse-vm-stat *vm-stat-text*)
+            :to-be (* 16384 (+ 2508908 2336582 97304)))
+    (expect (parse-vm-stat *vm-stat-text* :strict t)
+            :to-be (* 16384 (+ 2508908 2336582 97304)))
+    (expect (parse-vm-stat
+             "Mach Virtual Memory Statistics: (page size of 0 bytes)
+Pages free: 1.
+Pages inactive: 1.
+Pages speculative: 1.
+")
+            :to-be nil))
 
   (it "counts /proc/cpuinfo processors"
     (expect (count-cpuinfo-processors (format nil "processor	: 0~%model name	: x~%~%processor	: 1~%"))
