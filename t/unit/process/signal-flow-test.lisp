@@ -80,6 +80,13 @@
             (expect kind :to-be :error)
             (expect (field fields :code) :to-equal expected-code))))
       (expect (funcall sent) :to-equal '())))
+  (it "rejects an expected count for a PID target"
+    (multiple-value-bind (ports sent) (signal-fixture)
+      (multiple-value-bind (kind fields)
+          (signal-flow ports :pid 2101 :expect-command "sleep" :expect-count 1)
+        (expect kind :to-be :error)
+        (expect (field fields :code) :to-equal "argument.invalid"))
+      (expect (funcall sent) :to-equal nil)))
 
   (it "accepts a zero-count pattern without sending"
     (multiple-value-bind (ports sent) (signal-fixture)
