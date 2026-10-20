@@ -146,7 +146,7 @@
 (describe "aitools structure budgets (control nesting)"
   (it "keeps the fixed inventory of deeply nested functions at or below measured depths"
     (expect *complex-function-depth-limit* :to-equal 4)
-    (expect (length *complex-function-ratchet*) :to-equal 14)
+    (expect (length *complex-function-ratchet*) :to-equal 12)
     (expect
      (notany (lambda (entry)
                (search "packages/feature/process/" (first entry)))
