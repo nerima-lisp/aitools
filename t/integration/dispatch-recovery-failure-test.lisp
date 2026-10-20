@@ -176,13 +176,3 @@ record, and return the path the recovery repair must name."
                    (setf pid nil)
                    (expect (run-repair repair) :to-be 0))))
           (when pid (kill-child pid)))))))
-(describe "aitools dispatch: store invocation context"
-  (it "uses only the bound invocation root for store state"
-    (aitools.test.support:with-workspace (root state-home)
-      (let ((expected
-              (aitools.store.application:state-directory-for-root
-               root :xdg-state-home state-home :home (uiop:getenv "HOME"))))
-        (let ((aitools/cli::*invocation-workspace-root* root))
-          (expect (aitools/cli::current-state-directory) :to-equal expected)))
-      (let ((aitools/cli::*invocation-workspace-root* nil))
-        (expect (aitools/cli::current-state-directory) :to-equal nil)))))

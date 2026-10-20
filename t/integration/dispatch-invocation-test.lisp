@@ -78,3 +78,28 @@
             (expect (value envelope "command") :to-equal command)
             (expect (value envelope "error" "code") :to-equal "internal.unexpected")
             (expect (repair-commands envelope) :to-equal (list repair))))))))
+(describe "aitools delivery: invocation workspace"
+  (it "uses the invocation root with the app and registry baked into the image"
+    (aitools.test.support:with-workspace (root state-home)
+      (let* ((*root* root)
+             (target (disk "a.txt"))
+             (state (aitools.store.application:state-directory-for-root
+                     root :xdg-state-home state-home :home (uiop:getenv "HOME")))
+             (out (make-string-output-stream))
+             (err (make-string-output-stream)))
+        (put "a.txt" (format nil "one~%"))
+        (let ((*standard-output* out)
+              (*error-output* err))
+          (expect
+           (aitools/cli:main
+            :argv (list* +argv0+ "--root" root "edit" target
+                         "--old" "one" "--new" "two")
+            :quit-function (function identity))
+           :to-be 0))
+        (expect (length (get-output-stream-string err)) :to-be 0)
+        (expect (value (json-kit:parse (get-output-stream-string out)) "status")
+                :to-equal "ok")
+        (expect (uiop:read-file-string target) :to-equal (format nil "two~%"))
+        (expect (probe-file (merge-pathnames "journal/ops.jsonl"
+                                             (uiop:ensure-directory-pathname state)))
+                :to-be-truthy)))))
