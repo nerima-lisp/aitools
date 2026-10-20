@@ -64,7 +64,9 @@
             (("util" "uuid") "util uuid" "aitools schema util uuid"))
       "answers ~S with one internal.unexpected envelope on standard error"
       (arguments command repair)
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (app registry) (aitools/cli:build-app)
         (let ((out (make-string-output-stream))
               (err (make-string-output-stream)))

@@ -58,33 +58,41 @@ group."
           (group-schemas (dolist (s group-schemas) (push s found)))
           (t (push name missing)))))))
 
-(defun %schema-flow/k (registry names all-p &key on-ok on-error)
-  "NAMES is the (possibly empty) list of requested command names; ALL-P is
+(aitools.kernel.domain:define-flow
+ (%schema-flow registry names all-p &key on-ok on-error)
+ "NAMES is the (possibly empty) list of requested command names; ALL-P is
 `--all`. Always returns a single \"commands\" field: an array of {name,
 summary} plists for the zero-argument case, or of full detail objects for a
 named or --all request -- one uniform shape rather than a flat object for a
 single name and an array only otherwise."
-  (cond
-    ((and (null names) (not all-p))
-     (funcall on-ok (list (cons "commands"
-                                (mapcar #'aitools.protocol.application:render-command-summary
-                                        (all-command-schemas registry))))))
-    (all-p
-     (funcall on-ok (list (cons "commands"
-                                (mapcar #'aitools.protocol.application:render-command-detail
-                                        (all-command-schemas registry))))))
-    (t
-     (multiple-value-bind (found missing) (%collect-requested-schemas registry names)
-       (if missing
-           (funcall on-error "input.not-found"
-                    (format nil "unknown command(s): ~{~A~^, ~}" missing)
-                    :candidates (mapcar #'%typed-name (all-command-schemas registry))
-                    :repairs (list (list :action "browse-commands"
-                                        :detail "List every implemented command."
-                                        :command "aitools schema")))
-           (funcall on-ok (list (cons "commands"
-                                     (mapcar #'aitools.protocol.application:render-command-detail
-                                             found)))))))))
+ (cond
+   ((and (null names) (not all-p))
+    (aitools.kernel.domain:flow-continue
+     :on-ok
+     (list (cons "commands"
+                 (mapcar (function aitools.protocol.application:render-command-summary)
+                         (all-command-schemas registry))))))
+   (all-p
+    (aitools.kernel.domain:flow-continue
+     :on-ok
+     (list (cons "commands"
+                 (mapcar (function aitools.protocol.application:render-command-detail)
+                         (all-command-schemas registry))))))
+   (t
+    (multiple-value-bind (found missing) (%collect-requested-schemas registry names)
+      (if missing
+          (aitools.kernel.domain:flow-continue
+           :on-error "input.not-found"
+           (format nil "unknown command(s): ~{~A~^, ~}" missing)
+           :candidates (mapcar (function %typed-name) (all-command-schemas registry))
+           :repairs (list (list :action "browse-commands"
+                                :detail "List every implemented command."
+                                :command "aitools schema")))
+          (aitools.kernel.domain:flow-continue
+           :on-ok
+           (list (cons "commands"
+                       (mapcar (function aitools.protocol.application:render-command-detail)
+                               found)))))))))
 
 (defun %schema-handler (invocation)
   (let* ((names (positional-value invocation :commands))
@@ -92,27 +100,46 @@ single name and an array only otherwise."
     (aitools.protocol.application:call-with-command-result/k
      (lambda (&key on-ok on-partial on-error)
        (declare (ignore on-partial))
-       (%schema-flow/k %schema-registry% names all-p :on-ok on-ok :on-error on-error)))))
+       (aitools.kernel.domain:flow-call
+           (%schema-flow %schema-registry% names all-p)
+         (:on-ok (fields)
+           (funcall on-ok fields))
+         (:on-error (code message &key candidates diagnostics conflicts repairs)
+           (funcall on-error code message
+                    :candidates candidates
+                    :diagnostics diagnostics
+                    :conflicts conflicts
+                    :repairs repairs)))))))
 
 (defun register-schema-command (registry)
   (setf %schema-registry% registry)
-  (register-command
+  (aitools.protocol.application:register-command-declarations
    registry
-   :name "schema"
-   :cli-command (make-command
-                 :name "schema"
-                 :description "List implemented commands, or show one command's full schema."
-                 :positionals (list (make-positional :name "commands" :key :commands :rest-p t :required-p nil))
-                 :options (list (make-option :name "all" :kind :flag :description "Show every command's full schema."))
-                 :handler #'%schema-handler)
-   :schema (aitools.protocol.domain:make-command-schema
-            "schema" "List implemented commands, or show one command's full schema."
-            :description "With no arguments, list every implemented command as {name, summary}. With command words (a group word followed by its subcommand, e.g. `schema json get`), return those commands' full detail. `--all` returns every command's detail."
-            :args (list (list :name "commands" :type "string" :required nil :repeatable t
-                              :description "Command names as typed, e.g. `read` or `json get`.")
-                        (list :name "--all" :type "flag" :required nil
-                              :description "Return every command's full detail."))
-            :output-fields (list (list :name "commands"
-                                       :description "Array of {name, summary}, or of full detail objects."))
-            :error-codes (list "input.not-found" "argument.invalid")))
+   (list
+    (aitools.protocol.application:define-command
+        "schema"
+      (:command-builder
+       (lambda (ports)
+         (declare (ignore ports))
+         (make-command
+          :name "schema"
+          :description "List implemented commands, or show one command's full schema."
+          :positionals (list (make-positional :name "commands" :key :commands :rest-p t :required-p nil))
+          :options (list (make-option :name "all" :kind :flag :description "Show every command's full schema."))
+          :handler (function %schema-handler)))
+       :schema (aitools.protocol.domain:make-command-schema
+                "schema" "List implemented commands, or show one command's full schema."
+                :description (concatenate 'string
+                                          "With no arguments, list every implemented command as {name, summary}. "
+                                          "With command words (a group word "
+                                          "followed by its subcommand, e.g. `schema json get`), return "
+                                          "those commands' full detail. `--all` returns every command's detail.")
+                :args (list (list :name "commands" :type "string" :required nil :repeatable t
+                                  :description "Command names as typed, e.g. `read` or `json get`.")
+                            (list :name "--all" :type "flag" :required nil
+                                  :description "Return every command's full detail."))
+                :output-fields (list (list :name "commands"
+                                           :description "Array of {name, summary}, or of full detail objects."))
+                :error-codes (list "input.not-found" "argument.invalid")))))
+   nil)
   registry)

@@ -175,7 +175,8 @@
                                                        :pathname "integration/"
                                                        :components ((:file "dispatch-test")
                                                                     (:file "dispatch-recovery-failure-test") (:file "dispatch-invocation-test")
-                                                                    (:file "batch-test") (:file "batch-failure-test")
+                                                                    (:file "batch-test")
+                                                                    (:file "batch-atomic-test") (:file "batch-failure-test")
                                                                     (:file "cli-schema-drift-test") (:file "skill-contract-test") (:file "runner-failure-report-test") (:file "structure-test")
                                                                     (:file "structure-source-scanner")
                                                                     (:file "coverage-baseline-reader") (:file "coverage-baseline-test") (:file "structure-timeout-test") (:file "structure-budget-baseline")

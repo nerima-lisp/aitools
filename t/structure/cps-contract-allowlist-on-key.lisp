@@ -137,7 +137,4 @@
      ("packages/feature/vcs/src/infrastructure/git-port.lisp" "%PROBE-GIT")
      ("packages/feature/vcs/src/infrastructure/git-port.lisp" "%PROBE")
      ("packages/feature/vcs/src/infrastructure/git-port.lisp" "%RUN")
-     ("packages/feature/vcs/src/infrastructure/git-port.lisp" "%STATUS")
-     ("src/batch.lisp" "%BATCH-FLOW/K")
-     ("src/schema.lisp" "%SCHEMA-FLOW/K")
-     ("src/workspace-context.lisp" "CALL-WITH-INVOCATION-WORKSPACE/K")))
+     ("packages/feature/vcs/src/infrastructure/git-port.lisp" "%STATUS")))

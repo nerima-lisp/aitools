@@ -23,27 +23,6 @@
 
 (defvar *root* nil "The current test workspace's real root, no trailing slash.")
 
-(defun call-with-dispatch-workspace (function)
-  (let* ((base (sb-posix:mkdtemp (format nil "~A/aitools-dispatch-XXXXXX"
-                                         (string-right-trim "/" (or (sb-posix:getenv "TMPDIR") "/tmp")))))
-         (base (string-right-trim "/" (sb-ext:native-namestring (truename (concatenate 'string base "/")))))
-         (previous (sb-posix:getenv "XDG_STATE_HOME")))
-    (sb-posix:mkdir (concatenate 'string base "/work") #o755)
-    (sb-posix:mkdir (concatenate 'string base "/state") #o755)
-    (unwind-protect
-         (let ((*root* (concatenate 'string base "/work")))
-           (sb-posix:setenv "XDG_STATE_HOME" (concatenate 'string base "/state") 1)
-           (funcall function))
-      (if previous
-          (sb-posix:setenv "XDG_STATE_HOME" previous 1)
-          (sb-posix:unsetenv "XDG_STATE_HOME"))
-      (uiop:delete-directory-tree (sb-ext:parse-native-namestring (concatenate 'string base "/"))
-                                  :validate (lambda (path) (search "aitools-dispatch-" (namestring path)))
-                                  :if-does-not-exist :ignore))))
-
-(defmacro with-dispatch-workspace (() &body body)
-  `(call-with-dispatch-workspace (lambda () ,@body)))
-
 (defun disk (relative)
   (concatenate 'string *root* "/" relative))
 
@@ -125,7 +104,9 @@ file is prepared and before the commit point, which recovery discards."
 
 (describe "aitools dispatch: conditions no command handled"
   (it "names the failing command, as typed, in internal.unexpected and its schema repair"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (app registry) (faulting-app)
         (multiple-value-bind (code envelope stream) (dispatch-envelope app registry (list "--root" *root* "boom"))
           (expect (list code stream) :to-equal '(1 :stderr))
@@ -138,7 +119,9 @@ file is prepared and before the commit point, which recovery discards."
           (expect (repair-commands envelope) :to-equal '("aitools schema grp boom"))))))
 
   (it "answers heap or stack exhaustion with one environment envelope"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (app registry) (faulting-app)
         (multiple-value-bind (code envelope stream) (dispatch-envelope app registry (list "--root" *root* "hog"))
           (expect (list code stream) :to-equal '(1 :stderr))
@@ -148,14 +131,18 @@ file is prepared and before the commit point, which recovery discards."
 
 (describe "aitools dispatch: names and repairs as typed"
   (it "keeps the group in a subcommand's usage error"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (code envelope) (run-aitools "bg" "logs")
         (expect code :to-be 1)
         (expect envelope :to-match-envelope "command" "bg logs" "status" "error")
         (expect (repair-commands envelope) :to-equal '("aitools schema bg logs")))))
 
   (it "gives a group without its subcommand a repair that lists the group's subcommands"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (code envelope) (run-aitools "json")
         (expect code :to-be 1)
         (expect (repair-commands envelope) :to-equal '("aitools schema json"))
@@ -175,7 +162,9 @@ file is prepared and before the commit point, which recovery discards."
         (expect (find #\. (format nil "~{~A~}" candidates)) :to-be nil))))
 
   (it "points a bare group subcommand name at every group form, keeping the operands"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (multiple-value-bind (code envelope) (run-aitools "get" "/a" "f.json")
         (expect code :to-be 1)
         (expect (value envelope "error" "code") :to-equal "argument.invalid")
@@ -208,7 +197,9 @@ file is prepared and before the commit point, which recovery discards."
 
 (describe "aitools dispatch: an envelope past the JSON writer's output limit"
   (it "writes nothing to standard output and answers refusal.too-large on standard error"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (let* ((huge (make-string (+ 16777216 10) :initial-element #\a))
              (app (cl-cli:make-app
                    :name "aitools" :require-command t

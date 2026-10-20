@@ -44,7 +44,9 @@ record, and return the path the recovery repair must name."
 
 (describe "aitools dispatch: store recovery that cannot finish"
   (it "names the committed op and the record that blocked it, then completes the op once the record is readable"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (expect (with-fault-at (:after-apply) (run-aitools "edit" (disk "a.txt") "--old" "one" "--new" "two"))
               :to-be-truthy)
@@ -81,7 +83,9 @@ record, and return the path the recovery repair must name."
             (:malformed-journal "malformed store record: "))
       "answers environment.io with an inspect repair when recovery fails outside a record (~A)"
       (scenario detail)
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (let ((blocking (break-recovery scenario)))
         (dotimes (attempt 2)
           (multiple-value-bind (code envelope stream) (run-aitools "read" (disk "a.txt"))
@@ -96,7 +100,9 @@ record, and return the path the recovery repair must name."
   (it-each (("soon") ("-5ms"))
       "rejects --lock-timeout ~S for the typed command before recovery runs"
       (text)
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (crash-an-edit)
       (multiple-value-bind (code envelope stream) (run-aitools "--lock-timeout" text "read" (disk "a.txt"))
         (expect (list code stream) :to-equal '(1 :stderr))
@@ -114,7 +120,9 @@ record, and return the path the recovery repair must name."
 
 (describe "aitools dispatch: store recovery before every command"
   (it "reports what it recovered on an error envelope too"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (crash-an-edit)
       (multiple-value-bind (code envelope) (run-aitools "read" (disk "missing.txt"))
         (expect code :to-be 1)
@@ -123,7 +131,9 @@ record, and return the path the recovery repair must name."
         (expect (value envelope "recovered" 0 "action") :to-equal "discarded"))))
 
   (it "answers environment.io naming the blocking path when recovery itself fails"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (crash-an-edit)
       (let* ((commit (concatenate 'string (state-directory) "/commit"))
              (blocker (concatenate 'string commit "/00000000T000000Z-blocker.json")))
@@ -138,7 +148,9 @@ record, and return the path the recovery repair must name."
             (expect (repair-commands envelope) :to-equal (list (format nil "aitools info ~A" blocker))))))))
 
   (it "answers environment.busy with the same command, without argv0, when another process holds the lock"
-    (with-dispatch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
       (crash-an-edit)
       (let* ((store (aitools.store.infrastructure:make-posix-store *root*))
              (marker (disk "locked"))

@@ -59,9 +59,10 @@ the :RECOVERY-ERROR keyword marker cannot collide with it."
       ((or aitools.store.application:store-io-error aitools.store.domain:store-format-error) (condition)
         (cons :recovery-error condition)))))
 
-(defun call-with-invocation-workspace/k (invocation &key on-ready on-busy on-invalid-timeout
-                                                      on-recovery-error)
-  "Resolve the invocation's workspace, run startup recovery for it, and call
+(aitools.kernel.domain:define-flow
+ (call-with-invocation-workspace invocation &key on-ready on-busy on-invalid-timeout
+                                 on-recovery-error)
+ "Resolve the invocation's workspace, run startup recovery for it, and call
 exactly one continuation: ON-READY (recovered) with *INVOCATION-WORKSPACE-ROOT*
 bound, where RECOVERED is a list of (:op-id ID :action ACTION) plists;
 ON-BUSY () when the recovery lock could not be taken; ON-INVALID-TIMEOUT
@@ -70,19 +71,26 @@ root) when recovery itself raised a store I/O or format error. The
 recovery outcome is captured before ON-READY runs, so a store error raised by
 the command's own handler reaches the caller unchanged rather than being
 mistaken for a recovery failure."
-  (declare (type function on-ready on-busy on-invalid-timeout on-recovery-error))
-  (let ((timeout (%lock-timeout-ms invocation))
-        (root (%resolve-invocation-root invocation)))
-    (if (eq timeout :invalid)
-        (funcall on-invalid-timeout (option-value invocation :lock-timeout))
-        (let ((*invocation-workspace-root* root))
-          (if (null root)
-              (funcall on-ready nil)
-              (let ((outcome (%recover-invocation-workspace root timeout)))
-                (cond
-                  ((eq outcome :busy) (funcall on-busy))
-                  ((and (consp outcome) (eq (car outcome) :recovery-error))
-                   (funcall on-recovery-error (cdr outcome) root))
-                  (t (funcall on-ready
-                              (mapcar (lambda (entry) (list :op-id (car entry) :action (cdr entry)))
-                                      outcome))))))))))
+ (declare (type function on-ready on-busy on-invalid-timeout on-recovery-error))
+ (let ((timeout (%lock-timeout-ms invocation))
+       (root (%resolve-invocation-root invocation)))
+   (if (eq timeout :invalid)
+       (aitools.kernel.domain:flow-continue
+        :on-invalid-timeout
+        (option-value invocation :lock-timeout))
+       (let ((*invocation-workspace-root* root))
+         (if (null root)
+             (aitools.kernel.domain:flow-continue :on-ready nil)
+             (let ((outcome (%recover-invocation-workspace root timeout)))
+               (cond
+                 ((eq outcome :busy)
+                  (aitools.kernel.domain:flow-continue :on-busy))
+                 ((and (consp outcome) (eq (car outcome) :recovery-error))
+                  (aitools.kernel.domain:flow-continue
+                   :on-recovery-error (cdr outcome) root))
+                 (t
+                  (aitools.kernel.domain:flow-continue
+                   :on-ready
+                   (mapcar (lambda (entry)
+                             (list :op-id (car entry) :action (cdr entry)))
+                           outcome))))))))))

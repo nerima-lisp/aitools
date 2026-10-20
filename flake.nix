@@ -178,6 +178,7 @@
       # Integration specs read SKILL.md, and nested ASDF systems need their
       # .asd files in the filtered source tree.
       sourceInclude = [
+        ./aitools-test-system.lisp
         ./skills/aitools/SKILL.md
         ./packages/core/kernel/kernel.asd
         ./packages/core/protocol/protocol.asd

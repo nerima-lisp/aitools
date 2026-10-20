@@ -16,7 +16,9 @@
                       "element 1 reads --stdin, which batch has consumed; pass the input inline (--content, --stdin-data)"))
       "refuses ~S before running any element"
       (argvs flags message)
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (multiple-value-bind (code envelope stream) (apply #'run-batch argvs flags)
         (expect (list code stream) :to-equal '(1 :stderr))
@@ -32,7 +34,9 @@
                      (("read" "--nope" "a.txt") "Unknown option: --nope" "aitools schema read"))
       "runs the unparsable element ~S and answers with its own usage error"
       (argv element-message repair)
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (multiple-value-bind (code envelope) (run-batch (list argv (list "edit" "a.txt" "--old" "one" "--new" "two")))
         (expect code :to-be 1)
@@ -46,7 +50,9 @@
   (it-each (("{\"argv\":[\"read\"]}") ("\"read a.txt\"") ("[[]]") ("[[\"read\",1]]"))
       "refuses the --stdin document ~A, which is not an array of non-empty string arrays"
       (document)
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (multiple-value-bind (code envelope) (run-aitools '("batch" "--stdin") :stdin document)
         (expect code :to-be 1)
         (expect (value envelope "error" "code") :to-equal "argument.invalid")
@@ -55,7 +61,9 @@
         (expect (value envelope "error" "repairs" 0 "command") :to-equal "aitools schema batch"))))
 
   (it "refuses a --stdin document larger than its input limit"
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (multiple-value-bind (code envelope)
           (run-aitools '("batch" "--stdin") :stdin (make-string (1+ (* 16 1024 1024)) :initial-element #\Space))
         (expect code :to-be 1)
@@ -65,7 +73,9 @@
 
 (describe "aitools batch --atomic: tx plumbing"
   (it "adds --tx before an element's -- so the element still runs in the batch's tx"
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (multiple-value-bind (code envelope)
           (run-batch (list (list "edit" "a.txt" "--old" "one" "--new" "two")
@@ -78,7 +88,9 @@
       (expect (text "a.txt") :to-equal (format nil "two~%"))))
 
   (it "passes the global --lock-timeout to every element and into its retry repair"
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (let ((aitools.store.application:*fault-hook*
               (lambda (point &rest details)
@@ -95,7 +107,9 @@
       (expect (open-tx-count) :to-be 0)))
 
   (it "reports a tx that could not begin and runs no element"
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       ;; A regular file where the tx directory must be created.
       (let ((tx-root (concatenate 'string (state-directory) "/tx")))
@@ -118,7 +132,9 @@
   ;; `tx abort` has nothing left to abort and the batch must not claim that
   ;; nothing was written.
   (it "does not claim nothing was written when the commit fails past its commit point"
-    (with-batch-workspace ()
+    (aitools.test.support:with-workspace
+      (*root* state-home :chdir t)
+      (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (let ((fired nil))
         (let ((aitools.store.application:*fault-hook*
@@ -139,7 +155,8 @@
               (expect (search "recovery will complete the committed op on the next command" message) :to-be-truthy)
               (expect (search "nothing was written" message) :to-be nil)
               (expect (value envelope "error" "repairs" 0 "action") :to-equal "inspect-state")
-              (expect (value envelope "error" "repairs" 0 "command") :to-equal (format nil "aitools tx status ~A" tx)))
+              (expect (value envelope "error" "repairs" 0 "command")
+              :to-equal (format nil "aitools --root ~A tx status ~A" *root* tx)))
             (expect (value envelope "error" "code") :to-equal "environment.io"))))
       ;; The commit's op is in the journal and its write reached the file.
       (expect (text "a.txt") :to-equal (format nil "two~%"))

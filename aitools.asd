@@ -125,8 +125,11 @@
                              (:file "workspace-context")
                              (:file "context-registration")
                              (:file "schema")
+                             (:file "dispatch-names")
                              (:file "dispatch")
                              (:file "batch")
+                             (:file "batch-atomic-flow")
+                             (:file "batch-flow")
                              (:file "app")
                              (:file "entry-point"))))
   :build-operation "program-op"
