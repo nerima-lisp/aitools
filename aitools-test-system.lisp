@@ -216,6 +216,7 @@
                                                                     (:file "format-cases")
                                                                     (:file "archive-failure-cases")
                                                                     (:file "org-cases")
+                                                                    (:file "org-export-cases")
                                                                     (:file "process-env-cases")
                                                                     (:file "process-env-host-cases")
                                                                     (:file "process-env-util-cases")
