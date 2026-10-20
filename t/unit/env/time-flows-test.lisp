@@ -100,8 +100,13 @@
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid")))
 
-  (it "rejects a result outside years 0000-9999"
-    (multiple-value-bind (kind error) (convert "9999-12-31T23:00:00Z" :add '("2h"))
+  (it "rejects results outside years 0000-9999 at both bounds"
+    (multiple-value-bind (kind error)
+        (convert "9999-12-31T23:00:00Z" :add '("2h"))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "input.syntax-error"))
+    (multiple-value-bind (kind error)
+        (convert "0000-01-01T00:00:00Z" :sub '("1ms"))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "input.syntax-error"))))
 
@@ -156,4 +161,22 @@
                                   :directories '("/usr/share/zoneinfo" "/etc/zoneinfo"))))
       (multiple-value-bind (kind fields) (run-flow #'time-now/k later :tz "Asia/Tokyo")
         (expect kind :to-be :ok)
-        (expect (field fields "utc_offset") :to-equal "+09:00")))))
+        (expect (field fields "utc_offset") :to-equal "+09:00"))))
+  (it "rejects an invalid --sub duration as argument.invalid"
+    (multiple-value-bind (kind error)
+        (convert "now" :sub '("1fortnight"))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "argument.invalid")))
+  (it "requires a known zone for instant and offset-less inputs"
+    (dolist (value '("2026-03-08T06:30:00Z" "2026-03-08T01:30:00"))
+      (multiple-value-bind (kind error)
+          (convert value :to "epoch_ms" :tz "Nowhere/City")
+        (expect kind :to-be :error)
+        (expect (first error) :to-equal "argument.invalid"))))
+  (it "rejects an explicitly empty zone name"
+    (multiple-value-bind (kind error)
+        (run-flow #'time-now/k
+                  (make-fake-ports :environment '(("TZ" . "Asia/Tokyo")))
+                  :tz "")
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "argument.invalid"))))

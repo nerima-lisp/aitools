@@ -54,14 +54,23 @@
                *tokyo* (utc-ms 2026 3 8 15 30 0))
               :to-be (utc-ms 2026 3 8 6 30 0)))
 
-    (it "uses the fixed zone name as its abbreviation"
-      (let ((utc (make-fixed-zone "UTC" 0)))
-        (expect (offset-at utc 0) :to-equal '(0 nil "UTC"))
-        (expect (zone-local-to-epoch-milliseconds utc 12345) :to-be 12345)))
+    (it-each ((0) (-64800) (19800) (64800))
+        "resolves a fixed zone with offset ~D seconds"
+        (offset-seconds)
+      (let ((fixed (make-fixed-zone "fixed" offset-seconds)))
+        (expect (offset-at fixed 0)
+                :to-equal (list offset-seconds nil "fixed"))
+        (expect (zone-local-to-epoch-milliseconds fixed 0)
+                :to-be (- (* offset-seconds 1000)))))
 
-    (it "classifies bad magic and truncated files as TZif format errors"
-      (signals tzif-format-error
-        (parse-tzif "invalid" (octets-from-hex "00010203")))
+    (it "preserves TZif error classification and parser reason"
+      (expect (handler-case
+                  (progn
+                    (parse-tzif "invalid" (octets-from-hex "00010203"))
+                    :no-error)
+                (tzif-format-error (condition)
+                  (tzif-format-error-reason condition)))
+              :to-equal "missing TZif magic number")
       (let ((octets (octets-from-hex *tokyo-tzif-hex*)))
         (signals tzif-format-error
           (parse-tzif "truncated" (subseq octets 0 60)))))))
