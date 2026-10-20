@@ -3,20 +3,19 @@
 ;;;; and Store-backed races for mktemp.
 (in-package #:aitools.edit.test)
 
-(defun call-with-store-io (overrides function)
-  "Call FUNCTION with *PORTS* opening stores whose I/O port is the production
-one with OVERRIDES (COPY-STORE-IO keywords) in place."
-  (let ((*ports* (make-edit-ports
-                  :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
-                  :open-store (lambda (root)
-                                (aitools.store.application:make-store
-                                 (apply #'aitools.store.application::copy-store-io
-                                        (aitools.store.infrastructure:make-posix-store-io) overrides)
-                                 root *home* :temporary (%temporary-area-p root)))
-                  :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                  :read-stdin-octets #'%stdin-port
-                  :unix-now #'aitools.edit.infrastructure:unix-now)))
-    (funcall function)))(describe "aitools mktemp against a racing mktemp area"
+(defun call-with-store-io (function)
+  (let* ((io (aitools.store.application::copy-store-io
+              (aitools.store.infrastructure:make-posix-store-io)))
+         (*ports* (make-edit-ports
+                   :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
+                   :open-store (lambda (root)
+                                 (aitools.store.application:make-store
+                                  io root *home* :temporary (%temporary-area-p root)))
+                   :text-source (aitools.edit.application::edit-ports-text-source *ports*)
+                   :read-stdin-octets #'%stdin-port
+                   :unix-now #'aitools.edit.infrastructure:unix-now)))
+    (funcall function io)))
+(describe "aitools mktemp against a racing mktemp area"
   (it "draws another name when the first is taken"
     (with-workspace ()
       (let* ((first (mktemp-path))
@@ -25,24 +24,37 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
              (draws (list "aaaaaaaaaaaa" "bbbbbbbbbbbb")))
         (with-open-file (out (sb-ext:parse-native-namestring taken) :direction :output :if-does-not-exist :create)
           (write-string "kept" out))
-        (call-with-store-io (list :random-hex (lambda (count) (declare (ignore count)) (pop draws)))
-                            (lambda ()
-                              (expect (mktemp-path) :to-equal (concatenate 'string tmp "/tmp.bbbbbbbbbbbb"))))
+        (call-with-store-io
+         (lambda (io)
+           (let ((real-random-hex (symbol-function 'aitools.store.application:store-io-random-hex)))
+             (cl-weave:with-mocked-functions
+                 (((symbol-function 'aitools.store.application:store-io-random-hex)
+                   (lambda (candidate-io)
+                     (if (eq candidate-io io)
+                         (lambda (count) (declare (ignore count)) (pop draws))
+                         (funcall real-random-hex candidate-io)))))
+               (expect (mktemp-path) :to-equal (concatenate 'string tmp "/tmp.bbbbbbbbbbbb"))))))
         (expect (with-open-file (in (sb-ext:parse-native-namestring taken)) (read-line in)) :to-equal "kept"))))
 
   (it "accepts the area another process created between its check and its mkdir"
     (with-workspace ()
-      (let ((real-mkdir (aitools.store.application:store-io-mkdir (aitools.store.infrastructure:make-posix-store-io))))
-        (call-with-store-io
-         (list :mkdir (lambda (path &rest keys)
-                        (apply real-mkdir path keys)
-                        (if (search "/tmp" path :from-end t :start2 (max 0 (- (length path) 4)))
-                            (error 'aitools.store.application:store-io-error :operation "mkdir" :path path
-                                                                             :detail "File exists")
-                            nil)))
-         (lambda ()
-           (let ((path (mktemp-path)))
-             (expect (probe-file path) :to-be-truthy))))))))(describe "aitools copy --recursive of the workspace root"
+      (call-with-store-io
+       (lambda (io)
+         (let ((real-mkdir (symbol-function 'aitools.store.application:store-io-mkdir)))
+           (cl-weave:with-mocked-functions
+               (((symbol-function 'aitools.store.application:store-io-mkdir)
+                 (lambda (candidate-io)
+                   (if (eq candidate-io io)
+                       (lambda (path &rest keys)
+                         (apply (funcall real-mkdir candidate-io) path keys)
+                         (if (search "/tmp" path :from-end t :start2 (max 0 (- (length path) 4)))
+                             (error 'aitools.store.application:store-io-error :operation "mkdir" :path path
+                                    :detail "File exists")
+                             nil))
+                       (funcall real-mkdir candidate-io)))))
+             (let ((path (mktemp-path)))
+               (expect (probe-file path) :to-be-truthy)))))))))
+(describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
     (with-workspace ()
       (put "a.txt" "a")
