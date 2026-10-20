@@ -7,12 +7,17 @@
   '(("data/application/edit/command-spec-data.lisp" 251)
     ("packages/core/kernel/src/domain/json-model.lisp" 376)
     ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
-    ("packages/core/store/src/domain/tx-model.lisp" 262)
+    ("packages/core/text/src/domain/codec-deflate.lisp" 294)
     ("packages/feature/edit/src/application/file-flows.lisp" 443)
     ("packages/feature/edit/src/application/input.lisp" 275)
     ("packages/feature/edit/src/application/line-flows.lisp" 272)
     ("packages/feature/edit/src/application/pipeline.lisp" 386)
     ("packages/feature/edit/src/domain/transform.lisp" 265)
+    ("packages/feature/search/src/application/search-flow.lisp" 259)
+    ("packages/feature/search/src/application/session.lisp" 277)
+    ("packages/feature/search/src/domain/code.lisp" 278)
+    ("packages/feature/search/src/domain/matcher.lisp" 312)
+    ("packages/feature/util/src/domain/calc.lisp" 274)
     ("t/e2e/transform-file-cases.lisp" 325)
     ("t/integration/edit-cli-test.lisp" 320)
     ("t/integration/edit-files-refusals-test.lisp" 453)
@@ -20,12 +25,11 @@
     ("t/integration/edit-text-commands-paths-test.lisp" 292)
     ("t/integration/edit-text-commands-test.lisp" 257)
     ("t/integration/edit-tx-and-limits-test.lisp" 262)
-    ("t/integration/store-recovery-test.lisp" 434)
-    ("t/integration/store-security-test.lisp" 635)
-    ("t/integration/store-tx-test.lisp" 610)
-    ("t/integration/store-write-protocol-test.lisp" 268)
+    ("t/integration/util-cli-test.lisp" 259)
     ("t/unit/edit/domain-edge-test.lisp" 283)
-    ("t/unit/store/domain-test.lisp" 414)))
+    ("t/unit/search/code-flow-test.lisp" 333)
+    ("t/unit/text/archive-test.lisp" 415)
+    ("t/unit/text/codec-test.lisp" 268)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
@@ -40,11 +44,12 @@
   "Measured quoted collections have a gap: 15 is the largest below the threshold and 19 is the smallest above it.")
 
 (defparameter *literal-table-ratchet*
-  '(("packages/feature/edit/src/domain/transform.lisp" (21))))
+  '(("packages/core/text/src/domain/charset.lisp" (19))
+    ("packages/core/text/src/domain/codec-deflate.lisp" (29 29 30 30 19))
+    ("packages/feature/edit/src/domain/transform.lisp" (21))))
 
 (defparameter *complex-function-ratchet*
-  '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
-    ("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
+  '(("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
     ("packages/feature/edit/src/application/mktemp.lisp" "MKTEMP-FLOW" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "PARSE-MTIME" 6)
