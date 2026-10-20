@@ -226,7 +226,7 @@
                     "echo hi" "Reference" "Definition."))
                  ((string= backend "gfm")
                   '("# Heading" "**bold**" "italic" "`code`" "| A | B |" "~~~text"
-                    "echo hi" "[external](<https://example.test>)" "[X] checked" "1.  ordered"
+                    "echo hi" "[external](<https://example.test>)" "[x] checked" "1.  ordered"
                     "Reference" "Definition"))
                  (t '("Report" "Heading" "*bold*" "checked" "ordered" "A" "B"
                       "1" "2" "echo hi" "https://example.test" "Definition."))))
