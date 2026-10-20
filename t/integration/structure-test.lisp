@@ -78,8 +78,7 @@ is in neither context list)."
      (ecase layer
        (:domain
         (append core-domains
-                '("CL-REGEX-KIT" "JSON-KIT"
-                  "CL-CODEC-KIT" "CRYPTO-KIT")))
+                '("CL-REGEX-KIT" "JSON-KIT" "CL-CODEC-KIT" "CRYPTO-KIT" "CL-DATE-KIT")))
        (:application
         ;; A core context's application may reach only core contexts
         ;; ("core 文脈から feature 文脈への参照" is its own violation); a

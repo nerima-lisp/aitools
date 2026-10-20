@@ -13,17 +13,26 @@
     (expect (parsed "0") :to-equal '(:instant "epoch_s" 0)))
 
   (it "reads ISO 8601 with Z and numeric offsets as instants"
-    (expect (parsed "2026-03-08T06:30:00Z") :to-equal '(:instant "iso8601" 1772951400000))
-    (expect (parsed "2026-03-08T15:30:00+09:00") :to-equal '(:instant "iso8601" 1772951400000))
-    (expect (parsed "2026-03-08T01:30:00-0500") :to-equal '(:instant "iso8601" 1772951400000))
-    (expect (parsed "2026-03-08 06:30:00.250z") :to-equal '(:instant "iso8601" 1772951400250))
-    (expect (parsed "20260308T063000Z") :to-equal '(:instant "iso8601" 1772951400000)))
+    (expect (parsed "2024-02-29T12:34:56Z")
+            :to-equal (list :instant "iso8601" 1709210096000))
+    (expect (parsed "2024-04-30T23:59:59Z")
+            :to-equal (list :instant "iso8601" 1714521599000))
+    (expect (parsed "2026-03-08T06:30:00Z")
+            :to-equal (list :instant "iso8601" 1772951400000))
+    (expect (parsed "2026-03-08T15:30:00+09:00")
+            :to-equal (list :instant "iso8601" 1772951400000))
+    (expect (parsed "2026-03-08T01:30:00-05:00")
+            :to-equal (list :instant "iso8601" 1772951400000))
+    (expect (parsed "2026-03-08T06:30:00.250Z")
+            :to-equal (list :instant "iso8601" 1772951400250))
+    (expect (parsed "20260308T063000Z")
+            :to-equal (list :instant "iso8601" 1772951400000)))
 
   (it "reads an offset-less time or a bare date as local wall time"
     (expect (parsed "2026-03-08T01:30") :to-equal (list :local "iso8601" (- 1772951400000 (* 5 3600000))))
     (expect (parsed "2026-03-08") :to-equal (list :local "iso8601" (* 20520 86400000))))
 
-  (it-each (("") ("garbage") ("2026-02-30") ("2026-13-01") ("2026-03-08T25:00")
+  (it-each (("") ("garbage") ("not-a-time") ("2026-02-30") ("2026-13-01") ("2026-03-08T25:00")
             ("2026-03-08T01:30:00+24:00") ("2026-03-08T01:30:00Zjunk") ("12.3.4")
             ("2026-03-08T01:30:00.") ("１７００００００００") ("99999999999999999"))
       "rejects ~S with time-syntax-error"
@@ -69,10 +78,19 @@
             ("2026-03-08T01:30:00.1234567890Z" "invalid fraction of a second")
             ("2026-03-08T01:3" "invalid time of day")
             ("2026-03-08T01" "expected HH:MM")
-            ("2026-3-08" "invalid date"))
+            ("2026-3-08" "invalid date")
+            ("not-a-time" "invalid date"))
       "rejects ~S: ~A"
       (text reason)
     (expect (rejection-reason text) :to-equal reason))
 
   (it "rejects text longer than the input bound before parsing it"
     (expect (rejection-reason (make-string 65 :initial-element #\1)) :to-equal "empty or too long")))
+
+(describe "aitools.env.domain pre-epoch time input"
+  (it "keeps fractional milliseconds before the Unix epoch"
+    (let ((input (parse-time-input "1969-12-31T23:59:59.750Z")))
+      (expect (time-input-kind input) :to-be :instant)
+      (expect (time-input-milliseconds input) :to-be -250)
+      (expect (format-iso8601 (time-input-milliseconds input) 0 :utc-designator t)
+              :to-equal "1969-12-31T23:59:59.750Z"))))

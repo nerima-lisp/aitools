@@ -62,7 +62,7 @@ command reads or writes.
 
 | Layer | Holds | May reference |
 |---|---|---|
-| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and the pure kits (deterministic functions without I/O) `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit` |
+| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, and `cl-date-kit` |
 | application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications |
 | infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |

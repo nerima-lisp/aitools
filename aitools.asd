@@ -113,6 +113,9 @@
                (:module "feature-env"
                 :pathname "packages/feature/env/src/"
                 :components ((:file "presentation/package")
+                             (:file "presentation/env-command-support")
+                             (:file "presentation/env-sys-command-builders")
+                             (:file "presentation/env-time-command-builders")
                              (:file "presentation/env-commands")))
                (:module "feature-util"
                 :pathname "packages/feature/util/src/"

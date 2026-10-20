@@ -17,15 +17,18 @@
 ;;;; negative epochs.
 (in-package #:aitools.env.domain)
 
-(define-condition time-syntax-error (error)
+(define-condition time-syntax-error
+  (error)
   ((text :initarg :text :reader time-syntax-error-text)
    (reason :initarg :reason :reader time-syntax-error-reason))
-  (:report (lambda (condition stream)
-             (format stream "cannot read ~S as a time: ~A"
-                     (time-syntax-error-text condition) (time-syntax-error-reason condition)))))
+  (:report
+   (lambda (condition stream)
+     (format stream
+             "cannot read ~S as a time: ~A"
+             (time-syntax-error-text condition)
+             (time-syntax-error-reason condition)))))
 
-(defstruct (time-input (:constructor make-time-input (kind format milliseconds))
-                       (:copier nil))
+(defstruct (time-input (:constructor make-time-input (kind format milliseconds)) (:copier nil))
   "KIND is :INSTANT (MILLISECONDS is Unix epoch milliseconds) or :LOCAL
 (MILLISECONDS is the wall-clock fields encoded as if they were UTC, still to
 be resolved against a zone). FORMAT is \"epoch_s\", \"epoch_ms\", or
@@ -34,7 +37,8 @@ be resolved against a zone). FORMAT is \"epoch_s\", \"epoch_ms\", or
   (format nil :type string :read-only t)
   (milliseconds 0 :type integer :read-only t))
 
-(defparameter *maximum-time-input-length* 64
+(defparameter *maximum-time-input-length*
+  64
   "Longer text is rejected before any parsing: every accepted spelling is
 far shorter, and the bound keeps digit runs from building huge integers.")
 
@@ -66,81 +70,157 @@ third are truncated."
         (%time-syntax-error text "epoch value out of range"))
       (make-time-input :instant (if milliseconds-p "epoch_ms" "epoch_s") value))))
 
-(defun %read-digits (text position count)
-  "The integer spelled by exactly COUNT ASCII digits at POSITION, or NIL."
-  (let ((end (+ position count)))
-    (when (and (<= end (length text)) (ascii-digits-p text :start position :end end))
-      (parse-ascii-integer text position end))))
+(defun %iso-date-shape (text)
+  (cond
+    ((and (>= (length text) 8) (ascii-digits-p text :end 8)) (values 8 t))
+    ((and (>= (length text) 10)
+          (ascii-digits-p text :end 4)
+          (char= (char text 4) #\-)
+          (ascii-digits-p text :start 5 :end 7)
+          (char= (char text 7) #\-)
+          (ascii-digits-p text :start 8 :end 10)) (values 10 nil))))
 
-(defun %parse-offset (text position)
-  "(VALUES OFFSET-SECONDS END) for `Z`, `+HH`, `+HHMM`, or `+HH:MM` at
-POSITION, or NIL when POSITION is at the end of TEXT (no offset)."
-  (when (< position (length text))
-    (let ((char (char text position)))
-      (cond
-        ((char-equal char #\Z) (values 0 (1+ position)))
-        ((find char "+-")
-         (let* ((sign (if (char= char #\-) -1 1))
-                (hours (%read-digits text (1+ position) 2))
-                (after-hours (+ position 3))
-                (colon-p (and (< after-hours (length text)) (char= (char text after-hours) #\:)))
-                (minutes (cond ((= after-hours (length text)) 0)
-                               (colon-p (%read-digits text (1+ after-hours) 2))
-                               (t (%read-digits text after-hours 2))))
-                (end (cond ((= after-hours (length text)) after-hours)
-                           (colon-p (+ after-hours 3))
-                           (t (+ after-hours 2)))))
-           (unless (and hours minutes (<= hours 23) (<= minutes 59))
-             (%time-syntax-error text "invalid UTC offset"))
-           (values (* sign (+ (* hours 3600) (* minutes 60))) end)))
-        (t (%time-syntax-error text "unexpected text after the time"))))))
+(defun %normalize-kit-time (text basic-p)
+  (let* ((raw-fraction-start
+          (position-if
+           (lambda (char)
+             (find char ".,"))
+           text))
+         (fraction-start
+          (and raw-fraction-start
+               (not
+                (position-if-not
+                 (lambda (char)
+                   (or (ascii-digit-value char) (char= char #\:)))
+                 text
+                 :end
+                 raw-fraction-start))
+               raw-fraction-start))
+         (time-end
+          (if fraction-start
+              (position-if-not #'ascii-digit-value text :start (1+ fraction-start))
+              (position-if-not
+               (lambda (char)
+                 (or (ascii-digit-value char) (char= char #\:)))
+               text)))
+         (accepted-time (subseq text 0 (or time-end (length text))))
+         (fraction (and fraction-start (subseq accepted-time fraction-start)))
+         (clock (subseq accepted-time 0 (or fraction-start (length accepted-time))))
+         (normalized-clock
+          (cond
+            ((and basic-p (= (length clock) 4) (ascii-digits-p clock))
+             (concatenate 'string (subseq clock 0 2) ":" (subseq clock 2) ":00"))
+            ((and basic-p (= (length clock) 6) (ascii-digits-p clock))
+             (concatenate 'string (subseq clock 0 2) ":" (subseq clock 2 4) ":" (subseq clock 4)))
+            ((and (not basic-p) (= (length clock) 5) (char= (char clock 2) #\:))
+             (concatenate 'string clock ":00"))
+            (t clock))))
+    (values
+     (concatenate 'string
+                  normalized-clock
+                  (if fraction
+                      (concatenate 'string "." (substitute #\. #\, (subseq fraction 1)))
+                      ""))
+     (and time-end (subseq text time-end)))))
+
+(defun %local-time-error-reason (text basic-p)
+  (let* ((fraction-start
+          (position-if
+           (lambda (char)
+             (find char ".,"))
+           text))
+         (fraction (and fraction-start (subseq text (1+ fraction-start))))
+         (fraction-length (and fraction (length fraction))))
+    (cond
+      ((and fraction
+            (or (zerop fraction-length) (> fraction-length 9) (not (ascii-digits-p fraction))))
+       "invalid fraction of a second")
+      ((and (not basic-p) (or (< (length text) 3) (not (char= (char text 2) #\:))))
+       "expected HH:MM")
+      (t "invalid time of day"))))
+
+(defun %parse-kit-local-date-time (date time basic-p original trailing)
+  (let ((date-time
+         (handler-case (cl-date-kit:parse-local-date-time (concatenate 'string date "T" time))
+           (cl-date-kit:date-time-parse-error ()
+             (%time-syntax-error original (%local-time-error-reason time basic-p))))))
+    (when trailing
+      (%time-syntax-error original "unexpected text after the time"))
+    date-time))
+
+(defun %parse-kit-offset-date-time (date time suffix original)
+  (let* ((offset-end
+          (if (and (plusp (length suffix)) (char-equal (char suffix 0) #\Z))
+              1
+              (or
+               (position-if-not
+                (lambda (char)
+                  (or (ascii-digit-value char) (char= char #\:)))
+                suffix
+                :start
+                1)
+               (length suffix))))
+         (offset-text (subseq suffix 0 offset-end))
+         (offset-date-time
+          (progn
+            (unless
+                (or (and (= offset-end 1) (char-equal (char suffix 0) #\Z))
+                    (member offset-end '(3 5 6)))
+              (%time-syntax-error original "invalid UTC offset"))
+            (handler-case (cl-date-kit:parse-offset-date-time
+                           (concatenate 'string date "T" time offset-text))
+              (cl-date-kit:date-time-parse-error ()
+                (%time-syntax-error original "invalid UTC offset"))))))
+    (when (< offset-end (length suffix))
+      (%time-syntax-error original "unexpected text after the offset"))
+    offset-date-time))
+
+(defun %local-date-time-milliseconds (date-time offset)
+  (+ (* (cl-date-kit:local-date-time-to-epoch-second date-time offset) +milliseconds-per-second+)
+     (floor (cl-date-kit:local-date-time-nanosecond date-time) 1000000)))
 
 (defun %parse-iso8601 (text)
-  (let* ((basic-p (and (>= (length text) 8) (ascii-digits-p text :end 8)))
-         (year (%read-digits text 0 4))
-         (month (if basic-p (%read-digits text 4 2) (and (> (length text) 4) (char= (char text 4) #\-) (%read-digits text 5 2))))
-         (day (if basic-p
-                  (%read-digits text 6 2)
-                  (and (> (length text) 7) (char= (char text 7) #\-) (%read-digits text 8 2))))
-         (position (if basic-p 8 10))
-         (hour 0) (minute 0) (second 0) (millisecond 0) (offset nil))
-    (unless (and year month day (<= 1 month 12) (<= 1 day (days-in-month year month)))
+  (multiple-value-bind (date-end basic-p) (%iso-date-shape text)
+    (unless date-end
       (%time-syntax-error text "invalid date"))
-    (when (< position (length text))
-      (unless (find (char text position) "Tt ")
-        (%time-syntax-error text "expected T between the date and the time"))
-      (incf position)
-      (setf hour (%read-digits text position 2))
-      (incf position 2)
-      (unless basic-p
-        (unless (and (< position (length text)) (char= (char text position) #\:))
-          (%time-syntax-error text "expected HH:MM"))
-        (incf position))
-      (setf minute (%read-digits text position 2))
-      (incf position 2)
-      (when (and hour minute (< position (length text))
-                 (if basic-p
-                     (ascii-digit-value (char text position))
-                     (char= (char text position) #\:)))
-        (unless basic-p (incf position))
-        (setf second (%read-digits text position 2))
-        (incf position 2)
-        (when (and second (< position (length text)) (find (char text position) ".,"))
-          (let ((end (or (position-if-not #'ascii-digit-value text :start (1+ position)) (length text))))
-            (when (or (= end (1+ position)) (> (- end position 1) 9))
-              (%time-syntax-error text "invalid fraction of a second"))
-            (setf millisecond (%fraction-milliseconds text (1+ position) end)
-                  position end))))
-      (unless (and hour minute second (<= hour 23) (<= minute 59) (<= second 59))
-        (%time-syntax-error text "invalid time of day"))
-      (multiple-value-bind (value end) (%parse-offset text position)
-        (when (and value (/= end (length text)))
-          (%time-syntax-error text "unexpected text after the offset"))
-        (setf offset value)))
-    (let ((local (civil-to-epoch-milliseconds year month day hour minute second millisecond)))
-      (if offset
-          (make-time-input :instant "iso8601" (- local (* offset 1000)))
-          (make-time-input :local "iso8601" local)))))
+    (let ((date (subseq text 0 date-end)))
+      (handler-case (cl-date-kit:parse-local-date date)
+        (cl-date-kit:date-time-parse-error ()
+          (%time-syntax-error text "invalid date")))
+      (let ((has-time (< date-end (length text))))
+        (when (and has-time (not (find (char text date-end) "Tt ")))
+          (%time-syntax-error text "expected T between the date and the time"))
+        (let* ((time-start
+                (if has-time
+                    (1+ date-end)
+                    date-end))
+               (offset-start
+                (and has-time
+                     (position-if
+                      (lambda (char)
+                        (find char "+-Zz"))
+                      text
+                      :start
+                      time-start)))
+               (raw-time
+                (if has-time
+                    (subseq text time-start (or offset-start (length text)))
+                    "00:00:00"))
+               (suffix (and offset-start (subseq text offset-start))))
+          (multiple-value-bind (time trailing) (%normalize-kit-time raw-time basic-p)
+            (let ((local-date-time (%parse-kit-local-date-time date time basic-p text trailing)))
+              (if suffix
+                  (let* ((offset-date-time (%parse-kit-offset-date-time date time suffix text))
+                         (offset-local-date-time
+                          (cl-date-kit:offset-date-time-local-date-time offset-date-time))
+                         (offset (cl-date-kit:offset-date-time-offset offset-date-time)))
+                    (make-time-input :instant
+                                     "iso8601"
+                                     (%local-date-time-milliseconds offset-local-date-time offset)))
+                  (make-time-input :local
+                                   "iso8601"
+                                   (%local-date-time-milliseconds local-date-time
+                                                                  (cl-date-kit:zone-offset-utc)))))))))))
 
 (defun parse-time-input (text)
   "Parse TEXT per the rules in this file's header. Returns a TIME-INPUT or
@@ -149,6 +229,8 @@ signals TIME-SYNTAX-ERROR."
     ((or (zerop (length text)) (> (length text) *maximum-time-input-length*))
      (%time-syntax-error text "empty or too long"))
     ((and (ascii-digit-value (char text 0))
-          (every (lambda (char) (or (ascii-digit-value char) (char= char #\.))) text))
-     (%parse-epoch text))
+          (every
+           (lambda (char)
+             (or (ascii-digit-value char) (char= char #\.)))
+           text)) (%parse-epoch text))
     (t (%parse-iso8601 text))))

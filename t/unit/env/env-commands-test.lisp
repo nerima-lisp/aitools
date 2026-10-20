@@ -145,3 +145,45 @@
     (expect (handler-case (aitools.env.presentation::%schema-data "sys.no-such-command")
               (error (condition) (princ-to-string condition)))
             :to-equal "no env schema data for \"sys.no-such-command\"")))
+
+(describe "aitools.env.presentation flow adapters"
+  (it "forwards parsed time options through a flow call"
+    (let ((seen nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'aitools.env.application:time-convert/k)
+            (lambda (ports value &key to add sub tz on-ok on-error)
+              (declare (ignore ports on-error))
+              (setf seen (list value to add sub tz))
+              (funcall
+               on-ok
+               (list (cons "input" value)
+                     (cons "input_format" "iso8601")
+                     (cons "to" to)
+                     (cons "result" 42)
+                     (cons "timezone" tz))))))
+        (multiple-value-bind (code stdout stderr)
+            (dispatch-env
+             (make-fake-ports)
+             "time" "convert" "2026-01-31T00:00:00Z"
+             "--to" "epoch_s"
+             "--add" "1d" "--add" "1h"
+             "--sub" "15m"
+             "--tz" "UTC")
+          (expect code :to-be 0)
+          (expect stderr :to-equal "")
+          (expect seen
+                  :to-equal
+                  '("2026-01-31T00:00:00Z"
+                    "epoch_s"
+                    ("1d" "1h")
+                    ("15m")
+                    "UTC"))
+          (expect (json-kit:parse stdout)
+                  :to-match-envelope
+                  "status" "ok"
+                  "command" "time convert"
+                  "input" "2026-01-31T00:00:00Z"
+                  "input_format" "iso8601"
+                  "to" "epoch_s"
+                  "result" 42
+                  "timezone" "UTC"))))))

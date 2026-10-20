@@ -2,21 +2,10 @@
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.domain civil time"
-  (it "maps the epoch and known dates to day numbers"
-    (expect (days-from-civil 1970 1 1) :to-be 0)
-    ;; 2000-03-01 is day 11017 (date -u -d 2000-03-01 +%s / 86400).
-    (expect (days-from-civil 2000 3 1) :to-be 11017)
-    (expect (days-from-civil 1969 12 31) :to-be -1))
-
-  (it "round-trips day numbers across leap and century years"
-    (dolist (days '(-719468 -1 0 10957 11016 11017 20520 2932896))
-      (multiple-value-bind (year month day) (civil-from-days days)
-        (expect (days-from-civil year month day) :to-be days))))
-
-  (it "knows February's length"
-    (expect (days-in-month 2024 2) :to-be 29)
-    (expect (days-in-month 1900 2) :to-be 28)
-    (expect (days-in-month 2000 2) :to-be 29))
+  (it "converts known dates to day numbers through the date kit"
+    (expect (civil-to-epoch-milliseconds 1970 1 1 0 0 0 0) :to-be 0)
+    (expect (civil-to-epoch-milliseconds 2000 3 1 0 0 0 0) :to-be (* 11017 86400000))
+    (expect (civil-to-epoch-milliseconds 1969 12 31 0 0 0 0) :to-be -86400000))
 
   (it "formats ISO 8601 with offsets and optional milliseconds"
     (expect (format-iso8601 1772951400250 0 :utc-designator t) :to-equal "2026-03-08T06:30:00.250Z")
@@ -36,3 +25,13 @@
       "formats ~D seconds as ~S"
       (seconds text)
     (expect (format-utc-offset seconds) :to-equal text)))
+
+(aitools/test:it-property
+    "round-trips generated instants through ISO formatting and parsing"
+    ((milliseconds
+       (aitools/test:gen-integer :min -1000000000000 :max 2000000000000)))
+  (let* ((text (format-iso8601 milliseconds 19800))
+         (input (parse-time-input text)))
+    (expect (time-input-kind input) :to-be :instant)
+    (expect (time-input-format input) :to-equal "iso8601")
+    (expect (time-input-milliseconds input) :to-be milliseconds)))
