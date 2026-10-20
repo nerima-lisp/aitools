@@ -158,6 +158,75 @@ four
   (it "rejects paths together with --op and a missing second path"
     (expect (error-code (nth-value 1 (diff-of '() :a "a" :op "op-1"))) :to-equal "argument.invalid")
     (expect (error-code (nth-value 1 (diff-of '() :a "a"))) :to-equal "argument.invalid")))
+(describe "inspect error and path edge cases"
+  (it "preserves diagnostics for an invalid first JSON diff operand"
+    (multiple-value-bind (kind fields)
+        (run-flow #'json-diff-flow
+                  (make-test-ports :files '(("/work/a.json" . "{")
+                                            ("/work/b.json" . "{}")))
+                  "a.json" "b.json")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.unsupported-format")
+      (expect (json-object-get (first (getf fields :diagnostics)) "line") :to-be 1)
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools check a.json --format json")))
+
+  (it "preserves diagnostics for an invalid second JSON diff operand"
+    (multiple-value-bind (kind fields)
+        (run-flow #'json-diff-flow
+                  (make-test-ports :files '(("/work/a.json" . "{}")
+                                            ("/work/b.json" . "{")))
+                  "a.json" "b.json")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.unsupported-format")
+      (expect (json-object-get (first (getf fields :diagnostics)) "line") :to-be 1)
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools check b.json --format json")))
+
+  (it "reports a missing second JSON diff operand"
+    (multiple-value-bind (kind fields)
+        (run-flow #'json-diff-flow
+                  (make-test-ports :files '(("/work/a.json" . "{}")))
+                  "a.json" "b.json")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (getf fields :message) :to-equal "file b.json does not exist")))
+
+  (it "reports directory metadata without reading it as a file"
+    (multiple-value-bind (kind fields)
+        (run-flow #'info-flow (make-test-ports :directories '("/work/sub")) "sub")
+      (expect kind :to-be :ok)
+      (expect (field fields "path") :to-equal "sub")
+      (expect (field fields "kind") :to-equal "directory")
+      (expect (field fields "size") :to-be 0)
+      (expect (field fields "mode") :to-equal "0755")))
+
+  (it "preserves a broken symlink's path fields with --allow-missing"
+    (multiple-value-bind (kind fields)
+        (run-flow #'info-flow
+                  (make-test-ports :symlinks '(("/work/link" . "/outside/missing")))
+                  "link" :allow-missing t)
+      (expect kind :to-be :ok)
+      (expect (json-false-value-p (field fields "exists")) :to-be t)
+      (expect (field fields "kind") :to-equal "symlink")
+      (expect (field fields "real") :to-equal "/outside/missing")))
+
+  (it "supports every documented info digest"
+    (let ((files '(("/work/a.txt" . "abc"))))
+      (expect (json-object-get (field (nth-value 1 (info-of files "a.txt" :digest "sha256")) "digest")
+                               "value")
+              :to-equal "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+      (expect (json-object-get (field (nth-value 1 (info-of files "a.txt" :digest "md5")) "digest")
+                               "value")
+              :to-equal "900150983cd24fb0d6963f7d28e17f72")))
+
+  (it "rejects an invalid lock timeout before resolving the inspect root"
+    (multiple-value-bind (kind fields)
+        (run-flow #'info-flow (make-test-ports :files nil) "a.txt" :lock-timeout "fast")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "argument.invalid")
+      (expect (getf fields :message)
+              :to-equal "--lock-timeout \"fast\" is not a duration"))))
 
 ;;; contract-F1: a path that exists but denies its bytes (EACCES) is
 ;;; environment.io, not input.not-found; a genuinely absent path stays
