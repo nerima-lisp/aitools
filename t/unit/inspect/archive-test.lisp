@@ -84,6 +84,20 @@
       (expect kind :to-be :partial)
       (expect (length (field fields "items")) :to-be 2)
       (expect (field fields "total") :to-be 3)))
+  (it "reports the decompression limit with a list repair"
+    (let ((octets (cdr (assoc "notes.txt.gz" (sample-archives) :test (function string=)))))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (find-symbol "GZIP-DECOMPRESS" "AITOOLS.TEXT.DOMAIN"))
+            (lambda (input &key max-output)
+              (declare (ignore input max-output))
+              (error (find-symbol "ARCHIVE-LIMIT-EXCEEDED" "AITOOLS.TEXT.DOMAIN")
+                     :limit +archive-max-decompressed+ :reason "output limit"))))
+        (multiple-value-bind (kind fields)
+            (run-archive (function archive-list-flow) "notes.txt.gz")
+          (expect kind :to-be :error)
+          (expect (error-code fields) :to-equal "refusal.too-large")
+          (expect (getf (first (getf fields :repairs)) :command)
+                  :to-equal "aitools archive list notes.txt.gz")))))
 
   (it "rejects a file that is not an archive as input.unsupported-format"
     (multiple-value-bind (kind fields)

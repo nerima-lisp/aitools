@@ -131,7 +131,7 @@
             :to-equal '(("fixture.lisp" "BAD-QUOTED-TAIL" :positional-continuation)
                         ("fixture.lisp" "BAD-APPLY-QUOTED-TAIL" :positional-continuation))))
 
-  (it "rejects continuation references in proper and dotted list tails"
+  (it "rejects continuation references in proper and dotted tails and uninterned operators"
     (expect (%fixture-violations
              "(define-flow (bad-quote-tail &key on-ok)
   (apply (foo quote on-ok) nil))
@@ -139,6 +139,19 @@
   (apply (foo function on-error) nil))
 (define-flow (bad-dotted-tail &key on-later)
   (apply (foo quote . on-later) nil))")
-            :to-equal '(("fixture.lisp" "BAD-QUOTE-TAIL" :apply-continuation)
-                        ("fixture.lisp" "BAD-FUNCTION-TAIL" :apply-continuation)
-                        ("fixture.lisp" "BAD-DOTTED-TAIL" :apply-continuation)))))
+            :to-equal (list (list "fixture.lisp" "BAD-QUOTE-TAIL" :positional-continuation)
+                            (list "fixture.lisp" "BAD-FUNCTION-TAIL" :positional-continuation)
+                            (list "fixture.lisp" "BAD-DOTTED-TAIL" :positional-continuation)))
+    (expect (%fixture-violations
+             "(define-flow (bad-uninterned-quote &key on-ok)
+  (#:quote on-ok))
+(define-flow (bad-uninterned-function &key on-error)
+  (#:function on-error))
+(define-flow (bad-uninterned-apply &key on-later)
+  (#:apply on-later nil))
+(define-flow (bad-uninterned-let &key on-value)
+  (#:let ((on-value nil)) on-value))")
+            :to-equal (list (list "fixture.lisp" "BAD-UNINTERNED-QUOTE" :positional-continuation)
+                            (list "fixture.lisp" "BAD-UNINTERNED-FUNCTION" :positional-continuation)
+                            (list "fixture.lisp" "BAD-UNINTERNED-APPLY" :positional-continuation)
+                            (list "fixture.lisp" "BAD-UNINTERNED-LET" :positional-continuation)))))
