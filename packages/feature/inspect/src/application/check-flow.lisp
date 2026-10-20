@@ -103,61 +103,61 @@
  (declare (ignore on-partial)
           (type function on-ok on-error))
  (labels ((check-file (context target)
-            (multiple-value-bind (detected dialect)
-                (check-format-for-path (file-target-absolute target))
-              (let ((format
-                     (cond
-                       ((null format) detected)
-                       ((string= format "json") :json)
-                       (t :lisp))))
-                (if format
-                    (aitools.kernel.domain:flow-call
-                     (%check-target context
-                                    target
-                                    path
-                                    format
-                                    (or dialect :common-lisp))
-                     (:on-ok (fields)
-                       (aitools.kernel.domain:flow-continue :on-ok fields))
-                     (:on-error (code message &key candidates diagnostics conflicts repairs)
-                       (aitools.kernel.domain:flow-continue
-                        :on-error code message
-                        :candidates candidates
-                        :diagnostics diagnostics
-                        :conflicts conflicts
-                        :repairs repairs)))
-                    (aitools.kernel.domain:flow-continue
-                     :on-error
-                     "input.unsupported-format"
-                     (format nil
-                             (concatenate
-                              'string
-                              "cannot tell the format of ~A from its name; "
-                              "check handles JSON and Lisp")
-                             path)
-                     :repairs
-                     (list
-                      (repair "name-format"
-                              "Name the format explicitly."
-                              (command-line context
-                                            (list "check"
-                                                  path
-                                                  "--format"
-                                                  "json")))))))))
+                      (multiple-value-bind (detected dialect)
+                          (check-format-for-path (file-target-absolute target))
+                        (let ((format
+                               (cond
+                                ((null format) detected)
+                                ((string= format "json") :json)
+                                (t :lisp))))
+                          (if format
+                              (aitools.kernel.domain:flow-call
+                               (%check-target context
+                                              target
+                                              path
+                                              format
+                                              (or dialect :common-lisp))
+                               (:on-ok (fields)
+                                       (aitools.kernel.domain:flow-continue :on-ok fields))
+                               (:on-error (code message &key candidates diagnostics conflicts repairs)
+                                          (aitools.kernel.domain:flow-continue
+                                           :on-error code message
+                                           :candidates candidates
+                                           :diagnostics diagnostics
+                                           :conflicts conflicts
+                                           :repairs repairs)))
+                            (aitools.kernel.domain:flow-continue
+                             :on-error
+                             "input.unsupported-format"
+                             (format nil
+                                     (concatenate
+                                      'string
+                                      "cannot tell the format of ~A from its name; "
+                                      "check handles JSON and Lisp")
+                                     path)
+                             :repairs
+                             (list
+                              (repair "name-format"
+                                      "Name the format explicitly."
+                                      (command-line context
+                                                    (list "check"
+                                                          path
+                                                          "--format"
+                                                          "json"))))))))))
    (aitools.kernel.domain:flow-call
     (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
     (:on-ready (context)
-      (aitools.kernel.domain:flow-call
-       (call-with-readable-file/k context path)
-       (:on-file (target)
-         (check-file context target))
-       (:on-error (code message &key candidates diagnostics conflicts repairs)
-         (aitools.kernel.domain:flow-continue
-          :on-error code message
-          :candidates candidates
-          :diagnostics diagnostics
-          :conflicts conflicts
-          :repairs repairs))))
+               (aitools.kernel.domain:flow-call
+                (call-with-readable-file/k context path)
+                (:on-file (target)
+                          (check-file context target))
+                (:on-error (code message &key candidates diagnostics conflicts repairs)
+                           (aitools.kernel.domain:flow-continue
+                            :on-error code message
+                            :candidates candidates
+                            :diagnostics diagnostics
+                            :conflicts conflicts
+                            :repairs repairs))))
     (:on-error (code message &key repairs)
-      (aitools.kernel.domain:flow-continue
-       :on-error code message :repairs repairs))))))
+               (aitools.kernel.domain:flow-continue
+                :on-error code message :repairs repairs)))))
