@@ -40,6 +40,25 @@ jobs:
       - name: Check flake
         run: nix flake check --max-jobs 1 --print-build-logs
 
+      - name: Measure search allocation with cold cache (Linux)
+        env:
+          AITOOLS_HOST_CACHE_DIR: ${{ runner.temp }}/aitools-search-allocation-host-cache
+          XDG_CACHE_HOME: ${{ runner.temp }}/aitools-search-allocation-xdg-cache
+        run: |
+          mkdir -p "$AITOOLS_HOST_CACHE_DIR" "$XDG_CACHE_HOME"
+          test -z "$(find "$AITOOLS_HOST_CACHE_DIR" -mindepth 1 -print -quit)"
+          test -z "$(find "$XDG_CACHE_HOME" -mindepth 1 -print -quit)"
+          AITOOLS_ALLOCATION_CACHE_STATE=cold nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
+          test -n "$(find "$AITOOLS_HOST_CACHE_DIR" -mindepth 1 -print -quit)"
+          test -n "$(find "$XDG_CACHE_HOME" -mindepth 1 -print -quit)"
+
+      - name: Measure search allocation with warm cache (Linux)
+        env:
+          AITOOLS_HOST_CACHE_DIR: ${{ runner.temp }}/aitools-search-allocation-host-cache
+          XDG_CACHE_HOME: ${{ runner.temp }}/aitools-search-allocation-xdg-cache
+          AITOOLS_ALLOCATION_CACHE_STATE: warm
+        run: nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
+
       # Catches stray conflict markers and whitespace errors that compile fine.
       - name: Check diff hygiene
         run: git diff --check
@@ -64,6 +83,25 @@ jobs:
       # required: the full suite uses the binary built by the same flake.
       - name: Run every spec against the delivery on the host
         run: nix run .#test --print-build-logs
+
+      - name: Measure search allocation with cold cache (Darwin)
+        env:
+          AITOOLS_HOST_CACHE_DIR: ${{ runner.temp }}/aitools-search-allocation-host-cache
+          XDG_CACHE_HOME: ${{ runner.temp }}/aitools-search-allocation-xdg-cache
+        run: |
+          mkdir -p "$AITOOLS_HOST_CACHE_DIR" "$XDG_CACHE_HOME"
+          test -z "$(find "$AITOOLS_HOST_CACHE_DIR" -mindepth 1 -print -quit)"
+          test -z "$(find "$XDG_CACHE_HOME" -mindepth 1 -print -quit)"
+          AITOOLS_ALLOCATION_CACHE_STATE=cold nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
+          test -n "$(find "$AITOOLS_HOST_CACHE_DIR" -mindepth 1 -print -quit)"
+          test -n "$(find "$XDG_CACHE_HOME" -mindepth 1 -print -quit)"
+
+      - name: Measure search allocation with warm cache (Darwin)
+        env:
+          AITOOLS_HOST_CACHE_DIR: ${{ runner.temp }}/aitools-search-allocation-host-cache
+          XDG_CACHE_HOME: ${{ runner.temp }}/aitools-search-allocation-xdg-cache
+          AITOOLS_ALLOCATION_CACHE_STATE: warm
+        run: nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
 
       - name: Check diff hygiene
         run: git diff --check

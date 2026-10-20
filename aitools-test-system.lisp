@@ -86,6 +86,8 @@
                                               (:file "unit/search/find-flow-test")
                                               (:file "unit/search/code-flow-test")
                                               (:file "unit/search/commands-test")
+                                              (:file "unit/search/allocation-child-protocol")
+                                              (:file "unit/search/allocation-child-protocol-test")
                                               (:file "perf/search-allocation-test")
                                               (:file "integration/search-host-test")
                                               (:file "unit/inspect/package")

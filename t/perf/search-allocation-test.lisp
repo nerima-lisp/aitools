@@ -59,23 +59,31 @@ widen the threshold."
          (translations (cons :output-translations
                              (cons project-translation inherited-directives))))
     `(handler-case
-         (let ((*standard-output* (make-broadcast-stream))
-               (*compile-verbose* nil) (*compile-print* nil))
-           (setf asdf:*central-registry* ',(%allocation-system-directories))
-           (asdf:initialize-output-translations ',translations)
-           (mapc #'asdf:load-system
-                 '("aitools/data" "aitools/core/workspace" "aitools/core/store"
-                   "aitools/feature/search" "cl-weave" "cl-process-kit"))
-           (mapc #'load
-                 (list ,(namestring (merge-pathnames "t/support/package.lisp" source-directory))
-                       ,(namestring (merge-pathnames "t/support/json-assertions.lisp" source-directory))
-                       ,(namestring (merge-pathnames "t/unit/search/package.lisp" source-directory))))
-           (load (compile-file ,(namestring (merge-pathnames "t/unit/search/fakes.lisp" source-directory))
-                               :output-file (merge-pathnames "search-fakes.fasl"
-                                                             (uiop:ensure-directory-pathname ,(namestring cache-directory)))))
-           (load (compile-file ,(namestring (merge-pathnames "t/perf/search-allocation-test.lisp" source-directory))
-                               :output-file (merge-pathnames "search-allocation-test.fasl"
-                                                             (uiop:ensure-directory-pathname ,(namestring cache-directory)))))
+         (progn
+           (let ((*standard-output* (make-broadcast-stream))
+                 (*compile-verbose* nil) (*compile-print* nil))
+             (setf asdf:*central-registry* ',(%allocation-system-directories))
+             (asdf:initialize-output-translations ',translations)
+             (mapc #'asdf:load-system
+                   '("aitools/data" "aitools/core/workspace" "aitools/core/store"
+                     "aitools/feature/search" "cl-weave" "cl-process-kit"))
+             (mapc #'load
+                   (list ,(namestring (merge-pathnames "t/support/package.lisp" source-directory))
+                         ,(namestring (merge-pathnames "t/support/json-assertions.lisp" source-directory))
+                         ,(namestring (merge-pathnames "t/unit/search/package.lisp" source-directory))))
+             (load (compile-file ,(namestring (merge-pathnames "t/unit/search/fakes.lisp" source-directory))
+                                 :output-file (merge-pathnames "search-fakes.fasl"
+                                                               (uiop:ensure-directory-pathname ,(namestring cache-directory)))))
+             (load (compile-file ,(namestring (merge-pathnames "t/unit/search/allocation-child-protocol.lisp" source-directory))
+                                 :output-file (merge-pathnames "allocation-child-protocol.fasl"
+                                                               (uiop:ensure-directory-pathname ,(namestring cache-directory)))))
+             (load (compile-file ,(namestring (merge-pathnames "t/perf/search-allocation-test.lisp" source-directory))
+                                 :output-file (merge-pathnames "search-allocation-test.fasl"
+                                                               (uiop:ensure-directory-pathname ,(namestring cache-directory))))))
+           (write-line "@@aitools-search-allocation-ready@@")
+           (finish-output)
+           (unless (equal (read-line *standard-input* nil nil) "GO")
+             (error "Expected GO line after READY"))
            (values))
        (error (condition)
          (format *standard-output* "@@aitools-search-allocation-error@@~%~A~%" condition)
@@ -117,36 +125,33 @@ widen the threshold."
                   "--eval" (%allocation-form-text
                              (%allocation-child-setup-form source-directory cache-directory))
                   "--eval" (%allocation-form-text (%allocation-child-run-form)))
-            :search t :input nil :output :stream :error :stream
+            :search t :input :stream :output :stream :error :stream
             :directory (uiop:getcwd)
             :environment (%allocation-child-environment)
             :external-format :utf-8)))
-    (unwind-protect
-         (let* ((result (process-kit:communicate process :timeout 30 :on-timeout :return
-                                                :max-output-characters 200000
-                                                :external-format :utf-8
-                                                :decoding-error-policy :replace))
-                (stdout (process-kit:process-result-stdout result))
-                (stderr (process-kit:process-result-stderr result))
-                (marker "@@aitools-search-allocation-results@@")
-                (marker-position (search marker stdout)))
-           (unless (and (not (process-kit:process-result-timed-out-p result))
-                        (eql (process-kit:process-result-exit-code result) 0))
-             (error "Child search allocation SBCL failed (exit code: ~S, timed out: ~S).~%stdout:~%~A~%stderr:~%~A"
-                    (process-kit:process-result-exit-code result)
-                    (process-kit:process-result-timed-out-p result) stdout stderr))
-           (unless marker-position
-             (error "Child search allocation SBCL did not return measurements.~%stdout:~%~A~%stderr:~%~A"
-                    stdout stderr))
-           (let ((*read-eval* nil))
-             (with-input-from-string (input (subseq stdout (+ marker-position (length marker))))
-               (let ((measurements (read input nil nil)))
-                 (unless (%allocation-results-valid-p measurements)
-                   (error "Child returned malformed search allocation measurements: ~S" measurements))
-                 measurements))))
-      (unless (process-kit:process-try-wait process)
-        (process-kit:close-process process :terminate t))
-      (process-kit:close-process-streams process))))
+    (multiple-value-bind (stdout stderr)
+        (%run-allocation-child-protocol
+         process
+         (lambda (child timeout)
+           (%wait-for-allocation-child-ready
+            child (process-kit:process-output child) (process-kit:process-stderr child)
+            :timeout timeout))
+         (lambda (child input timeout)
+           (process-kit:communicate child :input input :timeout timeout :on-timeout :return
+                                    :max-output-characters 200000
+                                    :external-format :utf-8
+                                    :decoding-error-policy :replace)))
+      (let* ((marker "@@aitools-search-allocation-results@@")
+             (marker-position (search marker stdout)))
+        (unless marker-position
+          (error "Child search allocation SBCL did not return measurements.~%stdout:~%~A~%stderr:~%~A"
+                 stdout stderr))
+        (let ((*read-eval* nil))
+          (with-input-from-string (input (subseq stdout (+ marker-position (length marker))))
+            (let ((measurements (read input nil nil)))
+              (unless (%allocation-results-valid-p measurements)
+                (error "Child returned malformed search allocation measurements: ~S" measurements))
+              measurements)))))))
 (defun %allocation-measurements ()
   (when (eq *search-allocation-measurement-cache* :unstarted)
     (setf *search-allocation-measurement-cache* (handler-case (%run-search-allocation-child)
