@@ -2,7 +2,7 @@
 
 (describe "aitools JSON and table writes: stdin forms and repairs"
   (it "sets a value read from --stdin and a cell whose row, column and value are JSON numbers"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" "{\"a\":1}")
       (setf *stdin* (bytes "{\"pointer\": \"/b\", \"value\": [true]}"))
       (expect (run "json.set" '("c.json") :stdin t) :to-be :ok)
@@ -15,7 +15,7 @@
       (expect (text "t.csv") :to-equal (format nil "id,name~%1,7~%"))))
 
   (it "re-indents a one-line file with two spaces and repairs a failed test with json get of its pointer"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" "{\"a\":{\"b\":1}}")
       (expect (run "json.fmt" '("c.json")) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%  \"a\": {~%    \"b\": 1~%  }~%}"))
@@ -29,7 +29,7 @@
 
 (describe "aitools archive extract and create: formats, sources and refusals"
   (it "round-trips one file through .gz under its own name"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "notes.txt" (format nil "n~%"))
       (multiple-value-bind (kind fields) (run "archive.create" '("n.gz" "notes.txt"))
         (expect kind :to-be :ok)
@@ -38,16 +38,23 @@
       (expect (text "out/notes.txt") :to-equal (format nil "n~%"))))
 
   (it "archives a symlink as a link, and refuses an archive path that exists"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "src/a.txt" "a")
       (sb-posix:symlink "a.txt" (disk "src/l"))
       (expect (run "archive.create" '("o.tar" "src")) :to-be :ok)
       (with-error (code) (run "archive.create" '("o.tar" "src")) (expect code :to-equal "refusal.exists"))
       (expect (run "archive.extract" '("o.tar") :to "out") :to-be :ok)
       (expect (sb-posix:readlink (disk "out/src/l")) :to-equal "a.txt")))
+  (it "reports a missing source when creating an archive"
+    (with-edit-workspace ()
+      (let ((before (snapshot)))
+        (with-error (code)
+            (run "archive.create" '("missing.zip" "missing-source"))
+          (expect code :to-equal "input.not-found"))
+        (expect-unchanged before))))
 
   (it "extracts only --entry names, from an archive outside the workspace"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((outside (concatenate 'string *root* "/../outside.tar")))
         (with-open-file (out (sb-ext:parse-native-namestring outside) :direction :output :element-type '(unsigned-byte 8)
                                                                       :if-exists :supersede)
@@ -60,7 +67,7 @@
           (delete-file (sb-ext:parse-native-namestring outside))))))
 
   (it "reports a missing archive and one that is no archive"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "plain.txt" "just text")
       (with-error (code message) (run "archive.extract" '("nope.zip") :to "out")
         (expect code :to-equal "input.not-found")
@@ -70,7 +77,7 @@
         (expect message :to-equal "plain.txt is not a zip, tar, tar.gz or gz archive"))))
 
   (it "refuses a hard link past --max-bytes as too large, not as a syntax error"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "h.tar" (retype-tar-entry (aitools.text.domain:write-tar (list (member-file "a" "0123456789") (member-file "h" "")))
                                      1024 #\1 :link "a"))
       (with-error (code) (run "archive.extract" '("h.tar") :to "out" :max-bytes "15")
@@ -83,7 +90,7 @@
       "reports ~A as an input error"
       (name octets code)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "x.gz" (apply #'octet-vector octets))
       (with-error (actual) (run "archive.extract" '("x.gz") :to "out") (expect actual :to-equal code))
       (expect (kind "out") :to-be :absent))))

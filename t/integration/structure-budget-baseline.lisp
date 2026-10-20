@@ -30,10 +30,5 @@
 
 (defparameter *complex-function-ratchet*
   '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
-    ("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
-    ("packages/feature/edit/src/application/mktemp.lisp" "MKTEMP-FLOW" 5)
-    ("packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT" 5)
-    ("packages/feature/edit/src/domain/regex.lisp" "PARSE-MTIME" 6)
-    ("packages/feature/edit/src/domain/table.lisp" "%SCAN-RECORDS" 5)
     ))
 

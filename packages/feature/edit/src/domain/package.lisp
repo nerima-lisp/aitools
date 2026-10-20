@@ -87,14 +87,12 @@
    #:detect-json-indent
    #:parse-json-pointer
    #:format-json-pointer
-   #:json-pointer-get
    #:json-add
    #:json-remove
-   #:json-replace
    #:json-equal
    #:json-merge-patch
    #:json-apply-patch
-   ;; regex.lisp
+   ;; regex.lisp and mtime.lisp
    #:compile-search-pattern/k
    #:call-with-regex-refusals
    #:regex-group-count

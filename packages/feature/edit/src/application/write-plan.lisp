@@ -6,7 +6,10 @@
 ;;;; --expect-hash), and the repairs every write error carries.
 (in-package #:aitools.edit.application)
 
-(defstruct (write-target (:constructor make-write-target (path &key (follow t) (base :cwd))) (:copier nil))
+(defstruct
+    (write-target
+     (:constructor make-write-target (path &key (follow t) (base :cwd)))
+     (:copier nil))
   "PATH as the user wrote it: absolute, or with BASE :CWD (the default)
 relative to the working directory (AITOOLS.WORKSPACE.APPLICATION:
 USER-PATH-ABSOLUTE); BASE :ROOT marks a workspace-relative path a flow
@@ -20,14 +23,26 @@ on a symlink rather than what it points at (delete, move, link)."
 (defun %target-absolute (host workspace-root path base)
   (ecase base
     (:cwd (aitools.workspace.application:user-path-absolute host path))
-    (:root (aitools.workspace.domain:normalize-path
-            (aitools.workspace.domain:join-path (aitools.workspace.application:workspace-root-path workspace-root)
-                                                path)))))
+    (:root
+     (aitools.workspace.domain:normalize-path
+      (aitools.workspace.domain:join-path
+       (aitools.workspace.application:workspace-root-path workspace-root)
+       path)))))
 
-(defstruct (write-plan (:constructor make-write-plan
-                           (&key command targets inputs guard-requirements expect-hashes expect-count
-                              replayable plan record-options record-positionals))
-                       (:copier nil))
+(defstruct
+    (write-plan
+     (:constructor make-write-plan
+                   (&key command
+                         targets
+                         inputs
+                         guard-requirements
+                         expect-hashes
+                         expect-count
+                         replayable
+                         plan
+                         record-options
+                         record-positionals))
+     (:copier nil))
   "What one write command wants, independent of how it runs.
 
 COMMAND: dispatch name (\"edit\", \"json.set\").
@@ -39,9 +54,10 @@ GUARD-REQUIREMENTS: (:EXPECT-HASH user-path) and (:EXPECT-COUNT) entries
 EXPECT-HASHES: the raw --expect-hash arguments; EXPECT-COUNT the raw
   --expect-count text or NIL.
 REPLAYABLE: true when `tx rebase` may re-run the op from its argv.
-PLAN: (lambda (context commit reject)); COMMIT takes change requests and
-  an optional alist of extra output fields, REJECT takes (code message
-  &key candidates diagnostics conflicts repairs).
+PLAN: a function of CONTEXT that receives :ON-COMMITTED and :ON-REJECTED.
+  ON-COMMITTED receives change requests and optional extra output fields.
+  ON-REJECTED receives a code, message, and optional candidates,
+  diagnostics, conflicts, and repairs.
 RECORD-OPTIONS / RECORD-POSITIONALS: the option plist (or a function of the
   resolved target paths returning it) and a function of those paths
   returning the positionals, from which the journal/tx argv is built
@@ -81,8 +97,6 @@ where recorded paths are already workspace-relative."
 (defun context-path (context &optional (index 0))
   (nth index (write-context-paths context)))
 
-;;; ------------------------------------------------------------ repairs
-
 (defun command-line (argv)
   "`aitools` followed by ARGV, shell-quoted (AITOOLS.PROTOCOL.DOMAIN)."
   (aitools.protocol.domain:command-line (cons "aitools" argv)))
@@ -98,67 +112,113 @@ selection itself, and a stale --expect-count would fail it again. Words after
                  ((null words) '())
                  ((string= (first words) "--dry-run") (strip (rest words)))
                  ((string= (first words) "--expect-count") (strip (cddr words)))
-                 ((eql 0 (search "--expect-count=" (first words))) (strip (rest words)))
+                 ((eql 0 (search "--expect-count=" (first words)))
+                  (strip (rest words)))
                  (t (cons (first words) (strip (rest words)))))))
-      (command-line (append (strip (subseq argv 0 separator))
-                            (list "--dry-run")
-                            (and separator (subseq argv separator)))))))
+      (command-line
+       (append (strip (subseq argv 0 separator))
+               (list "--dry-run")
+               (and separator (subseq argv separator)))))))
 
 (defun default-repairs (code command argv &optional path)
   "The repairs of a write error CODE without its own. ARGV is the command as
 typed after the program name (or its canonical argv)."
   (let ((path (and path (aitools.protocol.domain:shell-quote path)))
-        (schema (repair "inspect-schema" "Show this command's arguments and rules."
-                        (format nil "aitools schema ~A" (command-display-name command)))))
+        (schema
+         (repair "inspect-schema"
+                 "Show this command's arguments and rules."
+                 (format nil "aitools schema ~A" (command-display-name command)))))
     (flet ((with-path (action detail control)
-             (if path (list (repair action detail (format nil control path))) (list schema))))
+             (if path
+                 (list (repair action detail (format nil control path)))
+                 (list schema))))
       (cond
         ((string= code "environment.busy")
-         (list (repair "retry" "Run the same command again once the other writer finishes." (command-line argv))))
+         (list
+          (repair "retry"
+                  "Run the same command again once the other writer finishes."
+                  (command-line argv))))
         ((string= code "selection.count-mismatch")
-         (list (repair "count" "Count the selection without writing, then pass that --expect-count."
-                       (dry-run-command-line argv))))
-        ((member code '("refusal.target-changed" "refusal.exists" "refusal.not-a-file" "environment.io")
-                 :test #'string=)
-         (with-path "info" "Look at the path's current state and hash." "aitools info ~A"))
+         (list
+          (repair "count"
+                  "Count the selection without writing, then pass that --expect-count."
+                  (dry-run-command-line argv))))
+        ((member code
+                 '("refusal.target-changed" "refusal.exists"
+                                            "refusal.not-a-file"
+                                            "environment.io")
+                 :test
+                 #'string=)
+         (with-path "info"
+                    "Look at the path's current state and hash."
+                    "aitools info ~A"))
         ((string= code "refusal.redacted-input")
-         (with-path "read" "Read the real text: [REDACTED_SECRET] marks masked output, not file content." "aitools read ~A"))
-        ((member code '("selection.no-match" "selection.ambiguous" "input.unsupported-language")
-                 :test #'string=)
-         (with-path "read" "Read the file to choose a unique, current selection." "aitools read ~A"))
+         (with-path "read"
+                    "Read the real text: [REDACTED_SECRET] marks masked output, not file content."
+                    "aitools read ~A"))
+        ((member code
+                 '("selection.no-match" "selection.ambiguous"
+                                        "input.unsupported-language")
+                 :test
+                 #'string=)
+         (with-path "read"
+                    "Read the file to choose a unique, current selection."
+                    "aitools read ~A"))
         ((string= code "input.not-utf8")
-         (with-path "transcode" "Convert the file to UTF-8 before editing." "aitools transcode ~A --to utf-8"))
+         (with-path "transcode"
+                    "Convert the file to UTF-8 before editing."
+                    "aitools transcode ~A --to utf-8"))
         ((string= code "input.not-found")
          (if path
-             (list (repair "find" "Look for the path." (format nil "aitools find ~A" path)))
+             (list
+              (repair "find"
+                      "Look for the path."
+                      (format nil "aitools find ~A" path)))
              (list schema)))
         ((string= code "refusal.outside-workspace")
-         (list (repair "mktemp" "Temporary files belong in the mktemp area, which writes may use."
-                       "aitools mktemp")))
+         (list
+          (repair "mktemp"
+                  "Temporary files belong in the mktemp area, which writes may use."
+                  "aitools mktemp")))
         (t (list schema))))))
 
-;;; --------------------------------------------------------- plan helpers
-
-(defun check-expect-count/k (context actual reject on-ok)
-  "Compare --expect-count with ACTUAL: call ON-OK (), or REJECT with
+(aitools.kernel.domain:define-flow
+ (check-expect-count/k context actual &key on-rejected on-ok)
+ "Compare --expect-count with ACTUAL: call ON-OK (), or REJECT with
 selection.count-mismatch and the actual count in `diagnostics`."
-  (declare (type function reject on-ok))
-  (let ((expected (write-context-expect-count context)))
-    (setf (write-context-selected-count context) actual)
-    (if (or (null expected) (= expected actual))
-        (funcall on-ok)
-        (funcall reject "selection.count-mismatch"
-                 (format nil "expected ~D, found ~D" expected actual)
-                 :diagnostics (list (aitools.protocol.domain:json-object-from-alist
-                                     (list (cons "expected" expected) (cons "actual" actual))))))))
+ (let ((expected (write-context-expect-count context)))
+   (setf (write-context-selected-count context) actual)
+   (if (or (null expected) (= expected actual))
+       (aitools.kernel.domain:flow-continue :on-ok)
+       (aitools.kernel.domain:flow-continue :on-rejected
+                                            "selection.count-mismatch"
+                                            (format nil
+                                                    "expected ~D, found ~D"
+                                                    expected
+                                                    actual)
+                                            :diagnostics
+                                            (list
+                                             (aitools.protocol.domain:json-object-from-alist
+                                              (list (cons "expected" expected)
+                                                    (cons "actual" actual))))))))
 
-(defun require-expect-hash/k (context path reject on-ok)
-  "The state-dependent guard requirement (replacing an existing destination):
+(aitools.kernel.domain:define-flow
+ (require-expect-hash/k context path &key on-rejected on-ok)
+ "The state-dependent guard requirement (replacing an existing destination):
 ON-OK when an --expect-hash was given, else REJECT argument.invalid."
-  (declare (type function reject on-ok))
-  (if (member path (write-context-hash-paths context) :test #'equal)
-      (funcall on-ok)
-      (funcall reject "argument.invalid"
-               (format nil "~A exists; replacing it needs --expect-hash ~A=<hash>" path path)
-               :repairs (list (repair "get-hash" "Read the current hash, then pass it as --expect-hash."
-                                      (format nil "aitools info ~A" (aitools.protocol.domain:shell-quote path)))))))
+ (if (member path (write-context-hash-paths context) :test #'equal)
+     (aitools.kernel.domain:flow-continue :on-ok)
+     (aitools.kernel.domain:flow-continue :on-rejected
+                                          "argument.invalid"
+                                          (format nil
+                                                  "~A exists; replacing it needs --expect-hash ~A=<hash>"
+                                                  path
+                                                  path)
+                                          :repairs
+                                          (list
+                                           (repair "get-hash"
+                                                   "Read the current hash, then pass that as --expect-hash."
+                                                   (format nil
+                                                           "aitools info ~A"
+                                                           (aitools.protocol.domain:shell-quote
+                                                            path)))))))

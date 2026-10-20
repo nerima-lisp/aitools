@@ -19,13 +19,6 @@
     (declare (ignore name))
     (expect (detect-json-indent (format nil template)) :to-equal expected))
 
-  (it "walks pointers through arrays and objects, refusing what is not there"
-    (let ((value (j "{\"a\": [{\"b\": 1}, 2], \"s\": \"text\"}")))
-      (expect (json-num-text (json-pointer-get value (parse-json-pointer "/a/0/b"))) :to-equal "1")
-      (expect (json-pointer-get value '()) :to-be value)
-      (dolist (pointer '("/a/2" "/a/x" "/a/-" "/s/0" "/missing"))
-        (expect (refusal-code (lambda () (json-pointer-get value (parse-json-pointer pointer))))
-                :to-equal "input.not-found"))))
   (it "sets, inserts and removes below an array element without touching the original"
     (let* ((text "{\"a\": [{\"b\": 1}, [5, 6]]}")
            (value (j text)))
@@ -33,8 +26,6 @@
       (expect (js (json-add value (parse-json-pointer "/a/1/0") (j "4"))) :to-equal "{\"a\":[{\"b\":1},[4,5,6]]}")
       (expect (js (json-add value '() (j "7"))) :to-equal "7")
       (expect (js (json-remove value (parse-json-pointer "/a/1/1"))) :to-equal "{\"a\":[{\"b\":1},[5]]}")
-      (expect (js (json-replace value (parse-json-pointer "/a/1/0") (j "9"))) :to-equal "{\"a\":[{\"b\":1},[9,6]]}")
-      (expect (js (json-replace value '() (j "[]"))) :to-equal "[]")
       (expect (js value) :to-equal "{\"a\":[{\"b\":1},[5,6]]}")))
 
   (it-each (("a missing parent below an array" "/a/9/b" "input.not-found")
@@ -220,7 +211,6 @@ entries WRITE-TAR does not produce."
 (describe "aitools.edit.domain remaining branches of the value models"
   (it "refuses pointers through numbers and strings, and a patch that is a string"
     (let ((value (j "{\"n\": 1, \"s\": \"t\"}")))
-      (expect (refusal-code (lambda () (json-pointer-get value (parse-json-pointer "/n/x")))) :to-equal "input.not-found")
       (expect (refusal-code (lambda () (json-add value (parse-json-pointer "/n/b/c") (j "1")))) :to-equal "input.not-found")
       (expect (refusal-code (lambda () (json-remove value (parse-json-pointer "/s/x")))) :to-equal "input.not-found")
       (expect (refusal-code (lambda () (json-apply-patch value "ops"))) :to-equal "argument.invalid")))

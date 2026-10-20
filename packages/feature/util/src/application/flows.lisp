@@ -48,17 +48,17 @@
       :record-positionals (lambda (paths)
                             (declare (ignore paths))
                             (list scheme))
-      :plan (lambda (context commit reject)
+      :plan (lambda (context &key on-committed on-rejected)
               (let ((path (aitools.edit.application:context-path context)))
                 (if (aitools.store.domain:entry-state-absent-p
                      (aitools.store.application:view-path-state
                       (aitools.edit.application:write-context-view context)
                       path))
-                    (funcall commit
+                    (funcall on-committed
                              (list
                               (aitools.store.domain:write-file-request path decoded))
                              (list (cons "bytes" (length decoded))))
-                    (funcall reject
+                    (funcall on-rejected
                              "refusal.exists"
                              (format nil
                                      "~A already exists; util decode --to writes only a new file"

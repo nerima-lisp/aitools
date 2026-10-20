@@ -10,8 +10,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 38)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 24)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 23)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 19)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
@@ -154,4 +154,25 @@
             :to-equal (list (list "fixture.lisp" "BAD-UNINTERNED-QUOTE" :positional-continuation)
                             (list "fixture.lisp" "BAD-UNINTERNED-FUNCTION" :positional-continuation)
                             (list "fixture.lisp" "BAD-UNINTERNED-APPLY" :positional-continuation)
-                            (list "fixture.lisp" "BAD-UNINTERNED-LET" :positional-continuation)))))
+                            (list "fixture.lisp" "BAD-UNINTERNED-LET" :positional-continuation))))
+  (it "checks write-command CPS bodies"
+    (expect
+     (%fixture-violations
+      "(define-write-command \"clean.command\"
+  (ports env positionals options &key on-plan on-error)
+  nil)")
+     :to-equal nil)
+    (expect
+     (%fixture-violations
+      "(define-write-command \"bad.command\"
+  (ports env positionals options &key on-plan on-error)
+  (helper on-plan))")
+     :to-equal
+     (list (list "fixture.lisp" "PREPARE-BAD-COMMAND/K" :positional-continuation)))
+    (expect
+     (%fixture-violations
+      "(define-write-command \"bad.return\"
+  (ports env positionals options &key on-plan on-error)
+  (return-from prepare-bad-return/k nil))")
+     :to-equal
+     (list (list "fixture.lisp" "PREPARE-BAD-RETURN/K" :return-from)))))

@@ -1,5 +1,6 @@
+;;;; t/e2e/file-operation-cases.lisp
 ;;;;
-;;;; Compare file copy, move, deletion, metadata, temporary-file, and batch-rename behavior with shell tools.
+;;;; Correspondence table rows 28-30: file operations and metadata.
 (in-package #:aitools.e2e.test)
 
 (defun tree-snapshot (workspace directory)

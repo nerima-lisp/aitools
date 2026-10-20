@@ -2,7 +2,7 @@
 
 (describe "aitools json writes"
   (it "keeps key order and the file's indentation, appends with /-, and refuses a missing parent"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" (format nil "{~%    \"z\": 1,~%    \"a\": [1]~%}~%"))
       (expect (run "json.set" '("c.json" "/a/-" "2")) :to-be :ok)
       (expect (run "json.set" '("c.json" "/m" "{\"k\":true}")) :to-be :ok)
@@ -12,9 +12,17 @@
       (with-error (code) (run "json.set" '("c.json" "/z" "bare words")) (expect code :to-equal "argument.invalid"))
       (expect (run "json.delete" '("c.json" "/m")) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%    \"z\": 1,~%    \"a\": [~%        1,~%        2~%    ]~%}~%"))))
+  (it "refuses to edit a binary JSON file without changing it"
+    (with-edit-workspace ()
+      (put "bad.json" (octet-vector 123 34 97 34 58 0 125))
+      (let ((before (snapshot)))
+        (with-error (code)
+            (run "json.set" '("bad.json" "/a" "1") :expect-hash (list (hash "bad.json")))
+          (expect code :to-equal "refusal.not-a-file"))
+        (expect-unchanged before))))
 
   (it "merges and patches from --stdin, writing nothing when a test op fails"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" (format nil "{\"a\": 1, \"b\": 2}~%"))
       (setf *stdin* (bytes "{\"b\": null, \"c\": 3}"))
       (expect (run "json.merge" '("c.json") :stdin t) :to-be :ok)
@@ -28,7 +36,7 @@
       (expect (text "c.json") :to-equal (format nil "{\"a\":1,\"c\":3,\"d\":[]}~%"))))
 
   (it "formats with --indent, --minify and --sort-keys, and refuses non-JSON"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" "{\"b\":1,\"a\":{\"y\":2,\"x\":3}}")
       (expect (run "json.fmt" '("c.json") :indent "2" :sort-keys t) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%  \"a\": {~%    \"x\": 3,~%    \"y\": 2~%  },~%  \"b\": 1~%}"))
@@ -39,7 +47,7 @@
 
 (describe "aitools table set"
   (it "sets one cell with a required hash, and undo restores the file"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "t.csv" (format nil "id,name~%1,ann~%2,bob~%"))
       (with-error (code) (run "table.set" '("t.csv") :row "2" :column "name" :value "x") (expect code :to-equal "argument.invalid"))
       (let ((before (snapshot)))
@@ -51,13 +59,22 @@
           (with-error (code) (run "table.set" '("t.csv") :row "9" :column "name" :value "x" :expect-hash (list (hash "t.csv")))
             (expect code :to-equal "input.not-found"))
           (expect (undo (field fields "op_id")) :to-be :committed))
-        (expect (snapshot) :to-equal before)))))
+        (expect (snapshot) :to-equal before))))
+  (it "refuses to edit a binary table file without changing it"
+    (with-edit-workspace ()
+      (put "bad.csv" (octet-vector 105 100 0 10))
+      (let ((before (snapshot)))
+        (with-error (code)
+            (run "table.set" '("bad.csv") :row "1" :column "name" :value "x"
+                 :expect-hash (list (hash "bad.csv")))
+          (expect code :to-equal "refusal.not-a-file"))
+        (expect-unchanged before)))))
 
 (describe "aitools archive extract and create"
   (it-each (("zip" "out.zip") ("tar" "out.tar") ("tar.gz" "out.tar.gz"))
       "round-trips a tree through ~A"
       (format name)
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "src/a.txt" (format nil "alpha~%"))
       (put "src/bin/b.dat" (octet-vector 0 1 2 255) :mode #o755)
       (multiple-value-bind (kind fields) (run "archive.create" (list name "src") :format format)
@@ -74,7 +91,7 @@
           (expect (kind "unpacked") :to-be :absent)))))
 
   (it "writes nothing for zip slip, a bomb, or a collision"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "slip.tar" (aitools.text.domain:write-tar (list (member-file "ok.txt" "ok") (member-file "../evil" "x"))))
       (put "bomb.zip" (zip-of (aitools.text.domain:make-archive-member
                                :name "z" :kind :file :data (make-array 3000000 :element-type '(unsigned-byte 8)
@@ -88,7 +105,7 @@
         (expect-unchanged before))))
 
   (it "reports a malformed gzip header as input.syntax-error through archive extract"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "broken.gz" (octet-vector 31 139 8 8 0 0 0 0 0 255 120))
       (with-error (code message)
           (run "archive.extract" '("broken.gz") :to "out")
@@ -96,7 +113,7 @@
         (expect message :to-equal "malformed archive data: unterminated gzip header string"))))
 
   (it "leaves ignored files out of archive create unless --no-ignore"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:mkdir (disk "node_modules") #o755)
       (put "node_modules/x.js" "x")
       (put "keep.txt" "k")

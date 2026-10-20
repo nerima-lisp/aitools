@@ -22,11 +22,12 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (sb-posix:close fd))))
 
 (defun read-stdin-outcome (limit)
-  (aitools.edit.infrastructure:read-stdin-octets
-   limit
-   :on-octets (lambda (octets) (list :octets octets))
-   :on-too-large (lambda () (list :too-large))
-   :on-failure (lambda (message) (list :failure (stringp message)))))
+  (multiple-value-bind (status payload)
+      (aitools.edit.infrastructure:read-stdin-octets limit)
+    (list status
+          (if (eq status :failure)
+              (stringp payload)
+              payload))))
 
 (describe "aitools edit production ports"
   (it-each (("an empty stream" 0 10 :ok)
@@ -37,7 +38,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       "reads ~A with a bounded read"
       (name size limit outcome)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((octets (make-array size :element-type '(unsigned-byte 8) :initial-element 65)))
         (call-with-file-octets
          octets
@@ -52,15 +53,15 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
                           (expect read :to-be nil))))))))))
 
   (it "reads descriptor 0 as raw bytes, refusing more than the limit"
-    (with-workspace ()
+    (with-edit-workspace ()
       (call-with-file-octets
        (octet-vector 0 255 13 10)
        (lambda (path)
          (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 10) :to-equalp (list :octets (octet-vector 0 255 13 10)))))
-         (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 3) :to-equal '(:too-large))))))))
+         (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 3) :to-equal (list :too-large nil))))))))
 
   (it "reports a descriptor 0 that cannot be read as a failure"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:mkdir (disk "dir") #o755)
       (call-with-standard-input-from (disk "dir") (lambda () (expect (read-stdin-outcome 10) :to-equal '(:failure t))))))
 
@@ -97,7 +98,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
 
 (describe "aitools write pipeline: the boundary rechecked under the lock"
   (it "refuses a write whose target a symlink swap moved to another workspace path"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a/x.txt" (format nil "a~%"))
       (put "b/x.txt" (format nil "b~%"))
       (sb-posix:symlink "a" (disk "link"))
@@ -111,7 +112,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (expect (text "b/x.txt") :to-equal (format nil "b~%"))))
 
   (it "refuses a write whose target a symlink swap moved outside the workspace"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a/x.txt" (format nil "a~%"))
       (sb-posix:symlink "a" (disk "link"))
       (call-with-fault-at-lock
@@ -122,7 +123,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (expect (text "a/x.txt") :to-equal (format nil "a~%"))))
 
   (it "reports a damaged store record met outside a tx as environment.io with a tx status repair"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (call-with-fault-at-lock
        (lambda () (error 'aitools.store.domain:store-format-error :detail "injected"))
@@ -134,19 +135,19 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
 
 (describe "aitools write guards: remaining boundary and marker cases"
   (it "keeps a file that already holds the redaction marker editable"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "[REDACTED_SECRET]~%x~%"))
       (expect (run "edit" '("a.txt") :old "x" :new "y") :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "[REDACTED_SECRET]~%y~%"))))
 
   (it "refuses an empty --expect-count"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code) (run "replace" '("a" "b" "a.txt") :expect-count "")
         (expect code :to-equal "argument.invalid"))))
 
   (it "refuses to move or delete a .git entry the target names itself"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" "a")
       (sb-posix:mkdir (disk ".git") #o755)
       (with-error (code message) (run "move" '("a.txt" ".git"))
@@ -156,7 +157,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (expect (kind ".git") :to-be :directory)))
 
   (it "deletes and moves mktemp entries, which are valid write targets"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let* ((file (mktemp-path))
              (directory (mktemp-path :dir t))
              (inner (concatenate 'string directory "/x")))
@@ -168,7 +169,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
         (expect (probe-file file) :to-be nil))))
 
   (it "names a symlink loop as the reason a target is refused"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:symlink "l2" (disk "l1"))
       (sb-posix:symlink "l1" (disk "l2"))
       (with-error (code message) (run "write" '("l1/x") :content '("x"))
@@ -176,7 +177,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
         (expect (search "a symlink loop" message) :to-be-truthy))))
 
   (it "refuses a link pointing into the mktemp area"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((temporary (mktemp-path)))
         (with-error (code message) (run "link" (list temporary "l"))
           (expect code :to-equal "refusal.outside-workspace")
@@ -184,14 +185,16 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
         (expect (kind "l") :to-be :absent))))
 
   (it "refuses a bad --root when another context drives the pipeline directly with a file as root"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "file" "x")
       (let ((result nil))
         (aitools.edit.application:run-write-command/k
          *ports*
          (aitools.edit.application:make-write-plan
           :command "write" :targets (list (aitools.edit.application:make-write-target "a.txt"))
-          :plan (lambda (context commit reject) (declare (ignore context reject)) (funcall commit '())))
+          :plan (lambda (context &key on-committed on-rejected)
+                   (declare (ignore context on-rejected))
+                   (funcall on-committed '())))
          :root (disk "file")
          :on-ok (lambda (fields) (setf result fields))
          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))

@@ -7,7 +7,8 @@
 ;;;; byte-identical everywhere else; the BOM never appears in line text.
 (in-package #:aitools.edit.domain)
 
-(deftype octets () '(simple-array (unsigned-byte 8) (*)))
+(deftype octets ()
+  '(simple-array (unsigned-byte 8) (*)))
 
 (defstruct (text-document (:constructor %make-text-document (lines terminators bom-p eol))
                           (:copier nil))
@@ -17,9 +18,14 @@
   (bom-p nil :type boolean :read-only t)
   (eol (string #\Newline) :type string :read-only t))
 
-(defparameter +lf+ (string #\Newline))
-(defparameter +crlf+ (coerce (list #\Return #\Newline) 'string))
-(defparameter +utf8-bom+ (coerce #(#xEF #xBB #xBF) 'octets))
+(defparameter +lf+
+  (string #\Newline))
+
+(defparameter +crlf+
+  (coerce (list #\Return #\Newline) 'string))
+
+(defparameter +utf8-bom+
+  (coerce #(#xEF #xBB #xBF) 'octets))
 
 (defun document-line-count (document)
   (length (text-document-lines document)))
@@ -30,29 +36,48 @@
 
 (defun document-final-newline-p (document)
   (let ((count (document-line-count document)))
-    (and (plusp count)
-         (plusp (length (svref (text-document-terminators document) (1- count)))))))
+    (and (plusp count) (plusp (length (svref (text-document-terminators document) (1- count)))))))
 
 (defun %split-text (text)
   "(values lines terminators) of TEXT split at each line feed; a CR before
 the line feed belongs to the terminator."
-  (let ((lines '()) (terminators '()) (start 0) (length (length text)))
-    (loop for newline = (position #\Newline text :start start)
-          while newline
-          do (let ((crlf (and (> newline start) (char= (char text (1- newline)) #\Return))))
-               (push (subseq text start (if crlf (1- newline) newline)) lines)
-               (push (if crlf +crlf+ +lf+) terminators)
-               (setf start (1+ newline))))
+  (let ((lines '())
+        (terminators '())
+        (start 0)
+        (length (length text)))
+    (loop
+      for
+      newline
+      =
+      (position #\Newline text :start start)
+      while
+      newline
+      do
+      (let ((crlf (and (> newline start) (char= (char text (1- newline)) #\Return))))
+        (push
+         (subseq text
+                 start
+                 (if crlf
+                     (1- newline)
+                     newline))
+         lines)
+        (push
+         (if crlf
+             +crlf+
+             +lf+)
+         terminators)
+        (setf start (1+ newline))))
     (when (< start length)
       (push (subseq text start) lines)
       (push "" terminators))
-    (values (coerce (nreverse lines) 'simple-vector)
-            (coerce (nreverse terminators) 'simple-vector))))
+    (values (coerce (nreverse lines) 'simple-vector) (coerce (nreverse terminators) 'simple-vector))))
 
 (defun %dominant-eol (terminators)
   (let ((crlf (count +crlf+ terminators :test #'string=))
         (lf (count +lf+ terminators :test #'string=)))
-    (if (> crlf lf) +crlf+ +lf+)))
+    (if (> crlf lf)
+        +crlf+
+        +lf+)))
 
 (defun make-text-document (text &key bom-p eol)
   "A document holding TEXT (a string without BOM). EOL defaults to the
@@ -63,19 +88,37 @@ terminator TEXT uses most."
 (defun document-text (document)
   "The document's text without BOM, terminators as stored."
   (with-output-to-string (out)
-    (loop for line across (text-document-lines document)
-          for terminator across (text-document-terminators document)
-          do (write-string line out) (write-string terminator out))))
+    (loop
+      for
+      line
+      across
+      (text-document-lines document)
+      for
+      terminator
+      across
+      (text-document-terminators document)
+      do
+      (write-string line out)
+      (write-string terminator out))))
 
 (defun document-logical-text (document)
   "The document's text with every terminator written as a line feed: the
 form `--old` and `replace --multiline` match against, so a CRLF file
 matches a pattern written with plain line feeds."
   (with-output-to-string (out)
-    (loop for line across (text-document-lines document)
-          for terminator across (text-document-terminators document)
-          do (write-string line out)
-             (when (plusp (length terminator)) (write-char #\Newline out)))))
+    (loop
+      for
+      line
+      across
+      (text-document-lines document)
+      for
+      terminator
+      across
+      (text-document-terminators document)
+      do
+      (write-string line out)
+      (when (plusp (length terminator))
+        (write-char #\Newline out)))))
 
 (defun document-line-offsets (document)
   "A vector of each line's start offset in DOCUMENT-LOGICAL-TEXT, followed
@@ -85,29 +128,37 @@ by the text's length."
          (offset 0))
     (dotimes (index count)
       (setf (svref offsets index) offset)
-      (incf offset (+ (length (document-line document index))
-                      (if (plusp (length (svref (text-document-terminators document) index))) 1 0))))
+      (incf offset
+            (+ (length (document-line document index))
+               (if (plusp (length (svref (text-document-terminators document) index)))
+                   1
+                   0))))
     (setf (svref offsets count) offset)
     offsets))
 
 (defun offset-line-index (offsets offset)
   "The 0-based line holding logical-text OFFSET (OFFSETS from
 DOCUMENT-LINE-OFFSETS)."
-  (let ((low 0) (high (- (length offsets) 2)))
-    (loop while (< low high)
-          do (let ((middle (ceiling (+ low high) 2)))
-               (if (<= (svref offsets middle) offset)
-                   (setf low middle)
-                   (setf high (1- middle)))))
+  (let ((low 0)
+        (high (- (length offsets) 2)))
+    (loop
+      while
+      (< low high)
+      do
+      (let ((middle (ceiling (+ low high) 2)))
+        (if (<= (svref offsets middle) offset)
+            (setf low middle)
+            (setf high (1- middle)))))
     (max low 0)))
 
 (defun render-document (document)
   "The document's bytes: BOM, then each line and its terminator."
   (let ((body (aitools.text.domain:encode-utf8 (document-text document))))
-    (coerce (if (text-document-bom-p document)
-                (concatenate 'octets +utf8-bom+ body)
-                body)
-            'octets)))
+    (coerce
+     (if (text-document-bom-p document)
+         (concatenate 'octets +utf8-bom+ body)
+         body)
+     'octets)))
 
 (defun content-lines (text)
   "TEXT split into line strings for a line-level write:
@@ -118,8 +169,10 @@ the empty string means no lines at all."
       (coerce (%split-text text) 'list)))
 
 (defun %rebuild (document lines terminators &key (bom-p (text-document-bom-p document)))
-  (%make-text-document (coerce lines 'simple-vector) (coerce terminators 'simple-vector)
-                       bom-p (text-document-eol document)))
+  (%make-text-document (coerce lines 'simple-vector)
+                       (coerce terminators 'simple-vector)
+                       bom-p
+                       (text-document-eol document)))
 
 (defun document-replace-lines (document start end new-lines)
   "Replace lines [START, END) (0-based) with NEW-LINES (strings), which get
@@ -130,20 +183,27 @@ an empty file counts as ending with one."
          (final-newline (or (zerop (length lines)) (document-final-newline-p document)))
          (eol (text-document-eol document))
          (new-lines (coerce new-lines 'list))
-         (result-lines (append (coerce (subseq lines 0 start) 'list)
-                               new-lines
-                               (coerce (subseq lines end) 'list)))
-         (result-terminators (append (coerce (subseq terminators 0 start) 'list)
-                                     (make-list (length new-lines) :initial-element eol)
-                                     (coerce (subseq terminators end) 'list))))
-    (loop for cell on result-terminators
-          while (rest cell)
-          when (zerop (length (car cell)))
-            do (setf (car cell) eol))
+         (result-lines (append (coerce (subseq lines 0 start) 'list) new-lines (coerce (subseq lines end) 'list)))
+         (result-terminators
+          (append (coerce (subseq terminators 0 start) 'list)
+                  (make-list (length new-lines) :initial-element eol)
+                  (coerce (subseq terminators end) 'list))))
+    (loop
+      for
+      cell
+      on
+      result-terminators
+      while
+      (rest cell)
+      when
+      (zerop (length (car cell)))
+      do
+      (setf (car cell) eol))
     (when result-lines
       (let ((last (last result-terminators)))
         (if final-newline
-            (when (zerop (length (car last))) (setf (car last) eol))
+            (when (zerop (length (car last)))
+              (setf (car last) eol))
             (setf (car last) ""))))
     (%rebuild document result-lines result-terminators)))
 
@@ -160,10 +220,12 @@ follows TEXT."
       (dotimes (index count)
         (let ((from-end (- count index)))
           (unless (zerop (length (svref terminators index)))
-            (setf (svref terminators index)
-                  (cond ((< index (min first-changed old-count)) (svref old-terminators index))
-                        ((and (<= from-end lines-after) (>= index first-changed))
-                         (let ((old (svref old-terminators (- old-count from-end))))
-                           (if (plusp (length old)) old eol)))
-                        (t eol))))))
+            (setf (svref terminators index) (cond
+                                              ((< index (min first-changed old-count)) (svref old-terminators index))
+                                              ((and (<= from-end lines-after) (>= index first-changed))
+                                               (let ((old (svref old-terminators (- old-count from-end))))
+                                                 (if (plusp (length old))
+                                                     old
+                                                     eol)))
+                                              (t eol))))))
       (%rebuild document lines terminators))))

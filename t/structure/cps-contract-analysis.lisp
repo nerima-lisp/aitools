@@ -76,6 +76,7 @@
   (cond
     ((%operator-name-p form "DEFUN") (list form))
     ((%operator-name-p form "DEFINE-FLOW") (list form))
+    ((%operator-name-p form "DEFINE-WRITE-COMMAND") (list form))
     ((%operator-name-p form "PROGN")
      (mapcan #'%top-level-definitions (cdr form)))
     ((%operator-name-p form "EVAL-WHEN")
@@ -206,35 +207,6 @@
          (name (%function-name-string (first lambda-list)))
          (variables (%continuation-variables (rest lambda-list))))
     (mapcar (lambda (kind) (list relative-path name kind)) (%flow-body-kinds (cddr form) variables))))
-
-(defun %source-violations (text relative-path)
-  (loop with package-name = nil for top-level in (%source-forms text)
-        do (when (%operator-name-p top-level "IN-PACKAGE")
-             (setf package-name (string-upcase (string (second top-level)))))
-        append (loop for form in (%top-level-definitions top-level) append
-                     (if (%operator-name-p form "DEFUN")
-                         (%definition-violations form relative-path package-name)
-                         (%flow-violations form relative-path)))))
-
-(defun %source-pathnames (root)
-  (sort (remove-duplicates
-         (append (directory (merge-pathnames "packages/**/src/**/*.lisp" root))
-                 (directory (merge-pathnames "src/**/*.lisp" root)))
-         :test #'equal)
-        #'string< :key #'namestring))
-
-(defun %key-order (entry)
-  (format nil "~A|~A|~A" (first entry) (second entry) (third entry)))
-
-(defun %cps-contract-violations (root)
-  (let ((violations '()))
-    (dolist (pathname (%source-pathnames root))
-      (setf violations
-            (nconc violations
-                   (%source-violations (uiop:read-file-string pathname)
-                                       (enough-namestring pathname root)))))
-    (sort (remove-duplicates violations :test #'equal)
-          #'string< :key #'%key-order)))
 
 (defun %allowlist-keys ()
   (loop for (kind . entries) in *legacy-cps-allowlist*

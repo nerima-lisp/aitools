@@ -22,12 +22,16 @@
 (defun parse-json-text (text)
   "TEXT parsed into the edit value model; signals JSON-KIT:JSON-PARSE-ERROR."
   (json-kit:parse text
-                  :object-type :alist
-                  :duplicate-key-policy :last
-                  :object-hook #'make-json-obj
-                  :number-decoder (lambda (token &rest flags) (declare (ignore flags)) (make-json-num token))))
-
-;;; ------------------------------------------------------------ serializing
+                  :object-type
+                  :alist
+                  :duplicate-key-policy
+                  :last
+                  :object-hook
+                  #'make-json-obj
+                  :number-decoder
+                  (lambda (token &rest flags)
+                    (declare (ignore flags))
+                    (make-json-num token))))
 
 (defun %write-json-string (string out)
   (write-string (json-kit:stringify string) out))
@@ -39,22 +43,34 @@ or NIL for the minified form. SORT-KEYS orders object members by key."
     (labels ((newline (level)
                (when indent
                  (write-char #\Newline out)
-                 (dotimes (i level) (write-string indent out))))
+                 (dotimes (i level)
+                   (write-string indent out))))
              (emit (value level)
                (cond
                  ((json-obj-p value)
                   (let ((members (json-obj-members value)))
-                    (when sort-keys (setf members (sort (copy-list members) #'string< :key #'car)))
+                    (when sort-keys
+                      (setf members (sort (copy-list members) #'string< :key #'car)))
                     (if (null members)
                         (write-string "{}" out)
                         (progn
                           (write-char #\{ out)
-                          (loop for (member . rest) on members
-                                do (newline (1+ level))
-                                   (%write-json-string (car member) out)
-                                   (write-string (if indent ": " ":") out)
-                                   (emit (cdr member) (1+ level))
-                                   (when rest (write-char #\, out)))
+                          (loop
+                            for
+                            (member . rest)
+                            on
+                            members
+                            do
+                            (newline (1+ level))
+                            (%write-json-string (car member) out)
+                            (write-string
+                             (if indent
+                                 ": "
+                                 ":")
+                             out)
+                            (emit (cdr member) (1+ level))
+                            (when rest
+                              (write-char #\, out)))
                           (newline level)
                           (write-char #\} out)))))
                  ((and (vectorp value) (not (stringp value)))
@@ -62,10 +78,18 @@ or NIL for the minified form. SORT-KEYS orders object members by key."
                       (write-string "[]" out)
                       (progn
                         (write-char #\[ out)
-                        (loop for index from 0 below (length value)
-                              do (newline (1+ level))
-                                 (emit (aref value index) (1+ level))
-                                 (when (< (1+ index) (length value)) (write-char #\, out)))
+                        (loop
+                          for
+                          index
+                          from
+                          0
+                          below
+                          (length value)
+                          do
+                          (newline (1+ level))
+                          (emit (aref value index) (1+ level))
+                          (when (< (1+ index) (length value))
+                            (write-char #\, out)))
                         (newline level)
                         (write-char #\] out))))
                  ((stringp value) (%write-json-string value out))
@@ -81,17 +105,31 @@ or NIL for the minified form. SORT-KEYS orders object members by key."
 indented line, or NIL when the value is written on one line."
   (let ((trimmed (string-trim '(#\Space #\Tab #\Return #\Newline) text)))
     (when (find #\Newline trimmed)
-      (loop with start = 0
-            for newline = (position #\Newline trimmed :start start)
-            while newline
-            do (let* ((line-start (1+ newline))
-                      (end (position-if-not (lambda (c) (member c '(#\Space #\Tab))) trimmed :start line-start)))
-                 (when (and (> end line-start) (not (member (char trimmed end) '(#\Newline #\Return))))
-                   (return (subseq trimmed line-start end)))
-                 (setf start line-start))
-            finally (return "  ")))))
-
-;;; ---------------------------------------------------------------- pointers
+      (loop
+        with
+        start
+        =
+        0
+        for
+        newline
+        =
+        (position #\Newline trimmed :start start)
+        while
+        newline
+        do
+        (let* ((line-start (1+ newline))
+               (end
+                (position-if-not
+                 (lambda (c)
+                   (member c '(#\Space #\Tab)))
+                 trimmed
+                 :start
+                 line-start)))
+          (when (and (> end line-start) (not (member (char trimmed end) '(#\Newline #\Return))))
+            (return (subseq trimmed line-start end)))
+          (setf start line-start))
+        finally
+        (return "  ")))))
 
 (defun parse-json-pointer (pointer)
   "RFC 6901 POINTER as a list of reference tokens; signals JSON-EDIT-ERROR
@@ -120,22 +158,40 @@ AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
     (t :null)))
 
 (defparameter *json-value-model*
-  (aitools.kernel.domain:make-json-value-model
-   :object-p #'json-obj-p
-   :object-members #'json-obj-members
-   :object-from-members #'make-json-obj
-   :array-p (lambda (value) (and (vectorp value) (not (stringp value))))
-   :array-elements #'identity
-   :array-from-elements (lambda (elements) (coerce elements 'simple-vector))
-   :array-insert (lambda (array index value)
-                   (concatenate 'vector (subseq array 0 index) (vector value) (subseq array index)))
-   :array-remove (lambda (array index)
-                   (concatenate 'vector (subseq array 0 index) (subseq array (1+ index))))
-   :null-p #'json-kit:json-null-p
-   :string-p #'stringp
-   :string-text #'identity
-   :string-length #'length
-   :equal (lambda (a b) (aitools.kernel.domain:json-equal a b #'%classify-json))))
+  (aitools.kernel.domain:make-json-value-model :object-p
+                                               #'json-obj-p
+                                               :object-members
+                                               #'json-obj-members
+                                               :object-from-members
+                                               #'make-json-obj
+                                               :array-p
+                                               (lambda (value)
+                                                 (and (vectorp value) (not (stringp value))))
+                                               :array-elements
+                                               #'identity
+                                               :array-from-elements
+                                               (lambda (elements)
+                                                 (coerce elements 'simple-vector))
+                                               :array-insert
+                                               (lambda (array index value)
+                                                 (concatenate 'vector
+                                                              (subseq array 0 index)
+                                                              (vector value)
+                                                              (subseq array index)))
+                                               :array-remove
+                                               (lambda (array index)
+                                                 (concatenate 'vector (subseq array 0 index) (subseq array (1+ index))))
+                                               :null-p
+                                               #'json-kit:json-null-p
+                                               :string-p
+                                               #'stringp
+                                               :string-text
+                                               #'identity
+                                               :string-length
+                                               #'length
+                                               :equal
+                                               (lambda (a b)
+                                                 (aitools.kernel.domain:json-equal a b #'%classify-json))))
 
 (defun %with-json-model-errors (function)
   (handler-case (funcall function)
@@ -144,23 +200,15 @@ AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
               "~A"
               (aitools.kernel.domain:json-model-error-message condition)))))
 
-(defun json-pointer-get (value tokens)
-  (%with-json-model-errors
-   (lambda () (aitools.kernel.domain:json-model-pointer-get *json-value-model* value tokens))))
-
 (defun json-add (value tokens new &key (array-mode :insert))
   (%with-json-model-errors
    (lambda ()
-     (aitools.kernel.domain:json-model-add *json-value-model* value tokens new
-                                            :array-mode array-mode))))
+     (aitools.kernel.domain:json-model-add *json-value-model* value tokens new :array-mode array-mode))))
 
 (defun json-remove (value tokens)
   (%with-json-model-errors
-   (lambda () (aitools.kernel.domain:json-model-remove *json-value-model* value tokens))))
-
-(defun json-replace (value tokens new)
-  (%with-json-model-errors
-   (lambda () (aitools.kernel.domain:json-model-replace *json-value-model* value tokens new))))
+   (lambda ()
+     (aitools.kernel.domain:json-model-remove *json-value-model* value tokens))))
 
 (defun json-equal (a b)
   "RFC 6902 `test` equality via the kernel's shared JSON-EQUAL: numbers
@@ -170,20 +218,29 @@ element-wise. The read side (`json get`/`diff`) uses the same rule."
 
 (defun json-merge-patch (target patch)
   (%with-json-model-errors
-   (lambda () (aitools.kernel.domain:json-model-merge-patch *json-value-model* target patch))))
+   (lambda ()
+     (aitools.kernel.domain:json-model-merge-patch *json-value-model* target patch))))
 
 (defun json-apply-patch (value operations)
   (%with-json-model-errors
-   (lambda () (aitools.kernel.domain:json-model-apply-patch *json-value-model* value operations))))
+   (lambda ()
+     (aitools.kernel.domain:json-model-apply-patch *json-value-model* value operations))))
 
-(defun parse-json-text/k (text &key on-value on-invalid)
-  "TEXT parsed (see PARSE-JSON-TEXT): ON-VALUE (value) or ON-INVALID
-(message)."
-  (declare (type function on-value on-invalid))
-  (let ((value (handler-case (parse-json-text text)
-                 (json-kit:json-kit-error (condition)
-                   (return-from parse-json-text/k (funcall on-invalid (princ-to-string condition)))))))
-    (funcall on-value value)))
+(aitools.kernel.domain:define-flow
+  (parse-json-text/k text &key on-value on-invalid)
+  "Parse TEXT into the edit JSON value model and continue with ON-VALUE
+(VALUE), or ON-INVALID (MESSAGE) for a JSON parse error."
+  (multiple-value-bind (value valid-p)
+      (handler-case (values (parse-json-text text) t)
+        (json-kit:json-kit-error (condition)
+          (values (princ-to-string condition) nil)))
+    (if valid-p
+        (aitools.kernel.domain:flow-continue
+          :on-value
+          value)
+        (aitools.kernel.domain:flow-continue
+          :on-invalid
+          value))))
 
 (defun json-string-literal (string)
   "STRING written as a JSON string."

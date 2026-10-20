@@ -50,35 +50,7 @@ let
     program = "${delivered}/bin/aitools";
     inherit (ctx.generated.apps.default) meta;
   };
-  oraclePackages =
-    with ctx.pkgs;
-    [
-      git
-      gnugrep
-      zip
-      unzip
-      jq
-      perl
-      which
-      procps
-      lsof
-      util-linux
-      openssl
-      inetutils
-      getconf
-      tzdata
-      xxd
-      ripgrep
-      fd
-      tree
-      dos2unix
-      nkf
-      netcat
-      bc
-      python3
-    ]
-    ++ nixpkgs.lib.optionals ctx.pkgs.stdenv.hostPlatform.isLinux [ ctx.pkgs.nettools ]
-    ++ nixpkgs.lib.optionals ctx.pkgs.stdenv.hostPlatform.isDarwin [ ctx.pkgs.unixtools.netstat ];
+  oraclePackages = import ./oracle-packages.nix { inherit (ctx) pkgs; };
   testDependencies = ctx.package.enableCheck.ancestry.deps;
   testRegistry = nixpkgs.lib.concatStringsSep ":" (
     [ "${ctx.src}//" ]

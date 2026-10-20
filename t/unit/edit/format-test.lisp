@@ -22,11 +22,16 @@
     (expect (detect-json-indent (format nil "{~%~C\"a\": 1~%}" #\Tab)) :to-equal (string #\Tab))
     (expect (detect-json-indent "{\"a\": 1}") :to-be nil))
 
-  (it "reads RFC 6901 pointers with ~0 and ~1 escapes"
-    (let ((value (j "{\"a/b\": {\"m~n\": [10, 20]}}")))
-      (expect (json-num-text (json-pointer-get value (parse-json-pointer "/a~1b/m~0n/1"))) :to-equal "20")
-      (expect (format-json-pointer (parse-json-pointer "/a~1b/m~0n")) :to-equal "/a~1b/m~0n")
-      (expect (refusal-code (lambda () (parse-json-pointer "a"))) :to-equal "argument.invalid")))
+  (it "parses and formats RFC 6901 pointers with ~0 and ~1 escapes"
+    (expect (parse-json-pointer "/a~1b/m~0n") :to-equal (list "a/b" "m~n"))
+    (expect
+     (format-json-pointer (parse-json-pointer "/a~1b/m~0n"))
+     :to-equal
+     "/a~1b/m~0n")
+    (expect
+     (refusal-code (lambda () (parse-json-pointer "a")))
+     :to-equal
+     "argument.invalid"))
 
   (it "sets members, appends with /-, and refuses missing parents"
     (let ((value (j "{\"items\": [1], \"name\": \"x\"}")))
@@ -161,3 +166,8 @@
             :to-equal "refusal.exists")
     (expect (refusal-code (lambda () (extract-plan (zip-of (member-file "a.txt" "A") (member-file "a.txt" "B")) :zip)))
             :to-equal "refusal.exists")))
+(describe "aitools.edit JSON codec properties"
+  (it-property "round-trips generated JSON string values"
+      ((value (gen-string :min-length 0 :max-length 80
+                          :alphabet (format nil "aB09\"\\~%~C漢字" #\Tab))))
+    (expect (j (js value)) :to-equal value)))

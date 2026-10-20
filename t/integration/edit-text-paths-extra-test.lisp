@@ -2,7 +2,7 @@
 
 (describe "aitools write, split and transcode: remaining refusals"
   (it "refuses to write over a directory and writes --stdin bytes"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:mkdir (disk "d") #o755)
       (with-error (code message) (run "write" '("d") :content '("x"))
         (expect code :to-equal "refusal.not-a-file")
@@ -12,7 +12,7 @@
       (expect (octets-of "s.bin") :to-equalp (octet-vector 1 2 3))))
 
   (it "refuses more pieces than --suffix-digits can name and a --prefix outside the workspace"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "~{~A~%~}" (loop for i below 11 collect i)))
       (let ((before (snapshot)))
         (with-error (code message) (run "split" '("a.txt") :lines "1" :suffix-digits "1")
@@ -28,13 +28,13 @@
       "splits ~A by bytes"
       (name octets)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "f" (apply #'octet-vector octets))
       (expect (run "split" '("f") :bytes "2") :to-be :ok)
       (expect (octets-of "f.001") :to-equalp (apply #'octet-vector (subseq octets 0 2)))))
 
   (it "refuses a file whose encoding cannot be guessed or that is not valid in --from"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "bin" (octet-vector 0 159 146 150 0 1 2 255 254 0))
       (with-error (code message) (run "transcode" '("bin"))
         (expect code :to-equal "input.unsupported-format")
@@ -45,7 +45,7 @@
         (expect (json-field (first (getf keys :diagnostics)) "offset") :to-be 1))))
 
   (it "keeps a BOM into another Unicode encoding and writes nothing when the bytes stay the same"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "b.txt" (format nil "~Ca~%" (code-char #xFEFF)))
       (expect (run "transcode" '("b.txt") :from "utf-8" :to "utf-16le") :to-be :ok)
       (expect (octets-of "b.txt") :to-equalp (octet-vector #xFF #xFE 97 0 10 0))
@@ -56,7 +56,7 @@
 
 (describe "aitools text commands: remaining paths through the flows"
   (it "reports no strategy for several --old edits and a strategy for one"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%b~%"))
       (setf *stdin* (bytes "{\"edits\": [{\"old\": \"a\", \"new\": \"A\"}, {\"old\": \"b\", \"new\": \"B\"}]}"))
       (multiple-value-bind (kind fields) (run "edit" '("a.txt") :stdin t)
@@ -69,21 +69,21 @@
       (expect (text "a.txt") :to-equal (format nil "x~%B~%"))))
 
   (it "offers no candidates below a path whose parent is a file"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code message keys) (run "edit" '("a.txt/x") :old "a" :new "b")
         (expect code :to-equal "input.not-found")
         (expect (getf keys :candidates) :to-equal '()))))
 
   (it "refuses --symbol in a file of no known language"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "x.unknownext" (format nil "f~%"))
       (with-error (code message) (run "edit" '("x.unknownext") :symbol "f" :new "g" :expect-hash (list (hash "x.unknownext")))
         (expect code :to-equal "input.unsupported-language")
         (expect (search "--symbol" message) :to-be-truthy))))
 
   (it "applies a diff whose paths carry no a/ or b/ prefix, and refuses one for a missing file"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "f.txt" (format nil "one~%"))
       (setf *stdin* (bytes (format nil "--- f.txt~%+++ f.txt~%@@ -1 +1 @@~%-one~%+ONE~%")))
       (expect (run "apply" '() :stdin t) :to-be :ok)
@@ -94,7 +94,7 @@
         (expect message :to-equal "gone.txt does not exist"))))
 
   (it "refuses a split piece that a symlink would take outside the workspace"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "1~%2~%"))
       (sb-posix:symlink "/tmp/aitools-outside-piece" (disk "a.txt.002"))
       (let ((before (snapshot)))
@@ -103,14 +103,14 @@
         (expect-unchanged before))))
 
   (it "transcodes an empty file to nothing new"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "e.txt" "")
       (multiple-value-bind (kind fields) (run "transcode" '("e.txt") :from "utf-8" :to "utf-16le")
         (expect kind :to-be :ok)
         (expect (field fields "changes") :to-equal '()))))
 
   (it "names an empty destination's end when a position is past it"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "1~%"))
       (put "e.txt" "")
       (with-error (code message keys) (run "move-lines" '("a.txt") :range "1" :to "e.txt" :to-position "after:1"
@@ -120,7 +120,7 @@
         (expect (json-field (first (getf keys :candidates)) "text") :to-equal ""))))
 
   (it "needs the destination's own PATH=HASH for a position-based move into another file"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "1~%2~%"))
       (put "b.txt" (format nil "x~%y~%"))
       (let ((before (snapshot)))

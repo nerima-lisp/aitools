@@ -1,54 +1,205 @@
 (in-package #:aitools.edit.application)
 
-(defun %extend-change (change per-change)
-  (let* ((members (aitools.protocol.domain:json-object-members change))
-         (more (cdr (assoc (cdr (assoc "path" members :test #'string=)) per-change :test #'equal))))
-    (if more (aitools.protocol.domain:json-object-from-alist (append members more)) change)))
-
-(defun %record-options (write-plan paths)
-  (let ((options (write-plan-record-options write-plan)))
-    (if (functionp options) (funcall options paths) options)))
-
-(defun %with-extra-fields (fields extra)
-  "FIELDS (from WRITE-RESULT-FIELDS) with the plan's EXTRA string-keyed
-fields inserted before `next_commands`. Two keyword entries adjust
-`changes` itself: (:PER-CHANGE . ((path . members) ...)) appends members to
-that path's change, (:LIMIT-CHANGES . N) keeps the first N changes, and
-(:TOTAL-CHANGES . T) adds `total`, the count before that limit."
-  (let* ((per-change (cdr (assoc :per-change extra)))
-         (limit (cdr (assoc :limit-changes extra)))
-         (total (and (assoc :total-changes extra)
-                     (list (cons "total" (length (cdr (assoc "changes" fields :test #'string=)))))))
-         (plain (append (remove-if (lambda (pair) (keywordp (car pair))) extra) total))
-         (fields (mapcar (lambda (pair)
-                           (if (string= (car pair) "changes")
-                               (let ((changes (mapcar (lambda (change) (%extend-change change per-change)) (cdr pair))))
-                                 (cons "changes" (if limit (subseq changes 0 (min limit (length changes))) changes)))
-                               pair))
-                         fields))
-         (next (assoc "next_commands" fields :test #'string=)))
-    (append (remove next fields) plain (and next (list next)))))
-
-(defun %catching-refusals (reject thunk)
-  "Call THUNK; turn the domain's and the kits' input refusals into REJECT."
-  (handler-case (call-with-regex-refusals thunk)
-    (aitools.edit.domain:edit-refusal (condition)
-      (funcall reject (aitools.edit.domain:edit-refusal-code condition)
-               (aitools.edit.domain:edit-refusal-detail condition)))
-    (aitools.text.domain:archive-unsupported (condition)
-      (funcall reject "input.unsupported-format" (princ-to-string condition)))
-    (aitools.text.domain:archive-error (condition)
-      (funcall reject "input.syntax-error" (princ-to-string condition)))
-    (aitools.store.application:store-io-error (condition)
-      (funcall reject "environment.io" (princ-to-string condition)))))
-
-(defun run-plan (context plan commit reject)
-  "Call PLAN (from a WRITE-PLAN) against CONTEXT. COMMIT is called with the
-requests and the extra fields the plan passed; REJECT as in a store
-VALIDATE continuation."
-  (declare (type function plan commit reject))
-  (%catching-refusals reject
-                      (lambda ()
-                        (funcall plan context
-                                 (lambda (requests &optional extra) (funcall commit requests extra))
-                                 reject))))
+(aitools.kernel.domain:define-flow
+ (%run-write-operation/k ports
+                         store
+                         write-plan
+                         workspace-root
+                         workspace-store
+                         hash-entries
+                         paths
+                         area
+                         temporary-root
+                         command-line
+                         expect-count
+                         lock-timeout-ms
+                         dry-run
+                         tx
+                         argv
+                         extra
+                         &key
+                         on-ok
+                         on-error)
+ (labels ((rejected (code message &key candidates diagnostics conflicts repairs path)
+            (if path
+                (aitools.kernel.domain:flow-continue :on-error
+                                                     code
+                                                     message
+                                                     :candidates
+                                                     candidates
+                                                     :diagnostics
+                                                     diagnostics
+                                                     :conflicts
+                                                     conflicts
+                                                     :repairs
+                                                     repairs
+                                                     :path
+                                                     path)
+                (aitools.kernel.domain:flow-continue :on-error
+                                                     code
+                                                     message
+                                                     :candidates
+                                                     candidates
+                                                     :diagnostics
+                                                     diagnostics
+                                                     :conflicts
+                                                     conflicts
+                                                     :repairs
+                                                     repairs)))
+          (busy ()
+            (aitools.kernel.domain:flow-continue :on-error
+                                                 "environment.busy"
+                                                 (concatenate 'string
+                                                              "the workspace lock "
+                                                              "could not be acquired within "
+                                                              "--lock-timeout")))
+          (tx-not-found ()
+            (aitools.kernel.domain:flow-continue :on-error
+                                                 "input.not-found"
+                                                 (format nil "no open tx ~A" tx)
+                                                 :repairs
+                                                 (%tx-not-found-repairs)))
+          (finish (results &rest keys)
+            (aitools.kernel.domain:flow-continue :on-ok
+                                                 (%with-extra-fields
+                                                  (apply #'aitools.store.domain:write-result-fields
+                                                         results
+                                                         keys)
+                                                  extra))))
+   (handler-case (cond
+                   ((and tx dry-run)
+                     (aitools.kernel.domain:flow-call
+                      (%dry-run-in-tx/k store
+                                        tx
+                                        ports
+                                        write-plan
+                                        workspace-root
+                                        workspace-store
+                                        hash-entries
+                                        paths
+                                        area
+                                        temporary-root
+                                        command-line
+                                        expect-count
+                                        dry-run
+                                        tx)
+                      (:on-planned (results validation-extra)
+                                   (setf extra validation-extra)
+                                   (finish results :dry-run t))
+                      (:on-rejected (code message &key candidates diagnostics conflicts repairs path)
+                                    (rejected code
+                                              message
+                                              :candidates candidates
+                                              :diagnostics diagnostics
+                                              :conflicts conflicts
+                                              :repairs repairs
+                                              :path path))
+                      (:on-not-found () (tx-not-found)))) (tx
+                      (aitools.store.application:tx-stage/k store
+                                                            tx
+                                                            argv
+                                                            (lambda (view commit reject)
+                                                              (aitools.kernel.domain:flow-call
+                                                               (%validate-write/k view
+                                                                                  ports
+                                                                                  write-plan
+                                                                                  workspace-root
+                                                                                  workspace-store
+                                                                                  hash-entries
+                                                                                  paths
+                                                                                  area
+                                                                                  temporary-root
+                                                                                  command-line
+                                                                                  expect-count
+                                                                                  dry-run
+                                                                                  tx)
+                                                               (:on-committed (requests validation-extra)
+                                                                              (setf extra validation-extra)
+                                                                              (funcall commit requests))
+                                                               (:on-rejected
+                                                                (code message &key candidates diagnostics conflicts repairs path)
+                                                                (funcall reject
+                                                                         code
+                                                                         message
+                                                                         :candidates candidates
+                                                                         :diagnostics diagnostics
+                                                                         :conflicts conflicts
+                                                                         :repairs (or repairs
+                                                                                      (and path
+                                                                                           (default-repairs code
+                                                                                                            (write-plan-command write-plan)
+                                                                                                            argv
+                                                                                                            path)))))))
+                                                            :replayable
+                                                            (write-plan-replayable write-plan)
+                                                            :lock-timeout-ms
+                                                            lock-timeout-ms
+                                                            :on-staged
+                                                            (lambda (tx-op results)
+                                                              (finish results :tx tx :tx-op tx-op))
+                                                            :on-rejected
+                                                            #'rejected
+                                                            :on-not-found
+                                                            #'tx-not-found
+                                                            :on-busy
+                                                            #'busy)) (t
+                      (aitools.store.application:commit-changes/k store
+                                                                  argv
+                                                                  (lambda (commit reject)
+                                                                    (aitools.kernel.domain:flow-call
+                                                                     (%validate-write/k
+                                                                      (aitools.store.application:disk-view
+                                                                       store)
+                                                                      ports
+                                                                      write-plan
+                                                                      workspace-root
+                                                                      workspace-store
+                                                                      hash-entries
+                                                                      paths
+                                                                      area
+                                                                      temporary-root
+                                                                      command-line
+                                                                      expect-count
+                                                                      dry-run
+                                                                      tx)
+                                                                     (:on-committed (requests validation-extra)
+                                                                                    (setf extra validation-extra)
+                                                                                    (funcall commit requests))
+                                                                     (:on-rejected
+                                                                      (code message &key candidates diagnostics conflicts repairs path)
+                                                                      (funcall reject
+                                                                               code
+                                                                               message
+                                                                               :candidates candidates
+                                                                               :diagnostics diagnostics
+                                                                               :conflicts conflicts
+                                                                               :repairs (or repairs
+                                                                                            (and path
+                                                                                                 (default-repairs code
+                                                                                                                  (write-plan-command write-plan)
+                                                                                                                  argv
+                                                                                                                  path)))))))
+                                                                  :lock-timeout-ms
+                                                                  lock-timeout-ms
+                                                                  :dry-run
+                                                                  dry-run
+                                                                  :on-committed
+                                                                  (lambda (op-id results)
+                                                                    (if dry-run
+                                                                        (finish results :dry-run t)
+                                                                        (finish results :op-id op-id)))
+                                                                  :on-rejected
+                                                                  #'rejected
+                                                                  :on-busy
+                                                                  #'busy))) (aitools.store.application:store-io-error
+                     (condition)
+                     (aitools.kernel.domain:flow-continue :on-error
+                                     "environment.io"
+                                     (princ-to-string condition))
+) (aitools.store.domain:store-format-error
+                     (condition)
+                     (aitools.kernel.domain:flow-continue :on-error
+                                                          "environment.io"
+                                                          (princ-to-string condition)
+                                                          :repairs
+                                                          (%damaged-state-repairs tx))))))

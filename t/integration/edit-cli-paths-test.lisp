@@ -54,10 +54,9 @@
 
 (describe "mktemp with a state home behind a symlink"
   (it "returns a real path and its hash that write --overwrite --expect-hash accepts, and journals workspace writes"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((link (concatenate 'string *home* "-link"))
             (previous (sb-posix:getenv "XDG_STATE_HOME")))
-        (sb-posix:mkdir *home* #o755)
         (sb-posix:symlink *home* link)
         (sb-posix:setenv "XDG_STATE_HOME" link 1)
         (unwind-protect

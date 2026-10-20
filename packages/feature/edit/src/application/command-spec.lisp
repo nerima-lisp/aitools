@@ -11,10 +11,18 @@
   (let ((options (copy-list (getf spec :options))))
     (dolist (group (getf spec :include))
       (dolist (option (cdr (assoc group aitools.data:*edit-option-groups*)))
-        (unless (find (getf option :key) options :key (lambda (o) (getf o :key)))
+        (unless
+            (find (getf option :key)
+                  options
+                  :key
+                  (lambda (o)
+                    (getf o :key)))
           (setf options (append options (list option))))))
-    (list* :options options (loop for (key value) on spec by #'cddr
-                                  unless (eq key :options) append (list key value)))))
+    (list* :options
+           options
+           (loop for (key value) on spec by #'cddr
+                 unless (eq key :options)
+                   append (list key value)))))
 
 (defparameter *edit-commands*
   (mapcar #'%expand-spec aitools.data:*edit-command-specs*)
@@ -23,15 +31,26 @@
 (defun edit-command-specs () *edit-commands*)
 
 (defun find-command-spec (name)
-  (find name *edit-commands* :key (lambda (spec) (getf spec :name)) :test #'string=))
+  (find name
+        *edit-commands*
+        :key
+        (lambda (spec)
+          (getf spec :name))
+        :test
+        #'string=))
 
 (defun command-words (name)
   "The argv words naming dispatch NAME: \"json.set\" -> (\"json\" \"set\")."
   (let ((dot (position #\. name)))
-    (if dot (list (subseq name 0 dot) (subseq name (1+ dot))) (list name))))
+    (if dot
+        (list (subseq name 0 dot) (subseq name (1+ dot)))
+        (list name))))
 
 (defun command-display-name (name)
-  (format nil "~{~A~^ ~}" (command-words name)))
+  (format
+    nil
+    "~{~A~^ ~}"
+    (command-words name)))
 
 (defun options-argv (name positionals options)
   "The canonical argv of command NAME: its words, POSITIONALS, then each
@@ -46,54 +65,117 @@ T as a flag and anything else as a value."
             (loop for option in (if spec
                                     (getf spec :options)
                                     (loop for (key value) on options by #'cddr
-                                          collect (list :key key :name (string-downcase (symbol-name key))
-                                                        :kind (if (eq value t) :flag :value))))
+                                          collect (list :key
+                                                        key
+                                                        :name
+                                                        (string-downcase (symbol-name key))
+                                                        :kind
+                                                        (if (eq value t)
+                                                            :flag
+                                                            :value))))
                   for key = (getf option :key)
                   for value = (getf options key)
                   unless (or (null value) (member key '(:dry-run :tx :stdin)))
-                    append (let ((flag (format nil "--~A" (getf option :name))))
+                    append (let ((flag
+                                  (format
+                                    nil
+                                    "--~A"
+                                    (getf option :name))))
                              (ecase (getf option :kind)
                                (:flag (list flag))
                                (:value (list flag value))
-                               (:multi (loop for item in value append (list flag item)))
+                               (:multi
+                                (loop for item in value
+                                      append (list flag item)))
                                (:pair (list flag (first value) (second value))))))
-            (when (some (lambda (positional) (and (plusp (length positional)) (char= (char positional 0) #\-)))
-                        positionals)
+            (when
+                (some
+                 (lambda (positional)
+                   (and (plusp (length positional)) (char= (char positional 0) #\-)))
+                 positionals)
               (list "--"))
             positionals)))
 
-(defun parse-recorded-argv (argv &key on-parsed on-invalid)
-  "Parse a canonical ARGV (see OPTIONS-ARGV) back into (ON-PARSED name
+(defun %parse-recorded-option (option token tokens options)
+  (let ((key (getf option :key)))
+    (labels ((set-option (value)
+               (if (loop for tail on options by #'cddr
+                         thereis (eq (car tail) key))
+                   (setf (getf options key) value)
+                   (setf options (append options (list key value))))))
+      (ecase (getf option :kind)
+        (:flag
+         (set-option t)
+         (values nil tokens options))
+        (:value
+         (if (null tokens)
+             (values (format nil "~A needs a value" token) tokens options)
+             (progn
+               (set-option (pop tokens))
+               (values nil tokens options))))
+        (:multi
+         (if (null tokens)
+             (values (format nil "~A needs a value" token) tokens options)
+             (progn
+               (set-option (append (getf options key) (list (pop tokens))))
+               (values nil tokens options))))
+        (:pair
+         (if (null (rest tokens))
+             (values (format nil "~A needs two values" token) tokens options)
+             (progn
+               (set-option (list (pop tokens) (pop tokens)))
+               (values nil tokens options))))))))
+
+(aitools.kernel.domain:define-flow
+ (parse-recorded-argv argv &key on-parsed on-invalid)
+ "Parse a canonical ARGV (see OPTIONS-ARGV) back into (ON-PARSED name
 positionals options), or call ON-INVALID (message)."
-  (declare (type function on-parsed on-invalid))
-  (let* ((two (and (rest argv) (format nil "~A.~A" (first argv) (second argv))))
-         (spec (or (and two (find-command-spec two)) (find-command-spec (first argv)))))
-    (if (null spec)
-        (funcall on-invalid (format nil "no edit command for argv ~S" argv))
-        (let ((tokens (nthcdr (length (command-words (getf spec :name))) argv))
-              (positionals '()) (options '()))
-          (loop while tokens
-                do (let* ((token (pop tokens))
-                          (option (and (> (length token) 2) (string= token "--" :end1 2)
-                                       (find (subseq token 2) (getf spec :options)
-                                             :key (lambda (o) (getf o :name)) :test #'string=))))
-                     (cond
-                       ((string= token "--") (setf positionals (append (reverse tokens) positionals) tokens nil))
-                       ((null option) (push token positionals))
-                       (t
-                         (let ((key (getf option :key)))
-                           (ecase (getf option :kind)
-                             (:flag (setf (getf options key) t))
-                             (:value (when (null tokens)
-                                       (return-from parse-recorded-argv
-                                         (funcall on-invalid (format nil "~A needs a value" token))))
-                                     (setf (getf options key) (pop tokens)))
-                             (:multi (when (null tokens)
-                                       (return-from parse-recorded-argv
-                                         (funcall on-invalid (format nil "~A needs a value" token))))
-                                     (setf (getf options key) (append (getf options key) (list (pop tokens)))))
-                             (:pair (when (null (rest tokens))
-                                      (return-from parse-recorded-argv
-                                        (funcall on-invalid (format nil "~A needs two values" token))))
-                                    (setf (getf options key) (list (pop tokens) (pop tokens))))))))))
-          (funcall on-parsed (getf spec :name) (nreverse positionals) options)))))
+ (let* ((two
+         (and (rest argv)
+              (format
+               nil
+               "~A.~A"
+               (first argv)
+               (second argv))))
+        (spec (or (and two (find-command-spec two)) (find-command-spec (first argv)))))
+   (if (null spec)
+       (aitools.kernel.domain:flow-continue
+        :on-invalid
+        (format
+         nil
+         "no edit command for argv ~S"
+         argv))
+       (let ((tokens (nthcdr (length (command-words (getf spec :name))) argv))
+             (positionals '())
+             (options '())
+             (invalid-message nil))
+         (loop while (and tokens (null invalid-message))
+               do (let* ((token (pop tokens))
+                         (option
+                           (and (> (length token) 2)
+                                (string= token "--" :end1 2)
+                                (find (subseq token 2)
+                                      (getf spec :options)
+                                      :key
+                                      (lambda (o)
+                                        (getf o :name))
+                                      :test
+                                      #'string=))))
+                    (cond
+                      ((string= token "--")
+                       (setf positionals (append (reverse tokens) positionals)
+                             tokens nil))
+                      ((null option)
+                       (push token positionals))
+                      (t
+                       (multiple-value-setq (invalid-message tokens options)
+                         (%parse-recorded-option option token tokens options))))))
+         (if invalid-message
+             (aitools.kernel.domain:flow-continue
+              :on-invalid
+              invalid-message)
+             (aitools.kernel.domain:flow-continue
+              :on-parsed
+              (getf spec :name)
+              (nreverse positionals)
+              options))))))

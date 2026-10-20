@@ -89,4 +89,21 @@
       :define-flow)
      :to-equal
      nil))
+  (it "tracks write-command nesting with generated names"
+    (let ((definition-template
+            "(define-write-command \"fixture.command\"
+  (ports env positionals options &key on-plan on-error) ~A)~%"))
+      (expect
+       (%complex-budget-fixture-violations
+        5
+        (list (list "src/composition.lisp" "PREPARE-FIXTURE-COMMAND/K" 5))
+        definition-template)
+       :to-equal nil)
+      (expect
+       (some (lambda (violation)
+               (and (search "PREPARE-FIXTURE-COMMAND/K" violation)
+                    (search "new control nesting depth" violation)
+                    (search "depth 5 (limit 4)" violation)))
+             (%complex-budget-fixture-violations 5 nil definition-template))
+       :to-be-truthy)))
 )

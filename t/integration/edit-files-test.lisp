@@ -5,7 +5,7 @@
 
 (describe "aitools move, copy, delete and mkdir"
   (it "renames a directory, refuses to merge into an existing one, and undoes the move"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "d/a.txt" "a")
       (put "d/sub/b.txt" "b")
       (put "e/x" "x")
@@ -20,7 +20,7 @@
         (expect (snapshot) :to-equal before))))
 
   (it "moves over a file only with --overwrite and a hash"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a" "A")
       (put "b" "B")
       (with-error (code) (run "move" '("a" "b")) (expect code :to-equal "refusal.exists"))
@@ -29,19 +29,32 @@
       (expect (text "b") :to-equal "A")))
 
   (it "copies a tree recursively, skipping symlinks that leave the workspace, within --max-bytes"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "src/a.txt" "aaaa" :mode #o755)
       (put "src/deep/b.txt" "bb")
+      (put "existing.txt" "keep")
+      (sb-posix:mkdir (disk "existing-dir") #o755)
       (sb-posix:symlink "a.txt" (disk "src/inside"))
       (sb-posix:symlink "/etc/hosts" (disk "src/outside"))
       (let ((before (snapshot)))
-        (with-error (code) (run "copy" '("src" "dst")) (expect code :to-equal "argument.invalid"))
-        (with-error (code) (run "copy" '("src" "dst") :recursive t :max-bytes "5") (expect code :to-equal "refusal.too-large"))
+        (with-error (code)
+            (run "copy" '("src/a.txt" "existing.txt"))
+          (expect code :to-equal "refusal.exists"))
+        (with-error (code)
+            (run "copy" '("src" "existing-dir") :recursive t)
+          (expect code :to-equal "refusal.exists"))
+        (with-error (code)
+            (run "copy" '("src" "dst"))
+          (expect code :to-equal "argument.invalid"))
+        (with-error (code)
+            (run "copy" '("src" "dst") :recursive t :max-bytes "5")
+          (expect code :to-equal "refusal.too-large"))
         (expect-unchanged before)
         (multiple-value-bind (kind fields) (run "copy" '("src" "dst") :recursive t)
           (expect kind :to-be :ok)
           (expect (field fields "files") :to-be 2)
-          (expect (mapcar (lambda (skip) (json-field skip "path")) (field fields "skipped")) :to-equal '("src/outside"))
+          (expect (mapcar (lambda (skip) (json-field skip "path")) (field fields "skipped"))
+                  :to-equal '("src/outside"))
           (expect (text "dst/deep/b.txt") :to-equal "bb")
           (expect (mode "dst/a.txt") :to-be #o755)
           (expect (kind "dst/inside") :to-be :symlink)
@@ -50,7 +63,7 @@
         (expect (snapshot) :to-equal before))))
 
   (it "deletes files and empty directories, refuses non-empty ones, and undo restores them"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "full/x" "x")
       (sb-posix:mkdir (disk "empty") #o755)
       (put "f.txt" "f" :mode #o600)
@@ -65,7 +78,7 @@
         (expect (snapshot) :to-equal before))))
 
   (it "creates directories with parents and treats an existing one as no change"
-    (with-workspace ()
+    (with-edit-workspace ()
       (multiple-value-bind (kind fields) (run "mkdir" '("a/b"))
         (expect kind :to-be :ok)
         (expect (changes fields) :to-equal '(("a" "created") ("a/b" "created"))))
@@ -75,7 +88,7 @@
 
 (describe "aitools rm safety and journal"
   (it "previews a recursive removal, checks the count, and restores binary bytes and links"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
       (put "keep" "untouched")
       (sb-posix:symlink "../../keep" (disk "tree/sub/link"))
@@ -96,9 +109,19 @@
           (expect (text "keep") :to-equal "untouched")
           (expect (undo (field fields "op_id")) :to-be :committed))
         (expect (snapshot) :to-equal before))))
+  (it "reports a missing rm path with a find repair"
+    (with-edit-workspace ()
+      (put "tree/kept.txt" "kept")
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (run "rm" '("tree/missing.txt"))
+          (expect code :to-equal "input.not-found")
+          (expect message :to-equal "tree/missing.txt does not exist")
+          (expect (repair-commands keys) :to-equal '("aitools find tree/missing.txt")))
+        (expect-unchanged before))))
 
   (it "removes a leaf symlink without following it and undoes the removal"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:symlink "/outside-not-owned-by-this-test" (disk "link"))
       (multiple-value-bind (kind fields) (run "rm" '("link"))
         (expect kind :to-be :ok)
@@ -107,7 +130,7 @@
         (expect (sb-posix:readlink (disk "link")) :to-equal "/outside-not-owned-by-this-test"))))
 
   (it "rejects entry and byte limits before changing any path"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "tree/a" "1234")
       (put "tree/b" "56")
       (let ((before (snapshot)))
@@ -120,7 +143,7 @@
 
   (it-each ((".git") (".jj") (".GIT") (".JJ"))
     "refuses the whole tree when it contains metadata: ~A" (metadata)
-    (with-workspace ()
+    (with-edit-workspace ()
       (put (format nil "tree/~A/data" metadata) "protected")
       (put "tree/ordinary" "keep")
       (let ((before (snapshot)))
@@ -129,7 +152,7 @@
         (expect-unchanged before))))
 
   (it "refuses the workspace root without deleting descendants"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "keep" "safe")
       (let ((before (snapshot)))
         (with-error (code) (run "rm" '(".") :recursive t :expect-count "2")
@@ -137,7 +160,7 @@
         (expect-unchanged before))))
 
   (it "counts staged bytes and stages a recursive removal without changing disk"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "tree/a" "old")
       (let ((tx (begin-tx)))
         (expect (run-in tx "write" '("tree/b") :content '("new")) :to-be :ok)

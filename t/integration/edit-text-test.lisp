@@ -29,7 +29,7 @@
 
 (describe "aitools edit"
   (it "replaces an exact --old and reports changes, op_id and strategy"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "one~%two~%"))
       (multiple-value-bind (kind fields) (run "edit" '("a.txt") :old "two" :new "2")
         (expect kind :to-be :ok)
@@ -40,7 +40,7 @@
       (expect (text "a.txt") :to-equal (format nil "one~%2~%"))))
 
   (it "returns the lines of every match when --old is ambiguous, and similar places when it matches nothing"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "x = 1~%y = 2~%x = 1~%"))
       (let ((before (snapshot)))
         (with-error (code message keys) (run "edit" '("a.txt") :old "x = 1" :new "z")
@@ -53,7 +53,7 @@
         (expect-unchanged before))))
 
   (it "matches ignoring indentation and keeps the file's indentation"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "f.py" (format nil "def f():~%        if x:~%            go()~%"))
       (multiple-value-bind (kind fields) (run "edit" '("f.py") :old (format nil "if x:~%    go()") :new (format nil "if y:~%    stop()"))
         (expect kind :to-be :ok)
@@ -61,7 +61,7 @@
       (expect (text "f.py") :to-equal (format nil "def f():~%        if y:~%            stop()~%"))))
 
   (it "replaces and deletes lines chosen by --range, --between, --match and --symbol"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "1~%2~%3~%4~%"))
       (expect (run "edit" '("a.txt") :range "2:3" :new "x" :expect-hash (list (hash "a.txt"))) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "1~%x~%4~%"))
@@ -78,7 +78,7 @@
       (expect (text "c.lisp") :to-equal (format nil "(defun a ()~%  1)~%~%(defun b ()~%  3)~%"))))
 
   (it "applies edits[] in order and writes nothing when one fails"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%b~%c~%"))
       (setf *stdin* (bytes "{\"edits\":[{\"old\":\"a\",\"new\":\"A\"},{\"match\":\"^b$\",\"new\":\"B\",\"expect_count\":1}]}"))
       (expect (run "edit" '("a.txt") :stdin t) :to-be :ok)
@@ -93,7 +93,7 @@
         (expect-unchanged before))))
 
   (it "refuses --old '', two selectors, and a selector without --new"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code) (run "edit" '("a.txt") :old "" :new "x") (expect code :to-equal "argument.invalid"))
       (with-error (code) (run "edit" '("a.txt") :range "1" :match "a" :new "x") (expect code :to-equal "argument.invalid"))
@@ -102,14 +102,14 @@
 
 (describe "aitools write guards"
   (it "requires --expect-hash for position-based selectors and points at aitools info"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code message keys) (run "edit" '("a.txt") :range "1" :new "b")
         (expect code :to-equal "argument.invalid")
         (expect (repair-commands keys) :to-equal '("aitools info a.txt")))))
 
   (it "requires --expect-count for --match writes and replace, with a --dry-run repair"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code message keys) (run "edit" '("a.txt") :match "a" :new "b")
         (expect code :to-equal "argument.invalid")
@@ -119,7 +119,7 @@
         (expect (search "--dry-run" (first (repair-commands keys))) :to-be-truthy))))
 
   (it "fails with exit-2 codes and writes nothing on a hash or count mismatch"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%a~%"))
       (let ((before (snapshot)))
         (with-error (code message keys) (run "edit" '("a.txt") :range "1" :new "b" :expect-hash '("0000"))
@@ -134,14 +134,14 @@
 
 (describe "aitools write inputs and outputs"
   (it "never reads stdin without --stdin"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (setf *stdin* nil)
       (with-error (code) (run "insert" '("a.txt") :at "end")
         (expect code :to-equal "argument.invalid"))))
 
   (it "passes --stdin text through unchanged: newlines, quotes, backslashes, $1"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "x~%"))
       (let ((payload (format nil "line \"q\" \\ $1~%second")))
         (setf *stdin* (bytes payload))
@@ -149,14 +149,14 @@
         (expect (text "a.txt") :to-equal (format nil "x~%~A~%" payload)))))
 
   (it "writes --content-file bytes unchanged"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((raw (octet-vector 0 255 13 10 27 128)))
         (put "in.bin" raw)
         (expect (run "write" '("out.bin") :content-file (list (disk "in.bin"))) :to-be :ok)
         (expect (octets-of "out.bin") :to-equalp raw))))
 
   (it "changes nothing and has no op_id with --dry-run"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (let ((before (snapshot)))
         (multiple-value-bind (kind fields) (run "edit" '("a.txt") :old "a" :new "b" :dry-run t)
@@ -167,7 +167,7 @@
         (expect-unchanged before))))
 
   (it "cuts a long diff, marks it, and points at aitools diff --op"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "~{~A~%~}" (loop for i below 300 collect i)))
       (multiple-value-bind (kind fields) (run "transform" '("a.txt") :op '("reverse"))
         (expect kind :to-be :ok)
@@ -176,7 +176,7 @@
                 :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id")))))))
 
   (it "refuses input carrying [REDACTED_SECRET]"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code) (run "edit" '("a.txt") :old "a" :new "key=[REDACTED_SECRET]")
         (expect code :to-equal "refusal.redacted-input"))
@@ -184,7 +184,7 @@
 
 (describe "aitools workspace boundary and text layout rules for writes"
   (it "refuses writes outside the root, through an escaping symlink, and into .git"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:mkdir (disk ".git") #o755)
       (sb-posix:symlink "/tmp" (disk "escape"))
       (dolist (target (list "../outside.txt" "escape/x.txt" ".git/config"))
@@ -192,7 +192,7 @@
           (expect code :to-equal "refusal.outside-workspace")))))
 
   (it "allows writes below the mktemp area"
-    (with-workspace ()
+    (with-edit-workspace ()
       (multiple-value-bind (kind fields) (run "mktemp" '() :suffix ".txt")
         (expect kind :to-be :ok)
         (let ((path (field fields "path")))
@@ -202,7 +202,7 @@
           (expect (with-open-file (in path) (read-line in)) :to-equal "hi")))))
 
   (it "keeps CRLF, a missing final newline and a BOM across edits"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "crlf.txt" (format nil "a~C~%b~C~%" #\Return #\Return))
       (put "open.txt" (format nil "a~%b"))
       (put "bom.txt" (format nil "~Chead~%tail~%" (code-char #xFEFF)))
@@ -214,7 +214,7 @@
       (expect (text "bom.txt") :to-equal (format nil "~CHEAD~%tail~%" (code-char #xFEFF)))))
 
   (it "refuses text edits of invalid UTF-8 and binary files, but writes bytes"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "bad.txt" (octet-vector 97 #xFF 10))
       (put "bin.dat" (octet-vector 97 0 98))
       (with-error (code) (run "edit" '("bad.txt") :old "a" :new "b") (expect code :to-equal "input.not-utf8"))

@@ -77,6 +77,18 @@
               (string-upcase (prin1-to-string name)))
           (if (stringp (first body))
               (rest body)
+              body))))
+      ((and head
+            (string-equal head "DEFINE-WRITE-COMMAND")
+            (stringp (second form)))
+       (let* ((command-name (second form))
+              (body (cdddr form)))
+         (values
+          (format nil
+                  "PREPARE-~A/K"
+                  (substitute #\- #\. (string-upcase command-name)))
+          (if (stringp (first body))
+              (rest body)
               body)))))))
 
 (defun complex-function-inventory (root)
@@ -171,7 +183,7 @@
 (describe "aitools structure budgets (control nesting)"
   (it "keeps the fixed inventory of deeply nested functions at or below measured depths"
     (expect *complex-function-depth-limit* :to-equal 4)
-    (expect (length *complex-function-ratchet*) :to-equal 5)
+    (expect (length *complex-function-ratchet*) :to-equal 1)
     (expect
      (notany (lambda (entry)
                (search "packages/feature/process/" (first entry)))

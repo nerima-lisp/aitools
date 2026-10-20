@@ -2,7 +2,7 @@
 
 (describe "aitools chmod, link and touch"
   (it "sets and clears execute bits and sets a mode, reporting the previous one"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "s.sh" "echo" :mode #o644)
       (multiple-value-bind (kind fields) (run "chmod" '("s.sh") :exec t)
         (expect kind :to-be :ok)
@@ -18,7 +18,7 @@
       (with-error (code) (run "chmod" '("s.sh") :exec t :mode "700") (expect code :to-equal "argument.invalid"))))
 
   (it "links inside the workspace, refuses targets outside it, and replaces only symlinks"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "target.txt" "t")
       (put "regular.txt" "r")
       (multiple-value-bind (kind fields) (run "link" '("target.txt" "l"))
@@ -45,7 +45,7 @@
         (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt"))))
 
   (it "hashes a dangling symlink by its target text for --expect-hash"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "regular.txt" "r")
       (sb-posix:symlink "missing.txt" (disk "l"))
       (expect (run "link" '("regular.txt" "l") :overwrite t
@@ -54,7 +54,7 @@
       (expect (sb-posix:readlink (disk "l")) :to-equal "regular.txt")))
 
   (it "creates an empty file (undo removes it) and sets an existing file's mtime"
-    (with-workspace ()
+    (with-edit-workspace ()
       (multiple-value-bind (kind fields) (run "touch" '("new.txt"))
         (expect kind :to-be :ok)
         (expect (text "new.txt") :to-equal "")
@@ -73,7 +73,7 @@
       (expect (text "old.txt") :to-equal "keep")))
 
   (it "creates a file with the --mtime given, and refuses a time before 1970"
-    (with-workspace ()
+    (with-edit-workspace ()
       (expect (run "touch" '("new.txt") :mtime "@1577934245") :to-be :ok)
       (expect (sb-posix:stat-mtime (sb-posix:stat (disk "new.txt"))) :to-be 1577934245)
       (with-error (code) (run "touch" '("other.txt") :mtime "1969-12-31T23:59:59Z")
@@ -81,7 +81,7 @@
       (expect (kind "other.txt") :to-be :absent)))
 
   (it "stages an existing file's mtime in a tx and applies it at commit"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "old.txt" "keep")
       (sb-posix:utimes (disk "old.txt") 1000000000 1000000000)
       (let ((tx (begin-tx)))
@@ -95,7 +95,7 @@
 
 (describe "aitools mktemp"
   (it "creates files and directories in tmp/ without a journal entry"
-    (with-workspace ()
+    (with-edit-workspace ()
       (multiple-value-bind (kind fields) (run "mktemp" '() :suffix ".json")
         (expect kind :to-be :ok)
         (expect (search "/tmp/tmp." (field fields "path")) :to-be-truthy)

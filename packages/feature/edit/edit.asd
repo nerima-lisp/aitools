@@ -2,19 +2,21 @@
 
 (defsystem "aitools/feature/edit"
   :description "Document, line, content, file, and archive editing."
-  :depends-on ("aitools/data"
-               "aitools/core/kernel" "aitools/core/protocol"
-               "aitools/core/text"
-               "aitools/core/workspace"
-               "aitools/core/store"
-               "aitools/feature/journal"
-               "aitools/feature/inspect"
-               "cl-json-kit"
-               "cl-regex-kit"
-               "cl-codec-kit"
-               "cl-boundary-kit")
+  :depends-on ("aitools/core/kernel" "aitools/data"
+                                     "aitools/core/protocol"
+                                     "aitools/core/text"
+                                     "aitools/core/workspace"
+                                     "aitools/core/store"
+                                     "aitools/feature/journal"
+                                     "aitools/feature/inspect"
+                                     "cl-json-kit"
+                                     "cl-regex-kit"
+                                     "cl-codec-kit"
+                                     "cl-boundary-kit")
   :pathname "src/"
   :components ((:module "domain"
+                        :serial
+                        t
                         :components
                         ((:file "package") (:file "refusal")
                          (:file "document")
@@ -32,6 +34,10 @@
                          (:file "split")
                          (:file "archive-plan")))
                (:module "application"
+                        :depends-on
+                        ("domain")
+                        :serial
+                        t
                         :components
                         ((:file "package") (:file "ports")
                          (:file "command-spec")
@@ -39,6 +45,7 @@
                          (:file "write-guards")
                          (:file "input-selectors")
                          (:file "input-targets")
+                         (:file "pipeline")
                          (:file "write-targets")
                          (:file "write-validation")
                          (:file "write-repairs")
@@ -77,6 +84,12 @@
                          (:file "table-flows")
                          (:file "archive-flows")
                          (:file "archive-create-flows")
-                         (:file "replay-flows")
-                         (:file "commands")))
-               (:module "infrastructure" :components ((:file "package") (:file "ports")))))
+                         (:file "commands")
+                         (:file "replay-flows")))
+               (:module "infrastructure"
+                        :depends-on
+                        ("application")
+                        :serial
+                        t
+                        :components
+                        ((:file "package") (:file "ports")))))

@@ -8,6 +8,7 @@
 (defpackage #:aitools.edit.application
   (:use #:cl #:aitools.edit.domain)
   (:import-from #:aitools.protocol.domain #:json-object #:json-null #:repair)
+  (:import-from #:aitools.kernel.domain #:flow-continue)
   (:export
    ;; ports.lisp
    #:edit-ports

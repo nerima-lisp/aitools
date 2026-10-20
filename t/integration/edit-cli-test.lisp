@@ -20,7 +20,7 @@
   (reduce (lambda (value key) (and value (gethash key value))) keys :initial-value object))
 
 (defun call-with-cli-workspace (function)
-  (with-workspace ()
+  (with-edit-workspace ()
     (let ((previous (sb-posix:getenv "XDG_STATE_HOME")))
       (sb-posix:setenv "XDG_STATE_HOME" *home* 1)
       (unwind-protect (funcall function)

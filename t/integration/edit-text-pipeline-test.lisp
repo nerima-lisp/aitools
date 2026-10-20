@@ -9,68 +9,61 @@
     (expect kind :to-be :ok)
     (field fields "path")))
 
-(defmacro with-stdin-port ((read-stdin-octets) &body body)
-  "BODY with *PORTS* reading standard input through READ-STDIN-OCTETS."
-  `(let ((*ports* (make-edit-ports
-                   :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
-                   :open-store #'open-store
-                   :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                   :read-stdin-octets ,read-stdin-octets
-                   :unix-now #'aitools.edit.infrastructure:unix-now)))
-     ,@body))
-
 (describe "aitools write pipeline: argument and root checks"
-  (it-each (("--expect-count that is not a count" "replace" ("a" "b" "a.txt") (:expect-count "x")
-             "argument.invalid" "--expect-count \"x\" is not a non-negative integer")
-            ("--expect-hash with an empty hash" "edit" ("a.txt") (:old "a" :new "b" :expect-hash ("a.txt="))
-             "argument.invalid" "non-empty hash")
-            ("--expect-hash naming only the other file of a two-file write" "move-lines" ("a.txt")
-             (:range "1" :to "b.txt" :to-position "start" :expect-hash ("a.txt=00"))
-             "argument.invalid" "this write needs --expect-hash b.txt=<hash>"))
-      "refuses ~A before touching the workspace"
-      (name command positionals options code fragment)
-    (declare (ignore name))
-    (with-workspace ()
-      (put "a.txt" (format nil "a~%"))
-      (put "b.txt" (format nil "b~%"))
-      (let ((before (snapshot)))
-        (with-error (actual message) (apply #'run command positionals options)
-          (expect actual :to-equal code)
-          (expect (search fragment message) :to-be-truthy))
-        (expect-unchanged before))))
+          (it-each (("--expect-count that is not a count" "replace" ("a" "b" "a.txt") (:expect-count "x")
+                                                          "argument.invalid" "--expect-count \"x\" is not a non-negative integer")
+                    ("--expect-hash with an empty hash" "edit" ("a.txt") (:old "a" :new "b" :expect-hash ("a.txt="))
+                                                        "argument.invalid" "non-empty hash")
+                    ("--expect-hash naming only the other file of a two-file write" "move-lines" ("a.txt")
+                                                                                    (:range "1" :to "b.txt" :to-position "start" :expect-hash ("a.txt=00"))
+                                                                                    "argument.invalid" "this write needs --expect-hash b.txt=<hash>"))
+                   "refuses ~A before touching the workspace"
+                   (name command positionals options code fragment)
+                   (declare (ignore name))
+                   (with-edit-workspace ()
+                                        (put "a.txt" (format nil "a~%"))
+                                        (put "b.txt" (format nil "b~%"))
+                                        (let ((before (snapshot)))
+                                          (with-error (actual message) (apply #'run command positionals options)
+                                                      (expect actual :to-equal code)
+                                                      (expect (search fragment message) :to-be-truthy))
+                                          (expect-unchanged before))))
 
-  (it "refuses a --root that does not exist or is a file, pointing at aitools schema"
-    (with-workspace ()
-      (put "file" "x")
-      (dolist (case (list (list (disk "missing") "input.not-found" "does not exist")
-                          (list (disk "file") "argument.invalid" "is not a directory")))
-        (destructuring-bind (root code fragment) case
-          (let ((result nil))
-            (run-edit-command *ports* "write" '("a.txt") '(:content ("x")) :root root
-                              :on-ok (lambda (fields) (setf result fields))
-                              :on-error (lambda (code message &key repairs &allow-other-keys)
-                                          (setf result (list code message (getf (first repairs) :command)))))
-            (expect (first result) :to-equal code)
-            (expect (search fragment (second result)) :to-be-truthy)
-            (expect (third result) :to-equal "aitools schema"))))))
+          (it "refuses a --root that does not exist or is a file, pointing at aitools schema"
+              (with-edit-workspace ()
+                                   (put "file" "x")
+                                   (dolist (case (list (list (disk "missing") "input.not-found" "does not exist")
+                                                       (list (disk "file") "argument.invalid" "is not a directory")))
+                                     (destructuring-bind (root code fragment) case
+                                       (let ((result nil))
+                                         (run-edit-command *ports* "write" '("a.txt") '(:content ("x")) :root root
+                                                           :on-ok (lambda (fields) (setf result fields))
+                                                           :on-error (lambda (code message &key repairs &allow-other-keys)
+                                                                       (setf result (list code message (getf (first repairs) :command))))
+                                                           :on-partial #'identity)
+                                         (expect (first result) :to-equal code)
+                                         (expect (search fragment (second result)) :to-be-truthy)
+                                         (expect (third result) :to-equal "aitools schema"))))))
 
-  (it "refuses a bad --root when another context drives the pipeline directly"
-    (with-workspace ()
-      (let ((result nil))
-        (aitools.edit.application:run-write-command/k
-         *ports*
-         (aitools.edit.application:make-write-plan
-          :command "write" :targets (list (aitools.edit.application:make-write-target "a.txt"))
-          :plan (lambda (context commit reject) (declare (ignore context reject)) (funcall commit '())))
-         :root (disk "missing")
-         :on-ok (lambda (fields) (setf result fields))
-         :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
-        (expect (first result) :to-equal "input.not-found")
-        (expect (search "does not exist" (second result)) :to-be-truthy)))))
+          (it "refuses a bad --root when another context drives the pipeline directly"
+              (with-edit-workspace ()
+                                   (let ((result nil))
+                                     (aitools.edit.application:run-write-command/k
+                                      *ports*
+                                      (aitools.edit.application:make-write-plan
+                                       :command "write" :targets (list (aitools.edit.application:make-write-target "a.txt"))
+                                       :plan (lambda (context &key on-committed on-rejected)
+                                               (declare (ignore context on-rejected))
+                                               (funcall on-committed '())))
+                                      :root (disk "missing")
+                                      :on-ok (lambda (fields) (setf result fields))
+                                      :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
+                                     (expect (first result) :to-equal "input.not-found")
+                                     (expect (search "does not exist" (second result)) :to-be-truthy)))))
 
 (describe "aitools write pipeline: targets, hashes and the store"
   (it "refuses one write reaching both the workspace and the mktemp area"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((temporary (mktemp-path)))
         (let ((before (snapshot)))
           (with-error (code message) (run "copy" (list temporary "copied.txt"))
@@ -79,7 +72,7 @@
           (expect-unchanged before)))))
 
   (it "refuses to stage a write to the mktemp area in a tx"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((temporary (mktemp-path))
             (tx (begin-tx)))
         (with-error (code message) (run-in tx "write" (list temporary) :content '("x") :overwrite t
@@ -88,7 +81,7 @@
           (expect (search "--tx cannot stage" message) :to-be-truthy)))))
 
   (it "checks --expect-hash PATH=HASH for a file the write does not change"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (put "b.txt" (format nil "b~%"))
       (let ((before (snapshot)))
@@ -106,7 +99,7 @@
       (expect (text "a.txt") :to-equal (format nil "z~%"))))
 
   (it "checks --expect-hash PATH=HASH in the other area than the write's, and refuses a path outside"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (let ((temporary (mktemp-path))
             (empty (aitools.kernel.domain:content-hash (octet-vector))))
@@ -130,7 +123,7 @@
   (it-each ((nil) (t))
       "reports input.not-found with a tx status repair for a missing tx (dry run ~A)"
       (dry-run)
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (with-error (code message keys) (run-in "no-such-tx" "edit" '("a.txt") :old "a" :new "b" :dry-run dry-run)
         (expect code :to-equal "input.not-found")
@@ -146,7 +139,7 @@
       (expect (text "a.txt") :to-equal (format nil "foo~%"))))
 
   (it "plans a directory delete inside a tx without writing"
-    (with-workspace ()
+    (with-edit-workspace ()
       (sb-posix:mkdir (disk "d") #o755)
       (put "d/a.txt" "a")
       (let ((tx (begin-tx)))
@@ -160,15 +153,16 @@
         (expect (kind "d/a.txt") :to-be :file))))
 
   (it "reports environment.io, not an internal error, when the state home cannot be created"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
+      (sb-posix:rmdir *home*)
       (with-open-file (out (sb-ext:parse-native-namestring *home*) :direction :output :if-does-not-exist :create))
-      (with-error (code) (run "edit" '("a.txt") :old "a" :new "b")
+      (with-error (code) (run "edit" (list "a.txt") :old "a" :new "b")
         (expect code :to-equal "environment.io"))
       (expect (text "a.txt") :to-equal (format nil "a~%"))))
 
   (it "reports environment.io when a target cannot be read"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "locked.txt" (format nil "a~%") :mode #o000)
       (unwind-protect
            (if (zerop (sb-posix:getuid))
@@ -179,7 +173,7 @@
 
 (describe "aitools write pipeline: archive refusals reach the caller as input errors"
   (it "reports an unsupported zip as input.unsupported-format and a corrupt one as input.syntax-error"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let* ((zip (zip-of (member-file "a.txt" "A")))
              (multi-disk (copy-seq zip))
              (corrupt (copy-seq zip))
@@ -201,13 +195,11 @@
       "refuses standard input that is ~A"
       (name outcome code)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
-      (with-stdin-port ((lambda (limit &key on-octets on-too-large on-failure)
-                          (declare (ignore on-octets))
-                          (expect limit :to-be aitools.edit.application:+max-input-bytes+)
-                          (if (eq outcome :too-large) (funcall on-too-large) (funcall on-failure "read failed"))))
-        (with-error (actual) (run "insert" '("a.txt") :at "end" :stdin t)
+      (let ((*stdin-outcome* outcome))
+        (with-error (actual)
+          (run "insert" '("a.txt") :at "end" :stdin t)
           (expect actual :to-equal code)))
       (expect (text "a.txt") :to-equal (format nil "a~%"))))
 
@@ -217,7 +209,7 @@
       "refuses --stdin ~A"
       (name command positionals options code)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (put "c.json" "{}")
       (setf *stdin* (if (string= command "json.merge") (bytes "{nope") (octet-vector 97 #xFF)))

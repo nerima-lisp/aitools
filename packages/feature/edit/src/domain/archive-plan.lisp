@@ -14,24 +14,28 @@
 ;;; and create call DETECT-ARCHIVE-FORMAT / ARCHIVE-FORMAT-NAME there and use
 ;;; its keywords (:ZIP :TAR :TAR-GZ :GZ), so v7 tar is accepted the same way
 ;;; on both the read and the write side.
-
 (defun archive-format-for-path (path)
   "The `archive create` format implied by PATH's extension, or NIL."
   (let ((lower (string-downcase path)))
-    (flet ((ends (suffix) (let ((start (- (length lower) (length suffix))))
-                            (and (>= start 0) (string= suffix lower :start2 start)))))
-      (cond ((ends ".zip") :zip)
-            ((or (ends ".tar.gz") (ends ".tgz")) :tar-gz)
-            ((ends ".tar") :tar)
-            ((ends ".gz") :gz)))))
+    (flet ((ends (suffix)
+             (let ((start (- (length lower) (length suffix))))
+               (and (>= start 0) (string= suffix lower :start2 start)))))
+      (cond
+        ((ends ".zip") :zip)
+        ((or (ends ".tar.gz") (ends ".tgz")) :tar-gz)
+        ((ends ".tar") :tar)
+        ((ends ".gz") :gz)))))
 
 (defun parse-archive-format (name)
   (cdr (assoc name '(("zip" . :zip) ("tar" . :tar) ("tar.gz" . :tar-gz) ("gz" . :gz)) :test #'string=)))
 
 (defun %normalize-entry-name (name)
   "NAME without leading `./` components."
-  (loop while (and (>= (length name) 2) (string= name "./" :end1 2))
-        do (setf name (subseq name 2)))
+  (loop
+    while
+    (and (>= (length name) 2) (string= name "./" :end1 2))
+    do
+    (setf name (subseq name 2)))
   name)
 
 (defstruct (extract-step (:constructor make-extract-step (kind path &key data mode target)) (:copier nil))
@@ -47,6 +51,15 @@ MODE) or :SYMLINK (TARGET); PATH is workspace-relative."
   (ecase format
     (:zip (values (aitools.text.domain:read-zip-entries octets) octets))
     (:tar (values (aitools.text.domain:read-tar-entries octets) octets))))
+
+(defun %archive-entry-name (entry)
+  (%normalize-entry-name (aitools.text.domain:archive-entry-name entry)))
+
+(defun %archive-entry-mode (entry)
+  (or (aitools.text.domain:archive-entry-mode entry) #o644))
+
+(defun %archive-entry-link-target (entry)
+  (%normalize-entry-name (or (aitools.text.domain:archive-entry-link-target entry) "")))
 
 (defun plan-archive-extraction (octets format destination &key archive-path selected max-bytes max-entries
                                                                lookup-kind)
@@ -90,13 +103,12 @@ absent), input.unsupported-format (device or other special entries)."
                     (%archive-entries tar :tar))
                   (%archive-entries octets format))
             (let* ((entries (remove-if (lambda (entry)
-                                         (member (%normalize-entry-name (aitools.text.domain:archive-entry-name entry)) '("" ".")
-                                                 :test #'string=))
+                                         (member (%archive-entry-name entry) '("" ".") :test #'string=))
                                        entries))
                    (chosen (if selected
                                (loop for name in selected
                                      collect (or (find name entries
-                                                       :key (lambda (entry) (%normalize-entry-name (aitools.text.domain:archive-entry-name entry)))
+                                                       :key #'%archive-entry-name
                                                        :test #'string=)
                                                  (refuse "input.not-found" "no entry ~S in the archive" name)))
                                entries))
@@ -125,7 +137,7 @@ absent), input.unsupported-format (device or other special entries)."
                     (:directory (push (make-extract-step :directory path) steps))
                     (:file
                      (push (make-extract-step :file path :data (take-entry body entry)
-                                                         :mode (or (aitools.text.domain:archive-entry-mode entry) #o644))
+                                                         :mode (%archive-entry-mode entry))
                            steps))
                     (:symlink
                      (let ((target (or (aitools.text.domain:archive-entry-link-target entry) "")))
@@ -134,15 +146,15 @@ absent), input.unsupported-format (device or other special entries)."
                                   name target))
                        (push (make-extract-step :symlink path :target target) steps)))
                     (:hardlink
-                     (let* ((target (%normalize-entry-name (or (aitools.text.domain:archive-entry-link-target entry) "")))
+                     (let* ((target (%archive-entry-link-target entry))
                             (source (and (null (aitools.text.domain:archive-entry-path-problem target))
-                                         (find target entries :key (lambda (e) (%normalize-entry-name (aitools.text.domain:archive-entry-name e)))
+                                         (find target entries :key #'%archive-entry-name
                                                               :test #'string=))))
                        (unless (and source (eq (aitools.text.domain:archive-entry-kind source) :file))
                          (refuse "refusal.outside-workspace" "archive hard link ~S has no file ~S in the archive"
                                   name target))
                        (push (make-extract-step :file path :data (take-entry body source)
-                                                           :mode (or (aitools.text.domain:archive-entry-mode source) #o644))
+                                                           :mode (%archive-entry-mode source))
                              steps)))
                     (:other
                      (refuse "input.unsupported-format" "archive entry ~S is a device or special file" name)))))

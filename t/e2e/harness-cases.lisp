@@ -112,16 +112,17 @@ removing it and its state directory afterwards."
           keys :initial-value value))
 
 (defun ok (result)
-  "Return the envelope for a successful command."
-  (expect (aitools-envelope result) :to-match-envelope "status" "ok")
-  (unless (eql (aitools-exit-code result) 0)
-    (fail "~A" (format nil "aitools ~{~A~^ ~} exited ~A: ~A"
-                       (aitools-argv result) (aitools-exit-code result)
-                       (if (eq (aitools-stream result) :stdout) (aitools-stdout result) (aitools-stderr result)))))
-  (aitools-envelope result))
+  (let* ((envelope (aitools-envelope result))
+         (output (if (eq (aitools-stream result) :stdout) (aitools-stdout result) (aitools-stderr result))))
+    (unless (equal (jget envelope "status") "ok") (fail "~A" output))
+    (expect envelope :to-match-envelope "status" "ok")
+    (unless (eql (aitools-exit-code result) 0)
+      (fail "~A"
+            (format nil "aitools ~{~A~^ ~} exited ~A: ~A" (aitools-argv result)
+                    (aitools-exit-code result) output)))
+    envelope))
 
-(defun run-ok (workspace arguments &rest options)
-  (ok (apply #'aitools workspace arguments options)))
+(defun run-ok (workspace arguments &rest options) (ok (apply #'aitools workspace arguments options)))
 
 (defun jlist (value)
   (coerce value 'list))

@@ -156,3 +156,18 @@
         (expect (mapcar (lambda (piece) (list (split-piece-start-line piece) (split-piece-lines piece)))
                         (split-at-matches octets (text-document-lines document) regex))
                 :to-equal '((1 3) (4 2)))))))
+(describe "aitools.edit parser and codec properties"
+  (it-property "round-trips generated UTF-8 text through text documents"
+      ((text (gen-string :min-length 0 :max-length 80
+                         :alphabet (format nil "aB09\"\\~%~C~C漢字" #\Return #\Tab))))
+    (expect (doc-string (doc text)) :to-equal text))
+  (it-property "round-trips generated edit values through recorded argv"
+      ((path (gen-string :min-length 1 :max-length 24 :alphabet "abA-./"))
+       (old (gen-string :min-length 0 :max-length 30
+                        :alphabet (format nil "aB09 -\"\\~%~C" #\Tab)))
+       (new (gen-string :min-length 0 :max-length 30
+                        :alphabet (format nil "cD18 -\"\\~%~C" #\Tab))))
+    (let ((argv (options-argv "edit" (list path) (list :old old :new new))))
+      (expect (parse-recorded-argv argv :on-parsed (function list)
+                                         :on-invalid (function identity))
+              :to-equal (list "edit" (list path) (list :old old :new new))))))

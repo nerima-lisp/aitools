@@ -83,17 +83,26 @@
           :on-ok on-ok :on-partial on-partial :on-error on-error))))))
 
 (defun register-edit-commands (registry ports)
-  "Register every edit command (text edits, file operations, and the write
-side of the format groups) on REGISTRY. PORTS is the AITOOLS.EDIT.APPLICATION:EDIT-PORTS the composition
-root built."
-  (dolist (spec (aitools.edit.application:edit-command-specs) registry)
-    (let* ((name (getf spec :name))
-           (words (aitools.edit.application:command-words name)))
-      (aitools.protocol.application:register-command
-       registry :name name :group (and (rest words) (first words))
-                :cli-command (make-command :name (car (last words))
-                                           :description (getf spec :summary)
-                                           :positionals (mapcar #'%cli-positional (getf spec :positionals))
-                                           :options (mapcar #'%cli-option (getf spec :options))
-                                           :handler (%handler spec ports))
-                :schema (%schema spec)))))
+  "Register every edit command on REGISTRY using PORTS."
+  (aitools.protocol.application:register-command-declarations
+   registry
+   (mapcar (lambda (spec)
+             (let* ((name (getf spec :name))
+                    (words (aitools.edit.application:command-words name))
+                    (group (and (rest words) (first words)))
+                    (cli-name (car (last words))))
+               (aitools.protocol.application:define-command
+                name
+                (:group group
+                 :command-builder
+                 (lambda (command-ports)
+                   (make-command
+                    :name cli-name
+                    :description (getf spec :summary)
+                    :positionals
+                    (mapcar (function %cli-positional) (getf spec :positionals))
+                    :options (mapcar (function %cli-option) (getf spec :options))
+                    :handler (%handler spec command-ports)))
+                 :schema (%schema spec)))))
+           (aitools.edit.application:edit-command-specs))
+   ports))

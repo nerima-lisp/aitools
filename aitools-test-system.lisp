@@ -212,7 +212,7 @@
                                               (:file "unit/util/flow-errors-test")
                                               (:file "integration/util-cli-test")
                                               (:module "structure" :pathname "structure/" :serial t
-                                                       :components ((:file "cps-contract-reader") (:file "cps-contract-analysis") (:file "cps-contract-allowlist-slash-k")
+                                                       :components ((:file "cps-contract-reader") (:file "cps-contract-analysis") (:file "cps-contract-analysis-source") (:file "cps-contract-allowlist-slash-k")
                                                                     (:file "cps-contract-allowlist-on-key")
                                                                     (:file "cps-contract-test")))
                                               (:module "integration"
@@ -242,6 +242,7 @@
                                                                     (:file "correspondence-rows")
                                                                     (:file "read-search-cases") (:file "search-find-cases")
                                                                     (:file "edit-cases")
+                                                                    (:file "edit-envelope-compatibility")
                                                                     (:file "transform-file-cases")
                                                                     (:file "file-operation-cases")
                                                                     (:file "format-cases")

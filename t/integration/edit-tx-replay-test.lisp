@@ -38,7 +38,7 @@
       "rejects ~A"
       (name argv code fragment)
     (declare (ignore name))
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "a~%"))
       (put "c.json" "{}")
       (destructuring-bind (kind actual-code message) (replay-argv argv)
@@ -47,7 +47,7 @@
         (expect (search fragment message) :to-be-truthy))))
 
   (it "re-runs a content-based op against the view, reading its recorded stdin input"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "c.json" "{\"a\":1}")
       (expect (replay-argv '("json" "set" "--stdin-data" "{\"pointer\":\"/a\",\"value\":2}" "c.json"))
               :to-equal '(:commit ("c.json")))
@@ -70,7 +70,7 @@
     (expect (options-argv "edit" '("") '(:old "a")) :to-equal '("edit" "--old" "a" "")))
 
   (it "replays a replace op on the moved base"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "x = 1~%"))
       (let ((tx (begin-tx)))
         (expect (run-in tx "replace" '("x = 1" "x = 2" "a.txt") :expect-count "1") :to-be :ok)

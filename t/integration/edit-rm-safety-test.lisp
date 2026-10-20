@@ -2,7 +2,7 @@
 
 (describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" "a")
       (put "d/b.txt" "b")
       (multiple-value-bind (kind fields) (run "copy" '("." "x") :recursive t)
@@ -14,25 +14,32 @@
 
 (describe "aitools rm protected roots and recovery"
   (it "refuses the injected home directory without touching its children"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "fixture-home/keep" "protected")
       (put "ordinary/keep" "ordinary")
-      (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host
-                    :home-directory (lambda () (disk "fixture-home"))))
-             (*ports* (make-edit-ports
-                       :workspace-host host
-                       :open-store #'open-store
-                       :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                       :read-stdin-octets #'%stdin-port
-                       :unix-now #'aitools.edit.infrastructure:unix-now))
-             (before (snapshot)))
-        (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
-        (with-error (code) (run "rm" '("fixture-home") :recursive t :expect-count "2")
-          (expect code :to-equal "refusal.outside-workspace"))
-        (expect-unchanged before))))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'aitools.workspace.infrastructure::%home-directory)
+            (lambda () (disk "fixture-home"))))
+        (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host
+                      :home-directory
+                      (symbol-function 'aitools.workspace.infrastructure::%home-directory)))
+               (*ports* (make-edit-ports
+                         :workspace-host host
+                         :open-store (function open-store)
+                         :text-source
+                         (aitools.edit.application::edit-ports-text-source *ports*)
+                         :read-stdin-octets
+                         (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
+                         :unix-now (function aitools.edit.infrastructure:unix-now)))
+               (before (snapshot)))
+          (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
+          (with-error (code)
+              (run "rm" '("fixture-home") :recursive t :expect-count "2")
+            (expect code :to-equal "refusal.outside-workspace"))
+          (expect-unchanged before)))))
 
   (it "refuses an ancestor containing a custom state home before deleting ordinary files"
-    (with-workspace ()
+    (with-edit-workspace ()
       (let ((*home* (disk "protected/custom-state/aitools")))
         (put "protected/ordinary" "keep")
         (expect (run "write" '("initialized") :content '("ready")) :to-be :ok)
@@ -52,7 +59,7 @@
           (expect-unchanged before)))))
 
   (it "never traverses an existing outside directory linked from a removed tree"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
       (put "tree/ordinary" "owned")
       (sb-posix:symlink "../../outside" (disk "tree/link"))
@@ -74,7 +81,7 @@
   (it-each ((:after-intent :throw) (:after-apply-step :throw)
             (:after-apply :throw) (:after-journal :throw) (:after-apply-step :exit))
       "recovers a recursive rm interrupted at ~A with ~A and preserves its undo" (point mode)
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
       (put "keep" "untouched")
       (sb-posix:chmod (disk "tree") #o750)
