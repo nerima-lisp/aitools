@@ -66,7 +66,7 @@
     ("search" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
      "pure Unix-time conversion for the search adapter")
     ("org" (:infrastructure) "CL-DATE-KIT" "FIND-TIME-ZONE" "find zone rules for query time conversion")
-    ("org" (:infrastructure) "CL-DATE-KIT" "LOCAL-DATE-TIME-OF-INSTANT" "convert the query instant in the selected zone to local date-time fields")
+    ("org" (:infrastructure) "CL-DATE-KIT" "LOCAL-DATE-TIME-OF-INSTANT" "convert query instant to local date-time")
     ("org" (:infrastructure) "CL-DATE-KIT" "CL-DATE-KIT-ERROR" "catch date-kit time conversion failures")
     ("org" (:infrastructure) "ORG-KIT" "DOCUMENT-ROOT" "traverse parsed Org nodes")
     ("org" (:infrastructure) "ORG-KIT" "EXPORT-ORG" "render a supported export backend")

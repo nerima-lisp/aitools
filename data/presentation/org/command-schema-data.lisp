@@ -45,7 +45,7 @@
             (:name "--dst-policy" :type "enum"
              :choices ("compatible" "earlier" "later" "strict")
              :default "compatible"
-             :description "Resolve daylight-saving gaps and overlaps; Org date predicates compare local wall time in --tz."))
+             :description "Resolve DST policy for --at; Org predicates use local wall time in --tz."))
      :output-fields ((:name "matches" :description
                       ,(concatenate 'string
                                     "[{line,level,title,todo,tags,heading_path}] in document order. line is one-based; "
