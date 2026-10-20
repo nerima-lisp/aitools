@@ -10,8 +10,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 146)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 123)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 130)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 110)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
@@ -46,6 +46,13 @@
   '(return-from quoted-flow nil)
   '(apply on-ok nil)
   (flow-continue :on-ok))")
+     :to-equal nil)
+    (expect
+     (%fixture-violations
+      (concatenate 'string
+                   "(define-flow (dotted-flow &key on-ok) "
+                   "(destructuring-bind (key . value) (cons :key :value) "
+                   "(flow-continue :on-ok value)))"))
      :to-equal nil))
 
   (it "rejects new legacy continuation definitions"

@@ -1,11 +1,12 @@
 (in-package #:aitools.env.presentation)
 
-(defun %call-flow (flow)
-  "Run FLOW, a function of the three command-result continuations, and
-return the COMMAND-RESULT."
+(defun %run-flow (flow continuation-keys &rest arguments)
   (aitools.protocol.application:call-with-command-result/k
-   (lambda (&key on-ok on-partial on-error)
-     (funcall flow on-ok on-partial on-error))))
+   (lambda (&rest continuations)
+     (apply flow
+            (append arguments
+                    (loop for key in continuation-keys
+                          append (list key (getf continuations key))))))))
 
 (defun %schema-data (full-name)
   (or (find full-name aitools.data:*env-command-schemas*

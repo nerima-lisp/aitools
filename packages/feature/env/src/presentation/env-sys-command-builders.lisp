@@ -9,15 +9,7 @@
    :handler
    (lambda (invocation)
      (declare (ignore invocation))
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-info/k ports)
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message)
-            (funcall on-error code message))))))))
+     (%run-flow #'aitools.env.application:sys-info/k '(:on-ok :on-error) ports))))
 
 (defun %sys-env-command (ports)
   (make-command
@@ -27,16 +19,11 @@
    (list (make-positional :name "prefix" :key :prefix :required-p nil))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-env/k
-             ports :prefix (positional-value invocation :prefix))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message)
-            (funcall on-error code message))))))))
+     (%run-flow #'aitools.env.application:sys-env/k
+                 '(:on-ok :on-error)
+                 ports
+                 :prefix
+                 (positional-value invocation :prefix)))))
 
 (defun %sys-tools-command (ports)
   (make-command
@@ -51,18 +38,9 @@
      :description "Per-command time limit for the version probe."))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-tools/k
-             ports
+     (%run-flow #'aitools.env.application:sys-tools/k '(:on-ok :on-error) ports
              :names (positional-value invocation :names)
-             :timeout (option-value invocation :timeout))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+             :timeout (option-value invocation :timeout)))))
 
 (defun %sys-procs-command (ports)
   (make-command
@@ -77,19 +55,9 @@
      :description "Maximum items."))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-procs/k
-             ports
+     (%run-flow #'aitools.env.application:sys-procs/k '(:on-ok :on-partial :on-error) ports
              :pattern (positional-value invocation :pattern)
-             :limit (option-value invocation :limit))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-partial (fields)
-            (funcall on-partial fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+             :limit (option-value invocation :limit)))))
 
 (defun %sys-metrics-command (ports)
   (make-command
@@ -102,17 +70,11 @@
      :description "Maximum processes, ordered by CPU usage."))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-metrics/k
-             ports :limit (option-value invocation :limit))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-partial (fields)
-            (funcall on-partial fields))
-          (:on-error (code message)
-            (funcall on-error code message))))))))
+     (%run-flow #'aitools.env.application:sys-metrics/k
+                 '(:on-ok :on-partial :on-error)
+                 ports
+                 :limit
+                 (option-value invocation :limit)))))
 
 (defun %sys-network-command (ports)
   (make-command
@@ -124,17 +86,11 @@
      :name "limit" :kind :value :type :integer :min 1 :max 1000 :default 100))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-network/k
-             ports :limit (option-value invocation :limit))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-partial (fields)
-            (funcall on-partial fields))
-          (:on-error (code message)
-            (funcall on-error code message))))))))
+     (%run-flow #'aitools.env.application:sys-network/k
+                 '(:on-ok :on-partial :on-error)
+                 ports
+                 :limit
+                 (option-value invocation :limit)))))
 
 (defun %sys-disk-command (ports)
   (make-command
@@ -144,16 +100,11 @@
    (list (make-positional :name "path" :key :path :required-p nil))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-disk/k
-             ports :path (positional-value invocation :path))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message)
-            (funcall on-error code message))))))))
+     (%run-flow #'aitools.env.application:sys-disk/k
+                 '(:on-ok :on-error)
+                 ports
+                 :path
+                 (positional-value invocation :path)))))
 
 (defun %sys-snapshot-command (ports)
   (make-command
@@ -170,21 +121,11 @@
         :name name :kind :value :type :integer :min 1 :max 1000 :default default))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-snapshot/k
-             ports
+     (%run-flow #'aitools.env.application:sys-snapshot/k '(:on-ok :on-partial :on-error) ports
              :path (positional-value invocation :path)
              :process-limit (option-value invocation :process-limit)
              :network-limit (option-value invocation :network-limit)
-             :port-limit (option-value invocation :port-limit))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-partial (fields)
-            (funcall on-partial fields))
-          (:on-error (code message &key diagnostics)
-            (funcall on-error code message :diagnostics diagnostics))))))))
+             :port-limit (option-value invocation :port-limit)))))
 
 (defun %sys-ports-command (ports)
   (make-command
@@ -193,13 +134,4 @@
    :handler
    (lambda (invocation)
      (declare (ignore invocation))
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:sys-ports/k ports)
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-partial (fields)
-            (funcall on-partial fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+     (%run-flow #'aitools.env.application:sys-ports/k '(:on-ok :on-partial :on-error) ports))))

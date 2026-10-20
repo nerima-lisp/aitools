@@ -9,16 +9,7 @@
    :options (list (%tz-option))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:time-now/k
-             ports :tz (option-value invocation :tz))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+     (%run-flow #'aitools.env.application:time-now/k '(:on-ok :on-error) ports :tz (option-value invocation :tz)))))
 
 (defun %time-convert-command (ports)
   (make-command
@@ -41,21 +32,12 @@
     (%tz-option))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:time-convert/k
-             ports
+     (%run-flow #'aitools.env.application:time-convert/k '(:on-ok :on-error) ports
              (positional-value invocation :value)
              :to (option-value invocation :to)
              :add (option-value invocation :add)
              :sub (option-value invocation :sub)
-             :tz (option-value invocation :tz))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+             :tz (option-value invocation :tz)))))
 
 (defun %time-diff-command (ports)
   (make-command
@@ -67,15 +49,6 @@
     (make-positional :name "b" :key :b :required-p t))
    :handler
    (lambda (invocation)
-     (%call-flow
-      (lambda (on-ok on-partial on-error)
-        (declare (ignore on-partial))
-        (aitools.kernel.domain:flow-call
-            (aitools.env.application:time-diff/k
-             ports
+     (%run-flow #'aitools.env.application:time-diff/k '(:on-ok :on-error) ports
              (positional-value invocation :a)
-             (positional-value invocation :b))
-          (:on-ok (fields)
-            (funcall on-ok fields))
-          (:on-error (code message &key repairs)
-            (funcall on-error code message :repairs repairs))))))))
+             (positional-value invocation :b)))))
