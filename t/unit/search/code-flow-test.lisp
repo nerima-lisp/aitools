@@ -218,7 +218,21 @@
      (outline-of "/w/a.md"
                  (lines "# title" "````" "```` not a close" "```"
                         "~~~" "# hidden" "````  " "## visible"))
-     :to-equal '((1 1 "heading" "title") (8 8 "heading" "visible"))))
+     :to-equal (quote ((1 8 "heading" "title") (8 8 "heading" "visible"))))
+    (expect
+     (outline-of "/w/a.md"
+                 (lines "# title" "```" "# hidden"
+                        (format nil "```~C" #\Tab)
+                        "## visible"))
+     :to-equal (quote ((1 5 "heading" "title") (5 5 "heading" "visible")))))
+
+  (it "rejects a backtick in a backtick fence info string"
+    (expect
+     (outline-of "/w/a.md" (lines "```lang`name" "# visible"))
+     :to-equal '((2 2 "heading" "visible")))
+    (expect
+     (outline-of "/w/a.md" (lines "~~~lang`name" "# hidden" "~~~" "# visible"))
+     :to-equal '((4 4 "heading" "visible"))))
 
   (it "rejects tab-indented opening and closing fences"
     (expect

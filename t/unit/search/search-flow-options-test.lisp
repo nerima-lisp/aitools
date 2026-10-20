@@ -17,16 +17,17 @@
 
   (it "drops one trailing CR LF from a --stdin pattern, and nothing more"
     (flet ((matches (stdin)
-             (field (nth-value 1 (run-flow #'search/k
+             (field (nth-value 1 (run-flow (function search/k)
                                            (make-fake-ports :files (list (list "/w/a.txt" (format nil "ab~%ab ~%")))
                                                             :stdin stdin)
                                            :stdin t :fixed t :output :matches))
                     "total_matches")))
-      (expect (matches (format nil "ab~C~%" #\Return)) :to-be 2)
-      (expect (matches (format nil "ab ~C~%" #\Return)) :to-be 1))
+      (expect (matches (format nil "ab~C~%" (code-char 13))) :to-be 2)
+      (expect (matches (format nil "ab ~C~%" (code-char 13))) :to-be 1))
     ;; A lone newline leaves the empty pattern, which selects every line.
-    (expect (field (nth-value 1 (run-flow #'search/k (make-fake-ports :files (list (list "/w/a.txt" (format nil "x~%y~%")))
-                                                                      :stdin (format nil "~%"))
+    (expect (field (nth-value 1 (run-flow (function search/k)
+                                          (make-fake-ports :files (list (list "/w/a.txt" (format nil "x~%y~%")))
+                                                           :stdin (format nil "~%"))
                                           :stdin t :output :count))
                    "total_matches")
             :to-be 2))
@@ -38,23 +39,20 @@
       "maps a --stdin ~A to ~A"
       (case code message)
     (let ((ports (ecase case
-                   (:invalid-utf8 (make-fake-ports :stdin (coerce #(97 255) '(vector (unsigned-byte 8)))))
-                   (:too-large (make-fake-ports :stdin (make-array (1+ (* 1024 1024)) :element-type '(unsigned-byte 8)
-                                                                                      :initial-element 97)))
-                   (:failure (make-fake-ports :stdin-port nil))
+                   (:invalid-utf8
+                    (make-fake-ports :stdin (coerce #(97 255) (quote (vector (unsigned-byte 8))))))
+                   (:too-large
+                    (make-fake-ports :stdin (make-array (1+ (* 1024 1024))
+                                                        :element-type (quote (unsigned-byte 8))
+                                                        :initial-element 97)))
+                   (:failure
+                    (make-fake-ports
+                     :stdin-port (lambda (limit &key on-octets on-too-large on-failure)
+                                   (declare (ignore limit on-octets on-too-large))
+                                   (funcall on-failure "stdin closed"))))
                    (:no-port (make-fake-ports :stdin-port nil)))))
       (multiple-value-bind (kind fields)
-          (if (eq case :failure)
-              (cl-weave:with-mocked-functions
-                  (((symbol-function
-                     'aitools.search.application::search-ports-read-stdin-octets)
-                    (lambda (ports)
-                      (declare (ignore ports))
-                      (lambda (limit &key on-octets on-too-large on-failure)
-                        (declare (ignore limit on-octets on-too-large))
-                        (funcall on-failure "stdin closed")))))
-                (run-flow #'search/k ports :stdin t))
-              (run-flow #'search/k ports :stdin t))
+          (run-flow (function search/k) ports :stdin t)
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal code)
         (expect (error-message fields) :to-contain message))))
@@ -63,7 +61,9 @@
     (destructuring-bind (kind fields)
         (%within-seconds 5 (lambda ()
                              (multiple-value-list
-                              (search-in (list (list "/w/a.txt" "ab")) :patterns '("") :output :count))))
+                              (search-in (list (list "/w/a.txt" "ab"))
+                                         :patterns (quote (""))
+                                         :output :count))))
       (expect kind :to-be :ok)
       (expect (field fields "total_matches") :to-be 1))))
 

@@ -62,8 +62,9 @@
                         (%result-fields fields
                           (list (command-line
                                  (list "aitools" "code" "outline" path
-                                       "--limit" (princ-to-string total)))))
-                      (aitools.kernel.domain:flow-continue :on-ok (%result-fields fields))))))))))
+                                       "--limit" (princ-to-string total))))))
+                      (aitools.kernel.domain:flow-continue :on-ok
+                        (%result-fields fields)))))))))
     (:on-error (code message &key repairs)
       (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))))
 

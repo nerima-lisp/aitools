@@ -122,7 +122,10 @@ included: headings there are not headings."
                               (loop for i from content below end
                                     while (= (aref octets i) marker)
                                     count t)))
-                    (fence-p (and run (>= run 3) (<= indent 3)))
+                    (fence-p (and run (>= run 3) (<= indent 3)
+                                  (or (/= marker 96)
+                                      (loop for i from (+ content run) below end
+                                            never (= (aref octets i) 96)))))
                     (closing-p
                       (and opening fence-p
                            (= marker (car opening))
