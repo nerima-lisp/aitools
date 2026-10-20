@@ -86,7 +86,7 @@ clamped to SIZE, or NIL when TEXT is malformed."
      (if bytes
          (%parse-byte-span bytes most-positive-fixnum)
          (values 0 256))
-   (if (null start)
+   (if (not (integerp start))
        (aitools.kernel.domain:flow-continue
         :on-error
         "argument.invalid"
