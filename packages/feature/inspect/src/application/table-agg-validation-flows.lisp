@@ -12,12 +12,12 @@
                    (not (member (nth index (table-types table))
                                 '("integer" "number" "null")
                                 :test #'string=)))
-           do (let* ((cells (non-numeric-cells table index :rows rows))
-                     (column (nth index (table-columns table))))
-                (when cells
-                  (setf problem (list flag column
-                                      (nth index (table-types table))
-                                      cells))))
+         do (let* ((cells (non-numeric-cells table index :rows rows))
+                   (column (nth index (table-columns table))))
+              (when cells
+                (setf problem (list flag column
+                                    (nth index (table-types table))
+                                    cells)))))
    (if problem
        (destructuring-bind (flag column type cells) problem
          (aitools.kernel.domain:flow-continue
@@ -48,8 +48,8 @@
             "table-options"
             "See the table options and aggregates."
             "aitools schema table agg"))))
-       (aitools.kernel.domain:flow-continue
-        :on-valid)))))
+     (aitools.kernel.domain:flow-continue
+      :on-valid))))
 (aitools.kernel.domain:define-flow
  (%aggregate-indexes/k table specs &key on-indexes on-error)
  "Map each requested aggregate and column spec to its column index."

@@ -21,25 +21,25 @@
                        (repair "where-example"
                                "Compare a member of each element, e.g. /status=\"open\"."
                                "aitools schema json select"))))
-               (aitools.kernel.domain:flow-call
-                (make-comparison/k tokens operator right)
-                (:on-comparison (comparison)
-                  (push comparison comparisons))
-                (:on-error (message)
-                  (setf failure
-                        (list
-                         "input.syntax-error"
-                         message
-                         (list
-                          (repair "fix-pattern"
-                                  "Correct the regular expression."
-                                  "aitools schema json select"))))))))))
+             (aitools.kernel.domain:flow-call
+              (make-comparison/k tokens operator right)
+              (:on-comparison (comparison)
+                              (push comparison comparisons))
+              (:on-error (message)
+                         (setf failure
+                               (list
+                                "input.syntax-error"
+                                message
+                                (list
+                                 (repair "fix-pattern"
+                                         "Correct the regular expression."
+                                         "aitools schema json select")))))))))))
    (if failure
        (aitools.kernel.domain:flow-continue
         :on-error (first failure) (second failure)
         :repairs (third failure))
        (aitools.kernel.domain:flow-continue
-        :on-comparisons (nreverse comparisons))))))
+        :on-comparisons (nreverse comparisons)))))
 
 (defun %relative-value (element tokens)
   "(VALUES value present-p) of TOKENS below ELEMENT."

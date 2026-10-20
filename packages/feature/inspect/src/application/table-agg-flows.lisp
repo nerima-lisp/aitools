@@ -229,7 +229,7 @@ for. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
                        (:on-valid ()
                          (aitools.kernel.domain:flow-call
                              (%aggregate
-                              context path table rows options group-indexes
+                              context path table rows options (if group-by group-indexes '())
                               aggregates flags)
                            (:on-ok (fields)
                              (aitools.kernel.domain:flow-continue
