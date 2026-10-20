@@ -25,19 +25,20 @@
        :repairs repairs))
     (:on-store (store root timeout)
       (declare (ignore root))
-      (aitools.store.application:tx-begin/k
-       store :name name :lock-timeout-ms timeout
-       :on-begun (lambda (tx-id name created)
-                   (declare (ignore created))
-                   (aitools.kernel.domain:flow-continue
-                    :on-ok (list (cons "tx" tx-id) (cons "name" (or name (json-null))))))
-       :on-busy (lambda ()
-                  (aitools.kernel.domain:flow-call
-                      (%report-busy context (list "tx" "begin" (and name (list "--name" name))))
-                    (:on-error (code message &key repairs)
-                      (aitools.kernel.domain:flow-continue
-                       :on-error code message
-                       :repairs repairs))))))))
+      (aitools.kernel.domain:flow-call
+        (aitools.store.application:tx-begin/k
+         store :name name :lock-timeout-ms timeout)
+        (:on-begun (tx-id name created)
+          (declare (ignore created))
+          (aitools.kernel.domain:flow-continue
+           :on-ok (list (cons "tx" tx-id) (cons "name" (or name (json-null))))))
+        (:on-busy ()
+          (aitools.kernel.domain:flow-call
+            (%report-busy context (list "tx" "begin" (and name (list "--name" name))))
+            (:on-error (code message &key repairs)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message
+               :repairs repairs))))))))
 
 (defun %tx-summary (status)
   (json-object "tx" (aitools.store.application:tx-status-id status)
@@ -89,13 +90,13 @@ paths, drift and stale reads."
             (aitools.kernel.domain:flow-continue
              :on-ok (list (cons "items" (mapcar #'%tx-summary statuses))
                           (cons "total" (length statuses)))))
-          (aitools.store.application:tx-status/k
-           store tx-id
-           :on-status (lambda (status)
-                        (aitools.kernel.domain:flow-continue
+          (aitools.kernel.domain:flow-call
+   (aitools.store.application:tx-status/k store tx-id)
+   (:on-status (status)
+     (aitools.kernel.domain:flow-continue
                          :on-ok (%tx-detail-fields status)))
-           :on-not-found (lambda ()
-                           (aitools.kernel.domain:flow-call
+   (:on-not-found ()
+     (aitools.kernel.domain:flow-call
                                (%report-tx-not-found context tx-id)
                              (:on-error (code message &key repairs)
                                (aitools.kernel.domain:flow-continue
@@ -119,10 +120,10 @@ an op id. A cut diff points at the same command with a limit that fits."
        :repairs repairs))
     (:on-store (store root timeout)
       (declare (ignore root timeout))
-      (aitools.store.application:tx-diff/k
-       store tx-id
-       :on-diff (lambda (results)
-                  (multiple-value-bind (changes longest)
+      (aitools.kernel.domain:flow-call
+   (aitools.store.application:tx-diff/k store tx-id)
+   (:on-diff (results)
+     (multiple-value-bind (changes longest)
                       (aitools.store.domain:changes->json results :max-diff-lines max-diff-lines)
                     (aitools.kernel.domain:flow-continue
                      :on-ok (append (list (cons "tx" tx-id) (cons "changes" changes))
@@ -130,8 +131,8 @@ an op id. A cut diff points at the same command with a limit that fits."
                                       (list (cons "next_commands"
                                                   (list (%aitools context "tx" "diff" tx-id "--max-diff-lines"
                                                                   (princ-to-string longest))))))))))
-       :on-not-found (lambda ()
-                       (aitools.kernel.domain:flow-call
+   (:on-not-found ()
+     (aitools.kernel.domain:flow-call
                            (%report-tx-not-found context tx-id)
                          (:on-error (code message &key repairs)
                            (aitools.kernel.domain:flow-continue

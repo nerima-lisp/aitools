@@ -31,44 +31,45 @@
           :repairs repairs))
        (:on-store (store root timeout)
          (declare (ignore root))
-         (aitools.store.application:undo-op/k
-          store op-id (list "undo" op-id)
-          :lock-timeout-ms timeout
-          :dry-run dry-run
-          :on-committed
-          (lambda (new-op-id results)
-            (aitools.kernel.domain:flow-continue
-             :on-ok (%fields-with (aitools.store.domain:write-result-fields
-                                   results :op-id new-op-id :dry-run dry-run :max-diff-lines max-diff-lines)
-                                  (cons "undoes" op-id))))
-          :on-rejected
-          (lambda (code message &key conflicts &allow-other-keys)
-            (cond
-              ((string= code "input.not-found")
+         (aitools.kernel.domain:flow-call
+          (aitools.store.application:undo-op/k
+           store op-id (list "undo" op-id)
+           :lock-timeout-ms timeout :dry-run dry-run)
+        (:on-committed (new-op-id results)
+          (aitools.kernel.domain:flow-continue
+           :on-ok (%fields-with (aitools.store.domain:write-result-fields
+                                 results :op-id new-op-id :dry-run dry-run
+                                 :max-diff-lines max-diff-lines)
+                                (cons "undoes" op-id))))
+        (:on-rejected (code message &key conflicts &allow-other-keys)
+          (cond
+            ((string= code "input.not-found")
+             (aitools.kernel.domain:flow-continue
+              :on-error code message
+              :repairs (list (%history-repair context))))
+            ((string= code "refusal.target-changed")
+             (let ((path (aitools.store.domain:conflict-path (first conflicts))))
                (aitools.kernel.domain:flow-continue
                 :on-error code message
-                :repairs (list (%history-repair context))))
-              ((string= code "refusal.target-changed")
-               (let ((path (aitools.store.domain:conflict-path (first conflicts))))
+                :conflicts (%conflicts-json conflicts)
+                :repairs (list
+                          (repair
+                            "inspect-later-ops"
+                            "See which later operations changed the path; undo those first if they should go too."
+                            (%aitools context "history" path))
+                          (repair "inspect-current" "Show the path's current state."
+                                  (%aitools context "info" path))))))
+            (t
+             (aitools.kernel.domain:flow-call
+               (%report-rejection "undo" code message)
+               (:on-error (error-code error-message &key repairs)
                  (aitools.kernel.domain:flow-continue
-                  :on-error code message
-                  :conflicts (%conflicts-json conflicts)
-                  :repairs (list (repair "inspect-later-ops"
-                                         "See which later operations changed the path; undo those first if they should go too."
-                                         (%aitools context "history" path))
-                                 (repair "inspect-current" "Show the path's current state."
-                                         (%aitools context "info" path))))))
-              (t (aitools.kernel.domain:flow-call
-                     (%report-rejection "undo" code message)
-                   (:on-error (error-code error-message &key repairs)
-                     (aitools.kernel.domain:flow-continue
-                      :on-error error-code error-message
-                      :repairs repairs))))))
-          :on-busy
-          (lambda ()
-            (aitools.kernel.domain:flow-call
-                (%report-busy context (list "undo" op-id (and dry-run "--dry-run")))
-              (:on-error (code message &key repairs)
-                (aitools.kernel.domain:flow-continue
-                 :on-error code message
-                 :repairs repairs))))))))))
+                  :on-error error-code error-message
+                  :repairs repairs))))))
+        (:on-busy ()
+          (aitools.kernel.domain:flow-call
+            (%report-busy context (list "undo" op-id (and dry-run "--dry-run")))
+            (:on-error (code message &key repairs)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message
+               :repairs repairs))))))))))

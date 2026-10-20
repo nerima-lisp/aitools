@@ -71,22 +71,32 @@ VALIDATE continuation."
                                  reject))))
 
 (defun %dry-run-in-tx/k (store tx-id validate &key on-planned on-rejected on-not-found)
-  (aitools.store.application:call-with-tx-view/k
-   store tx-id
-   :on-view (lambda (view)
-              (funcall validate view
+  (aitools.kernel.domain:flow-call
+   (aitools.store.application:call-with-tx-view/k store tx-id)
+   (:on-view (view)
+     (funcall validate view
                        (lambda (requests)
-                         (aitools.store.domain:plan-changes/k
-                          requests
-                          :lookup-state (lambda (path) (aitools.store.application:view-path-state view path))
-                          :lookup-content (lambda (path) (aitools.store.application:view-read-file view path))
-                          :list-children (lambda (path)
-                                           (mapcar (lambda (entry) (%child path (car entry)))
-                                                   (aitools.store.application:view-directory-entries view path)))
-                          :on-planned on-planned
-                          :on-rejected on-rejected))
+                         (aitools.kernel.domain:flow-call
+                          (aitools.store.domain:plan-changes/k
+                           requests
+                           :lookup-state
+                           (lambda (path)
+                             (aitools.store.application:view-path-state view path))
+                           :lookup-content
+                           (lambda (path)
+                             (aitools.store.application:view-read-file view path))
+                           :list-children
+                           (lambda (path)
+                             (mapcar (lambda (entry)
+                                       (%child path (car entry)))
+                                     (aitools.store.application:view-directory-entries view path))))
+                          (:on-planned (results)
+                            (funcall on-planned results))
+                          (:on-rejected (code message)
+                            (funcall on-rejected code message))))
                        on-rejected))
-   :on-not-found on-not-found))
+   (:on-not-found ()
+     (funcall on-not-found))))
 
 (defun %inspect-write-plan/k (write-plan lock-timeout dry-run argv display-path on-ok on-error)
   "Inspect WRITE-PLAN without reading workspace state and call one continuation."
@@ -341,24 +351,41 @@ path with a NIL area."
                                  :on-rejected #'rejected
                                  :on-not-found (lambda () (%tx-not-found fail tx))))
               (tx
-               (aitools.store.application:tx-stage/k
-                store tx argv #'validate
-                :replayable (write-plan-replayable write-plan)
-                :lock-timeout-ms lock-timeout-ms
-                :on-staged (lambda (tx-op results) (finish results :tx tx :tx-op tx-op))
-                :on-rejected #'rejected
-                :on-not-found (lambda () (%tx-not-found fail tx))
-                :on-busy #'busy))
+               (aitools.kernel.domain:flow-call
+                (aitools.store.application:tx-stage/k
+                 store
+                 tx
+                 argv
+                 #'validate
+                 :replayable (write-plan-replayable write-plan)
+                 :lock-timeout-ms lock-timeout-ms)
+                (:on-staged (tx-op results)
+                  (finish results :tx tx :tx-op tx-op))
+                (:on-rejected (code message &rest keys)
+                  (apply #'rejected code message keys))
+                (:on-not-found ()
+                  (%tx-not-found fail tx))
+                (:on-busy ()
+                  (funcall #'busy))))
               (t
-               (aitools.store.application:commit-changes/k
-                store argv
-                (lambda (commit reject) (validate (aitools.store.application:disk-view store) commit reject))
-                :lock-timeout-ms lock-timeout-ms
-                :dry-run dry-run
-                :on-committed (lambda (op-id results)
-                                (if dry-run (finish results :dry-run t) (finish results :op-id op-id)))
-                :on-rejected #'rejected
-                :on-busy #'busy)))
+               (aitools.kernel.domain:flow-call
+                (aitools.store.application:commit-changes/k
+                 store
+                 argv
+                 (lambda (commit reject)
+                   (validate (aitools.store.application:disk-view store)
+                             commit
+                             reject))
+                 :lock-timeout-ms lock-timeout-ms
+                 :dry-run dry-run)
+                (:on-committed (op-id results)
+                  (if dry-run
+                      (finish results :dry-run t)
+                      (finish results :op-id op-id)))
+                (:on-rejected (code message &rest keys)
+                  (apply #'rejected code message keys))
+                (:on-busy ()
+                  (funcall #'busy)))))
             ;; Outside VALIDATE, too (creating the state directories, taking
             ;; the lock), a store I/O failure is an I/O error, never an
             ;; unexpected one.

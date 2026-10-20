@@ -32,24 +32,25 @@
              :repairs repairs))
           (:on-store (store root timeout)
             (declare (ignore root))
+            (aitools.kernel.domain:flow-call
             (aitools.store.application:tx-drop/k
-             store tx-id number :lock-timeout-ms timeout
-             :on-dropped (lambda (dropped)
-                           (aitools.kernel.domain:flow-continue
-                            :on-ok (list (cons "tx" tx-id) (cons "dropped" dropped))))
-             :on-not-found (lambda ()
-                             (aitools.kernel.domain:flow-continue
-                              :on-error "input.not-found" (format nil "no op ~A in tx ~A" tx-op tx-id)
-                              :repairs (list (repair "list-ops" "List the tx's operations and their numbers."
-                                                     (%aitools context "tx" "status" tx-id))
-                                             (%tx-list-repair context))))
-             :on-busy (lambda ()
-                        (aitools.kernel.domain:flow-call
-                            (%report-busy context (list "tx" "drop" tx-id tx-op))
-                          (:on-error (code message &key repairs)
-                            (aitools.kernel.domain:flow-continue
-                             :on-error code message
-                             :repairs repairs))))))))))
+             store tx-id number :lock-timeout-ms timeout)
+          (:on-dropped (dropped)
+            (aitools.kernel.domain:flow-continue
+             :on-ok (list (cons "tx" tx-id) (cons "dropped" dropped))))
+          (:on-not-found ()
+            (aitools.kernel.domain:flow-continue
+             :on-error "input.not-found" (format nil "no op ~A in tx ~A" tx-op tx-id)
+             :repairs (list (repair "list-ops" "List the tx's operations and their numbers."
+                                    (%aitools context "tx" "status" tx-id))
+                            (%tx-list-repair context))))
+          (:on-busy ()
+            (aitools.kernel.domain:flow-call
+              (%report-busy context (list "tx" "drop" tx-id tx-op))
+              (:on-error (code message &key repairs)
+                (aitools.kernel.domain:flow-continue
+                 :on-error code message
+                 :repairs repairs))))))))))
 
 (aitools.kernel.domain:define-flow
     (%replay record view &key on-commit on-reject)
@@ -88,37 +89,41 @@ it was."
        :repairs repairs))
     (:on-store (store root timeout)
       (declare (ignore root))
+      (aitools.kernel.domain:flow-call
       (aitools.store.application:tx-rebase/k
-       store tx-id (lambda (record view commit reject)
-                     (aitools.kernel.domain:flow-call
-                         (%replay record view)
-                       (:on-commit (requests)
-                         (funcall commit requests))
-                       (:on-reject (&rest rejection)
-                         (apply reject rejection)))) :lock-timeout-ms timeout
-       :on-rebased (lambda (paths)
-                     (aitools.kernel.domain:flow-continue
-                      :on-ok (list (cons "tx" tx-id) (cons "rebased" paths))))
-       :on-conflict (lambda (conflicts)
-                      (aitools.kernel.domain:flow-continue
-                       :on-error "refusal.target-changed"
-                       (format nil "tx ~A has an operation that cannot be re-applied to the changed files" tx-id)
-                       :conflicts (%conflicts-json conflicts)
-                       :repairs (list (repair "inspect-tx" "See which operation touched the conflicting path; drop it and later ones with tx drop."
-                                              (%aitools context "tx" "status" tx-id))
-                                      (repair "abort" "Discard the tx and start over from the current files."
-                                              (%aitools context "tx" "abort" tx-id)))))
-       :on-not-found (lambda ()
-                       (aitools.kernel.domain:flow-call
-                           (%report-tx-not-found context tx-id)
-                         (:on-error (code message &key repairs)
-                           (aitools.kernel.domain:flow-continue
-                            :on-error code message
-                            :repairs repairs))))
-       :on-busy (lambda ()
-                  (aitools.kernel.domain:flow-call
-                      (%report-busy context (list "tx" "rebase" tx-id))
-                    (:on-error (code message &key repairs)
-                      (aitools.kernel.domain:flow-continue
-                       :on-error code message
-                       :repairs repairs))))))))
+       store tx-id
+       (lambda (record view commit reject)
+         (aitools.kernel.domain:flow-call
+           (%replay record view)
+           (:on-commit (requests)
+             (funcall commit requests))
+           (:on-reject (&rest rejection)
+             (apply reject rejection))))
+       :lock-timeout-ms timeout)
+    (:on-rebased (paths)
+      (aitools.kernel.domain:flow-continue
+       :on-ok (list (cons "tx" tx-id) (cons "rebased" paths))))
+    (:on-conflict (conflicts)
+      (aitools.kernel.domain:flow-continue
+       :on-error "refusal.target-changed"
+       (format nil "tx ~A has an operation that cannot be re-applied to the changed files" tx-id)
+       :conflicts (%conflicts-json conflicts)
+       :repairs (list (repair "inspect-tx"
+                              "See which operation touched the conflicting path; drop it and later ones with tx drop."
+                              (%aitools context "tx" "status" tx-id))
+                      (repair "abort" "Discard the tx and start over from the current files."
+                              (%aitools context "tx" "abort" tx-id)))))
+    (:on-not-found ()
+      (aitools.kernel.domain:flow-call
+        (%report-tx-not-found context tx-id)
+        (:on-error (code message &key repairs)
+          (aitools.kernel.domain:flow-continue
+           :on-error code message
+           :repairs repairs))))
+    (:on-busy ()
+      (aitools.kernel.domain:flow-call
+        (%report-busy context (list "tx" "rebase" tx-id))
+        (:on-error (code message &key repairs)
+          (aitools.kernel.domain:flow-continue
+           :on-error code message
+           :repairs repairs))))))))

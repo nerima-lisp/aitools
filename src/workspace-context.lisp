@@ -49,13 +49,21 @@ complete must not fail every command with INTERNAL.UNEXPECTED), or the list of
 the :RECOVERY-ERROR keyword marker cannot collide with it."
   (block recover
     (handler-case
-        (aitools.store.application:recover/k
-         (aitools.store.infrastructure:make-posix-store root)
-         :lock-timeout-ms timeout
-         :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
-         :on-discarded (lambda (op-id) (declare (ignore op-id)))
-         :on-none (lambda () nil)
-         :on-busy (lambda () (return-from recover :busy)))
+        (aitools.kernel.domain:flow-call
+          (aitools.store.application:recover/k
+           (aitools.store.infrastructure:make-posix-store root)
+           :lock-timeout-ms timeout)
+        (:on-rolled-forward (op-id)
+          (declare (ignore op-id)))
+        (:on-discarded (op-id)
+          (declare (ignore op-id)))
+        (:on-none ()
+          nil)
+        (:on-busy ()
+          (return-from recover :busy))
+        (:on-failed (condition entries)
+          (declare (ignore entries))
+          (error condition)))
       ((or aitools.store.application:store-io-error aitools.store.domain:store-format-error) (condition)
         (cons :recovery-error condition)))))
 

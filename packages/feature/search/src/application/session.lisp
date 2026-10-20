@@ -124,15 +124,26 @@ below them."
                    (aitools.kernel.domain:flow-continue :on-session
                     (%make-session ports workspace-root (%make-overlay view staged (%now ports))
                                    view staged))))
-            (aitools.store.application:tx-status/k
-             store tx
-             :on-not-found #'missing
-             :on-status (lambda (status)
-                          (dolist (entry (aitools.store.application:tx-status-paths status))
-                            (setf (gethash (aitools.store.domain:tx-path-path entry) staged)
-                                  (aitools.store.domain:tx-path-staged entry)))
-                          (aitools.store.application:call-with-tx-view/k
-                           store tx :on-view #'with-view :on-not-found #'missing))))))))
+            (aitools.kernel.domain:flow-call
+             (aitools.store.application:tx-status/k
+              store
+              tx)
+             (:on-not-found ()
+               (funcall #'missing))
+             (:on-status (status)
+               (dolist (entry (aitools.store.application:tx-status-paths status))
+                 (setf (gethash
+                        (aitools.store.domain:tx-path-path entry)
+                        staged)
+                       (aitools.store.domain:tx-path-staged entry)))
+               (aitools.kernel.domain:flow-call
+                (aitools.store.application:call-with-tx-view/k
+                 store
+                 tx)
+                (:on-view (view)
+                  (funcall #'with-view view))
+                (:on-not-found ()
+                  (funcall #'missing))))))))))
 
 (aitools.kernel.domain:define-flow
     (call-with-session/k ports command &key root tx on-session on-error)

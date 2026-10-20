@@ -35,25 +35,40 @@
 (defun %tx-overlay (env tx)
   "A WORKSPACE-OVERLAY showing TX's staged state to the scan, or NIL
 when the tx does not exist (the write itself then reports it)."
-  (aitools.store.application:call-with-tx-view/k
-   (funcall (edit-ports-open-store (command-env-ports env))
-            (aitools.workspace.application:workspace-root-real (command-env-root env)))
-   tx
-   :on-not-found (constantly nil)
-   :on-view
-   (lambda (view)
+  (aitools.kernel.domain:flow-call
+   (aitools.store.application:call-with-tx-view/k
+    (funcall
+     (edit-ports-open-store (command-env-ports env))
+     (aitools.workspace.application:workspace-root-real
+      (command-env-root env)))
+    tx)
+   (:on-not-found ()
+     nil)
+   (:on-view (view)
      (aitools.workspace.application:make-workspace-overlay
       :list-directory
       (lambda (relative disk-entries)
-        (mapcar (lambda (entry)
-                  (or (find (car entry) disk-entries :key #'aitools.workspace.application:workspace-entry-name
-                                                      :test #'string=)
-                      (aitools.workspace.application:make-workspace-entry
-                       :name (coerce (car entry) 'simple-string) :kind (cdr entry)
-                       :size (length (or (aitools.store.application:view-read-file view (%child relative (car entry))) #()))
-                       :mtime 0 :mode #o644)))
-                (aitools.store.application:view-directory-entries view relative)))
-      :read-octets (lambda (relative) (values t (aitools.store.application:view-read-file view relative)))))))
+       (mapcar
+        (lambda (entry)
+         (or (find (car entry)
+                   disk-entries
+                   :key #'aitools.workspace.application:workspace-entry-name
+                   :test #'string=)
+             (aitools.workspace.application:make-workspace-entry
+              :name (coerce (car entry) 'simple-string)
+              :kind (cdr entry)
+              :size (length
+                     (or (aitools.store.application:view-read-file
+                          view
+                          (%child relative (car entry)))
+                         #()))
+              :mtime 0
+              :mode #o644)))
+        (aitools.store.application:view-directory-entries view relative)))
+      :read-octets
+      (lambda (relative)
+       (values t
+               (aitools.store.application:view-read-file view relative)))))))
 
 (defun scan-files/k (env paths options fail on-files &key (kinds '(:file)) on-skip)
   "Workspace-relative paths of the entries of KINDS below PATHS (the root
