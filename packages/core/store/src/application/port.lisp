@@ -67,7 +67,7 @@
 (declaim (notinline store-io-append-file store-io-rename store-io-unlink
                     store-io-read-file store-io-chmod-directory-identity
                     store-io-try-lock store-io-unlock store-io-sleep
-                    store-io-monotonic-ms))
+                    store-io-monotonic-ms store-io-random-hex store-io-mkdir))
 
 (defun copy-store-io (io &rest overrides &key &allow-other-keys)
   "A STORE-IO identical to IO except for the ports named in OVERRIDES
