@@ -129,7 +129,10 @@
                     (let ((function-designator (second form)))
                       (when (%continuation-reference-p function-designator active)
                         (setf apply-continuation-p t))
-                      (walk function-designator active t)
+                      (walk function-designator
+                            active
+                            (or (%continuation-reference-p function-designator active)
+                                ignore-continuations))
                       (dolist (item (cddr form)) (walk item active ignore-continuations))))
                    ((%operator-name-p form "LAMBDA")
                     (let ((inner-active (without-bound-variables active (second form))))

@@ -124,7 +124,7 @@
     (expect (%fixture-violations
              "(define-flow (bad-quoted-tail &key on-ok) (helper :quote on-ok)) (define-flow (bad-apply-quoted-tail &key on-error) (apply (helper :quote on-error) nil))")
             :to-equal '(("fixture.lisp" "BAD-QUOTED-TAIL" :positional-continuation)
-                        ("fixture.lisp" "BAD-APPLY-QUOTED-TAIL" :apply-continuation))))
+                        ("fixture.lisp" "BAD-APPLY-QUOTED-TAIL" :positional-continuation))))
 
   (it "rejects continuation references in proper and dotted list tails"
     (expect (%fixture-violations
