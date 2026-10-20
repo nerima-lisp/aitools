@@ -64,7 +64,19 @@
                   (if fraction
                       (concatenate 'string "." (substitute #\. #\, (subseq fraction 1)))
                       ""))
-     (and time-end (< time-end length) (subseq text time-end)))))
+     (cond
+       ((or
+         (and (not basic-p)
+              (eql clock-end 5)
+              (< clock-end length)
+              (char= (char text clock-end) #\:))
+         (and basic-p
+              (eql clock-end 4)
+              (< clock-end length)
+              (ascii-digit-value (char text clock-end))))
+        :invalid-time-of-day)
+       ((and time-end (< time-end length))
+        (subseq text time-end))))))
 
 (defun %local-time-error-reason (text basic-p)
   (let* ((fraction-start
@@ -88,7 +100,11 @@
            (cl-date-kit:date-time-parse-error ()
              (%time-syntax-error original (%local-time-error-reason time basic-p))))))
     (when trailing
-      (%time-syntax-error original "unexpected text after the time"))
+      (%time-syntax-error
+       original
+       (if (eq trailing :invalid-time-of-day)
+           "invalid time of day"
+           "unexpected text after the time")))
     date-time))
 
 (defun %parse-kit-offset-seconds (suffix original)
@@ -99,18 +115,16 @@
           (cond
             (utc-designator-p 1)
             ((and (>= suffix-length 3)
-                  (member (char suffix 0) '(#\+ #\-))
+                  (find (char suffix 0) "+-")
                   (ascii-digits-p suffix :start 1 :end 3))
              (cond
-               ((and (> suffix-length 3) (char= (char suffix 3) #\:))
+               ((= suffix-length 3) 3)
+               ((char= (char suffix 3) #\:)
                 (if (and (>= suffix-length 6) (ascii-digits-p suffix :start 4 :end 6))
                     6
                     (%time-syntax-error original "invalid UTC offset")))
-               ((and (> suffix-length 3) (ascii-digit-value (char suffix 3)))
-                (if (and (>= suffix-length 5) (ascii-digits-p suffix :start 3 :end 5))
-                    5
-                    (%time-syntax-error original "invalid UTC offset")))
-               (t 3)))
+               ((and (>= suffix-length 5) (ascii-digits-p suffix :start 3 :end 5)) 5)
+               (t (%time-syntax-error original "invalid UTC offset"))))
             (t (%time-syntax-error original "invalid UTC offset"))))
          (offset-seconds
           (if utc-designator-p
