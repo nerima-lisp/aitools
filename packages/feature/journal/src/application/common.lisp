@@ -55,54 +55,56 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
   (declare (type function on-error on-store))
   (let ((host (journal-ports-workspace-host ports))
         (timeout (%lock-timeout-ms context)))
-    (aitools.kernel.domain:flow-call
-        (aitools.workspace.application:call-with-resolved-root/k
-         host :root (journal-context-root context))
-      (:on-error (reason path)
-        (aitools.kernel.domain:flow-continue
-         :on-error "argument.invalid"
-         (format nil "workspace root ~A: ~(~A~)" path reason)
-         :repairs (list (%schema-repair command-name))))
-      (:on-resolved (root)
-        (handler-case
-            (aitools.kernel.domain:flow-continue
-             :on-store (funcall (journal-ports-open-store ports)
-                                (aitools.workspace.application:workspace-root-real root))
-             root timeout)
-          ;; A post-commit I/O failure: the op passed the store's commit point
-          ;; (its intent is recorded under op-id) and only a later write was
-          ;; interrupted. This is NOT a "nothing written" rejection; recovery
-          ;; rolls the op forward on the next command once the path is usable,
-          ;; so surface the op_id and the recovery status. This clause must
-          ;; precede store-io-error, its superclass.
-          (aitools.store.application:store-committed-error (condition)
-            (aitools.kernel.domain:flow-continue
-             :on-error "environment.io"
-             (princ-to-string condition)
-             :diagnostics
-             (list
-              (json-object
-               "op_id"
-               (aitools.store.application:store-committed-error-op-id condition)
-               "recovery" "pending"))
-             :repairs
-             (list (repair "recover"
-                           (concatenate 'string
-                                        "Re-run once the path is writable: "
-                                        "aitools completes a committed-but-interrupted "
-                                        "write on its next command. "
-                                        "List the recorded op meanwhile.")
-                           (%aitools context "history")))))
-          (aitools.store.application:store-io-error (condition)
-            (aitools.kernel.domain:flow-continue
-             :on-error "environment.io"
-             (princ-to-string condition)
-             :repairs (list (%schema-repair command-name))))
-          (aitools.store.domain:store-format-error (condition)
-            (aitools.kernel.domain:flow-continue
-             :on-error "environment.io"
-             (princ-to-string condition)
-             :repairs (list (%schema-repair command-name)))))))))
+    (aitools.workspace.application:call-with-resolved-root/k
+     host
+     :root (journal-context-root context)
+     :on-error
+     (lambda (reason path)
+       (aitools.kernel.domain:flow-continue
+        :on-error "argument.invalid"
+        (format nil "workspace root ~A: ~(~A~)" path reason)
+        :repairs (list (%schema-repair command-name))))
+     :on-resolved
+     (lambda (root)
+       (handler-case
+           (aitools.kernel.domain:flow-continue
+            :on-store (funcall (journal-ports-open-store ports)
+                               (aitools.workspace.application:workspace-root-real root))
+            root timeout)
+         ;; A post-commit I/O failure: the op passed the store's commit point
+         ;; (its intent is recorded under op-id) and only a later write was
+         ;; interrupted. This is NOT a "nothing written" rejection; recovery
+         ;; rolls the op forward on the next command once the path is usable,
+         ;; so surface the op_id and the recovery status. This clause must
+         ;; precede store-io-error, its superclass.
+         (aitools.store.application:store-committed-error (condition)
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io"
+            (princ-to-string condition)
+            :diagnostics
+            (list
+             (json-object
+              "op_id"
+              (aitools.store.application:store-committed-error-op-id condition)
+              "recovery" "pending"))
+            :repairs
+            (list (repair "recover"
+                          (concatenate 'string
+                                       "Re-run once the path is writable: "
+                                       "aitools completes a committed-but-interrupted "
+                                       "write on its next command. "
+                                       "List the recorded op meanwhile.")
+                          (%aitools context "history")))))
+         (aitools.store.application:store-io-error (condition)
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io"
+            (princ-to-string condition)
+            :repairs (list (%schema-repair command-name))))
+         (aitools.store.domain:store-format-error (condition)
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io"
+            (princ-to-string condition)
+            :repairs (list (%schema-repair command-name)))))))))
 
 (aitools.kernel.domain:define-flow
     (%report-busy context words &key on-error)

@@ -94,9 +94,12 @@
            (defun ,name ,function-lambda-list
              ,@(when docstring (list docstring))
              ,@declarations
-             (let ,(mapcar (lambda (default)
-                             `(,(car default) (or ,(car default) ,(cdr default))))
-                           continuation-defaults)
+             (multiple-value-bind
+                 ,(mapcar #'car continuation-defaults)
+                 (values
+                  ,@(mapcar (lambda (default)
+                              `(or ,(car default) ,(cdr default)))
+                            continuation-defaults))
                (%check-flow-continuations
                 (list ,@(mapcar (lambda (continuation)
                                   `(cons ',(car continuation) ,(cdr continuation)))
