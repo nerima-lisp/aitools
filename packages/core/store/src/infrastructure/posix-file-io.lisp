@@ -21,7 +21,7 @@
             (error 'store-io-error :operation "read" :path path :detail "not a regular file"))
           (when (and max-bytes (> (sb-posix:stat-size stat) max-bytes))
             (error 'store-io-error :operation "read" :path path :detail "file exceeds byte limit"))
-          (aitools.store.application:fault-point :after-read-stat path))
+          (aitools.store.application::fault-point :after-read-stat path))
       (error (condition) (sb-posix:close fd) (error condition)))
     (with-open-stream (stream (%fd-stream fd :input))
       (%stream-errors ("read" path)
@@ -141,7 +141,7 @@ lstat. Either way PATH is checked by %REFUSE-SHARED-INODE first."
              (unless (equal identity (format nil "~D:~D" (sb-posix:stat-dev stat) (sb-posix:stat-ino stat)))
                (error 'store-io-error :operation "chmod" :path path :detail "directory identity changed"))
              (%syscall ("chmod" path) (sb-posix:fchmod fd mode))
-             (aitools.store.application:fault-point :after-directory-chmod path)
+             (aitools.store.application::fault-point :after-directory-chmod path)
              (%syscall ("fsync" path) (sb-posix:fsync fd)))
         (sb-posix:close fd)))))
 

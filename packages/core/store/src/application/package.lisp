@@ -50,7 +50,6 @@
    #:store-root
    #:store-state-directory
    #:store-temporary
-   #:fault-point
    ;; lock.lisp
    #:+default-lock-timeout-ms+
    #:call-with-workspace-lock/k
