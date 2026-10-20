@@ -173,7 +173,7 @@
                                                                     (:file "cps-contract-test")))
                                               (:module "integration"
                                                        :pathname "integration/"
-                                                       :components ((:file "dispatch-test")
+                                                       :components ((:file "dispatch-test") (:file "dispatch-partial-test" :depends-on ("dispatch-test")) (:file "schema-test" :depends-on ("dispatch-test"))
                                                                     (:file "dispatch-recovery-failure-test") (:file "dispatch-invocation-test")
                                                                     (:file "batch-test")
                                                                     (:file "batch-atomic-test") (:file "batch-failure-test")

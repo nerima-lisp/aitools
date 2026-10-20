@@ -219,3 +219,32 @@ file is prepared and before the commit point, which recovery discards."
           (expect (list code stream) :to-equal '(1 :stderr))
           (expect envelope :to-match-envelope "command" "flood" "status" "error")
           (expect (value envelope "error" "code") :to-equal "refusal.too-large"))))))
+(describe "aitools schema --all"
+  (it "returns full details for every registered command"
+    (aitools.test.support:with-workspace
+      (*root* state-home)
+      (declare (ignore state-home))
+      (multiple-value-bind (summary-code summary summary-stream)
+          (run-aitools "schema")
+        (expect (list summary-code summary-stream) :to-equal (list 0 :stdout))
+        (let ((summary-names
+                (map 'list (lambda (command) (value command "name"))
+                     (value summary "commands"))))
+          (multiple-value-bind (all-code all all-stream)
+              (run-aitools "schema" "--all")
+            (expect (list all-code all-stream) :to-equal (list 0 :stdout))
+            (let* ((commands (value all "commands"))
+                   (all-names
+                     (map 'list (lambda (command) (value command "name")) commands)))
+              (expect (some (lambda (name) (string= "read" name)) all-names)
+                      :to-be-truthy)
+              (expect all-names :to-equal summary-names)
+              (expect (every (lambda (command)
+                               (and (stringp (value command "name"))
+                                    (stringp (value command "summary"))
+                                    (stringp (value command "description"))
+                                    (vectorp (value command "args"))
+                                    (vectorp (value command "output_fields"))
+                                    (vectorp (value command "error_codes"))))
+                             commands)
+                      :to-be t))))))))
