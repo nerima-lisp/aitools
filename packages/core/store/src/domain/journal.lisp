@@ -84,10 +84,9 @@ first-seen order."
       (write-char #\Newline out))))
 
 (defun decode-journal (text)
-  "Parse ops.jsonl TEXT, oldest entry first. The store replaces the file
-with rename, so a line without its terminating newline can only come from
-an external edit; it is dropped rather than trusted. Any complete line that
-is not a valid entry signals STORE-FORMAT-ERROR."
+  "Parse ops.jsonl TEXT, oldest entry first. An interrupted append can leave
+a final line without its terminating newline; that tail is ignored. Any
+complete line that is not a valid entry signals STORE-FORMAT-ERROR."
   (loop with start = 0
         for newline = (position #\Newline text :start start)
         while newline
