@@ -76,6 +76,26 @@ the extra flag word."
   (it "reads version 2 entry names, sorted and deduplicated"
     (expect (coerce (parse-git-index-paths (index-octets '("b.txt" "a/x.lisp" "a/x.lisp"))) 'list)
             :to-equal '("a/x.lisp" "b.txt")))
+  (it-property "sorts and deduplicates parsed paths for every supported index version and hash size"
+    ((left (gen-string :min-length 1 :max-length 24 :alphabet "abcxyz0123456789._-"))
+     (middle (gen-string :min-length 1 :max-length 24 :alphabet "abcxyz0123456789._-"))
+     (right (gen-string :min-length 1 :max-length 24 :alphabet "abcxyz0123456789._-")))
+    (let* ((paths (list (concatenate 'string "a/" left)
+                        (concatenate 'string "b/" middle)
+                        (concatenate 'string "a/" left)
+                        (concatenate 'string "c/" right)))
+           (expected (sort (remove-duplicates (copy-list paths) :test #'string=)
+                           #'string<)))
+      (dolist (version '(2 3 4))
+        (dolist (hash-size '(20 32))
+          (expect (coerce
+                   (parse-git-index-paths
+                    (index-octets paths :version version
+                                  :extended (= version 3)
+                                  :hash-size hash-size)
+                    :hash-size hash-size)
+                   'list)
+                  :to-equal expected)))))
 
   (it "reads version 4 prefix-compressed names"
     (expect (coerce (parse-git-index-paths (index-octets '("dir/a" "dir/b" "dir/sub/c") :version 4)) 'list)

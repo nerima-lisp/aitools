@@ -158,18 +158,27 @@ build/
               :to-equal '("small"))
       (expect skipped :to-equal '(("big" :too-large)))))
 
-  (it "stops when EMIT returns :STOP and says so"
-    (let* ((host (repo-host '(("a" . "") ("b" . "") ("c" . ""))))
+  (it "stops when EMIT returns :STOP without listing the child directory"
+    (let* ((counts (make-hash-table :test 'equal))
+           (host (counting-host
+                  (repo-host '(("a" . "") ("b/child" . "") ("c" . "")))
+                  counts))
            (seen '()))
-      (expect (call-with-workspace-scan/k host (resolved-root host)
-                                          :emit (lambda (entry result)
-                                                  (declare (ignore result))
-                                                  (push (scan-entry-path entry) seen)
-                                                  (when (string= (scan-entry-path entry) "b") :stop))
-                                          :on-complete (lambda (source stopped) (list source stopped))
-                                          :on-error (lambda (&rest args) args))
-              :to-equal '(:gitignore t))
-      (expect (reverse seen) :to-equal '("a" "b"))))
+      (expect
+       (multiple-value-list
+        (call-with-workspace-scan/k
+         host
+         (resolved-root host)
+         :emit (lambda (entry result)
+                 (declare (ignore result))
+                 (push (scan-entry-path entry) seen)
+                 (when (string= (scan-entry-path entry) "b") :stop))
+         :on-complete (lambda (source stopped)
+                        (values source stopped :stopped))
+         :on-error (lambda (&rest args) args)))
+       :to-equal '(:gitignore t :stopped))
+      (expect (reverse seen) :to-equal '("a" "b"))
+      (expect (gethash "/r/b" counts) :to-be-falsy)))
 
   (it "delivers WORK results in path order whatever order the mapper runs them"
     (let* ((files (loop for i from 0 below 150 collect (cons (format nil "f~3,'0D" i) "")))

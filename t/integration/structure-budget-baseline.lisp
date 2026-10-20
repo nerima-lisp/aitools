@@ -9,7 +9,6 @@
     ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
     ("packages/core/store/src/domain/tx-model.lisp" 262)
     ("packages/core/text/src/domain/codec-deflate.lisp" 294)
-    ("packages/core/workspace/src/application/scan.lisp" 323)
     ("packages/feature/edit/src/application/file-flows.lisp" 443)
     ("packages/feature/edit/src/application/input.lisp" 275)
     ("packages/feature/edit/src/application/line-flows.lisp" 272)
@@ -57,11 +56,6 @@
 
 (defparameter *complex-function-ratchet*
   '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
-    ("packages/core/workspace/src/application/real-path.lisp" "RESOLVE-REAL-PATH" 5)
-    ("packages/core/workspace/src/application/scan.lisp" "CALL-WITH-WORKSPACE-SCAN/K" 5)
-    ("packages/core/workspace/src/domain/gitignore.lisp" "IGNORE-LIST-VERDICT" 5)
-    ("packages/core/workspace/src/domain/wildmatch.lisp" "%DOWILD" 7)
-    ("packages/core/workspace/src/infrastructure/host.lisp" "READ-REGULAR-FILE-OCTETS" 5)
     ("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
     ("packages/feature/edit/src/application/mktemp.lisp" "MKTEMP-FLOW" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT" 5)

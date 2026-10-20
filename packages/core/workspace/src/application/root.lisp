@@ -47,13 +47,12 @@ or NIL. START is absolute and normalized."
         do (let ((repository (%repository-at host directory)))
              (when repository (return repository)))))
 
-(defun call-with-resolved-root/k (host &key root on-resolved on-error)
+(aitools.kernel.domain:define-flow
+    (call-with-resolved-root/k host &key root on-resolved on-error)
   "Resolve the workspace root and call exactly one continuation.
-
 ROOT is the `--root` value (absolute, or relative to the working directory)
-or NIL. ON-RESOLVED receives a WORKSPACE-ROOT. ON-ERROR receives a reason,
-:NOT-FOUND or :NOT-A-DIRECTORY, and the absolute path that failed."
-  (declare (type function on-resolved on-error))
+or NIL. ON-RESOLVED receives a WORKSPACE-ROOT. ON-ERROR receives a
+reason, :NOT-FOUND or :NOT-A-DIRECTORY, and the absolute path that failed."
   (let ((cwd (normalize-path (host-current-directory host))))
     (multiple-value-bind (path source repository)
         (if root
@@ -66,15 +65,18 @@ or NIL. ON-RESOLVED receives a WORKSPACE-ROOT. ON-ERROR receives a reason,
       (let* ((real (resolve-real-path host path))
              (entry (and real (host-stat host real))))
         (cond
-          ((null entry) (funcall on-error :not-found path))
+          ((null entry)
+           (aitools.kernel.domain:flow-continue :on-error :not-found path))
           ((not (eq (workspace-entry-kind entry) :directory))
-           (funcall on-error :not-a-directory path))
+           (aitools.kernel.domain:flow-continue :on-error :not-a-directory path))
           (t
-           (funcall on-resolved
-                    (make-workspace-root :path (coerce path 'simple-string)
-                                         :real (coerce real 'simple-string)
-                                         :source source
-                                         :repository (or repository (find-git-repository host path))))))))))
+           (aitools.kernel.domain:flow-continue
+            :on-resolved
+            (make-workspace-root :path (coerce path 'simple-string)
+                                 :real (coerce real 'simple-string)
+                                 :source source
+                                 :repository (or repository
+                                                 (find-git-repository host path))))))))))
 
 (defun user-path-absolute (host path)
   "PATH as the user typed it, made absolute and normalized: a relative path
@@ -83,21 +85,18 @@ replaces take it. `--root` never changes this base; it only selects the
 workspace (boundary, state, ignore rules)."
   (normalize-path (join-path (host-current-directory host) path)))
 
-(defun resolve-user-path/k (host root path &key on-inside on-outside)
-  "Resolve PATH (as typed: absolute, or relative to the working directory)
-against ROOT (a WORKSPACE-ROOT) and call exactly one continuation:
-ON-INSIDE (absolute relative) when it names the root or something below it,
-RELATIVE being the workspace-relative path (\"\" for the root itself), the
-form every output `path` uses; ON-OUTSIDE (absolute) otherwise. The path is
-compared lexically with the root as given and with its real path, then
-through its own real path, so a path typed through a symlinked parent of the
-root still maps into the workspace."
-  (declare (type function on-inside on-outside))
+(aitools.kernel.domain:define-flow
+    (resolve-user-path/k host root path &key on-inside on-outside)
+  "Resolve PATH against ROOT and call exactly one continuation:
+ON-INSIDE (absolute relative) for a path inside the workspace, with the
+workspace-relative path (empty for ROOT); ON-OUTSIDE (absolute) otherwise.
+PATH is absolute or relative to the working directory, as typed. A path
+through a symlinked parent of ROOT still resolves inside the workspace."
   (let* ((absolute (user-path-absolute host path))
          (relative (workspace-relative-path host root absolute)))
     (if relative
-        (funcall on-inside absolute relative)
-        (funcall on-outside absolute))))
+        (aitools.kernel.domain:flow-continue :on-inside absolute relative)
+        (aitools.kernel.domain:flow-continue :on-outside absolute))))
 
 (defun workspace-relative-path (host root absolute)
   "ABSOLUTE (a normalized absolute path) relative to ROOT (a WORKSPACE-ROOT),

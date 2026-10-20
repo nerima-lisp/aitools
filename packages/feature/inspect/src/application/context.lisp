@@ -64,41 +64,40 @@ report the failure through ON-ERROR (the command-result error continuation)."
          "argument.invalid"
          (format nil "--lock-timeout ~S is not a duration" lock-timeout)
          :repairs (list (repair "fix-argument" "Give a duration such as 10s." "aitools schema")))
-        (call-with-resolved-root/k
-         host
-         :root root
-         :on-error (lambda (reason path)
-                     (aitools.kernel.domain:flow-continue
-                      :on-error
-                      "input.not-found"
-                      (format nil "workspace root ~A ~A" path
-                              (if (eq reason :not-a-directory) "is not a directory" "does not exist"))
-                      :repairs (list (repair "use-default-root"
-                                             "Omit --root to use the git root or the working directory."
-                                             "aitools info ."))))
-         :on-resolved
-         (lambda (resolved)
-           (let ((cwd (normalize-path (host-current-directory host))))
-             (flet ((ready (store view)
-                      (aitools.kernel.domain:flow-continue
-                       :on-ready
-                       (%make-inspect-context :ports ports :root resolved :cwd cwd
-                                              :root-argument root :tx tx :store store
-                                              :view view :lock-timeout-ms timeout))))
-               (if (null tx)
-                   (ready nil nil)
-                   (let ((store (funcall (inspect-ports-open-store ports) (workspace-root-real resolved))))
-                     (call-with-tx-view/k
-                      store tx
-                      :on-view (lambda (view) (ready store view))
-                      :on-not-found
-                      (lambda ()
-                        (aitools.kernel.domain:flow-continue
-                         :on-error
-                         "input.not-found"
-                         (format nil "tx ~A does not exist" tx)
-                         :repairs (list (repair "list-tx" "List the open transactions."
-                                                "aitools tx status"))))))))))))))
+        (aitools.kernel.domain:flow-call
+            (call-with-resolved-root/k host :root root)
+          (:on-error (reason path)
+            (aitools.kernel.domain:flow-continue
+             :on-error
+             "input.not-found"
+             (format nil "workspace root ~A ~A" path
+                     (if (eq reason :not-a-directory) "is not a directory" "does not exist"))
+             :repairs (list (repair "use-default-root"
+                                    "Omit --root to use the git root or the working directory."
+                                    "aitools info ."))))
+          (:on-resolved (resolved)
+            (let ((cwd (normalize-path (host-current-directory host))))
+              (flet ((ready (store view)
+                            (aitools.kernel.domain:flow-continue
+                             :on-ready
+                             (%make-inspect-context :ports ports :root resolved :cwd cwd
+                                                    :root-argument root :tx tx :store store
+                                                    :view view :lock-timeout-ms timeout))))
+                (if (null tx)
+                    (ready nil nil)
+                  (let ((store (funcall (inspect-ports-open-store ports)
+                                        (workspace-root-real resolved))))
+                    (call-with-tx-view/k
+                     store tx
+                     :on-view (lambda (view) (ready store view))
+                     :on-not-found
+                     (lambda ()
+                       (aitools.kernel.domain:flow-continue
+                        :on-error
+                        "input.not-found"
+                        (format nil "tx ~A does not exist" tx)
+                        :repairs (list (repair "list-tx" "List the open transactions."
+                                               "aitools tx status"))))))))))))))
 
 (defun context-store (context)
   "The workspace's STORE, opened on first use."

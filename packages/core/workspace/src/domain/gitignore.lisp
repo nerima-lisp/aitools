@@ -111,18 +111,27 @@ directory is not one), which directory-only patterns require."
   (let* ((patterns (ignore-list-patterns list))
          (basename (path-basename path))
          (below-base :unset))
-    (loop for i from (1- (length patterns)) downto 0
-          for pattern = (svref patterns i)
-          do (when (or directory-p (not (ignore-pattern-directory-only-p pattern)))
-               (when (if (ignore-pattern-basename-only-p pattern)
-                         (wildmatch (ignore-pattern-text pattern) basename :casefold casefold)
-                         (progn
-                           (when (eq below-base :unset)
-                             (setf below-base (%path-under-base path (ignore-list-base list) casefold)))
-                           (and below-base
-                                (wildmatch (ignore-pattern-text pattern) below-base
-                                           :pathname t :casefold casefold))))
-                 (return (if (ignore-pattern-negative-p pattern) :included :ignored)))))))
+    (labels ((pattern-matches-p (pattern)
+               (and (or directory-p
+                        (not (ignore-pattern-directory-only-p pattern)))
+                    (if (ignore-pattern-basename-only-p pattern)
+                        (wildmatch (ignore-pattern-text pattern) basename
+                                   :casefold casefold)
+                        (progn
+                          (when (eq below-base :unset)
+                            (setf below-base
+                                  (%path-under-base path (ignore-list-base list)
+                                                    casefold)))
+                          (and below-base
+                               (wildmatch (ignore-pattern-text pattern)
+                                          below-base :pathname t
+                                          :casefold casefold)))))))
+      (loop for i from (1- (length patterns)) downto 0
+            for pattern = (svref patterns i)
+            when (pattern-matches-p pattern)
+              return (if (ignore-pattern-negative-p pattern)
+                         :included
+                         :ignored)))))
 
 (defun ignore-stack-verdict (stack path directory-p &key casefold)
   "The verdict of the first list in STACK (highest precedence first) that

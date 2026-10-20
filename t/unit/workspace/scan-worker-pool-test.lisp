@@ -1,7 +1,7 @@
 (in-package #:aitools.workspace.test)
 
 (describe "aitools.workspace.application scan: worker pool lifecycle"
-  (it "does not create a worker pool for a one-file scan"
+  (it "does not compute a worker count or create a worker pool for a one-file scan"
     (let* ((base (repo-host '(("a.txt" . ""))))
            (host (make-workspace-host
                   :list-directory (lambda (path) (host-list-directory base path))
@@ -13,16 +13,99 @@
                   :current-directory (lambda () (host-current-directory base))
                   :call-with-ordered-mapper
                   #'aitools.workspace.infrastructure:call-with-ordered-mapper))
-           (calls 0)
+           (processor-count-calls 0)
+           (executor-calls 0)
            (scan-thread (cl-concurrent-kit:current-thread))
+           (processor-count #'aitools.workspace.infrastructure:processor-count)
            (make-executor #'cl-concurrent-kit:make-executor))
       ;; Other specs can create pools in parallel; count only this scan.
       (cl-weave:with-mocked-functions
-          (((symbol-function 'cl-concurrent-kit:make-executor)
+          (((symbol-function 'aitools.workspace.infrastructure:processor-count)
+            (lambda ()
+              (if (eq (cl-concurrent-kit:current-thread) scan-thread)
+                  (progn (incf processor-count-calls) 1)
+                  (funcall processor-count))))
+           ((symbol-function 'cl-concurrent-kit:make-executor)
             (lambda (&rest arguments)
               (when (eq (cl-concurrent-kit:current-thread) scan-thread)
-                (incf calls))
+                (incf executor-calls))
               (apply make-executor arguments))))
         (expect (scan-paths host (resolved-root host) :work #'scan-entry-path)
                 :to-equal '("a.txt"))
-        (expect calls :to-be 0)))))
+        (expect processor-count-calls :to-be 0)
+        (expect executor-calls :to-be 0))))
+  (it "reuses one executor across batches and shuts down on normal and exceptional exits"
+    (let* ((scan-thread (cl-concurrent-kit:current-thread))
+           (processor-count-calls 0)
+           (executor-count 0)
+           (executors '())
+           (make-executor-arguments '())
+           (executor-map-calls '())
+           (shutdown-calls '())
+           (normal-results nil)
+           (expected-condition
+             (make-condition 'simple-error
+                             :format-control "ordered mapper test condition"
+                             :format-arguments nil))
+           (caught-condition nil)
+           (processor-count #'aitools.workspace.infrastructure:processor-count)
+           (make-executor #'cl-concurrent-kit:make-executor)
+           (executor-map #'cl-concurrent-kit:executor-map)
+           (shutdown-executor #'cl-concurrent-kit:shutdown-executor))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'aitools.workspace.infrastructure:processor-count)
+            (lambda ()
+              (if (eq (cl-concurrent-kit:current-thread) scan-thread)
+                  (progn (incf processor-count-calls) 2)
+                  (funcall processor-count))))
+           ((symbol-function 'cl-concurrent-kit:make-executor)
+            (lambda (&rest arguments)
+              (if (eq (cl-concurrent-kit:current-thread) scan-thread)
+                  (let ((executor (list :scan-executor (incf executor-count))))
+                    (push arguments make-executor-arguments)
+                    (push executor executors)
+                    executor)
+                  (apply make-executor arguments))))
+           ((symbol-function 'cl-concurrent-kit:executor-map)
+            (lambda (executor function items)
+              (if (eq (cl-concurrent-kit:current-thread) scan-thread)
+                  (progn
+                    (push (list executor items) executor-map-calls)
+                    (mapcar function items))
+                  (funcall executor-map executor function items))))
+           ((symbol-function 'cl-concurrent-kit:shutdown-executor)
+            (lambda (executor &rest arguments)
+              (if (eq (cl-concurrent-kit:current-thread) scan-thread)
+                  (progn
+                    (push (list executor arguments) shutdown-calls)
+                    :shutdown)
+                  (apply shutdown-executor executor arguments)))))
+        (setf normal-results
+              (aitools.workspace.infrastructure:call-with-ordered-mapper
+               (lambda (mapper)
+                 (list (funcall mapper #'1+ '(1 2 3))
+                       (funcall mapper #'1- '(4 5 6))))))
+        (handler-case
+            (aitools.workspace.infrastructure:call-with-ordered-mapper
+             (lambda (mapper)
+               (funcall mapper #'identity '(:before :error))
+               (error expected-condition)))
+          (simple-error (condition)
+            (setf caught-condition condition))))
+      (setf executors (nreverse executors)
+            make-executor-arguments (nreverse make-executor-arguments)
+            executor-map-calls (nreverse executor-map-calls)
+            shutdown-calls (nreverse shutdown-calls))
+      (expect normal-results :to-equal '((2 3 4) (3 4 5)))
+      (expect (eq caught-condition expected-condition) :to-be-truthy)
+      (expect processor-count-calls :to-be 2)
+      (expect make-executor-arguments
+              :to-equal '((:size 2 :name "aitools scan")
+                          (:size 2 :name "aitools scan")))
+      (expect executor-map-calls
+              :to-equal (list (list (first executors) '(1 2 3))
+                              (list (first executors) '(4 5 6))
+                              (list (second executors) '(:before :error))))
+      (expect shutdown-calls
+              :to-equal (list (list (first executors) '(:wait t))
+                              (list (second executors) '(:wait t)))))))

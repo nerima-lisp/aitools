@@ -21,6 +21,9 @@ workspace lock: a recheck under the lock must read the disk afresh.")
 independently of the rest and may be memoized and reused as a seed."
   (notany (lambda (component) (or (string= component ".") (string= component ".."))) components))
 
+(defun %memoize-unresolvable-real-path (cache path)
+  (when cache (setf (gethash path cache) nil)))
+
 (defun resolve-real-path (host path)
   "Resolve every symlink in the absolute PATH. Returns the real path, or NIL
 when resolution exceeds *SYMLINK-HOP-LIMIT* hops. `..` after a resolved
@@ -65,7 +68,7 @@ identical to the uncached walk of one LSTAT per component."
                         (if (and entry (eq (workspace-entry-kind entry) :symlink))
                             (let ((target (host-read-link host candidate)))
                               (when (or (null target) (> (incf hops) *symlink-hop-limit*))
-                                (when cache (setf (gethash path cache) nil))
+                                (%memoize-unresolvable-real-path cache path)
                                 (return-from resolve-real-path nil))
                               (when (absolute-path-p target) (setf resolved "/"))
                               (setf pending (append (path-components target) pending))

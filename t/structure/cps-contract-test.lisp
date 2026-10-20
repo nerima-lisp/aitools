@@ -10,8 +10,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 89)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 78)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 84)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 73)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"

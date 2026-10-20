@@ -50,24 +50,36 @@
 O_NONBLOCK and type-checked with fstat on the open descriptor, so a FIFO or
 device planted where an ignore or config file is expected neither blocks the
 scan nor gets read."
-  (let ((fd (handler-case (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nonblock))
-              (error () (return-from read-regular-file-octets nil)))))
-    (let ((stream nil))
-      (unwind-protect
-           (handler-case
-               (when (sb-posix:s-isreg (sb-posix:stat-mode (sb-posix:fstat fd)))
-                 (setf stream (sb-sys:make-fd-stream fd :input t :element-type '(unsigned-byte 8)
-                                                        :buffering :full :auto-close nil))
-                 (let ((buffer (make-array 65536 :element-type '(unsigned-byte 8)))
-                       (out (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
-                   (loop for count = (read-sequence buffer stream)
-                         while (plusp count)
-                         do (loop for i from 0 below count do (vector-push-extend (aref buffer i) out)))
-                   (coerce out '(simple-array (unsigned-byte 8) (*)))))
-             (error () nil))
-        ;; Closing the fd-stream closes FD itself; closing both would close a
-        ;; descriptor number another thread may already have reused.
-        (if stream (close stream) (sb-posix:close fd))))))
+  (labels ((read-stream-octets (stream)
+             (let ((buffer (make-array 65536 :element-type '(unsigned-byte 8)))
+                   (out (make-array 0 :element-type '(unsigned-byte 8)
+                                    :adjustable t :fill-pointer 0)))
+               (loop for count = (read-sequence buffer stream)
+                     while (plusp count)
+                     do (loop for i from 0 below count
+                              do (vector-push-extend (aref buffer i) out)))
+               (coerce out '(simple-array (unsigned-byte 8) (*)))))
+           (read-open-fd (fd)
+             (let ((stream nil))
+               (unwind-protect
+                    (handler-case
+                        (when (sb-posix:s-isreg (sb-posix:stat-mode (sb-posix:fstat fd)))
+                          (setf stream
+                                (sb-sys:make-fd-stream fd :input t
+                                                         :element-type '(unsigned-byte 8)
+                                                         :buffering :full
+                                                         :auto-close nil))
+                          (read-stream-octets stream))
+                      (error () nil))
+                 ;; Closing the fd-stream closes FD itself; closing both would
+                 ;; close a descriptor number another thread may already have reused.
+                 (if stream
+                     (close stream)
+                     (sb-posix:close fd))))))
+    (let ((fd (handler-case
+                  (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nonblock))
+                (error () nil))))
+      (when fd (read-open-fd fd)))))
 
 (defun %home-directory ()
   (string-right-trim "/" (sb-ext:native-namestring (host-kit:user-home-directory))))
