@@ -127,5 +127,7 @@
                                                            message
                                                            :repairs
                                                            repairs))
-         (:on-none () (continue-with nil))
-         (:on-selector (selector) (continue-with selector))))))))
+         (:on-none ()
+                      (continue-with nil))
+         (:on-selector (selector)
+                       (continue-with selector))))))))
