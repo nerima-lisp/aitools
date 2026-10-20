@@ -30,7 +30,51 @@
             (error "Invalid coverage baseline for ~S: ~A" context path))
           (unless (eq (read stream nil :eof) :eof)
             (error "Coverage baseline has trailing data: ~A" path))
-          (dolist (metric '(:expression :branch))
+          (dolist (metric (quote (:expression :branch)))
             (require-positive-coverage-counts baseline context metric))
+          (when (eq context :journal)
+            (let ((count (getf baseline :uncovered-in-package-expressions :missing)))
+              (unless (and (integerp count) (not (minusp count)))
+                (error "Invalid Journal uncovered IN-PACKAGE expression count: ~S"
+                       count))))
           baseline))))
 )
+
+(progn
+  (defun uncovered-in-package-expression-p (source location)
+    (and (eq (getf location :kind) :expression)
+         (let* ((*read-eval* nil)
+                (*package* (find-package "CL-USER"))
+                (form (read-from-string source nil nil
+                                        :start (getf location :start)))
+                (operator (and (consp form) (car form))))
+           (eq operator
+               (find-symbol "IN-PACKAGE" "COMMON-LISP")))))
+
+  (defun uncovered-in-package-expression-count (file-statistics)
+    (loop for file in file-statistics
+          for source = (uiop:read-file-string (getf file :pathname))
+          sum (count-if (lambda (location)
+                          (uncovered-in-package-expression-p source location))
+                        (getf file :uncovered-forms))))
+
+  (defun adjust-journal-expression-total
+      (statistics current-count baseline-count)
+    (unless (and (integerp current-count) (not (minusp current-count))
+                 (integerp baseline-count) (not (minusp baseline-count)))
+      (error "Invalid uncovered IN-PACKAGE expression counts: ~S/~S"
+             current-count baseline-count))
+    (multiple-value-bind (covered total)
+        (require-positive-coverage-counts statistics :journal :expression)
+      (let ((adjusted-total (- total (- current-count baseline-count))))
+        (unless (and (integerp adjusted-total)
+                     (plusp adjusted-total)
+                     (<= covered adjusted-total))
+          (error "Invalid adjusted Journal expression coverage total: ~D"
+                 adjusted-total))
+        (let ((adjusted (copy-list statistics)))
+          (setf (getf adjusted :expression-total) adjusted-total
+                (getf adjusted :uncovered-in-package-expressions) current-count
+                (getf adjusted :baseline-uncovered-in-package-expressions)
+                baseline-count)
+          adjusted)))))

@@ -92,21 +92,41 @@
                   "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
                   context metric covered total base-covered base-total))))
     t)
-  (defun coverage-statistics-for (pathnames)
-    (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS" :include-pathnames pathnames))
+  (defun coverage-statistics-for (pathnames &optional context baseline)
+    (let ((statistics
+            (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                              :include-pathnames pathnames)))
+      (if (eq context :journal)
+          (adjust-journal-expression-total
+           statistics
+           (uncovered-in-package-expression-count
+            (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                              :include-pathnames pathnames))
+           (getf baseline :uncovered-in-package-expressions))
+          statistics)))
   (defun measure-context-coverage (root groups)
     (mapcar (lambda (group)
-              (list (car group) (length (cdr group))
-                    (coverage-statistics-for (cdr group))
-                    (read-coverage-baseline root (car group))))
+              (let* ((context (car group))
+                     (pathnames (cdr group))
+                     (baseline (read-coverage-baseline root context)))
+                (list context (length pathnames)
+                      (coverage-statistics-for pathnames context baseline)
+                      baseline)))
             groups))
   (defun coverage-measurement-record (context source-count statistics baseline)
-    (list :context context :source-count source-count
-          :baseline-state (getf baseline :state) :baseline-source (getf baseline :source)
-          :expression-covered (getf statistics :expression-covered)
-          :expression-total (getf statistics :expression-total)
-          :branch-covered (getf statistics :branch-covered)
-          :branch-total (getf statistics :branch-total)))
+    (append
+     (list :context context :source-count source-count
+           :baseline-state (getf baseline :state)
+           :baseline-source (getf baseline :source)
+           :expression-covered (getf statistics :expression-covered)
+           :expression-total (getf statistics :expression-total)
+           :branch-covered (getf statistics :branch-covered)
+           :branch-total (getf statistics :branch-total))
+     (when (eq context :journal)
+       (list :uncovered-in-package-expressions
+             (getf statistics :uncovered-in-package-expressions)
+             :baseline-uncovered-in-package-expressions
+             (getf statistics :baseline-uncovered-in-package-expressions)))))
   (defun write-context-measurements (root aggregate contexts exclusions)
     (let* ((path (merge-pathnames "coverage/context-measurements.sexp" root))
            (record (list :schema-version 1 :platform (software-type) :aggregate aggregate
