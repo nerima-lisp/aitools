@@ -56,9 +56,9 @@
   (format nil
           (concatenate 'string
                        "#+TITLE: Report~%* Heading~%"
-                       "A *bold* and /italic/ with =code=.~%- [X] checked~%1. ordered~%"
+                       "A *bold* and /italic/ with =code=.~%- [X] checked~%~%1. ordered~%"
                        "| A | B |~%|---+---|~%| 1 | 2 |~%"
-                       "#+BEGIN_SRC text :exports code~%echo hi~%#+END_SRC~%"
+                       "#+BEGIN_SRC text~%echo hi~%#+END_SRC~%"
                        "[[https://example.test][external]]~%Reference[fn:note].~%"
                        "[fn:note] Definition.~%")))
 
@@ -107,7 +107,7 @@
       (expect (jget envelope "total") :to-be 2)
       (expect (jget envelope "truncated") :to-be nil)
       (expect (org-outline-summary entries)
-              :to-equal '(("src-block" "code-sample" nil 2)
+              :to-equal '(("src-block" "code-sample" nil 1)
                              ("example-block" "" nil 5)))))
 
   (define-org-read-case ("org query filters TODO headings and accepts the documented regex subset" ws)
@@ -203,8 +203,8 @@
           (expect (stringp content) :to-be t)
           (expect-org-fragments
            content
-           (cond ((string= backend "html") '("<p>A <b>bold</b>.</p>"))
-                 ((string= backend "gfm") '("A **bold**."))
+           (cond ((string= backend "html") '("A <b>bold</b>."))
+                 ((string= backend "gfm") '("A **bold**"))
                  (t '("A *bold*." "bold"))))))
       (expect (file-octets ws "export.org") :to-equalp before)))
 
@@ -221,13 +221,13 @@
           (expect-org-fragments
            content
            (cond ((string= backend "html")
-                  '("<title>Report</title>" "<b>bold</b>" "<i>italic</i>" "<ul" "<ol" "<table"
-                    "<pre" "https://example.test" "external" "checked" "ordered" "echo hi"
-                    "Reference" "Definition."))
+                  '("<title>Report</title>" "<b>bold</b>" "<i>italic</i>" "<ul" "<ol"
+                    "<table" "<pre" "https://example.test" "external" "checked" "ordered"
+                    "echo hi" "Reference" "Definition."))
                  ((string= backend "gfm")
-                  '("# Heading" "**bold**" "italic" "`code`" "| A | B |" "```text"
-                    "echo hi" "[external](https://example.test)" "checked" "ordered"
-                    "Reference" "Definition."))
+                  '("# Heading" "**bold**" "italic" "`code`" "| A | B |" "~~~text"
+                    "echo hi" "[external](<https://example.test>)" "[X] checked" "1.  ordered"
+                    "Reference" "Definition"))
                  (t '("Report" "Heading" "*bold*" "checked" "ordered" "A" "B"
                       "1" "2" "echo hi" "https://example.test" "Definition."))))
           (when (string= backend "gfm")

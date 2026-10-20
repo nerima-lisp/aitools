@@ -1,24 +1,28 @@
 ;;;;
 ;;;; Schema text for the read-only Org commands. AITOOLS.ORG.PRESENTATION
-;;;; builds each COMMAND-SCHEMA from this table; CLI options live beside the
-;;;; handlers.
+;;;; builds each COMMAND-SCHEMA from this table; CLI option declarations are
+;;;; in packages/feature/org/src/presentation/commands.lisp.
 (in-package #:aitools.data)
 
 (defparameter *org-command-schemas*
   `((:name "org.outline"
      :summary "List Org headings and named or unnamed source and example blocks."
      :description ,(concatenate 'string
-                                "Reads one UTF-8 Org file. Syntax errors include source diagnostics with "
-                                "one-based line and column. All errors include a repair; failed parses "
-                                "return no entries.")
+                                "Syntax diagnostics appear in `error.diagnostics` when available. "
+                                "Source positions use one-based `line` and `col` fields. Errors include "
+                                "at least one repair; "
+                                "see [the error envelope](errors.md#the-error-envelope) for repair fields and "
+                                "how to use the suggested command. Failed parses return no entries.")
      :args ((:name "path" :kind "positional" :type "string" :required t
              :description "Org file, relative to the working directory.")
             (:name "--limit" :type "integer"
              :description "Maximum entries; 0 returns none. Omit to return all entries."))
      :output-fields ((:name "entries" :description
                       ,(concatenate 'string
-                                    "[{kind,name,level,line}] in document order. kind is headline, src-block, or "
-                                    "example-block. Headline name omits TODO keywords. A block name uses #+NAME, "
+                                    "[{kind,name,level,line}] in document order. "
+                                    "line is one-based and marks each entry's starting source line. "
+                                    "kind is headline, src-block, or example-block. "
+                                    "Headline name omits TODO keywords. A block name uses #+NAME, "
                                     "then source language for src-block, or empty for unnamed example-block. "
                                     "level is null for blocks."))
                      (:name "total" :description "All outline entries before --limit.")
@@ -28,30 +32,44 @@
                    "environment.io" "internal.unexpected"))
     (:name "org.query"
      :summary "Find Org headings that match an Org match expression."
-     :description ,(concatenate (quote string)
-                                "MATCH uses cl-org-kit Org match syntax. --at and --tz are required. "
-                                "--at is a zone-less local datetime in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. "
-                                "--tz is an IANA zone name; --dst-policy defaults to compatible. "
-                                "Match syntax errors include source diagnostics with one-based line and col fields "
-                                "and a message field. Every error has at least one repair.")
+     :description ,(concatenate 'string
+                                "Match syntax errors appear in `error.diagnostics`. "
+                                "Source positions use one-based `line` and `col` fields and include a `message`. "
+                                "Every error includes at least one repair; see "
+                                "[the error envelope](errors.md#the-error-envelope) for its fields and "
+                                "how to use the suggested command.")
      :args ((:name "path" :kind "positional" :type "string" :required t
              :description "Org file, relative to the working directory.")
             (:name "--match" :type "string" :required t
-             :description "Org match expression, not a title substring search.")
+             :description ,(concatenate 'string
+                                        "Org match syntax covers tag, TODO, level, property, and planning predicates. "
+                                        "`+` means AND; a vertical bar separates OR alternatives; for example, "
+                                        "`work+LEVEL=2/TODO` combines tag, level, and TODO. "
+                                        "Relative planning dates use `--at` as their reference date; for example, "
+                                        "`DEADLINE<\"<today>\"`. This is not a title substring search."))
             (:name "--at" :type "string" :required t
-             :description "Zone-less local datetime YYYY-MM-DDTHH:MM:SS; seconds must be 00.")
+             :description ,(concatenate 'string
+                                        "Zone-less local datetime in `YYYY-MM-DDTHH:MM:SS` form; "
+                                        "seconds must be `00` because the Org time context has minute precision."))
             (:name "--tz" :type "string" :required t
              :description "Resolvable IANA time zone name.")
             (:name "--dst-policy" :type "enum"
              :choices ("compatible" "earlier" "later" "strict")
              :default "compatible"
-             :description "Resolve DST policy for --at; Org predicates use local wall time in --tz."))
+             :description ,(concatenate 'string
+                                        "Resolve DST gaps and overlaps for `--at`. `compatible` chooses the earlier "
+                                        "instant for overlaps and moves forward by the gap width. `earlier` chooses "
+                                        "the earlier overlap instant and moves backward by the gap width. `later` "
+                                        "chooses the later overlap instant and moves forward by the gap width. "
+                                        "`strict` rejects gaps and overlaps. Relative planning predicates `SCHEDULED`, "
+                                        "`DEADLINE`, and `CLOSED` use local wall time in `--tz`.")))
      :output-fields ((:name "matches" :description
                       ,(concatenate 'string
                                     "[{line,level,title,todo,tags,heading_path}] in document order. line is one-based; "
-                                    "title is raw text; todo is a keyword or null; tags is a string array. "
-                                    "heading_path is [{title,index}] from the root with one-based sibling "
-                                    "ordinals."))
+                                    "title omits its TODO keyword and tags; todo is a keyword or null; "
+                                    "tags is a string array. "
+                                    "heading_path is an array of `{title,index}` objects from root to match. "
+                                    "Each index is the one-based sibling ordinal within its parent."))
                      (:name "count" :description "Number of matching headings."))
      :error-codes ("argument.invalid" "input.not-found" "input.not-utf8"
                    "input.unsupported-format" "input.syntax-error" "refusal.too-large"
@@ -59,11 +77,19 @@
     (:name "org.export"
      :summary "Export an Org file as HTML, GFM, or ASCII text."
      :description ,(concatenate 'string
-                                "Returns the complete export as a string in content. Unsupported syntax fails "
-                                "the whole command without content. File, ID, and internal links return "
-                                "input.unsupported-format until link resolution is available. Errors have a "
-                                "nonempty repairs list; exporter syntax errors include a source location when "
-                                "provided by the exporter.")
+                                "Unsupported syntax fails the whole command without content. "
+                                "File, ID, and internal links return `input.unsupported-format` until "
+                                "link resolution is available. "
+                                "`cl-org-kit v0.1.0` does not honor `:exports results` or `none`; "
+                                "the exporter renders code and results for those modes. "
+                                "Default or `:exports code` blocks are refused when followed by an attached "
+                                "`#+RESULTS` block with only whitespace between the source and results blocks. "
+                                "Default or `:exports code` blocks without attached results are supported. "
+                                "`:exports both` blocks are supported with or without attached results. "
+                                "Errors include at least one repair; see "
+                                "[the error envelope](errors.md#the-error-envelope) for its fields and "
+                                "how to use the suggested command. "
+                                "Exporter syntax errors include a source location when provided.")
      :args ((:name "path" :kind "positional" :type "string" :required t
              :description "Org file, relative to the working directory.")
             (:name "--backend" :type "enum" :choices ("html" "gfm" "ascii") :required t
