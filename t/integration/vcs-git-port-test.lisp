@@ -2,12 +2,6 @@
 
 (in-package #:aitools.vcs.integration-test)
 
-(defun call-with-path (value thunk)
-  "Call THUNK with the process's PATH set to VALUE."
-  (let ((previous (sb-posix:getenv "PATH")))
-    (unwind-protect (progn (sb-posix:setenv "PATH" value 1) (funcall thunk))
-      (if previous (sb-posix:setenv "PATH" previous 1) (sb-posix:unsetenv "PATH")))))
-
 (describe-run-if (git-available-p) "aitools git production port limits"
   (it "dispatches git diff --output stat"
     (with-temporary-directory (directory)
@@ -31,8 +25,10 @@
     (with-temporary-directory (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields)
-          (call-with-path (uiop:native-namestring directory)
-                          (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
+          (let ((aitools.vcs.infrastructure::*git-executable*
+                 (uiop:native-namestring
+                  (merge-pathnames "missing-git" directory))))
+            (run-flow (function aitools.vcs.application:git-status/k) directory))
         (expect kind :to-be :error)
         (expect (getf fields :code) :to-equal "environment.unavailable")
         (expect (getf fields :message) :to-equal "git could not be started")))))
@@ -55,8 +51,9 @@
           (format out "#!/bin/sh~%printf 'false\\n/elsewhere\\n'~%"))
         (sb-posix:chmod (uiop:native-namestring fake) #o755)
         (multiple-value-bind (kind fields)
-            (call-with-path (uiop:native-namestring directory)
-                            (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
+            (let ((aitools.vcs.infrastructure::*git-executable*
+                   (uiop:native-namestring fake)))
+              (run-flow (function aitools.vcs.application:git-status/k) directory))
           (expect kind :to-be :error)
           (expect (getf fields :code) :to-equal "environment.unavailable")
           (expect (getf fields :message) :to-equal "the working directory is not inside a git work tree"))))))
