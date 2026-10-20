@@ -75,7 +75,7 @@
                           fields)
                          (aitools.kernel.domain:flow-continue
                           :on-ok
-                          fields))))
+                          fields)))))
              (:on-error (code message
                               &key candidates diagnostics conflicts repairs)
                (report-error code message
@@ -103,4 +103,4 @@
                     :candidates candidates
                     :diagnostics diagnostics
                     :conflicts conflicts
-                    :repairs repairs))))))
+                    :repairs repairs)))))

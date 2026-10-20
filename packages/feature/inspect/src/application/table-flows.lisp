@@ -85,10 +85,10 @@
                            (list "read" path "--range"
                                  (format nil "~D:~D"
                                          (max 1 (- line 3))
-                                         (+ line 3)))))))
+                                         (+ line 3))))))))
                      (:on-table (table)
                        (aitools.kernel.domain:flow-continue
-                        :on-table table)))))))))))))
+                        :on-table table))))))))))))
 
 (aitools.kernel.domain:define-flow
  (%filter-rows/k table where &key on-rows on-error)
