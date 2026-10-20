@@ -103,7 +103,7 @@ clamped to SIZE, or NIL when TEXT is malformed."
                                      "--as"
                                      "hex"
                                      "--bytes"
-                                     "0:256"))))
+                                     "0:256")))))
        (let ((low (max 0 (- start +hex-redaction-margin+))))
          (multiple-value-bind (octets size-or-problem)
              (read-target-range context
@@ -158,4 +158,4 @@ clamped to SIZE, or NIL when TEXT is malformed."
                           (list (cons "next_commands" next))))))
                  (if truncated
                      (aitools.kernel.domain:flow-continue :on-partial fields)
-                     (aitools.kernel.domain:flow-continue :on-ok fields))))))))))
+                     (aitools.kernel.domain:flow-continue :on-ok fields)))))))))

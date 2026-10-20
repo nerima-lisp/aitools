@@ -58,7 +58,7 @@
                       "Read each line as one column."
                       (command-line
                        context
-                       (list "table" "read" path "--format" "lines"))))
+                       (list "table" "read" path "--format" "lines")))))
                    (aitools.kernel.domain:flow-call
                        (parse-table/k
                         lines format
@@ -88,7 +88,7 @@
                                          (+ line 3))))))))
                      (:on-table (table)
                        (aitools.kernel.domain:flow-continue
-                        :on-table table))))))))))))
+                        :on-table table)))))))))))
 
 (aitools.kernel.domain:define-flow
  (%filter-rows/k table where &key on-rows on-error)

@@ -139,8 +139,8 @@ selection fails."
                         :candidates candidates
                         :diagnostics diagnostics
                         :conflicts conflicts
-                        :repairs repairs))))))))
-       (let* ((bom (utf8-bom-length octets))
+                        :repairs repairs))))))))))
+         (let* ((bom (utf8-bom-length octets))
               (index (build-line-index octets :start bom))
               (total (line-index-count index))
               (tail (text-view-options-tail options)))
@@ -188,5 +188,5 @@ selection fails."
                       :diagnostics diagnostics
                       :conflicts conflicts
                       :repairs repairs)))
-                (window index total start end nil)))))))))
+                (window index total start end nil)))))))
 )))

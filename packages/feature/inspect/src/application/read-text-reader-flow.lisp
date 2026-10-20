@@ -58,7 +58,7 @@
                  :candidates candidates
                  :diagnostics diagnostics
                  :conflicts conflicts
-                 :repairs repairs))))
+                 :repairs repairs)))))
        (aitools.kernel.domain:flow-call
         (call-with-target-text/k context target)
         (:on-text (octets)
@@ -70,4 +70,4 @@
         (:on-missing ()
           (missing))
         (:on-unreadable ()
-          (unreadable)))))))
+          (unreadable))))))

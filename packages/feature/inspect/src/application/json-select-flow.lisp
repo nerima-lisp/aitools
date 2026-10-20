@@ -82,7 +82,7 @@
                             "Find the array to select from."
                             (command-line
                              context
-                             (list "json" "get" path pointer "--keys"))))
+                             (list "json" "get" path pointer "--keys")))))
                          (let ((indexes nil)
                                (limit-message nil))
                            (aitools.kernel.domain:flow-call
@@ -123,7 +123,7 @@
                                       fields)
                                      (aitools.kernel.domain:flow-continue
                                       :on-ok
-                                      fields))))))))
+                                      fields)))))))
                    (:on-error (code message
                                     &key candidates diagnostics
                                          conflicts repairs)
