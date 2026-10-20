@@ -32,44 +32,57 @@ AITOOLS.VCS.APPLICATION:GIT-PORT for the kinds."
     (vcs-kit:git-launch-error (values :missing (princ-to-string condition)))
     (t (values :failed (princ-to-string condition)))))
 
-(defmacro %with-git-outcome ((value-var form &key on-failure) &body on-success)
-  "Evaluate FORM; on a VCS-ERROR call ON-FAILURE (a function of KIND and
-MESSAGE), otherwise run ON-SUCCESS with VALUE-VAR bound to FORM's value.
-Both run outside the handler."
-  (let ((kind (gensym "KIND")) (payload (gensym "PAYLOAD")))
-    `(multiple-value-bind (,kind ,payload)
-         (handler-case (values :ok ,form)
-           (vcs-kit:vcs-error (condition) (%failure condition)))
-       (if (eq ,kind :ok)
-           (let ((,value-var ,payload)) ,@on-success)
-           (funcall ,on-failure ,kind ,payload)))))
+(defun %run-vcs-operation (operation)
+  (handler-case (values :ok (funcall operation))
+    (vcs-kit:vcs-error (condition)
+      (multiple-value-bind (kind payload) (%failure condition)
+        (values :on-failure (list kind payload))))))
 
-(defun %run (directory subcommand arguments &key octets on-success on-failure)
-  (%with-git-outcome (result (vcs-kit:run-git/checked (%repository directory) subcommand arguments
-                                                      :result-type (if octets :octets :string)
-                                                      :max-output-characters *git-output-limit*)
-                      :on-failure on-failure)
-    (if (vcs-kit:process-result-stdout-truncated-p result)
-        (funcall on-failure :failed
-                 (format nil "git ~A printed more than ~D characters" subcommand *git-output-limit*))
-        (funcall on-success (vcs-kit:process-result-stdout result)))))
+(defun %run (directory subcommand arguments &key octets)
+  (multiple-value-bind (callback-key result)
+      (%run-vcs-operation
+       (lambda ()
+         (vcs-kit:run-git/checked
+          (%repository directory) subcommand arguments
+          :result-type (if octets :octets :string)
+          :max-output-characters *git-output-limit*)))
+    (if (eq callback-key :ok)
+        (if (vcs-kit:process-result-stdout-truncated-p result)
+            (values :on-failure
+                    (list :failed
+                          (format nil "git ~A printed more than ~D characters"
+                                  subcommand *git-output-limit*)))
+            (values :on-success
+                    (list (vcs-kit:process-result-stdout result))))
+        (values callback-key result))))
 
-(defun %probe (directory &key on-repository on-outside on-missing on-no-directory)
+(defun %probe-git (directory)
+  (multiple-value-bind (callback-key payload)
+      (%run-vcs-operation
+       (lambda ()
+         (vcs-kit:run-git/checked
+          (%repository directory) "rev-parse"
+          '("--is-inside-work-tree" "--show-toplevel"))))
+    (if (eq callback-key :ok)
+        (let* ((output (%text (vcs-kit:process-result-stdout payload)))
+               (newline (position #\Newline output)))
+          (if (and newline (string= (subseq output 0 newline) "true"))
+              (values :on-repository
+                      (list (subseq output (1+ newline)) (%working-directory)))
+              (values :on-outside nil)))
+        (cond
+          ((eq (first payload) :missing)
+           (values :on-missing nil))
+          ((and (eq (first payload) :exit)
+                (search "not a git repository" (second payload)))
+           (values :on-outside nil))
+          (t (values :on-failure payload))))))
+
+
+(defun %probe (directory)
   (if (and directory (not (uiop:directory-exists-p directory)))
-      (funcall on-no-directory (uiop:native-namestring directory))
-      (%probe-git directory :on-repository on-repository :on-outside on-outside :on-missing on-missing)))
-
-(defun %probe-git (directory &key on-repository on-outside on-missing)
-  (%with-git-outcome (result (vcs-kit:run-git/checked (%repository directory) "rev-parse"
-                                                      '("--is-inside-work-tree" "--show-toplevel"))
-                      :on-failure (lambda (kind message)
-                                    (declare (ignore message))
-                                    (if (eq kind :missing) (funcall on-missing) (funcall on-outside))))
-    (let* ((output (%text (vcs-kit:process-result-stdout result)))
-           (newline (position #\Newline output)))
-      (if (and newline (string= (subseq output 0 newline) "true"))
-          (funcall on-repository (subseq output (1+ newline)) (%working-directory))
-          (funcall on-outside)))))
+      (values :on-no-directory (list (uiop:native-namestring directory)))
+      (%probe-git directory)))
 
 (defun %working-directory ()
   "The process's working directory with symlinks resolved, as git resolves
@@ -89,27 +102,39 @@ the `--show-toplevel` path it prints."
                                  :original-path (vcs-kit:status-entry-original-path entry)))
                          (vcs-kit:status-snapshot-entries snapshot))))
 
-(defun %status (directory &key on-success on-failure)
-  (%with-git-outcome (snapshot (vcs-kit:git-status (%repository directory)
-                                                   :execution-options (list :max-output-characters
-                                                                            *git-output-limit*))
-                      :on-failure on-failure)
-    (funcall on-success (%status-plist snapshot))))
+(defun %status (directory)
+  (multiple-value-bind (callback-key payload)
+      (%run-vcs-operation
+       (lambda ()
+         (vcs-kit:git-status
+          (%repository directory)
+          :execution-options (list :max-output-characters *git-output-limit*))))
+    (if (eq callback-key :ok)
+        (values :on-success (list (%status-plist payload)))
+        (values callback-key payload))))
 
-(defun %numstat (directory arguments &key on-success on-failure)
-  (%with-git-outcome (entries (apply #'vcs-kit:git-diff-numstat (%repository directory)
-                                     (append arguments
-                                             (list :execution-options
-                                                   (list :max-output-characters *git-output-limit*))))
-                      :on-failure on-failure)
-    (funcall on-success
-             (mapcar (lambda (entry)
-                       (list :path (vcs-kit:numstat-entry-path entry)
-                             :original-path (vcs-kit:numstat-entry-original-path entry)
-                             :added (vcs-kit:numstat-entry-additions entry)
-                             :deleted (vcs-kit:numstat-entry-deletions entry)
-                             :binary (vcs-kit:numstat-entry-binary-p entry)))
-                     entries))))
+(defun %numstat (directory arguments)
+  (multiple-value-bind (callback-key payload)
+      (%run-vcs-operation
+       (lambda ()
+         (apply #'vcs-kit:git-diff-numstat
+                (%repository directory)
+                (append
+                 arguments
+                 (list :execution-options
+                       (list :max-output-characters *git-output-limit*))))))
+    (if (eq callback-key :ok)
+        (values
+         :on-success
+         (list
+          (mapcar (lambda (entry)
+                    (list :path (vcs-kit:numstat-entry-path entry)
+                          :original-path (vcs-kit:numstat-entry-original-path entry)
+                          :added (vcs-kit:numstat-entry-additions entry)
+                          :deleted (vcs-kit:numstat-entry-deletions entry)
+                          :binary (vcs-kit:numstat-entry-binary-p entry)))
+                  payload)))
+        (values callback-key payload))))
 
 (defun %root-directory (root)
   "ROOT (a `--root` string) as an absolute directory pathname, relative to
@@ -120,9 +145,22 @@ the working directory at the time of the call."
   "The production AITOOLS.VCS.APPLICATION:GIT-PORT. Git runs in DIRECTORY,
 or in the process's working directory at the time of each call when
 DIRECTORY is NIL. Constructing the port performs no I/O."
-  (aitools.vcs.application:make-git-port
-   :probe (lambda (&rest keys) (apply #'%probe directory keys))
-   :run (lambda (subcommand arguments &rest keys) (apply #'%run directory subcommand arguments keys))
-   :status (lambda (&rest keys) (apply #'%status directory keys))
-   :numstat (lambda (arguments &rest keys) (apply #'%numstat directory arguments keys))
-   :at (lambda (root) (make-production-vcs-ports :directory (%root-directory root)))))
+  (flet ((deliver-callback (callback-key arguments callbacks)
+           (apply (getf callbacks callback-key) arguments)))
+    (aitools.vcs.application:make-git-port
+     :probe (lambda (&rest callbacks)
+              (multiple-value-bind (callback-key arguments) (%probe directory)
+                (deliver-callback callback-key arguments callbacks)))
+     :run (lambda (subcommand arguments &rest callbacks)
+            (multiple-value-bind (callback-key callback-arguments)
+                (%run directory subcommand arguments :octets (getf callbacks :octets))
+              (deliver-callback callback-key callback-arguments callbacks)))
+     :status (lambda (&rest callbacks)
+               (multiple-value-bind (callback-key arguments) (%status directory)
+                 (deliver-callback callback-key arguments callbacks)))
+     :numstat (lambda (arguments &rest callbacks)
+                (multiple-value-bind (callback-key callback-arguments)
+                    (%numstat directory arguments)
+                  (deliver-callback callback-key callback-arguments callbacks)))
+     :at (lambda (root)
+           (make-production-vcs-ports :directory (%root-directory root))))))

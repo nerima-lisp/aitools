@@ -4,7 +4,8 @@
 ;;;; the same way, so both share the line-window arithmetic here.
 (in-package #:aitools.vcs.domain)
 
-(defun line-window/k (total-lines &key start end max-lines on-window)
+(aitools.kernel.domain:define-flow
+    (line-window/k total-lines &key start end max-lines on-window)
   "Resolve the lines to return from a TOTAL-LINES document. START and END
 are the 1-based inclusive `--range` bounds (NIL START means line 1, NIL END
 means the last line); MAX-LINES caps the count. START must not lie past the
@@ -18,10 +19,11 @@ cap stopped the window before the requested end, and NEXT-RANGE is then the
          (wanted-last (min total-lines (or end total-lines)))
          (last (if max-lines (min wanted-last (+ first max-lines -1)) wanted-last)))
     (if (< last wanted-last)
-        (funcall on-window first last t
-                 (format nil "~D:~D" (1+ last)
-                         (if max-lines (min wanted-last (+ last max-lines)) wanted-last)))
-        (funcall on-window first last nil nil))))
+        (aitools.kernel.domain:flow-continue
+         :on-window first last t
+         (format nil "~D:~D" (1+ last)
+                 (if max-lines (min wanted-last (+ last max-lines)) wanted-last)))
+        (aitools.kernel.domain:flow-continue :on-window first last nil nil))))
 
 (defun split-object-spec (spec)
   "Split a `<rev>:<path>` object name at its first colon, returning

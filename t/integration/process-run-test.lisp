@@ -127,8 +127,10 @@
   (it "prints stdout lines of a real child"
     (multiple-value-bind (code envelope) (invoke (list "run" "--" "printf" (format nil "a~%b~%")))
       (expect code :to-be 0)
-      (expect envelope :to-match-envelope (list "status" "ok" "exit_code" 0))
-      (expect (lines envelope "stdout" "head") :to-equal '("a" "b"))))
+      (expect envelope :to-match-envelope "status" "ok")
+      (expect (value envelope "status") :to-equal "ok")
+      (expect (lines envelope "stdout" "head") :to-equal '("a" "b"))
+      (expect (value envelope "exit_code") :to-be 0)))
 
   (it "reports the child's exit code while itself exiting 0"
     (multiple-value-bind (code envelope) (invoke (list* "run" "--" (sh "exit 3")))

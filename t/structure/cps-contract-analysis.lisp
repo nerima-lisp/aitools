@@ -93,7 +93,7 @@
                       (not (%operator-name-p item "QUOTE"))
                       (not (and (%operator-name-p item "FUNCTION")
                                 (symbolp (second item))))
-                      (some #'walk item)))))
+                      (or (walk (car item)) (walk (cdr item)))))))
     (walk form)))
 
 (defun %flow-body-kinds (body variables)
@@ -158,7 +158,11 @@
                     (when (and (not ignore-continuations)
                                (%continuation-reference-p form active))
                       (setf positional-continuation-p t))
-                    (dolist (item form) (walk item active ignore-continuations)))))))
+                    (do ((tail form (cdr tail)))
+                        ((atom tail)
+                         (when tail
+                           (walk tail active ignore-continuations)))
+                      (walk (car tail) active ignore-continuations)))))))
       (dolist (form body) (walk form variables)))
     (append (and return-from-p (list :return-from))
             (and positional-continuation-p (list :positional-continuation))

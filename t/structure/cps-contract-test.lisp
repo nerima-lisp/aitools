@@ -10,8 +10,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 153)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 135)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 146)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 123)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
@@ -27,9 +27,26 @@
       (expect stale :to-equal nil)))
 
   (it "passes named continuation flows and quoted data"
-    (expect (%fixture-violations
-             "(define-flow (callee value &key on-ok on-error) (if value (flow-continue :on-ok value) (flow-continue :on-error :missing))) (define-flow (caller value &key on-ok on-error) (flow-call (callee value) (:on-ok (result) (flow-continue :on-ok result)) (:on-error (reason) (flow-continue :on-error reason)))) '(defun quoted/k (&key on-later) (return-from quoted/k nil)) (define-flow (quoted-flow &key on-ok) '(return-from quoted-flow nil) '(apply on-ok nil) (flow-continue :on-ok))")
-            :to-equal nil))
+    (expect
+     (%fixture-violations
+      "(define-flow (callee value &key on-ok on-error)
+  (if value
+      (flow-continue :on-ok value)
+      (flow-continue :on-error :missing)))
+(define-flow (caller value &key on-ok on-error)
+  (flow-call
+   (callee value)
+   (:on-ok (result)
+     (flow-continue :on-ok result))
+   (:on-error (reason)
+     (flow-continue :on-error reason))))
+'(defun quoted/k (&key on-later)
+  (return-from quoted/k nil))
+(define-flow (quoted-flow &key on-ok)
+  '(return-from quoted-flow nil)
+  '(apply on-ok nil)
+  (flow-continue :on-ok))")
+     :to-equal nil))
 
   (it "rejects new legacy continuation definitions"
     (expect (%fixture-violations

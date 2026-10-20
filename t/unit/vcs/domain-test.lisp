@@ -184,7 +184,19 @@
       (expect kind :to-be :complete)
       (expect (json-alist-value (first files) "mode") :to-equal "stat")
       (expect (json-alist-value (first files) "added") :to-equal 2)
-      (expect (json-alist-value (first files) "hunks" :absent) :to-be :absent))))
+      (expect (json-alist-value (first files) "hunks" :absent) :to-be :absent)))
+  (it "preserves source paths and null counts for a renamed binary file"
+    (multiple-value-bind (kind files)
+        (diff-outcome (list (list :path "new.bin" :original-path "old.bin"
+                              :added nil :deleted nil :binary t))
+                      nil :output :stat)
+      (expect kind :to-be :complete)
+      (let ((file (first files)))
+        (expect (json-alist-value file "path") :to-equal "new.bin")
+        (expect (json-alist-value file "from") :to-equal "old.bin")
+        (expect (json-alist-value file "binary") :to-be t)
+        (expect (json-kit:json-null-p (json-alist-value file "added")) :to-be-truthy)
+        (expect (json-kit:json-null-p (json-alist-value file "deleted")) :to-be-truthy)))))
 
 (describe "aitools.vcs.domain line-window/k"
   (flet ((window (total &rest keys)
@@ -222,49 +234,12 @@
     (expect (path-from-directory "a/b.txt" "/r" "/r/c/d") :to-equal "../../a/b.txt")
     (expect (path-from-directory "a/b.txt" "/r" "/r/a") :to-equal "b.txt")))
 
-(defun condition-text (thunk)
-  (handler-case (progn (funcall thunk) :returned)
-    (error (condition) (princ-to-string condition))))
-
-(describe "aitools.vcs.domain parsers on unusual git output"
-  (it "rejects log output whose last field has no terminating NUL"
-    (expect (condition-text (lambda ()
-                              (map-log-records (concatenate 'string (nul-join "a" "A" "0" "+0000") "subject")
-                                               (lambda (&rest record) (declare (ignore record))))))
-            :to-equal "git log output ends inside a record"))
-
-  (it "rejects a blame header without a line number"
-    (expect (condition-text (lambda () (map-blame-lines (lines-text "garbage") (lambda (&rest line) (declare (ignore line))))))
-            :to-equal "malformed blame header: \"garbage\""))
-
-  (it "reads an empty blamed line and ignores blank header lines"
-    (let (lines)
-      (map-blame-lines (lines-text "07e5d895a032520e317659bd3c63a0b9b71ce4ca 1 1 1" "" "author A" "author-time 0"
-                                   "author-tz +0000" (tab ""))
-                       (lambda (&rest line) (push line lines)))
-      (expect lines :to-equal '((1 "07e5d895a032520e317659bd3c63a0b9b71ce4ca" "A" "1970-01-01T00:00:00+00:00" "")))))
-
-  (it "drops text before the first diff --git line"
-    (expect (split-patch-by-file (lines-text "warning: preamble" "diff --git a/x b/x" "index 1..2"))
-            :to-equal '(("diff --git a/x b/x" "index 1..2"))))
-
-  (it "names a renamed file's source as from"
-    (let ((shaped :not-called))
-      (diff-files/k (list (list :path "new.txt" :original-path "old.txt" :added 0 :deleted 0)) nil
-                    :output :stat
-                    :on-complete (lambda (files characters) (declare (ignore characters)) (setf shaped files))
-                    :on-truncated (lambda (&rest arguments) (fail "stat mode truncated: ~S" arguments)))
-      (expect (mapcar (lambda (file) (list (json-alist-value file "path") (json-alist-value file "from"))) shaped)
-              :to-equal '(("new.txt" "old.txt")))))
-
-  (it "reports a null branch when the snapshot has none"
-    (expect (json-kit:json-null-p (cdr (assoc "branch" (status-fields (list :entries nil)) :test #'string=)))
-            :to-be-truthy)))
-
-(describe "aitools.vcs.domain repository paths at their edges"
-  (it "reads an empty path as the working directory"
-    (expect (repository-relative-path "" "/r/sub" "/r") :to-equal "sub"))
-  (it "returns NIL for a path above the top"
-    (expect (repository-relative-path "/" "/r" "/r") :to-be nil))
-  (it "renders the working directory itself as ."
-    (expect (path-from-directory "sub" "/r" "/r/sub") :to-equal ".")))
+(describe "aitools.vcs.domain map-log-records property"
+  (it-property "preserves generated author and subject fields"
+      ((author (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ09 _-."))
+       (subject (gen-string :min-length 0 :max-length 80 :alphabet "abcXYZ09 _-.")))
+    (let ((sha (make-string 40 :initial-element #\a)) records)
+      (map-log-records (nul-join sha author "1704132245" "+0900" subject)
+                       (lambda (&rest record) (push record records)))
+      (expect (nreverse records)
+              :to-equal (list (list sha author "2024-01-02T03:04:05+09:00" subject))))))

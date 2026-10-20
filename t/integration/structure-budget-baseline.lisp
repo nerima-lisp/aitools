@@ -45,9 +45,7 @@
     ("t/unit/search/code-flow-test.lisp" 333)
     ("t/unit/store/domain-test.lisp" 414)
     ("t/unit/text/archive-test.lisp" 415)
-    ("t/unit/text/codec-test.lisp" 268)
-    ("t/unit/vcs/domain-test.lisp" 270)
-    ("t/unit/vcs/flows-test.lisp" 268)))
+    ("t/unit/text/codec-test.lisp" 268)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
@@ -81,6 +79,5 @@
     ("packages/feature/env/src/application/sys-flows.lisp" "%LINUX-SOCKET-OWNERS" 5)
     ("packages/feature/env/src/application/time-flows.lisp" "RESOLVE-ZONE/K" 5)
     ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS" 5)
-    ("packages/feature/vcs/src/application/blame-show-flows.lisp" "%SHOW-BLOB" 5)
-    ("packages/feature/vcs/src/domain/diff.lisp" "DIFF-FILES/K" 6)))
+    ))
 

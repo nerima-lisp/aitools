@@ -145,10 +145,13 @@
                                               (:file "integration/process-ports-launch-test")
                                               (:file "unit/vcs/package")
                                               (:file "unit/vcs/domain-test")
+                                              (:file "unit/vcs/domain-parser-edge-test")
+                                              (:file "unit/vcs/mock-port")
                                               (:file "unit/vcs/flows-test")
                                               (:file "unit/vcs/flows-options-test")
                                               (:file "integration/vcs-git-test")
                                               (:file "integration/vcs-git-port-test")
+                                              (:file "integration/vcs-git-failures-test")
                                               (:file "unit/env/package")
                                               (:file "unit/env/tzif-fixtures")
                                               (:file "unit/env/support")
@@ -180,7 +183,10 @@
                                                                     (:file "cli-schema-drift-test") (:file "skill-contract-test") (:file "runner-failure-report-test") (:file "structure-test")
                                                                     (:file "structure-source-scanner")
                                                                     (:file "coverage-baseline-reader") (:file "coverage-baseline-test") (:file "structure-timeout-test") (:file "structure-budget-baseline")
-                                                                    (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test") (:file "structure-budget-complexity-test")))
+                                                                    (:file "structure-budget-reader") (:file "structure-budget-lines-test") (:file "structure-budget-literals-test")
+                                                                    (:file "structure-budget-complexity-test")
+                                                                    (:file "structure-budget-complexity-fixture-test"
+                                                                           :depends-on ("structure-budget-complexity-test"))))
                                               ;; Keep meta-test last; it checks that every correspondence row has an earlier case.
                                               (:module "e2e"
                                                        :pathname "e2e/"

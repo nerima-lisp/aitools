@@ -107,14 +107,23 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun register-vcs-commands (registry ports)
   "Register `git status|log|diff|blame|show` on REGISTRY. PORTS is the
 AITOOLS.VCS.APPLICATION:GIT-PORT the composition root built."
-  (loop for (name builder) in (list (list "status" #'%status-command)
-                                    (list "log" #'%log-command)
-                                    (list "diff" #'%diff-command)
-                                    (list "blame" #'%blame-command)
-                                    (list "show" #'%show-command))
-        for full-name = (concatenate 'string "git." name)
-        do (aitools.protocol.application:register-command
-            registry :name full-name :group "git"
-                     :cli-command (funcall builder ports)
-                     :schema (%schema full-name)))
+  (aitools.protocol.application:register-command-declarations
+   registry
+   (list
+    (aitools.protocol.application:define-command
+        "git.status"
+      (:group "git" :command-builder #'%status-command :schema (%schema "git.status")))
+    (aitools.protocol.application:define-command
+        "git.log"
+      (:group "git" :command-builder #'%log-command :schema (%schema "git.log")))
+    (aitools.protocol.application:define-command
+        "git.diff"
+      (:group "git" :command-builder #'%diff-command :schema (%schema "git.diff")))
+    (aitools.protocol.application:define-command
+        "git.blame"
+      (:group "git" :command-builder #'%blame-command :schema (%schema "git.blame")))
+    (aitools.protocol.application:define-command
+        "git.show"
+      (:group "git" :command-builder #'%show-command :schema (%schema "git.show"))))
+   ports)
   registry)

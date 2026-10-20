@@ -69,8 +69,50 @@ yields no FILE-PATCH and this returns NIL."
                                     (when binary (list (cons "binary" t)))
                                     (when hunks-p (list (cons "hunks" hunks)))))))
 
-(defun diff-files/k (records file-patches &key (output :hunks) (max-lines 400)
-                                              on-complete on-truncated)
+(defun %hunk-file-data (record patch)
+  (let* ((hunks (%file-hunks patch))
+         (rendered (mapcar #'%rendered-hunk-lines hunks))
+         (cost (loop for lines in rendered sum (1+ (length lines))))
+         (characters
+           (loop for lines in rendered
+                 sum (loop for line in lines sum (1+ (length line))))))
+    (values cost characters
+            (%file-object record "hunks"
+                          (mapcar #'%hunk-object hunks rendered)))))
+
+(defun %hunk-file-step (record patch used max-lines summary-from)
+  (if summary-from
+      (values used summary-from 0 (%file-object record "summary"))
+      (multiple-value-bind (cost characters file)
+          (%hunk-file-data record patch)
+        (if (> (+ used cost) max-lines)
+            (values used (list (getf record :path) cost) 0
+                    (%file-object record "summary"))
+            (values (+ used cost) nil characters file)))))
+
+(aitools.kernel.domain:define-flow
+    (%collect-diff-hunks records file-patches max-lines
+                         &key on-complete on-truncated)
+  (let ((used 0) (characters 0) (summary-from nil) (files nil))
+    (loop for record in records
+          for patch in file-patches
+          do (multiple-value-bind
+                 (next-used next-summary next-characters file)
+                 (%hunk-file-step record patch used max-lines summary-from)
+               (setf used next-used
+                     summary-from next-summary
+                     characters (+ characters next-characters))
+               (push file files)))
+    (setf files (nreverse files))
+    (if summary-from
+        (aitools.kernel.domain:flow-continue
+         :on-truncated files characters
+         (first summary-from) (second summary-from))
+        (aitools.kernel.domain:flow-continue :on-complete files characters))))
+
+(aitools.kernel.domain:define-flow
+    (diff-files/k records file-patches &key (output :hunks) (max-lines 400)
+                                             on-complete on-truncated)
   "Shape `git diff`'s `files` array. RECORDS is one plist (:PATH :ORIGINAL-PATH
 :ADDED :DELETED :BINARY) per changed file; FILE-PATCHES (from
 SPLIT-PATCH-BY-FILE, ignored for OUTPUT :STAT) holds the same files' patch
@@ -78,7 +120,7 @@ lines in the same order.
 
 With OUTPUT :HUNKS, files are taken in order while their rendered hunk lines
 (one per hunk header plus one per body line) fit in MAX-LINES; that file and
-every later one become mode \"summary\" (counts only) once one does not.
+every later one become mode \"summary\" (counts only) once one does.
 
 Calls (ON-COMPLETE files character-count) when nothing was summarized, or
 (ON-TRUNCATED files character-count first-summary-path first-summary-lines)
@@ -86,25 +128,15 @@ otherwise. CHARACTER-COUNT covers the returned hunk lines, for
 `approx_tokens`; FIRST-SUMMARY-LINES is the budget that file alone needs.
 The caller guarantees RECORDS and FILE-PATCHES have the same length."
   (if (eq output :stat)
-      (funcall on-complete (mapcar (lambda (record) (%file-object record "stat")) records) 0)
-      (let ((used 0) (characters 0) (summary-from nil) (files nil))
-        (loop for record in records
-              for patch in file-patches
-              do (if summary-from
-                     (push (%file-object record "summary") files)
-                     (let* ((hunks (%file-hunks patch))
-                            (rendered (mapcar #'%rendered-hunk-lines hunks))
-                            (cost (loop for lines in rendered sum (1+ (length lines)))))
-                       (if (> (+ used cost) max-lines)
-                           (progn (setf summary-from (list (getf record :path) cost))
-                                  (push (%file-object record "summary") files))
-                           (progn
-                             (incf used cost)
-                             (loop for lines in rendered
-                                   do (loop for line in lines do (incf characters (1+ (length line)))))
-                             (push (%file-object record "hunks" (mapcar #'%hunk-object hunks rendered))
-                                   files))))))
-        (setf files (nreverse files))
-        (if summary-from
-            (funcall on-truncated files characters (first summary-from) (second summary-from))
-            (funcall on-complete files characters)))))
+      (aitools.kernel.domain:flow-continue
+       :on-complete (mapcar (lambda (record) (%file-object record "stat")) records)
+       0)
+      (aitools.kernel.domain:flow-call
+          (%collect-diff-hunks records file-patches max-lines)
+        (:on-complete (files characters)
+          (aitools.kernel.domain:flow-continue
+           :on-complete files characters))
+        (:on-truncated (files characters first-summary-path first-summary-lines)
+          (aitools.kernel.domain:flow-continue
+           :on-truncated files characters
+           first-summary-path first-summary-lines)))))

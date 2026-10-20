@@ -15,7 +15,6 @@
   (:import-from #:aitools.test.support #:json-alist-value #:with-temporary-directory))
 
 (in-package #:aitools.vcs.integration-test)
-
 (defun git-available-p ()
   (ignore-errors
    (zerop (sb-ext:process-exit-code
@@ -82,10 +81,14 @@ the working directory. Returns (VALUES EXIT-CODE ENVELOPE) where ENVELOPE is
 the parsed stdout, or stderr for an error."
   (uiop:with-current-directory (directory)
     (multiple-value-bind (app registry) (aitools/cli:build-app)
-      (let* ((stdout (make-string-output-stream)) (stderr (make-string-output-stream))
-             (code (aitools/cli:dispatch app registry (cons "aitools" arguments) :stdout stdout :stderr stderr))
-             (text (get-output-stream-string (if (= code 1) stderr stdout))))
-        (values code (json-kit:parse text :object-type :hash-table))))))
+      (let* ((stdout (make-string-output-stream))
+             (stderr (make-string-output-stream))
+             (code (aitools/cli:dispatch app registry (cons "aitools" arguments)
+                                         :stdout stdout :stderr stderr))
+             (text (get-output-stream-string (if (= code 1) stderr stdout)))
+             (envelope (json-kit:parse text :object-type :hash-table)))
+        (expect envelope :to-match-envelope (list))
+        (values code envelope)))))
 
 (describe-run-if (git-available-p) "aitools git commands against a real repository"
   (it "git status splits staged, unstaged, and untracked paths"
@@ -227,3 +230,12 @@ the parsed stdout, or stderr for an error."
           (expect code :to-equal 1)
           (expect (gethash "code" (gethash "error" envelope)) :to-equal "input.not-found"))))))
 
+(describe "aitools.vcs.application git port construction"
+  (it-each ((:probe) (:run) (:status) (:numstat) (:at))
+      "refuses a port without ~S"
+      (missing)
+    (let ((slots (loop for key in '(:probe :run :status :numstat :at)
+                       unless (eq key missing) append (list key #'identity))))
+      (expect (handler-case (progn (apply #'aitools.vcs.application:make-git-port slots) :made)
+                (error (condition) (princ-to-string condition)))
+              :to-equal (format nil "MAKE-GIT-PORT requires :~A" missing)))))
