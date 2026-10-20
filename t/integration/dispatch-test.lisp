@@ -14,7 +14,7 @@
 (defpackage #:aitools.integration.dispatch-test
   (:use #:cl)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect)
+  (:import-from #:cl-weave #:it #:it-each #:expect #:fail)
   (:import-from #:aitools.store.test-support #:with-fault-at #:call-in-child-process #:kill-child))
 
 (in-package #:aitools.integration.dispatch-test)
