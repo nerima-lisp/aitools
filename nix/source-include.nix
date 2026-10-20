@@ -1,0 +1,17 @@
+[
+  ../aitools-test-system.lisp
+  ../skills/aitools/SKILL.md
+  ../packages/core/kernel/kernel.asd
+  ../packages/core/protocol/protocol.asd
+  ../packages/core/store/store.asd
+  ../packages/core/text/text.asd
+  ../packages/core/workspace/workspace.asd
+  ../packages/feature/edit/edit.asd
+  ../packages/feature/env/env.asd
+  ../packages/feature/inspect/inspect.asd
+  ../packages/feature/journal/journal.asd
+  ../packages/feature/process/process.asd
+  ../packages/feature/search/search.asd
+  ../packages/feature/util/util.asd
+  ../packages/feature/vcs/vcs.asd
+]
