@@ -2,31 +2,26 @@
 ;;;;
 ;;;; Reading and appending the journal (`journal/ops.jsonl`, one JSON
 ;;;; object per line). A normal write appends a single line with O_APPEND, so
-;;;; its cost does not grow with the journal's length. The file therefore keeps
-;;;; the full append history, including operations outside generation-based
-;;;; retention and any unterminated final line left by an interrupted append.
+;;;; its cost does not grow with the journal's length. Entries outside
+;;;; generation-based retention remain until compaction; an interrupted append
+;;;; can leave an unterminated final line.
 ;;;; READ-JOURNAL returns the retained view callers expect: DECODE-JOURNAL
 ;;;; ignores an unterminated tail, while malformed complete lines signal
 ;;;; STORE-FORMAT-ERROR. RETENTION-REMOVALS drops operations outside the retained
 ;;;; generations for every path they touch. %REAP-JOURNAL (in blobs.lisp)
-;;;; compacts the file to retained lines after it grows well past that size,
-;;;; keeping reads and garbage collection bounded.
+;;;; compacts when raw entries exceed twice the retained count (with one as the
+;;;; minimum), keeping reads and garbage collection bounded.
 ;;;;
-;;;; Appends happen after an op's commit point, so recovery may replay the same
-;;;; op. Its replay path (:RECOVERED) rewrites the file rather than appending:
-;;;; the rewrite is idempotent by op id (a re-run does not double-append) and
-;;;; discards any torn tail the crash left, so it cannot merge with a new line.
+;;;; Appends follow the intent record's checksum line being fsynced, so recovery
+;;;; may replay an operation after a crash.
 (in-package #:aitools.store.application)
 
 (defun %journal-entries (store)
-  "The entries physically present in the journal file, oldest first.
-DECODE-JOURNAL drops a torn final line, so this is exactly the lines that
-parse."
+  "Decoded journal entries, oldest first."
   (let ((text (%read-text-if-exists store (journal-file-path (store-state-directory store)))))
     (if text (decode-journal text) '())))
 
 (defun %retained-entries (entries)
-  "ENTRIES with the ops retention has aged out removed, order preserved."
   (let ((removals (retention-removals entries)))
     (if removals
         (remove-if (lambda (entry)
@@ -35,10 +30,7 @@ parse."
         entries)))
 
 (defun read-journal (store)
-  "Every retained journal entry, oldest first: the file's parsable lines with
-retention applied. The file is appended to per op and compacted only
-occasionally, so it can hold aged-out ops and a torn tail that this filters
-away."
+  "Every retained journal entry, oldest first."
   (%retained-entries (%journal-entries store)))
 
 (defun %append-journal-entry (store entry &key recovered)
