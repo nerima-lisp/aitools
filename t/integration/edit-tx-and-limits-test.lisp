@@ -123,6 +123,33 @@
               (funcall (aitools.store.application:store-io-unlock io) handle))))
         (expect result :to-equal '("environment.busy" "aitools edit a.txt --old a --new b"))
         (expect (text "a.txt") :to-equal "a"))))
+  (it "reports environment.busy when a tx write cannot take the workspace lock"
+    (with-workspace ()
+      (put "a.txt" "a")
+      (let* ((tx (begin-tx))
+             (result nil)
+             (store (open-store *root*))
+             (io (aitools.store.application:store-io-port store))
+             (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
+        (aitools.store.application:call-with-workspace-lock/k
+         store 1000 :on-acquired (lambda () nil)
+         :on-timeout (lambda () nil))
+        (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
+          (unwind-protect
+              (run-edit-command *ports* "edit" '("a.txt") (list :old "a" :new "b" :tx tx)
+                                :root *root* :lock-timeout "20ms"
+                                :on-ok (lambda (fields) (setf result fields))
+                                :on-error (lambda (code message &rest keys)
+                                            (declare (ignore message keys))
+                                            (setf result code)))
+            (funcall (aitools.store.application:store-io-unlock io) handle)))
+        (expect result :to-equal "environment.busy")
+        (expect (text "a.txt") :to-equal "a")
+        (expect (run-in tx "edit" '("a.txt") :old "a" :new "b") :to-be :ok)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (text "a.txt") :to-equal "b"))))
+
+
 
   (it "plans against the tx with --dry-run --tx, and stages a directory move per path"
     (with-workspace ()
