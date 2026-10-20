@@ -91,12 +91,18 @@
         (expect (tx-text store tx "b.txt") :to-be :absent)
         (expect (length (field (nth-value 1 (run #'tx-status-flow store tx)) "ops")) :to-be 1))))
 
-  (it "rejects a tx_op that is not a number, and one the tx does not have"
+  (it "rejects invalid, oversized, and missing tx_op numbers"
     (with-temp-store (store)
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "1")
-        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "x")) :code) :to-equal "argument.invalid")
-        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "5")) :code) :to-equal "input.not-found"))))
+        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "x")) :code)
+                :to-equal "argument.invalid")
+        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "")) :code)
+                :to-equal "argument.invalid")
+        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "1234567890")) :code)
+                :to-equal "argument.invalid")
+        (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "5")) :code)
+                :to-equal "input.not-found"))))
 
   (it "aborts without touching the working tree and leaves no tx behind"
     (with-temp-store (store)
