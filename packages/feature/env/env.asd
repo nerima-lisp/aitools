@@ -10,6 +10,7 @@
     :components ((:file "package")
                  (:file "civil-time")
                  (:file "time-input")
+                 (:file "time-input-iso8601")
                  (:file "tzif")
                  (:file "host-parsers")
                  (:file "host-process-parsers")
