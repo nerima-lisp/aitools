@@ -14,7 +14,7 @@
      (:file "calc-parser")
      (:file "uuid")
      (:file "random-string")))
-   (:module "application"
+   (:module "application" :serial t
     :components
     ((:file "package")
      (:file "ports")
