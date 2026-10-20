@@ -10,8 +10,8 @@
            (stale (set-difference allowed actual :test #'equal)))
       (progn
         (expect (not (null actual)) :to-equal t)
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 130)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 110)
+        (expect (count :slash-k-defun actual :key #'third) :to-equal 89)
+        (expect (count :on-key-defun actual :key #'third) :to-equal 78)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
@@ -116,11 +116,15 @@
              "(define-flow (bad-flow &key on-ok) (lambda () (return-from bad-flow nil)))")
             :to-equal '(("fixture.lisp" "BAD-FLOW" :return-from))))
 
-  (it "rejects positional forwarding and apply of a flow continuation"
+  (it "rejects positional forwarding and apply, including quote-like tails"
     (expect (%fixture-violations
              "(define-flow (bad-positional &key on-ok) (helper on-ok)) (define-flow (bad-apply &key on-error) (apply on-error nil))")
             :to-equal '(("fixture.lisp" "BAD-POSITIONAL" :positional-continuation)
-                        ("fixture.lisp" "BAD-APPLY" :apply-continuation))))
+                        ("fixture.lisp" "BAD-APPLY" :apply-continuation)))
+    (expect (%fixture-violations
+             "(define-flow (bad-quoted-tail &key on-ok) (helper :quote on-ok)) (define-flow (bad-apply-quoted-tail &key on-error) (apply (helper :quote on-error) nil))")
+            :to-equal '(("fixture.lisp" "BAD-QUOTED-TAIL" :positional-continuation)
+                        ("fixture.lisp" "BAD-APPLY-QUOTED-TAIL" :apply-continuation))))
 
   (it "rejects continuation references in proper and dotted list tails"
     (expect (%fixture-violations
