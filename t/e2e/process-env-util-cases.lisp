@@ -38,6 +38,13 @@ RFC 4122 variant (v when it is 8, 9, a, or b)."
                             "e() { date -u -d \"$1\" +%s 2>/dev/null || date -u -j -f %Y-%m-%dT%H:%M:%SZ \"$1\" +%s; }; echo $(( ($(e 2026-01-02T01:30:00Z) - $(e 2026-01-01T00:00:00Z)) * 1000 ))"
                             (format nil "91800000~%"))))
 
+(define-row-case (42 "fixed-offset ISO timestamp converts to UTC" :foreign ()) (ws)
+  (expect (run-ok ws '("time" "convert" "2026-03-08T15:30:00+09:00" "--tz" "UTC"))
+          :to-match-envelope
+          "input_format" "iso8601"
+          "result" "2026-03-08T06:30:00Z"
+          "timezone" "UTC"))
+
 (define-row-case (43 "base64 is util encode base64" :foreign ("base64")) (ws)
   (put ws "b.bin" (coerce #(0 1 2 250 255 104 105) '(vector (unsigned-byte 8))))
   (expect (format nil "~A~%" (jget (run-ok ws '("util" "encode" "base64" "--content-file" "b.bin")) "output"))

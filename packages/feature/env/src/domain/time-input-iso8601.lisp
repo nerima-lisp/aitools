@@ -79,26 +79,41 @@
         (subseq text time-end))))))
 
 (defun %local-time-error-reason (text basic-p)
-  (let* ((fraction-start
-          (position-if
-           (lambda (char)
-             (find char ".,"))
-           text))
+  (let* ((text-length (length text))
+         (seconds-end (if basic-p 6 8))
+         (seconds-p
+          (and (>= text-length seconds-end)
+               (if basic-p
+                   (ascii-digits-p text :end seconds-end)
+                   (and
+                    (ascii-digits-p text :end 2)
+                    (char= (char text 2) #\:)
+                    (ascii-digits-p text :start 3 :end 5)
+                    (char= (char text 5) #\:)
+                    (ascii-digits-p text :start 6 :end seconds-end)))))
+         (fraction-start
+          (and seconds-p
+               (< seconds-end text-length)
+               (find (char text seconds-end) ".,")
+               seconds-end))
          (fraction (and fraction-start (subseq text (1+ fraction-start))))
          (fraction-length (and fraction (length fraction))))
     (cond
       ((and fraction
             (or (zerop fraction-length) (> fraction-length 9) (not (ascii-digits-p fraction))))
        "invalid fraction of a second")
-      ((and (not basic-p) (or (< (length text) 3) (not (char= (char text 2) #\:))))
+      ((and (not basic-p) (or (< text-length 3) (not (char= (char text 2) #\:))))
        "expected HH:MM")
+      ((and (plusp text-length)
+            (find (char text 0) "+-Zz"))
+       "invalid time of day")
       (t "invalid time of day"))))
 
-(defun %parse-kit-local-date-time (date time basic-p original trailing)
+(defun %parse-kit-local-date-time (date time raw-time basic-p original trailing)
   (let ((date-time
          (handler-case (cl-date-kit:parse-local-date-time (concatenate 'string date "T" time))
            (cl-date-kit:date-time-parse-error ()
-             (%time-syntax-error original (%local-time-error-reason time basic-p))))))
+             (%time-syntax-error original (%local-time-error-reason raw-time basic-p))))))
     (when trailing
       (%time-syntax-error
        original
@@ -165,15 +180,14 @@
                       (lambda (char)
                         (find char "+-Zz"))
                       text
-                      :start
-                      time-start)))
+                      :start (min (length text) (1+ time-start)))))
                (raw-time
                 (if has-time
                     (subseq text time-start (or offset-start (length text)))
                     "00:00:00"))
                (suffix (and offset-start (subseq text offset-start))))
           (multiple-value-bind (time trailing) (%normalize-kit-time raw-time basic-p)
-            (let ((local-date-time (%parse-kit-local-date-time date time basic-p text trailing)))
+            (let ((local-date-time (%parse-kit-local-date-time date time raw-time basic-p text trailing)))
               (if suffix
                   (let ((offset-seconds (%parse-kit-offset-seconds suffix text)))
                     (make-time-input
