@@ -1,7 +1,5 @@
 (in-package #:aitools.env.presentation)
 
-;;; ---------------------------------------------------------------------- sys
-
 (defun %sys-info-command (ports)
   (make-command
    :name "info"

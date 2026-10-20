@@ -1,7 +1,5 @@
 (in-package #:aitools.env.application)
 
-;;; --------------------------------------------------------------- sys ports
-
 (defun %linux-socket-owners (ports)
   "Hash table inode -> (PID . COMMAND) from /proc/<pid>/fd links. Other
 users' fd directories are unreadable without privileges; their sockets keep

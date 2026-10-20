@@ -1,7 +1,5 @@
 (in-package #:aitools.env.application)
 
-;;; --------------------------------------------------------------- sys procs
-
 (defun %linux-processes (ports)
   "Records (:PID :PPID :USER :COMMAND :STARTED-MS) from /proc, or NIL when
 /proc is unreadable. starttime is in clock ticks since boot; Linux fixes the
@@ -94,8 +92,6 @@ time against the clock port, to the second."
                                      (aitools.protocol.domain:shell-quote pattern))
                                 total))))))
               (aitools.kernel.domain:flow-continue :on-ok fields))))))
-
-;;; ------------------------------------------------------------- sys metrics
 
 (defun %metrics-cpu (ports os)
   (case os

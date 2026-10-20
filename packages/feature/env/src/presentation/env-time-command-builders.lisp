@@ -1,7 +1,5 @@
 (in-package #:aitools.env.presentation)
 
-;;; --------------------------------------------------------------------- time
-
 (defun %time-now-command (ports)
   (make-command
    :name "now"
