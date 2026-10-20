@@ -17,7 +17,7 @@
                                (error 'store-io-error :operation "rename" :path to
                                       :detail "injected")
                                (funcall rename from to)))
-                         (funcall original-rename candidate))))
+                         (funcall original-rename candidate)))))
                (funcall function broken)))))
     (it "signals store-committed-error naming the op and path, and keeps the intent for recovery"
       (with-temp-store (store)
@@ -62,7 +62,7 @@
                         :on-busy (lambda () :busy)))
            (expect (length (intent-files store)) :to-be 1)))
         (expect (recover store) :to-be :recovered)
-        (expect (disk-text store "a.txt") :to-equal "a"))))))
+        (expect (disk-text store "a.txt") :to-equal "a")))))
 
 
 (describe "aitools.store stream errors"
