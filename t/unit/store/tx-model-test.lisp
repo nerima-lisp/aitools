@@ -35,15 +35,29 @@
                                            :ignore-stale-reads t))
               :to-be 1)))
 
-  (it-property "tx metadata JSON round trip preserves generated names"
-      ((name (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓")))
-    (let* ((meta (make-tx-meta :id "tx-20261020T120000Z-00000000"
+  (it-property "tx record JSON round trips preserve generated strings"
+      ((name (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓"))
+       (path (gen-string :min-length 1 :max-length 30 :alphabet "abcXYZ0123_-")))
+    (let* ((path (format nil "file-~A" path))
+           (state (file-state (make-string 64 :initial-element (char "a" 0)) #o644))
+           (meta (make-tx-meta :id "tx-20261020T120000Z-00000000"
                                :name name
                                :created "2026-10-20T12:00:00Z"))
-           (decoded (decode-tx-meta (encode-tx-meta meta))))
-      (expect (tx-meta-id decoded) :to-equal (tx-meta-id meta))
-      (expect (tx-meta-name decoded) :to-equal name)
-      (expect (tx-meta-created decoded) :to-equal (tx-meta-created meta))))
+           (index (let ((index (make-tx-index :last-tx-op 1 :ops-generation 2)))
+                    (tx-index-put index path state (absent-state))
+                    index))
+           (op (make-tx-op-record :tx-op 1 :argv (list name) :paths (list path)
+                                  :previous (list (cons path state))
+                                  :after (list (cons path (absent-state)))
+                                  :time "2026-10-20T12:00:00Z"))
+           (index-text (encode-tx-index index))
+           (ops-text (encode-tx-ops (list op)))
+           (reads-text (encode-tx-reads (list (cons path state)))))
+      (expect (encode-tx-meta (decode-tx-meta (encode-tx-meta meta)))
+              :to-equal (encode-tx-meta meta))
+      (expect (encode-tx-index (decode-tx-index index-text)) :to-equal index-text)
+      (expect (encode-tx-ops (decode-tx-ops ops-text 1)) :to-equal ops-text)
+      (expect (encode-tx-reads (decode-tx-reads reads-text)) :to-equal reads-text)))
   (it "collects base and staged file hashes while ignoring other state kinds"
     (let ((index (make-tx-index))
           (base-hash (make-string 64 :initial-element #\a))
