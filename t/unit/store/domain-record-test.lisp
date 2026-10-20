@@ -38,7 +38,33 @@ store temp file name."
   (it "reads a directory with a null mode and a file with an mtime"
     (expect (entry-state-mode (json->entry-state (record-json "{\"kind\":\"directory\",\"mode\":null}"))) :to-be nil)
     (expect (entry-state-mtime (json->entry-state (record-json "{\"kind\":\"file\",\"hash\":\"@H\",\"mode\":420,\"mtime\":7}")))
-            :to-be 7)))
+            :to-be 7))
+  (it-property "entry-state JSON round-trips generated fields"
+      ((hash (gen-string :min-length 64 :max-length 64 :alphabet "0123456789abcdef"))
+       (mode-text (gen-string :min-length 1 :max-length 4 :alphabet "01234567"))
+       (mtime-text (gen-string :min-length 1 :max-length 8 :alphabet "0123456789"))
+       (nullable-mode (gen-string :min-length 1 :max-length 1 :alphabet "01"))
+       (target (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓")))
+    (let* ((mode (parse-integer mode-text :radix 8))
+           (mtime (parse-integer mtime-text))
+           (states (list (absent-state)
+                         (file-state hash mode mtime)
+                         (directory-state (unless (string= nullable-mode "0") mode))
+                         (symlink-state target))))
+      (dolist (state states)
+        (let ((decoded (json->entry-state (json-kit:parse (json-kit:stringify (entry-state->json state))))))
+          (expect
+           (list (entry-state-kind decoded)
+                 (entry-state-hash decoded)
+                 (entry-state-mode decoded)
+                 (entry-state-target decoded)
+                 (entry-state-mtime decoded))
+           :to-equal
+           (list (entry-state-kind state)
+                 (entry-state-hash state)
+                 (entry-state-mode state)
+                 (entry-state-target state)
+                 (entry-state-mtime state))))))))
 
 (describe "aitools.store.domain change action names"
   (it "maps every action name both ways and refuses an unknown one"
@@ -153,3 +179,58 @@ store temp file name."
     (let ((id (format-tx-id 3964000000 "0123abcd")))
       (expect (tx-meta-name (decode-tx-meta (format nil "{\"tx\":~S,\"name\":\"n\",\"created\":\"t\"}" id))) :to-equal "n")
       (expect (tx-meta-name (decode-tx-meta (format nil "{\"tx\":~S,\"name\":null,\"created\":\"t\"}" id))) :to-be nil))))
+(describe "aitools.store.domain codec properties"
+  (it-property "round-trips generated journal entries through ops.jsonl"
+      ((argument (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓"))
+       (path-part (gen-string :min-length 1 :max-length 30 :alphabet "abcXYZ0123_-é✓"))
+       (before-text (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 é✓"))
+       (after-text (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 é✓"))
+       (time (gen-string :min-length 0 :max-length 30 :alphabet "abcXYZ0123 /é✓")))
+    (let* ((op-id (format-op-id 3964000000 "0123abcd"))
+           (undoes (format-op-id 3964000001 "abcd0123"))
+           (path (format nil "file-~A" path-part))
+           (change (make-change-result
+                    :path path
+                    :action :modified
+                    :before (file-state (aitools.kernel.domain:content-hash (bytes before-text)) #o644)
+                    :after (file-state (aitools.kernel.domain:content-hash (bytes after-text)) #o600)))
+           (entry (make-journal-entry :op-id op-id
+                                      :argv (list argument path)
+                                      :time time
+                                      :changes (list change)
+                                      :undoes undoes))
+           (encoded (encode-journal (list entry)))
+           (decoded (first (decode-journal encoded))))
+      (expect (encode-journal (list decoded)) :to-equal encoded)
+      (expect (journal-entry-argv decoded) :to-equal (list argument path))
+      (expect (journal-entry-time decoded) :to-equal time)
+      (expect (journal-entry-undoes decoded) :to-equal undoes)))
+  (it-property "round-trips generated fields through an intent header and checksum"
+      ((argument (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓"))
+       (path-part (gen-string :min-length 1 :max-length 30 :alphabet "abcXYZ0123_-é✓"))
+       (time (gen-string :min-length 0 :max-length 30 :alphabet "abcXYZ0123 /é✓")))
+    (let* ((op-id (format-op-id 3964000000 "0123abcd"))
+           (tx-id (format-tx-id 3964000001 "abcd0123"))
+           (path (format nil "file-~A" path-part))
+           (entry (make-journal-entry :op-id op-id
+                                      :argv (list argument)
+                                      :time time
+                                      :changes nil))
+           (intent (make-intent :op-id op-id
+                                :steps (list (make-intent-step :op :replace
+                                                               :path path
+                                                               :temp (temp-file-name op-id 1)
+                                                               :kind :file
+                                                               :mode #o644
+                                                               :mtime 1700000000))
+                                :journal-entry entry
+                                :tx-id tx-id))
+           (header (encode-intent-header intent))
+           (record (format nil "~A~%~A~%"
+                           header
+                           (encode-intent-checksum header))))
+      (multiple-value-bind (status decoded) (decode-intent record)
+        (expect status :to-be :complete)
+        (expect (encode-intent-header decoded) :to-equal header)
+        (expect (intent-tx-id decoded) :to-equal tx-id)
+        (expect (intent-step-path (first (intent-steps decoded))) :to-equal path)))))

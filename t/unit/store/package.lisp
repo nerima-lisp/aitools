@@ -9,7 +9,7 @@
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave
                 #:it #:it-each #:it-property #:gen-string
-                #:expect #:expect-not #:signals)
+                #:expect #:signals)
   (:import-from #:aitools.store.infrastructure #:make-posix-store-io))
 
 (in-package #:aitools.store.test)
