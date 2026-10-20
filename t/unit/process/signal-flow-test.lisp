@@ -51,19 +51,16 @@
 
 (defun call-with-fake-signal-process-info (target function)
   (let* ((name 'aitools.process.infrastructure::%safe-process-info)
-         (original (symbol-function name))
          (parent (sb-posix:getppid)))
-    (unwind-protect
-         (progn
-           (setf (symbol-function name)
-                 (lambda (pid)
-                   (cond ((= pid (aitools.process.domain:process-identity-pid target)) target)
-                         ((= pid parent)
-                          (aitools.process.domain:make-process-identity
-                           :pid parent :ppid 1 :pgid 0 :uid 0 :ruid 0
-                           :start 0 :command-line "parent")))))
-           (funcall function))
-      (setf (symbol-function name) original))))
+    (cl-weave:with-mocked-functions
+        (((symbol-function name)
+          (lambda (pid)
+            (cond ((= pid (aitools.process.domain:process-identity-pid target)) target)
+                  ((= pid parent)
+                   (aitools.process.domain:make-process-identity
+                    :pid parent :ppid 1 :pgid 0 :uid 0 :ruid 0
+                    :start 0 :command-line "parent"))))))
+      (funcall function))))
 
 (defun call-signal-port (target)
   (let ((ports (aitools.process.infrastructure:make-production-process-ports)))
@@ -100,7 +97,7 @@
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal '())))
 
-  (it "reports a target that vanishes at the send boundary"
+  (it "rejects a target when the signal port reports no send"
     (multiple-value-bind (ports sent) (signal-fixture :count 1 :disappear-on-send t)
       (multiple-value-bind (kind fields)
           (signal-flow ports :pid 2101 :expect-command "fixture-2101")
@@ -110,22 +107,19 @@
 
   (it "rejects a PID below 2 in the signal port before inspecting it"
     (let ((inspected nil)
-          (name 'aitools.process.infrastructure::%safe-process-info))
-      (let ((original (symbol-function name)))
-        (unwind-protect
-             (progn
-               (setf (symbol-function name)
-                     (lambda (pid)
-                       (declare (ignore pid))
-                       (setf inspected t)
-                       nil))
-               (signals aitools.process.application::process-target-changed
-                 (call-signal-port
-                  (aitools.process.domain:make-process-identity
-                   :pid 1 :ppid 100 :pgid 100 :uid 501 :ruid 501
-                   :start 1 :command-line "sleep fixture-1")))
-               (expect inspected :to-be nil))
-          (setf (symbol-function name) original)))))
+      (name 'aitools.process.infrastructure::%safe-process-info))
+  (cl-weave:with-mocked-functions
+      (((symbol-function name)
+        (lambda (pid)
+          (declare (ignore pid))
+          (setf inspected t)
+          nil)))
+    (signals aitools.process.application::process-target-changed
+      (call-signal-port
+       (aitools.process.domain:make-process-identity
+        :pid 1 :ppid 100 :pgid 100 :uid 501 :ruid 501
+        :start 1 :command-line "sleep fixture-1")))
+    (expect inspected :to-be nil))))
 
   (it "rejects a signal target with a different UID"
     (let* ((uid (logxor (sb-posix:getuid) 1))
@@ -210,7 +204,7 @@
             :to-be #+darwin 30 #+linux 10)
     (expect (aitools.process.domain:signal-number "USR2")
             :to-be #+darwin 31 #+linux 12))
-  (it "reports completed signals when a later process port fails"
+  (it "reports both matched processes and the first completed send when the second send fails"
     (multiple-value-bind (ports sent)
         (signal-fixture :port-error-on-send 2102)
       (multiple-value-bind (kind fields)

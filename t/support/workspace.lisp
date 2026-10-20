@@ -41,3 +41,11 @@ are removed afterwards and the inherited XDG_STATE_HOME and cwd are restored."
 
 (defmacro with-workspace ((root state &key chdir) &body body)
   `(call-with-workspace (lambda (,root ,state) ,@body) :chdir ,chdir))
+(defun %call-with-temporary-directory (function)
+  (let ((directory (uiop:ensure-directory-pathname
+                    (%temporary-directory "aitools-test"))))
+    (unwind-protect
+         (funcall function (truename directory))
+      (uiop:delete-directory-tree directory :validate t :if-does-not-exist :ignore))))
+(defmacro with-temporary-directory ((variable) &body body)
+  `(%call-with-temporary-directory (lambda (,variable) ,@body)))

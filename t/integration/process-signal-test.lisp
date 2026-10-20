@@ -29,13 +29,10 @@
 (defun invoke-signal-with-pid-only (pid argv)
   "Run a signal command while its production PID list names only PID.
 The process-info and signal-process ports remain the production ports."
-  (let* ((name 'aitools.process.infrastructure::%host-list-pids)
-         (original (symbol-function name)))
-    (unwind-protect
-         (progn
-           (setf (symbol-function name) (lambda () (list pid)))
-           (invoke argv))
-      (setf (symbol-function name) original))))
+  (let ((name 'aitools.process.infrastructure::%host-list-pids))
+    (cl-weave:with-mocked-functions
+        (((symbol-function name) (lambda () (list pid))))
+      (invoke argv))))
 
 #+(or darwin linux)
 (describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))

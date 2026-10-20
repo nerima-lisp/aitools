@@ -41,41 +41,53 @@ supervisor dies with its group and can never report the signal itself."
           (cons "exit_code" (aitools.process.domain:json-or-null exit-code))
           (cons "signal" (aitools.process.domain:json-or-null signal)))))
 
-(defun bg-stop/k (ports id &key (grace "5s") on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (bg-stop/k ports id &key (grace "5s") on-ok on-partial on-error)
   "SIGTERM to ID's process group, then SIGKILL if it is still there
 after GRACE. `stopped` is false when the process had already ended."
   (declare (ignore on-partial))
   (aitools.kernel.domain:flow-call
-      (%call-with-duration-ms grace "--grace" "bg.stop")
-    (:on-value (grace-ms)
-      (%reporting-port-errors (on-error "bg.stop")
-        (%call-with-bg-directory
-         ports "bg.stop" on-error
-         (lambda (directory)
-           (%call-with-bg-record
-            ports directory id on-error
-            (lambda (record)
-              (let ((pid (aitools.process.domain:bg-record-pid record)))
-                (if (not (nth-value 0 (%bg-state ports directory record)))
-                    (funcall on-ok (%stop-fields ports directory record nil))
-                    (let ((record record))
-                      (%terminate-with-grace
-                       ports
-                       (lambda () (funcall (process-ports-group-alive-p ports) pid))
-                       (lambda (signal)
-                         (setf record (%send-stop-signal ports directory record signal)))
-                       grace-ms)
-                      (if (%wait-for-group-exit ports pid +kill-wait-ms+)
-                          (funcall on-ok (%stop-fields ports directory record t))
-                          (funcall on-error
-                                   "environment.io"
-                                   (format nil
-                                           "bg process ~A (pid ~D) did not exit after SIGKILL"
-                                           id pid)
-                                   :repairs
-                                   (list (repair "check-status"
-                                                 "Check the process again."
-                                                 (aitools.protocol.domain:command-line
-                                                  "aitools" "bg" "status" id))))))))))))))
+   (%call-with-duration-ms grace "--grace" "bg.stop")
+   (:on-value (grace-ms)
+     (%reporting-port-errors "bg.stop"
+       (aitools.kernel.domain:flow-call
+        (%call-with-bg-directory ports "bg.stop")
+        (:on-directory (directory)
+          (aitools.kernel.domain:flow-call
+           (%call-with-bg-record ports directory id)
+           (:on-record (record)
+             (let ((pid (aitools.process.domain:bg-record-pid record)))
+               (if (not (nth-value 0 (%bg-state ports directory record)))
+                   (aitools.kernel.domain:flow-continue
+                    :on-ok (%stop-fields ports directory record nil))
+                   (let ((record record))
+                     (%terminate-with-grace
+                      ports
+                      (lambda () (funcall (process-ports-group-alive-p ports) pid))
+                      (lambda (signal)
+                        (setf record (%send-stop-signal ports directory record signal)))
+                      grace-ms)
+                     (if (%wait-for-group-exit ports pid +kill-wait-ms+)
+                         (aitools.kernel.domain:flow-continue
+                          :on-ok (%stop-fields ports directory record t))
+                         (aitools.kernel.domain:flow-continue
+                          :on-error
+                          "environment.io"
+                          (format nil
+                                  "bg process ~A (pid ~D) did not exit after SIGKILL"
+                                  id pid)
+                          :repairs
+                          (list (repair "check-status"
+                                        "Check the process again."
+                                        (aitools.protocol.domain:command-line
+                                         "aitools" "bg" "status" id)))))))))
+           (:on-error (code message &key repairs candidates)
+             (aitools.kernel.domain:flow-continue :on-error code message
+               :repairs repairs
+               :candidates candidates))))
+        (:on-error (code message &key repairs)
+          (aitools.kernel.domain:flow-continue :on-error code message
+            :repairs repairs)))))
     (:on-error (code message &key repairs)
-      (funcall on-error code message :repairs repairs))))
+      (aitools.kernel.domain:flow-continue :on-error code message
+        :repairs repairs))))

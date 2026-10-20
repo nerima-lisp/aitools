@@ -47,21 +47,24 @@ duration."
         (:no-error (pattern)
           (aitools.kernel.domain:flow-continue :on-pattern pattern)))))
 
-(defmacro %reporting-port-errors ((on-error command-name) &body body)
+(defmacro %reporting-port-errors (command-name &body body)
   "Run BODY, reporting a PROCESS-PORT-ERROR or a pattern that fails while
 matching through ON-ERROR instead of letting it escape the flow."
   (let ((condition (gensym "CONDITION")))
     `(handler-case (progn ,@body)
        (process-target-changed (,condition)
-         (funcall ,on-error "refusal.target-changed" (process-port-error-message ,condition)
-                  :repairs (list (%schema-repair ,command-name))))
+         (aitools.kernel.domain:flow-continue
+          :on-error "refusal.target-changed" (process-port-error-message ,condition)
+          :repairs (list (%schema-repair ,command-name))))
        (process-port-error (,condition)
-         (funcall ,on-error "environment.io" (process-port-error-message ,condition)
-                  :repairs (list (%schema-repair ,command-name))))
+         (aitools.kernel.domain:flow-continue
+          :on-error "environment.io" (process-port-error-message ,condition)
+          :repairs (list (%schema-repair ,command-name))))
        (aitools.process.domain:invalid-line-pattern (,condition)
-         (funcall ,on-error "input.syntax-error"
-                  (aitools.process.domain:invalid-line-pattern-message ,condition)
-                  :repairs (list (%schema-repair ,command-name)))))))
+         (aitools.kernel.domain:flow-continue
+          :on-error "input.syntax-error"
+          (aitools.process.domain:invalid-line-pattern-message ,condition)
+          :repairs (list (%schema-repair ,command-name)))))))
 
 (aitools.kernel.domain:define-flow
     (%unavailable-program-error message program &key on-error)

@@ -1,38 +1,36 @@
-;;;; t/integration/process-ports-launch-test.lisp
 ;;;;
-;;;; The production run-program and launcher ports exercised on the real
-;;;; filesystem: --stdout-to, launcher lookup, and the spawn trampoline.
+;;;; Exercises production run-program and launcher ports against temporary
+;;;; filesystem targets, trampoline lookup, and live child process groups.
+;;;; Group cleanup uses `kill-group` from t/integration/process-bg-test.lisp.
 (in-package #:aitools.process.integration-test)
 
 ;;; ------------------------------------------------------------- run port
 
 (describe "aitools process production ports: run-program with --stdout-to (integration)"
-  (it "reports a target in a missing directory as a port error without running anything"
+  (it "reports a target in a missing directory as a port error without running the child"
     (with-temporary-directory (directory)
-      (let ((target (merge-pathnames "missing/out.txt" directory))
-            (called '()))
+      (let* ((target (merge-pathnames "missing/out.txt" directory))
+             (marker (merge-pathnames "child-ran" directory))
+             (touch-path (program-on-path "touch")))
         (expect (starts-with-p (format nil "creating ~A failed: " target)
                                (port-error-message
                                 (lambda ()
-                                  (call-port (production-ports) 'aitools.process.application::process-ports-run-program
-                                             (list "true") 5000 :stdout-path target
-                                             :on-exited (lambda (outcome) (push outcome called))
-                                             :on-unavailable (lambda (&rest arguments) (push arguments called))))))
+                                  (call-port (production-ports)
+                                             'aitools.process.application::process-ports-run-program
+                                             (list touch-path (uiop:native-namestring marker))
+                                             5000 :stdout-path target))))
                 :to-be t)
-        (expect called :to-equal '()))))
-
+        (expect (probe-file marker) :to-be nil))))
   (it "removes the target it created when the program cannot start"
     (with-temporary-directory (directory)
-      (let ((target (merge-pathnames "out.txt" directory))
-            (unavailable nil))
-        (call-port (production-ports) 'aitools.process.application::process-ports-run-program
-                   (list "aitools-no-such-program") 5000 :stdout-path target
-                   :on-exited (lambda (outcome) (declare (ignore outcome)) (setf unavailable :exited))
-                   :on-unavailable (lambda (message program)
-                                     (declare (ignore message))
-                                     (setf unavailable program)))
-        (expect unavailable :to-equal "aitools-no-such-program")
-        (expect (probe-file target) :to-be nil)))))
+      (let ((target (merge-pathnames "out.txt" directory)))
+        (multiple-value-bind (status message program)
+            (call-port (production-ports) 'aitools.process.application::process-ports-run-program
+                       (list "aitools-no-such-program") 5000 :stdout-path target)
+          (expect status :to-be :unavailable)
+          (expect (starts-with-p "cannot start aitools-no-such-program: " message) :to-be t)
+          (expect program :to-equal "aitools-no-such-program")
+          (expect (probe-file target) :to-be nil))))))
 
 ;;; ------------------------------------------------------------- launcher
 
@@ -52,9 +50,14 @@ OVERRIDE, and PATH is PATH."
   "Call the launch-detached port; return (:STARTED PID) or (:UNAVAILABLE
 MESSAGE PROGRAM). A started process is killed by group at once, so a test
 that expected otherwise never leaks it."
-  (call-port ports 'aitools.process.application::process-ports-launch-detached argv log exit
-             :on-started (lambda (pid) (kill-group pid) (list :started pid))
-             :on-unavailable (lambda (message program) (list :unavailable message program))))
+  (multiple-value-bind (status value program)
+      (call-port ports 'aitools.process.application::process-ports-launch-detached argv log exit)
+    (ecase status
+      (:started
+       (kill-group value)
+       (list :started value))
+      (:unavailable
+       (list :unavailable value program)))))
 
 (describe "aitools process production ports: launcher lookup (integration)"
   (it "prefers an executable $CL_PROCESS_KIT_SPAWN"
@@ -180,11 +183,13 @@ that fork is in progress can miss the new child (an escaped `sleep` was seen
 keeping the group alive), so a spec that signals the group waits for this."
   (let ((log (merge-pathnames "bg-1.log" directory)))
     (call-port ports 'aitools.process.application::process-ports-create-file-exclusive log "")
-    (call-port ports 'aitools.process.application::process-ports-launch-detached
-               (list (program-on-path "sh") "-c" "echo ready; exec \"$0\" 30" (program-on-path "sleep"))
-               log (merge-pathnames "bg-1.exit" directory)
-               :on-started on-started
-               :on-unavailable (lambda (message program) (error "~A: ~A" program message)))
+    (multiple-value-bind (status value program)
+        (call-port ports 'aitools.process.application::process-ports-launch-detached
+                   (list (program-on-path "sh") "-c" "echo ready; exec \"$0\" 30" (program-on-path "sleep"))
+                   log (merge-pathnames "bg-1.exit" directory))
+      (ecase status
+        (:started (funcall on-started value))
+        (:unavailable (error "~A: ~A" program value))))
     (unless (loop repeat 500
                   when (search "ready" (uiop:read-file-string log)) return t
                   do (sleep 0.02))

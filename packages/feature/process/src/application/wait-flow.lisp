@@ -18,7 +18,8 @@
   (duration nil :type (or null string) :read-only t)
   (timeout "60s" :type string :read-only t))
 
-(defun wait-until/k (ports timeout-ms probe &key (poll-ms +wait-poll-ms+) wake-at-ms on-matched on-timeout)
+(aitools.kernel.domain:define-flow
+    (wait-until/k ports timeout-ms probe &key (poll-ms +wait-poll-ms+) wake-at-ms on-matched on-timeout)
   "Call PROBE with the elapsed milliseconds every POLL-MS until it returns a
 non-NIL result alist, then call ON-MATCHED with (RESULT ELAPSED-MS); call
 ON-TIMEOUT with ELAPSED-MS once TIMEOUT-MS passes first. PROBE runs once
@@ -29,11 +30,18 @@ a condition known to turn true at that moment."
     (loop
       (let* ((elapsed (- (funcall (process-ports-monotonic-ms ports)) start))
              (result (funcall probe elapsed)))
-        (cond (result (return (funcall on-matched result elapsed)))
-              ((>= elapsed timeout-ms) (return (funcall on-timeout elapsed)))
-              (t (funcall (process-ports-sleep-ms ports)
-                        (min poll-ms (- timeout-ms elapsed)
-                             (if (and wake-at-ms (> wake-at-ms elapsed)) (- wake-at-ms elapsed) poll-ms)))))))))
+        (cond
+          (result
+           (return (aitools.kernel.domain:flow-continue :on-matched result elapsed)))
+          ((>= elapsed timeout-ms)
+           (return (aitools.kernel.domain:flow-continue :on-timeout elapsed)))
+          (t
+           (funcall (process-ports-sleep-ms ports)
+                    (min poll-ms
+                         (- timeout-ms elapsed)
+                         (if (and wake-at-ms (> wake-at-ms elapsed))
+                             (- wake-at-ms elapsed)
+                             poll-ms)))))))))
 
 (defun %matched-line-result (line redactions)
   (and line (list (cons "line" line) (cons "redactions" redactions))))
@@ -79,27 +87,32 @@ a condition known to turn true at that moment."
        (lambda (elapsed)
          (and (>= elapsed duration-ms) (list (cons "duration_ms" duration-ms))))))))
 
-(defun %wait-for-condition (ports condition pattern timeout-ms directory record on-ok on-error)
+(aitools.kernel.domain:define-flow
+    (%wait-for-condition ports condition pattern timeout-ms directory record &key on-ok on-error)
   (let ((duration-ms (aitools.process.domain:wait-condition-duration-ms condition)))
-    (wait-until/k
-     ports timeout-ms (%wait-probe ports condition pattern directory record)
-     :wake-at-ms duration-ms
-     :on-matched (lambda (result elapsed)
-                   (funcall on-ok (append (list (cons "matched" t) (cons "elapsed_ms" elapsed)) result)))
-     :on-timeout (lambda (elapsed)
-                   (let ((arguments (aitools.process.domain:wait-condition-arguments condition))
-                         (bg-id (aitools.process.domain:wait-condition-bg-id condition)))
-                     (funcall on-error "environment.timeout"
-                              (format nil "the wait condition did not hold within ~Dms" elapsed)
-                              :repairs (append
-                                        (list (repair "wait-longer" "Wait again with a longer timeout."
-                                                       (aitools.protocol.domain:command-line
-                                                        "aitools" "wait" arguments "--timeout"
-                                                        (format nil "~Dms" (* 2 timeout-ms)))))
-                                        (when bg-id
-                                          (list (repair "read-log" "Read the bg process's latest output."
-                                                         (aitools.protocol.domain:command-line
-                                                          "aitools" "bg" "logs" bg-id)))))))))))
+    (aitools.kernel.domain:flow-call
+     (wait-until/k ports timeout-ms (%wait-probe ports condition pattern directory record)
+                   :wake-at-ms duration-ms)
+     (:on-matched (result elapsed)
+       (aitools.kernel.domain:flow-continue
+        :on-ok (append (list (cons "matched" t) (cons "elapsed_ms" elapsed)) result)))
+     (:on-timeout (elapsed)
+       (let ((arguments (aitools.process.domain:wait-condition-arguments condition))
+             (bg-id (aitools.process.domain:wait-condition-bg-id condition)))
+         (aitools.kernel.domain:flow-continue
+          :on-error
+          "environment.timeout"
+          (format nil "the wait condition did not hold within ~Dms" elapsed)
+          :repairs
+          (append
+           (list (repair "wait-longer" "Wait again with a longer timeout."
+                         (aitools.protocol.domain:command-line
+                          "aitools" "wait" arguments "--timeout"
+                          (format nil "~Dms" (* 2 timeout-ms)))))
+           (when bg-id
+             (list (repair "read-log" "Read the bg process's latest output."
+                           (aitools.protocol.domain:command-line
+                            "aitools" "bg" "logs" bg-id)))))))))))
 
 (defun %wait-file-path (ports file)
   "--file as the user typed it, made absolute against the working directory
@@ -109,7 +122,8 @@ a condition known to turn true at that moment."
         (aitools.workspace.application:user-path-absolute host file)
         file)))
 
-(defun wait-command/k (ports request &key on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (wait-command/k ports request &key on-ok on-partial on-error)
   "Block until REQUEST's single condition holds or its timeout passes."
   (declare (ignore on-partial))
   (let ((duration-text (wait-request-duration request)))
@@ -124,49 +138,70 @@ a condition known to turn true at that moment."
                   :duration-text duration-text
                   :duration-ms duration-ms)
                (if (null condition)
-                   (funcall on-error
-                            "argument.invalid"
-                            message
-                            :repairs (list (%schema-repair "wait")))
+                   (aitools.kernel.domain:flow-continue
+                    :on-error
+                    "argument.invalid"
+                    message
+                    :repairs (list (%schema-repair "wait")))
                    (aitools.kernel.domain:flow-call
-                       (%call-with-duration-ms
-                        (wait-request-timeout request)
-                        "--timeout"
+                    (%call-with-duration-ms
+                     (wait-request-timeout request)
+                     "--timeout"
+                     "wait")
+                    (:on-value (timeout-ms)
+                      (aitools.kernel.domain:flow-call
+                       (%call-with-line-pattern
+                        (aitools.process.domain:wait-condition-pattern condition)
                         "wait")
-                     (:on-value (timeout-ms)
-                       (aitools.kernel.domain:flow-call
-                           (%call-with-line-pattern
-                            (aitools.process.domain:wait-condition-pattern condition)
-                            "wait")
-                         (:on-pattern (pattern)
-                           (%reporting-port-errors (on-error "wait")
-                             (if (aitools.process.domain:wait-condition-bg-id condition)
-                                 (%call-with-bg-directory
-                                  ports
-                                  "wait"
-                                  on-error
-                                  (lambda (directory)
-                                    (%call-with-bg-record
-                                     ports
-                                     directory
-                                     (aitools.process.domain:wait-condition-bg-id condition)
-                                     on-error
-                                     (lambda (record)
-                                       (%wait-for-condition
-                                        ports condition pattern timeout-ms directory
-                                        record on-ok on-error)))))
-                                 (%wait-for-condition
-                                  ports condition pattern timeout-ms nil nil
-                                  on-ok on-error))))
-                         (:on-error (code message &key repairs)
-                           (funcall on-error code message :repairs repairs))))
-                     (:on-error (code message &key repairs)
-                       (funcall on-error code message :repairs repairs)))))))
-      (if duration-text
-          (aitools.kernel.domain:flow-call
-              (%call-with-duration-ms duration-text "--duration" "wait")
-            (:on-value (duration-ms)
-              (with-condition duration-ms))
-            (:on-error (code message &key repairs)
-              (funcall on-error code message :repairs repairs)))
-          (with-condition nil)))))
+                       (:on-pattern (pattern)
+                         (%reporting-port-errors "wait"
+                           (if (aitools.process.domain:wait-condition-bg-id condition)
+                               (aitools.kernel.domain:flow-call
+                                (%call-with-bg-directory ports "wait")
+                                (:on-directory (directory)
+                                  (aitools.kernel.domain:flow-call
+                                   (%call-with-bg-record
+                                    ports
+                                    directory
+                                    (aitools.process.domain:wait-condition-bg-id condition))
+                                   (:on-record (record)
+                                     (aitools.kernel.domain:flow-call
+                                      (%wait-for-condition
+                                       ports condition pattern timeout-ms directory record)
+                                      (:on-ok (fields)
+                                        (aitools.kernel.domain:flow-continue :on-ok fields))
+                                      (:on-error (code message &key repairs)
+                                        (aitools.kernel.domain:flow-continue
+                                         :on-error code message :repairs repairs))))
+                                   (:on-error (code message &key repairs candidates)
+                                     (aitools.kernel.domain:flow-continue
+                                      :on-error code message :repairs repairs :candidates candidates))))
+                                (:on-error (code message &key repairs)
+                                  (aitools.kernel.domain:flow-continue
+                                   :on-error code message :repairs repairs)))
+                               (aitools.kernel.domain:flow-call
+                                (%wait-for-condition
+                                 ports condition pattern timeout-ms nil nil)
+                                (:on-ok (fields)
+                                  (aitools.kernel.domain:flow-continue :on-ok fields))
+                                (:on-error (code message &key repairs)
+                                  (aitools.kernel.domain:flow-continue
+                                   :on-error code message :repairs repairs))))))
+                       (:on-error (code message &key repairs)
+                         (aitools.kernel.domain:flow-continue
+                          :on-error code message
+                          :repairs repairs))))
+                    (:on-error (code message &key repairs)
+                      (aitools.kernel.domain:flow-continue
+                       :on-error code message
+                       :repairs repairs)))))))
+             (if duration-text
+                 (aitools.kernel.domain:flow-call
+                  (%call-with-duration-ms duration-text "--duration" "wait")
+                  (:on-value (duration-ms)
+                    (with-condition duration-ms))
+                  (:on-error (code message &key repairs)
+                    (aitools.kernel.domain:flow-continue
+                     :on-error code message
+                     :repairs repairs)))
+                 (with-condition nil)))))

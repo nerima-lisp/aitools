@@ -107,46 +107,42 @@ relative `--stdout-to` means."
 (aitools.kernel.domain:define-flow
     (%run-program ports request pattern timeout-ms stdout-real stdout-reported
                   &key on-ok on-partial on-error)
-  (labels ((report-error (code message &key repairs)
-           (aitools.kernel.domain:flow-continue
-            :on-error code message :repairs repairs))
-         (report (outcome)
-           (%reporting-port-errors ((function report-error) "run")
+  (labels ((report (outcome)
              (aitools.kernel.domain:flow-call
                  (%report-run-outcome request pattern outcome stdout-reported)
                (:on-ok (fields)
                  (aitools.kernel.domain:flow-continue :on-ok fields))
                (:on-partial (fields)
-                 (aitools.kernel.domain:flow-continue :on-partial fields))))))
-  (%reporting-port-errors ((function report-error) "run")
-    (funcall (process-ports-run-program ports)
-             (run-request-argv request) timeout-ms
-             :stdout-path stdout-real
-             :stdin (run-request-stdin request)
-             :stdin-data (run-request-stdin-data request)
-             :stdin-file (run-request-stdin-file request)
-             :cwd (run-request-cwd request)
-             :env (run-request-env request)
-             :on-exited (function report)
-             :on-timed-out (function report)
-             :on-unavailable
-             (lambda (message program)
-               (aitools.kernel.domain:flow-call
-                   (%unavailable-program-error message program)
-                 (:on-error (code text &key repairs)
-                   (aitools.kernel.domain:flow-continue
-                    :on-error code text :repairs repairs))))
-             :on-exists
-             (lambda ()
+                 (aitools.kernel.domain:flow-continue :on-partial fields)))))
+    (%reporting-port-errors "run"
+      (multiple-value-bind (status value program)
+          (funcall (process-ports-run-program ports)
+                   (run-request-argv request) timeout-ms
+                   :stdout-path stdout-real
+                   :stdin (run-request-stdin request)
+                   :stdin-data (run-request-stdin-data request)
+                   :stdin-file (run-request-stdin-file request)
+                   :cwd (run-request-cwd request)
+                   :env (run-request-env request))
+        (ecase status
+          ((:exited :timed-out)
+           (report value))
+          (:unavailable
+           (aitools.kernel.domain:flow-call
+               (%unavailable-program-error value program)
+             (:on-error (code text &key repairs)
                (aitools.kernel.domain:flow-continue
-                :on-error "refusal.exists"
-                (format nil "--stdout-to ~A already exists; run only creates new files"
-                        stdout-reported)
-                :repairs
-                (list
-                 (repair "inspect-existing" "Inspect the existing file."
-                         (aitools.protocol.domain:command-line
-                          "aitools" "info" stdout-reported)))))))))
+                :on-error code text :repairs repairs))))
+          (:exists
+           (aitools.kernel.domain:flow-continue
+            :on-error "refusal.exists"
+            (format nil "--stdout-to ~A already exists; run only creates new files"
+                    stdout-reported)
+            :repairs
+            (list
+             (repair "inspect-existing" "Inspect the existing file."
+                     (aitools.protocol.domain:command-line
+                      "aitools" "info" stdout-reported))))))))))
 
 (defun %run-input-error (request)
   (cond

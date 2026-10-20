@@ -64,7 +64,20 @@
             (if (symbolp (second form))
                 (symbol-name (second form))
                 (string-upcase (prin1-to-string (second form))))
-            (nthcdr (1+ lambda-list-position) tail))))))))
+            (nthcdr (1+ lambda-list-position) tail)))))
+      ((and head
+            (string-equal head "DEFINE-FLOW")
+            (consp (second form)))
+       (let* ((signature (second form))
+              (name (first signature))
+              (body (cddr form)))
+         (values
+          (if (symbolp name)
+              (symbol-name name)
+              (string-upcase (prin1-to-string name)))
+          (if (stringp (first body))
+              (rest body)
+              body)))))))
 
 (defun complex-function-inventory (root)
   (let ((depths (make-hash-table :test #'equal)))
@@ -134,7 +147,10 @@
          violations)))
     (sort violations #'string<)))
 
-(defun %complex-budget-fixture-violations (depth ratchet)
+(defun %complex-budget-fixture-violations (depth ratchet
+                                           &optional
+                                             (definition-template
+                                               "(defun fixture () ~A)~%"))
   (aitools.test.support:call-with-workspace
    (lambda (root state)
      (declare (ignore state))
@@ -148,44 +164,48 @@
        (with-open-file (output source-path
                                :direction :output
                                :if-exists :supersede)
-         (format output "(defun fixture () ~A)~%" form))
+         (format output definition-template form))
        (let ((*complex-function-ratchet* ratchet))
          (complex-function-violations root-pathname))))
    :prefix "aitools-complex-budget"))
 (describe "aitools structure budgets (control nesting)"
   (it "keeps the fixed inventory of deeply nested functions at or below measured depths"
     (expect *complex-function-depth-limit* :to-equal 4)
-    (expect (length *complex-function-ratchet*) :to-equal 19)
-    (let ((inventory (complex-function-inventory (repository-root))))
-      (expect
-       (member
-        (list "packages/feature/process/src/infrastructure/signal-host.lisp"
-              "%DARWIN-ARGV"
-              6)
-        inventory
-        :test #'equal)
-       :to-be-truthy)
-      (expect
-       (member
-        (list "packages/feature/process/src/infrastructure/signal-host.lisp"
-              "%HOST-PROCESS-INFO"
-              5)
-        inventory
-        :test #'equal)
-       :to-be-truthy)
-      (expect (complex-function-violations (repository-root)) :to-equal nil)))
+    (expect (length *complex-function-ratchet*) :to-equal 16)
+    (expect
+     (notany (lambda (entry)
+               (search "packages/feature/process/" (first entry)))
+             *complex-function-ratchet*)
+     :to-be-truthy)
+    (expect
+     (notany (lambda (entry)
+               (search "packages/feature/process/" (first entry)))
+             (complex-function-inventory (repository-root)))
+     :to-be-truthy)
+    (expect (complex-function-violations (repository-root)) :to-equal nil))
   (it "passes a clean top-level src fixture with a matching depth ratchet"
     (expect
      (%complex-budget-fixture-violations
       5
       '(("src/composition.lisp" "FIXTURE" 5)))
      :to-equal nil))
-  (it "rejects new deeply nested functions in top-level src"
+  (it "rejects new deeply nested unratcheted definitions in top-level src"
     (expect
      (some (lambda (violation)
              (search "new control nesting depth" violation))
            (%complex-budget-fixture-violations 5 nil))
-     :to-be-truthy))
+     :to-be-truthy)
+    (dolist (definition-template
+              '("(define-flow (fixture &key on-ok) \"fixture doc\" ~A)~%"
+                "(define-flow (fixture &key on-ok) ~A)~%"))
+      (expect
+       (some (lambda (violation)
+               (and (search "new control nesting depth" violation)
+                    (search "depth 5 (limit 4)" violation)
+                    (search "FIXTURE" violation)))
+             (%complex-budget-fixture-violations
+              5 nil definition-template))
+       :to-be-truthy)))
   (it "rejects nesting depths above their ratchets"
     (expect
      (some (lambda (violation)

@@ -26,13 +26,15 @@ same workspace keep claiming the one it picked.")
 (defun %status-repair ()
   (repair "list-bg" "List the bg processes started in this workspace." "aitools bg status"))
 
-(defun %call-with-bg-directory (ports command-name on-error continuation)
+(aitools.kernel.domain:define-flow
+    (%call-with-bg-directory ports command-name &key on-error on-directory)
   (let ((directory (funcall (process-ports-bg-directory ports))))
     (if directory
-        (funcall continuation directory)
-        (funcall on-error "environment.unavailable"
-                 "no aitools state directory is available for this workspace, so bg processes cannot be tracked"
-                 :repairs (list (%schema-repair command-name))))))
+        (aitools.kernel.domain:flow-continue :on-directory directory)
+        (aitools.kernel.domain:flow-continue
+         :on-error "environment.unavailable"
+         "no aitools state directory is available for this workspace, so bg processes cannot be tracked"
+         :repairs (list (%schema-repair command-name))))))
 
 (defun %recorded-bg-ids (ports directory)
   "IDs with a record in DIRECTORY, in start order."
@@ -40,23 +42,31 @@ same workspace keep claiming the one it picked.")
                             (funcall (process-ports-list-directory ports) directory)))
         #'< :key #'aitools.process.domain:bg-id-number))
 
-(defun %call-with-bg-record (ports directory id on-error continuation)
-  "Call CONTINUATION with the record for ID, or report `input.not-found`
-(with the existing IDs as candidates) through ON-ERROR. ID is checked
-against the ID grammar before it is used in any path."
+(aitools.kernel.domain:define-flow
+    (%call-with-bg-record ports directory id &key on-error on-record)
+  "Call ON-RECORD with the record for ID. If no record exists, report
+`input.not-found` with the existing IDs as candidates through ON-ERROR.
+Report an invalid record as `environment.io` through ON-ERROR. Check ID
+against the ID grammar before using it in a path."
   (let ((text (and (aitools.process.domain:bg-id-p id)
                    (funcall (process-ports-read-file-text ports)
                             (%bg-path directory (aitools.process.domain:bg-record-file-name id))))))
     (if (null text)
-        (funcall on-error "input.not-found"
-                 (format nil "no bg process ~S was started by aitools in this workspace" id)
-                 :candidates (%recorded-bg-ids ports directory)
-                 :repairs (list (%status-repair)))
+        (aitools.kernel.domain:flow-continue
+         :on-error
+         "input.not-found"
+         (format nil "no bg process ~S was started by aitools in this workspace" id)
+         :candidates (%recorded-bg-ids ports directory)
+         :repairs (list (%status-repair)))
         (handler-case (aitools.process.domain:parse-bg-record text id)
           (aitools.process.domain:invalid-bg-record (condition)
-            (funcall on-error "environment.io" (aitools.process.domain:invalid-bg-record-message condition)
-                     :repairs (list (%status-repair))))
-          (:no-error (record) (funcall continuation record))))))
+            (aitools.kernel.domain:flow-continue
+             :on-error
+             "environment.io"
+             (aitools.process.domain:invalid-bg-record-message condition)
+             :repairs (list (%status-repair))))
+          (:no-error (record)
+            (aitools.kernel.domain:flow-continue :on-record record))))))
 
 (defun %read-exit-status (ports directory id)
   "(VALUES FOUND EXIT-CODE SIGNAL) from ID's exit file."
@@ -108,7 +118,8 @@ LOG-PATH), or NIL when every attempt lost a race."
           (cons "next_commands" (list (aitools.protocol.domain:command-line "aitools" "bg" "logs" id)
                                       (aitools.protocol.domain:command-line "aitools" "bg" "stop" id))))))
 
-(defun %record-started-process (ports directory id name argv log-path pid on-ok on-error)
+(aitools.kernel.domain:define-flow
+    (%record-started-process ports directory id name argv log-path pid &key on-ok on-error)
   ;; The record's argv is display-only (bg status shows it, nothing re-runs it),
   ;; so persist a redacted copy: a secret passed on the command line must not
   ;; live on disk in bg/<id>.json.
@@ -125,44 +136,72 @@ LOG-PATH), or NIL when every attempt lost a race."
       (process-port-error (condition)
         ;; Untracked, the process could never be stopped through aitools again.
         (funcall (process-ports-signal-group ports) pid +sigkill+)
-        (funcall on-error "environment.io"
-                 (format nil "~A; the process was killed because it could not be recorded"
-                         (process-port-error-message condition))
-                 :repairs (list (%status-repair))))
+        (aitools.kernel.domain:flow-continue
+         :on-error
+         "environment.io"
+         (format nil "~A; the process was killed because it could not be recorded"
+                 (process-port-error-message condition))
+         :repairs (list (%status-repair))))
       (:no-error (&rest values)
         (declare (ignore values))
-        (funcall on-ok (%bg-started-fields record log-path))))))
+        (aitools.kernel.domain:flow-continue
+         :on-ok (%bg-started-fields record log-path))))))
 
-(defun bg-start/k (ports argv name &key on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow
+    (bg-start/k ports argv name &key on-ok on-partial on-error)
   "Start ARGV detached, logging to `bg/<id>.log`."
   (declare (ignore on-partial))
   (cond
     ((null argv)
-     (funcall on-error "argument.invalid" "bg start needs the program and its arguments after --"
-              :repairs (list (repair "start-program" "Pass the program after --."
-                                      "aitools bg start -- sleep 60"))))
+     (aitools.kernel.domain:flow-continue
+      :on-error
+      "argument.invalid"
+      "bg start needs the program and its arguments after --"
+      :repairs (list (repair "start-program" "Pass the program after --."
+                             "aitools bg start -- sleep 60"))))
     ((and name (not (aitools.process.domain:bg-name-valid-p name)))
-     (funcall on-error "argument.invalid" "--name must be 1 to 64 characters without control characters"
-              :repairs (list (%schema-repair "bg.start"))))
+     (aitools.kernel.domain:flow-continue
+      :on-error
+      "argument.invalid"
+      "--name must be 1 to 64 characters without control characters"
+      :repairs (list (%schema-repair "bg.start"))))
     (t
-     (%reporting-port-errors (on-error "bg.start")
-       (%call-with-bg-directory
-        ports "bg.start" on-error
-        (lambda (directory)
+     (%reporting-port-errors "bg.start"
+       (aitools.kernel.domain:flow-call
+        (%call-with-bg-directory ports "bg.start")
+        (:on-directory (directory)
           (multiple-value-bind (id log-path) (%reserve-bg-id ports directory)
             (if (null id)
-                (funcall on-error "environment.busy" "could not claim a bg ID; other starts kept taking it"
-                         :repairs (list (repair "retry" "Start the process again."
-                                                 (aitools.protocol.domain:command-line
-                                                  "aitools" "bg" "start" "--" argv))))
-                (funcall (process-ports-launch-detached ports) argv log-path
-                         (%bg-path directory (aitools.process.domain:bg-exit-file-name id))
-                         :on-started (lambda (pid)
-                                       (%record-started-process ports directory id name argv log-path pid
-                                                                on-ok on-error))
-                         :on-unavailable (lambda (message program)
-                                           (funcall (process-ports-remove-file ports) log-path)
-                                           (aitools.kernel.domain:flow-call
-                                               (%unavailable-program-error message program)
-                                             (:on-error (code text &key repairs)
-                                               (funcall on-error code text :repairs repairs)))))))))))))
+                (aitools.kernel.domain:flow-continue
+                 :on-error
+                 "environment.busy"
+                 "could not claim a bg ID; other starts kept taking it"
+                 :repairs
+                 (list (repair "retry" "Start the process again."
+                               (aitools.protocol.domain:command-line
+                                "aitools" "bg" "start" "--" argv))))
+                (multiple-value-bind (status value program)
+                    (funcall (process-ports-launch-detached ports)
+                             argv
+                             log-path
+                             (%bg-path directory (aitools.process.domain:bg-exit-file-name id)))
+                  (ecase status
+                    (:started
+                     (aitools.kernel.domain:flow-call
+                      (%record-started-process
+                       ports directory id name argv log-path value)
+                      (:on-ok (fields)
+                        (aitools.kernel.domain:flow-continue :on-ok fields))
+                      (:on-error (code message &key repairs)
+                        (aitools.kernel.domain:flow-continue
+                         :on-error code message :repairs repairs))))
+                    (:unavailable
+                     (funcall (process-ports-remove-file ports) log-path)
+                     (aitools.kernel.domain:flow-call
+                      (%unavailable-program-error value program)
+                      (:on-error (code text &key repairs)
+                        (aitools.kernel.domain:flow-continue
+                         :on-error code text :repairs repairs)))))))))
+        (:on-error (code message &key repairs)
+          (aitools.kernel.domain:flow-continue
+           :on-error code message :repairs repairs)))))))

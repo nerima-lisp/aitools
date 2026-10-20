@@ -1,31 +1,10 @@
-;;;; t/integration/process-test.lisp
-;;;;
 ;;;; `run` and `wait`, driven through the real cl-cli
 ;;;; dispatch with production ports and real child processes (sh, sleep,
-;;;; printf) in temporary directories. This file defines the package and the
-;;;; helpers process-bg-test.lisp (the `bg` suite) also uses.
-(in-package #:cl-user)
-
-(defpackage #:aitools.process.integration-test
-  (:use #:cl)
-  (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:expect #:describe-skip-if))
-
+;;;; printf) in temporary directories. The package and shared temporary
+;;;; directory/workspace helpers live in t/support/process-test-support.lisp.
 (in-package #:aitools.process.integration-test)
-
 (defparameter *dummy-token* "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
   "A GitHub-token-shaped dummy value in a format redaction detects, not a real secret.")
-
-(defun call-with-temporary-directory (function)
-  (let ((directory (uiop:ensure-directory-pathname
-                    (merge-pathnames (format nil "aitools-process-~36R/" (random (expt 36 10) (make-random-state t)))
-                                     (uiop:temporary-directory)))))
-    (ensure-directories-exist directory)
-    (unwind-protect (funcall function (truename directory))
-      (uiop:delete-directory-tree directory :validate t :if-does-not-exist :ignore))))
-
-(defmacro with-temporary-directory ((variable) &body body)
-  `(call-with-temporary-directory (lambda (,variable) ,@body)))
 
 (defun invoke (argv &key state-directory cwd)
   "Dispatch `aitools ARGV` against the process commands with production
@@ -59,10 +38,9 @@ whichever stream the command wrote."
   (list "sh" "-c" script))
 
 (defun program-on-path (name)
-  "The absolute path of the first executable NAME in an absolute $PATH
-directory, for a spec that must name a program by path: the Nix build sandbox
-has no /bin/sleep, only coreutils on PATH. The path is not resolved through
-symlinks, so a multi-call binary still sees NAME as its argv[0]."
+  "Return an absolute executable path for SBCL child fixtures. The Nix
+sandbox exposes coreutils on PATH rather than at /bin/sleep; keeping NAME as
+argv[0] preserves the command name for multi-call executables."
   (or (loop for directory in (uiop:split-string (or (uiop:getenv "PATH") "") :separator ":")
             for candidate = (and (plusp (length directory))
                                  (char= (char directory 0) #\/)
@@ -75,230 +53,18 @@ symlinks, so a multi-call binary still sees NAME as its argv[0]."
               return candidate)
       (error "~A is not on PATH" name)))
 
-;;; ------------------------------------------------------------------ run
-
-(describe "aitools run (integration)"
-  (it "keeps stdin at EOF unless explicitly requested"
-    (let ((*standard-input* (make-string-input-stream "not inherited")))
-      (multiple-value-bind (code envelope) (invoke '("run" "--" "cat"))
-        (expect code :to-be 0)
-        (expect (value envelope "exit_code") :to-be 0)
-        (expect (lines envelope "stdout" "head") :to-equal nil))
-      (expect (read-line *standard-input*) :to-equal "not inherited")))
-
-  (it "forwards explicit stdin without closing the caller's stream"
-    (let ((*standard-input* (make-string-input-stream (format nil "stream input~%"))))
-      (multiple-value-bind (code envelope) (invoke '("run" "--stdin" "--" "cat"))
-        (expect code :to-be 0)
-        (expect (value envelope "exit_code") :to-be 0)
-        (expect (lines envelope "stdout" "head") :to-equal '("stream input")))
-      (expect (open-stream-p *standard-input*) :to-be t)))
-
-  (it "stops feeding an open input pipe when the child exits or times out"
-    (dolist (command '(("true") ("sleep" "2")))
-      (let ((producer (sb-ext:run-program (program-on-path "sleep") '("20")
-                                         :output :stream :wait nil)))
-        (unwind-protect
-             (let ((*standard-input* (sb-ext:process-output producer))
-                   (started (get-internal-real-time)))
-               (multiple-value-bind (code envelope)
-                   (invoke (append '("run" "--stdin" "--timeout" "100ms" "--") command))
-                 (expect code :to-be 0)
-                 (expect (value envelope "timed_out") :to-be
-                         (if (string= (first command) "sleep") t json-kit:+json-false+)))
-               (expect (< (/ (- (get-internal-real-time) started)
-                             internal-time-units-per-second) 2) :to-be t)
-               (expect (open-stream-p *standard-input*) :to-be t)
-               (expect (count "cl-process-kit stdin feeder" (sb-thread:list-all-threads)
-                              :key #'sb-thread:thread-name :test #'equal) :to-be 0))
-          (sb-ext:process-kill producer 9)
-          (sb-ext:process-wait producer)
-          (sb-ext:process-close producer)))))
-
-  (it "forwards available UTF-8 input before the caller sends EOF"
-    (let ((producer (sb-ext:run-program
-                     (program-on-path "sh")
-                     '("-c" "printf '日本語\\n'; exec sleep 20")
-                     :output :stream :external-format :utf-8 :wait nil)))
-      (unwind-protect
-           (let ((*standard-input* (sb-ext:process-output producer)))
-             (multiple-value-bind (code envelope)
-                 (invoke (list* "run" "--stdin" "--timeout" "1s" "--"
-                                (sh "IFS= read -r line; printf '%s\\n' \"$line\"")))
-               (expect code :to-be 0)
-               (expect (value envelope "timed_out") :to-be json-kit:+json-false+)
-               (expect (lines envelope "stdout" "head") :to-equal '("日本語")))
-             (expect (open-stream-p *standard-input*) :to-be t))
-        (sb-ext:process-kill producer 9)
-        (sb-ext:process-wait producer)
-        (sb-ext:process-close producer))))
-
-  (it "encodes inline stdin as UTF-8 and accepts explicitly empty input"
-    (dolist (text '("日本語" ""))
-      (multiple-value-bind (code envelope) (invoke (list "run" "--stdin-data" text "--" "cat"))
-        (expect code :to-be 0)
-        (expect (value envelope "exit_code") :to-be 0)
-        (expect (lines envelope "stdout" "head") :to-equal (if (equal text "") nil (list text))))))
-
-  (it "preserves binary stdin-file bytes and resolves it independently of child cwd"
-    (with-temporary-directory (directory)
-      (let* ((input (merge-pathnames "input.bin" directory))
-             (child (merge-pathnames "child/" directory))
-             (*default-pathname-defaults* directory))
-        (ensure-directories-exist child)
-        (with-open-file (stream input :direction :output :element-type '(unsigned-byte 8))
-          (write-sequence (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(65 0 255)) stream))
-        (multiple-value-bind (code envelope)
-            (invoke (list "run" "--stdin-file" "input.bin" "--cwd" (namestring child) "--" "od" "-An" "-tx1"))
-          (expect code :to-be 0)
-          (expect (value envelope "exit_code") :to-be 0)
-          (expect (mapcan (lambda (line)
-                            (remove "" (uiop:split-string line :separator '(#\Space #\Tab))
-                                    :test #'string=))
-                          (lines envelope "stdout" "head"))
-                  :to-equal '("41" "00" "ff"))))))
-
-  (it "rejects a stdin FIFO without waiting for a writer"
-    (with-temporary-directory (directory)
-      (let* ((fifo (merge-pathnames "input.fifo" directory))
-             (link (merge-pathnames "input-link" directory))
-             (started (get-internal-real-time)))
-        (sb-posix:mkfifo (namestring fifo) #o600)
-        (sb-posix:symlink (namestring fifo) (namestring link))
-        (dolist (path (list fifo link directory))
-          (multiple-value-bind (code envelope)
-              (invoke (list "run" "--stdin-file" (namestring path) "--timeout" "100ms" "--" "cat"))
-            (expect code :to-be 1)
-            (expect (value envelope "error" "code") :to-equal "environment.io")))
-        (expect (/ (- (get-internal-real-time) started) internal-time-units-per-second) :to-be-less-than 2))))
-
-  (it "sets child cwd without changing the caller's cwd"
-    (with-temporary-directory (directory)
-      (let ((before (uiop:getcwd)))
-        (multiple-value-bind (code envelope)
-            (invoke (list "run" "--cwd" (namestring directory) "--" "pwd"))
-          (expect code :to-be 0)
-          (expect (value envelope "exit_code") :to-be 0)
-          (expect (first (lines envelope "stdout" "head")) :to-equal (string-right-trim "/" (namestring directory))))
-        (expect (uiop:getcwd) :to-equal before))))
-
-  (it "overlays inherited environment with last-wins, empty, and embedded-equals values"
-    (let ((before (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE")))
-      (multiple-value-bind (code envelope)
-          (invoke (list* "run" "--env" "AITOOLS_PROCESS_TEST_VALUE=first"
-                         "--env" "AITOOLS_PROCESS_TEST_VALUE=last=value"
-                         "--env" "AITOOLS_PROCESS_TEST_EMPTY=" "--"
-                         (sh "printf '%s\\n' \"$AITOOLS_PROCESS_TEST_VALUE\" \"${AITOOLS_PROCESS_TEST_EMPTY+x}\" \"${AITOOLS_PROCESS_TEST_EMPTY:-empty}\"; test -n \"$PATH\"")))
-        (expect code :to-be 0)
-        (expect (value envelope "exit_code") :to-be 0)
-        (expect (lines envelope "stdout" "head") :to-equal '("last=value" "x" "empty")))
-      (expect (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE") :to-equal before)))
-
-  (it "reports a missing stdin file as environment.io"
-    (with-temporary-directory (directory)
-      (multiple-value-bind (code envelope)
-          (invoke (list "run" "--stdin-file" (namestring (merge-pathnames "absent" directory)) "--" "cat"))
-        (expect code :to-be 1)
-        (expect (value envelope "error" "code") :to-equal "environment.io"))))
-
-  (it "prints stdout lines of a real child"
-    (multiple-value-bind (code envelope) (invoke (list "run" "--" "printf" (format nil "a~%b~%")))
-      (expect code :to-be 0)
-      (expect (value envelope "status") :to-equal "ok")
-      (expect (lines envelope "stdout" "head") :to-equal '("a" "b"))
-      (expect (value envelope "exit_code") :to-be 0)))
-
-  (it "reports the child's exit code while itself exiting 0"
-    (multiple-value-bind (code envelope) (invoke (list* "run" "--" (sh "exit 3")))
-      (expect code :to-be 0)
-      (expect (value envelope "exit_code") :to-be 3)))
-
-  (it "reports a child killed by a signal as that signal with a null exit code"
-    (multiple-value-bind (code envelope) (invoke (list* "run" "--" (sh "kill -TERM $$")))
-      (expect code :to-be 0)
-      (expect (value envelope "signal") :to-be 15)
-      (expect (value envelope "exit_code") :to-be json-kit:+json-null+)
-      (expect (value envelope "timed_out") :to-be json-kit:+json-false+)))
-
-  (it "kills the child's process group at --timeout and still exits 0"
-    (multiple-value-bind (code envelope) (invoke (list* "run" "--timeout" "300ms" "--" (sh "sleep 30 & wait")))
-      (expect code :to-be 0)
-      (expect (value envelope "timed_out") :to-be t)
-      (expect (< (value envelope "duration_ms") 10000) :to-be t)))
-
-  (it "keeps the head and tail and counts every line"
-    (multiple-value-bind (code envelope)
-        (invoke (list* "run" "--head" "2" "--tail" "2" "--"
-                       (sh "i=1; while [ $i -le 10 ]; do echo line$i; i=$((i+1)); done")))
-      (expect code :to-be 0)
-      (expect (lines envelope "stdout" "head") :to-equal '("line1" "line2"))
-      (expect (lines envelope "stdout" "tail") :to-equal '("line9" "line10"))
-      (expect (value envelope "stdout" "total_lines") :to-be 10)
-      (expect (value envelope "stdout" "truncated") :to-be t)))
-
-  (it "greps a middle line that head and tail dropped"
-    (multiple-value-bind (code envelope)
-        (invoke (list* "run" "--head" "3" "--tail" "3" "--grep" "^ERROR" "--"
-                       (sh "i=1; while [ $i -le 200 ]; do if [ $i -eq 100 ]; then echo ERROR here; else echo ok $i; fi; i=$((i+1)); done")))
-      (expect code :to-be 0)
-      (expect (value envelope "stdout" "matches" 0 "n") :to-be 100)
-      (expect (value envelope "stdout" "matches" 0 "text") :to-equal "ERROR here")))
-
-  (it "exits 3 with status partial when matches exceed --grep-limit"
-    (multiple-value-bind (code envelope)
-        (invoke (list* "run" "--grep" "x" "--grep-limit" "1" "--" (sh "echo x1; echo x2")))
-      (expect code :to-be 3)
-      (expect (value envelope "status") :to-equal "partial")
-      (expect (value envelope "stdout" "total_matches") :to-be 2)))
-
-  (it "masks a secret written to stderr"
-    (multiple-value-bind (code envelope)
-        (invoke (list* "run" "--" (sh (format nil "echo auth ~A >&2" *dummy-token*))))
-      (expect code :to-be 0)
-      (expect (lines envelope "stderr" "head") :to-equal '("auth [REDACTED_SECRET]"))
-      (expect (value envelope "redactions") :to-be 1)))
-
-  (it "strips ANSI escapes and \\r redraws unless --no-strip-ansi"
-    (let ((script "printf '\\033[31mred\\033[0m\\n10%%\\r100%%\\n'"))
-      (multiple-value-bind (code envelope) (invoke (list* "run" "--" (sh script)))
-        (expect code :to-be 0)
-        (expect (lines envelope "stdout" "head") :to-equal '("red" "100%")))
-      (multiple-value-bind (code envelope) (invoke (list* "run" "--no-strip-ansi" "--" (sh script)))
-        (expect code :to-be 0)
-        (expect (first (lines envelope "stdout" "head"))
-                :to-equal (format nil "~C[31mred~C[0m" (code-char 27) (code-char 27))))))
-
-  (it "fails with environment.unavailable when the program does not exist"
-    (multiple-value-bind (code envelope) (invoke (list "run" "--" "aitools-no-such-program"))
-      (expect code :to-be 1)
-      (expect (value envelope "error" "code") :to-equal "environment.unavailable")
-      (expect (value envelope "error" "repairs" 0 "command") :to-equal "aitools sys tools aitools-no-such-program"))))
-
 (defun file-octets (path)
   (with-open-file (in path :element-type '(unsigned-byte 8))
     (let ((octets (make-array (file-length in) :element-type '(unsigned-byte 8))))
       (read-sequence octets in)
       octets)))
 
-(defun call-with-workspace (function)
-  "Call FUNCTION with (ROOT STATE): a workspace directory (the working
-directory the workspace host reports) and a sibling state directory."
-  (with-temporary-directory (directory)
-    (let ((root (merge-pathnames "ws/" directory))
-          (state (merge-pathnames "state/" directory)))
-      (ensure-directories-exist root)
-      (ensure-directories-exist (merge-pathnames "tmp/" state))
-      (funcall function root state))))
-
-(defmacro with-workspace ((root state) &body body)
-  `(call-with-workspace (lambda (,root ,state) (declare (ignorable ,state)) ,@body)))
-
 (defun stdout-to (root state target &rest argv)
   (invoke (list* "run" "--stdout-to" target "--" argv) :cwd root :state-directory state))
 
 (describe "aitools run --stdout-to (integration)"
   (it "writes the child's stdout byte for byte to a new file inside the workspace"
-    (with-workspace (root state)
+    (with-process-workspace (root state)
       (multiple-value-bind (code envelope) (stdout-to root state "out.txt" "printf" "\\033[31mx\\ny\\n")
         (expect code :to-be 0)
         (expect (value envelope "stdout" "path") :to-equal "out.txt")
@@ -308,7 +74,7 @@ directory the workspace host reports) and a sibling state directory."
                 :to-equal '(27 91 51 49 109 120 10 121 10)))))
 
   (it "refuses an existing file and leaves it unchanged"
-    (with-workspace (root state)
+    (with-process-workspace (root state)
       (with-open-file (out (merge-pathnames "out.txt" root) :direction :output)
         (write-string "keep" out))
       (multiple-value-bind (code envelope) (stdout-to root state "out.txt" "printf" "new")
@@ -317,7 +83,7 @@ directory the workspace host reports) and a sibling state directory."
       (expect (uiop:read-file-string (merge-pathnames "out.txt" root)) :to-equal "keep")))
 
   (it "refuses a path outside the root, through a symlink, and inside .git"
-    (with-workspace (root state)
+    (with-process-workspace (root state)
       (let ((outside (merge-pathnames "../outside/" root)))
         (ensure-directories-exist outside)
         (sb-posix:symlink (string-right-trim "/" (namestring (truename outside)))
@@ -333,7 +99,7 @@ directory the workspace host reports) and a sibling state directory."
         (expect (probe-file (merge-pathnames ".git/c.txt" root)) :to-be nil))))
 
   (it "allows the mktemp area outside the root"
-    (with-workspace (root state)
+    (with-process-workspace (root state)
       (let ((target (namestring (merge-pathnames "tmp/run.out" (truename state)))))
         (multiple-value-bind (code envelope) (stdout-to root state target "printf" "ok")
           (expect code :to-be 0)
@@ -343,7 +109,7 @@ directory the workspace host reports) and a sibling state directory."
   ;; `--root` is a global option the full aitools app adds, so the flow is
   ;; called directly, with the production ports this suite's INVOKE wires.
   (it "fails with environment.io, running nothing, when --root names a missing directory"
-    (with-workspace (root state)
+    (with-process-workspace (root state)
       (let* ((marker (merge-pathnames "ran" root))
              (result (aitools.protocol.application:call-with-command-result/k
                       (lambda (&rest continuations)
@@ -364,8 +130,6 @@ directory the workspace host reports) and a sibling state directory."
                                (getf fields :message)))
                 :to-be t)
         (expect (probe-file marker) :to-be nil)))))
-
-;;; ----------------------------------------------------------------- wait
 
 (defun call-with-listener (function)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket :type :stream :protocol :tcp)))

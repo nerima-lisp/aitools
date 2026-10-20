@@ -1,4 +1,3 @@
-;;;; t/unit/process/fakes.lisp
 ;;;;
 ;;;; In-memory PROCESS-PORTS for the application flows: a file table keyed by
 ;;;; namestring, a clock that only moves when a flow sleeps, and a process
@@ -64,34 +63,39 @@
 
 (defun fake-ports (world)
   (aitools.process.application:make-process-ports
-   :run-program (lambda (argv timeout-ms &key stdout-path stdin stdin-data stdin-file cwd env
-                                            on-exited on-timed-out on-unavailable on-exists)
-                  (declare (ignore stdout-path on-exists))
+   :run-program (lambda (argv timeout-ms &key stdout-path stdin stdin-data stdin-file cwd env)
+                  (declare (ignore stdout-path))
                   (push (list argv timeout-ms) (fake-world-run-calls world))
                   (push (list :stdin stdin :stdin-data stdin-data :stdin-file stdin-file :cwd cwd :env env)
                         (fake-world-run-options world))
                   (destructuring-bind (kind &rest arguments) (fake-world-run-behavior world)
                     (ecase kind
-                      (:exited (funcall on-exited (apply #'aitools.process.domain:make-process-outcome arguments)))
-                      (:timed-out (funcall on-timed-out (apply #'aitools.process.domain:make-process-outcome
-                                                               :timed-out t arguments)))
-                      (:unavailable (funcall on-unavailable "not found" (first argv))))))
+                      (:exited
+                       (values :exited
+                               (apply #'aitools.process.domain:make-process-outcome arguments)))
+                      (:timed-out
+                       (values :timed-out
+                               (apply #'aitools.process.domain:make-process-outcome
+                                      :timed-out t arguments)))
+                      (:unavailable (values :unavailable "not found" (first argv)))
+                      (:exists (values :exists)))))
    :bg-directory (lambda () (fake-world-bg-directory world))
-   :launch-detached (lambda (argv log-path exit-path &key on-started on-unavailable)
+   :launch-detached (lambda (argv log-path exit-path)
                       (push (list argv log-path exit-path) (fake-world-launches world))
                       (ecase (fake-world-launch-behavior world)
-                        (:unavailable (funcall on-unavailable "no trampoline" "cl-process-kit-spawn"))
+                        (:unavailable
+                         (values :unavailable "no trampoline" "cl-process-kit-spawn"))
                         ((:start :ignore-term :ignore-kill)
                          (let ((pid (incf (fake-world-next-pid world))))
                            (setf (gethash pid (fake-world-processes world))
                                  (list :alive t :exit-path (namestring exit-path)
                                        :on-term (if (eq (fake-world-launch-behavior world) :start) :exit :ignore)
                                        :on-kill (if (eq (fake-world-launch-behavior world) :ignore-kill) :ignore :exit)))
-                           (funcall on-started pid)))))
+                           (values :started pid)))))
    :list-directory (lambda (directory)
                      (loop for path being the hash-keys of (fake-world-files world)
                            when (string= (namestring directory) (directory-namestring path))
-                             collect (file-namestring path)))
+                           collect (file-namestring path)))
    :read-file-text (lambda (path)
                      (push (namestring path) (fake-world-reads world))
                      (fake-file world path))

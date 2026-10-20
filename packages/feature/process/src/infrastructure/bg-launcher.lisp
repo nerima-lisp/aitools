@@ -87,31 +87,42 @@ when it contains a slash, else searched in $PATH. NIL when not executable."
                               :environment (sb-ext:posix-environ)
                               :output log :error :output)))
 
-(defun %launch-detached (argv log-path exit-path &key on-started on-unavailable)
+(defun %launch-detached (argv log-path exit-path)
   (let ((trampoline (find-spawn-trampoline))
         (program (%resolve-program (first argv))))
     (cond
       ((null trampoline)
-       (funcall on-unavailable
-                (format nil "bg start needs the ~A helper, which was not found beside aitools, in $CL_PROCESS_KIT_SPAWN, or on PATH"
-                        +spawn-trampoline-name+)
-                +spawn-trampoline-name+))
+       (values
+        :unavailable
+        (format nil
+                (concatenate 'string
+                             "bg start needs the ~A helper, which was not found "
+                             "beside aitools, in $CL_PROCESS_KIT_SPAWN, or on PATH")
+                +spawn-trampoline-name+)
+        +spawn-trampoline-name+))
       ((null program)
-       (funcall on-unavailable (format nil "cannot start ~A: not an executable file or not found on PATH" (first argv))
-                (first argv)))
+       (values
+        :unavailable
+        (format nil "cannot start ~A: not an executable file or not found on PATH" (first argv))
+        (first argv)))
       (t
-       (let ((handle
-               (handler-case
-                   ;; The bg log is acquired as a resource: reopened for append
-                   ;; under O_NOFOLLOW and closed on any exit (WITH-BG-LOG).
-                   (with-bg-log (log log-path)
-                     (%spawn-supervisor trampoline argv program log exit-path))
-                 (process-kit:process-launch-error (condition)
-                   (return-from %launch-detached
-                     (funcall on-unavailable (format nil "cannot start ~A: ~A" (first argv) condition)
-                              (first argv))))
-                 ((or file-error stream-error sb-posix:syscall-error process-kit:process-error) (condition)
-                   (error 'aitools.process.application:process-port-error
-                          :message (format nil "starting ~A failed: ~A" (first argv) condition))))))
-         (%remember-supervisor handle)
-         (funcall on-started (process-kit:process-id handle)))))))
+       (multiple-value-bind (handle launch-error)
+           (handler-case
+               (values
+                (with-bg-log (log log-path)
+                  ;; The bg log is acquired as a resource: reopened for append
+                  ;; under O_NOFOLLOW and closed on any exit (WITH-BG-LOG).
+                  (%spawn-supervisor trampoline argv program log exit-path))
+                nil)
+             (process-kit:process-launch-error (condition)
+               (values nil condition))
+             ((or file-error stream-error sb-posix:syscall-error process-kit:process-error) (condition)
+               (error 'aitools.process.application:process-port-error
+                      :message (format nil "starting ~A failed: ~A" (first argv) condition))))
+         (if launch-error
+             (values :unavailable
+                     (format nil "cannot start ~A: ~A" (first argv) launch-error)
+                     (first argv))
+             (progn
+               (%remember-supervisor handle)
+               (values :started (process-kit:process-id handle)))))))))

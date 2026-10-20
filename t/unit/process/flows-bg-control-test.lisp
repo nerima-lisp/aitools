@@ -1,6 +1,3 @@
-;;;; t/unit/process/flows-bg-control-test.lisp
-;;;;
-;;;; The bg-logs, bg-status, bg-stop and wait flows over the fake world.
 (in-package #:aitools.process.test)
 
 (defun bg-logs (world id &rest options)
@@ -51,38 +48,46 @@
         (expect (field fields :code) :to-equal "input.not-found"))
       (expect (fake-world-reads world) :to-equal '())))
 
-  (it "stops a --from read at the per-call byte limit and continues where it stopped"
+  (it "stops a --from read at the per-call byte limit and continues from the reported offset"
     (let ((world (world-with-log (numbered-lines 3)))
           (aitools.process.application::+log-read-limit+ 10))
       (%process-exit world 1001 0)
       (multiple-value-bind (kind fields) (bg-logs world "bg-1" :from 0)
         (expect kind :to-be :partial)
-        (expect (field fields "lines") :to-equal '("line 1"))
-        (expect (field fields "next_offset") :to-be 7))
-      (multiple-value-bind (kind fields) (bg-logs world "bg-1" :from 14)
-        (expect kind :to-be :ok)
-        (expect (field fields "lines") :to-equal '("line 3"))
-        (expect (field fields "next_offset") :to-be 21)))))
+        (expect (field fields "lines") :to-equal (list "line 1"))
+        (expect (field fields "next_offset") :to-be 7)
+        (multiple-value-bind (kind fields) (bg-logs world "bg-1" :from (field fields "next_offset"))
+          (expect kind :to-be :partial)
+          (expect (field fields "lines") :to-equal (list "line 2"))
+          (expect (field fields "next_offset") :to-be 14)
+          (multiple-value-bind (kind fields) (bg-logs world "bg-1" :from (field fields "next_offset"))
+            (expect kind :to-be :ok)
+            (expect (field fields "lines") :to-equal (list "line 3"))
+            (expect (field fields "next_offset") :to-be 21)))))))
 
 (defun bg-status (world &optional id)
   (run-flow #'aitools.process.application:bg-status/k (fake-ports world) id))
 
 (describe "aitools.process.application bg-status/k"
-  (it "lists running and ended processes with the recorded exit status"
+  (it "lists running and ended processes with the recorded exit status and missing-ID candidates"
     (let ((world (make-fake-world)))
-      (bg-start world '("sleep" "60"))
-      (bg-start world '("false"))
+      (bg-start world (list "sleep" "60"))
+      (bg-start world (list "false"))
       (%process-exit world 1002 1)
       (multiple-value-bind (kind fields) (bg-status world)
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 2)
         (expect (field fields "observed_total") :to-be 2)
-        (expect (field fields "omitted") :to-equal '())
+        (expect (field fields "omitted") :to-equal nil)
         (destructuring-bind (first second) (field fields "items")
           (expect (json-alist-value first "running") :to-be t)
           (expect (json-alist-value first "exit_code") :to-be json-kit:+json-null+)
           (expect (json-alist-value second "running") :to-be json-kit:+json-false+)
-          (expect (json-alist-value second "exit_code") :to-be 1)))))
+          (expect (json-alist-value second "exit_code") :to-be 1)))
+      (multiple-value-bind (kind fields) (bg-status world "bg-9")
+        (expect kind :to-be :error)
+        (expect (field fields :code) :to-equal "input.not-found")
+        (expect (field fields :candidates) :to-equal (list "bg-1" "bg-2")))))
 
   (it "reports an invalid record as omitted from a partial listing"
     (let ((world (make-fake-world)))
@@ -99,7 +104,7 @@
                 :to-equal '((("id" . "bg-1") ("reason" . "invalid-record")))))
       (expect (field (nth-value 1 (bg-status world "bg-1")) :code) :to-equal "environment.io")))
 
-  (it "serializes partial omitted records through the final redaction and JSON writer"
+  (it "serializes a partial omitted-record envelope as JSON"
     (let ((world (make-fake-world)))
       (bg-start world)
       (setf (fake-file world (bg-path "bg-1.json")) "{}")
@@ -203,13 +208,14 @@
         (expect (field fields "exit_code") :to-be 0))
       (expect (fake-world-signals world) :to-equal '())))
 
-  (it "cannot address a process by pid, only by a recorded id"
+  (it "cannot address a process by pid, only by a recorded id and reports candidates"
     (let ((world (make-fake-world)))
       (bg-start world)
       (multiple-value-bind (kind fields) (bg-stop world "1001")
         (expect kind :to-be :error)
-        (expect (field fields :code) :to-equal "input.not-found"))
-      (expect (fake-world-signals world) :to-equal '())))
+        (expect (field fields :code) :to-equal "input.not-found")
+        (expect (field fields :candidates) :to-equal (list "bg-1")))
+      (expect (fake-world-signals world) :to-equal nil)))
 
   (it "reports environment.io when the group outlives SIGKILL"
     (let ((world (make-fake-world :launch-behavior :ignore-kill)))
@@ -222,63 +228,3 @@
       (expect (reverse (fake-world-signals world)) :to-equal '((1001 . 15) (1001 . 9)))
       (expect (>= (fake-world-clock world) 2100) :to-be t))))
 
-;;; ---------------------------------------------------------------- wait
-
-(defun wait-on (world &rest request-arguments)
-  (run-flow #'aitools.process.application:wait-command/k (fake-ports world)
-            (apply #'aitools.process.application:make-wait-request request-arguments)))
-
-(describe "aitools.process.application wait-command/k"
-  (it "waits out --duration"
-    (let ((world (make-fake-world)))
-      (multiple-value-bind (kind fields) (wait-on world :duration "250ms")
-        (expect kind :to-be :ok)
-        (expect (field fields "matched") :to-be t)
-        (expect (field fields "elapsed_ms") :to-be 250))))
-
-  (it "matches a line once it appears in the file"
-    (let ((world (make-fake-world)))
-      (push (list* 300 "/tmp/app.log" (format nil "boot~%listening on 8080~%")) (fake-world-scheduled-files world))
-      (multiple-value-bind (kind fields) (wait-on world :file "/tmp/app.log" :pattern "listening")
-        (expect kind :to-be :ok)
-        (expect (field fields "line") :to-equal "listening on 8080")
-        (expect (>= (field fields "elapsed_ms") 300) :to-be t))))
-
-  (it "matches an open port"
-    (let ((world (make-fake-world :open-ports '(5432))))
-      (multiple-value-bind (kind fields) (wait-on world :port 5432)
-        (expect kind :to-be :ok)
-        (expect (field fields "port") :to-be 5432))))
-
-  (it "matches a bg log line and a bg exit"
-    (let ((world (world-with-log (esc (format nil "^[32mready^[0m~%")))))
-      (expect (field (nth-value 1 (wait-on world :bg "bg-1" :pattern "^ready$")) "line") :to-equal "ready")
-      (%process-exit world 1001 7)
-      (expect (field (nth-value 1 (wait-on world :bg "bg-1" :exit t)) "exit_code") :to-be 7)))
-
-  (it "fails with environment.timeout and a longer-timeout repair"
-    (let ((world (make-fake-world)))
-      (multiple-value-bind (kind fields) (wait-on world :port 9 :timeout "1s")
-        (expect kind :to-be :error)
-        (expect (field fields :code) :to-equal "environment.timeout")
-        (expect (repair-commands fields) :to-equal '("aitools wait --port 9 --timeout 2000ms")))
-      (expect (fake-world-clock world) :to-be 1000)))
-
-  (it "adds a bg logs repair when a bg condition times out"
-    (let ((world (world-with-log "")))
-      (multiple-value-bind (kind fields) (wait-on world :bg "bg-1" :pattern "never" :timeout "200ms")
-        (expect kind :to-be :error)
-        (expect (repair-commands fields)
-                :to-equal '("aitools wait --bg bg-1 --pattern never --timeout 400ms" "aitools bg logs bg-1")))))
-
-  (it-each (((:port 1 :duration "1s") "argument.invalid")
-            (() "argument.invalid")
-            ((:duration "soon") "argument.invalid")
-            ((:file "x" :pattern "(") "input.syntax-error")
-            ((:bg "bg-4" :exit t) "input.not-found"))
-      "rejects ~S with ~A"
-      (arguments code)
-    (let ((world (world-with-log "")))
-      (multiple-value-bind (kind fields) (apply #'wait-on world arguments)
-        (expect kind :to-be :error)
-        (expect (field fields :code) :to-equal code)))))

@@ -99,38 +99,46 @@ unbounded child must not exhaust aitools's heap; past this the result says
         (process-kit:close-process process :terminate t))
       (process-kit:close-process-streams process))))
 
-(defun %run-with-output (argv timeout-ms output on-unavailable input cwd environment)
-  "Run ARGV with stdout going to OUTPUT (:CAPTURE or a
-stream). Returns the PROCESS-RESULT, or NIL after calling ON-UNAVAILABLE."
+(defun %run-with-output (argv timeout-ms output input cwd environment)
+  "Run ARGV with stdout going to OUTPUT (:CAPTURE or a stream)."
   (handler-case
-      (if (streamp input)
-          (%run-borrowing-input argv timeout-ms output input cwd environment)
-          (process-kit:run (first argv) (rest argv)
-                       :search t
-                       :output output
-                       :input input
-                       :directory cwd
-                       :environment environment
-                       :timeout (/ timeout-ms 1000)
-                       :on-timeout :return
-                       :max-output-characters +capture-limit-characters+
-                       :external-format :utf-8
-                       :decoding-error-policy :replace))
+      (values
+       :result
+       (if (streamp input)
+           (%run-borrowing-input argv timeout-ms output input cwd environment)
+           (process-kit:run (first argv) (rest argv)
+                           :search t
+                           :output output
+                           :input input
+                           :directory cwd
+                           :environment environment
+                           :timeout (/ timeout-ms 1000)
+                           :on-timeout :return
+                           :max-output-characters +capture-limit-characters+
+                           :external-format :utf-8
+                           :decoding-error-policy :replace)))
     (process-kit:process-launch-error (condition)
-      (funcall on-unavailable (format nil "cannot start ~A: ~A" (first argv) condition) (first argv))
-      nil)
+      (values :unavailable
+              (format nil "cannot start ~A: ~A" (first argv) condition)
+              (first argv)))
     (process-kit:process-error (condition)
       (error 'aitools.process.application:process-port-error
-             :message (format nil "running ~A failed: ~A" (first argv) condition)))))
+             :message (format nil "running ~A failed: ~A"
+                              (first argv) condition)))))
 
-(defun %run-program-with-input (argv timeout-ms input cwd environment
-                               stdout-path on-exited on-timed-out on-unavailable on-exists)
-  (flet ((finish (result stdout-bytes)
-           (when result
-             (funcall (if (process-kit:process-result-timed-out-p result) on-timed-out on-exited)
-                      (%outcome-from-result result stdout-bytes)))))
+(defun %run-program-with-input (argv timeout-ms input cwd environment stdout-path)
+  (labels ((finish (result stdout-bytes)
+             (let ((outcome (%outcome-from-result result stdout-bytes)))
+               (values (if (process-kit:process-result-timed-out-p result)
+                           :timed-out
+                           :exited)
+                       outcome))))
     (if (null stdout-path)
-        (finish (%run-with-output argv timeout-ms :capture on-unavailable input cwd environment) nil)
+        (multiple-value-bind (status value program)
+            (%run-with-output argv timeout-ms :capture input cwd environment)
+          (ecase status
+            (:result (finish value nil))
+            (:unavailable (values status value program))))
         ;; :IF-EXISTS NIL is O_CREAT|O_EXCL: it refuses an existing file and a
         ;; final-component symlink alike, so the check and the create are one
         ;; step.
@@ -138,22 +146,23 @@ stream). Returns the PROCESS-RESULT, or NIL after calling ON-UNAVAILABLE."
                         (open stdout-path :direction :output :element-type '(unsigned-byte 8)
                                           :if-exists nil :if-does-not-exist :create))))
           (if (null stream)
-              (funcall on-exists)
-              (let ((result nil) (bytes 0))
+              (values :exists)
+              (let ((status nil) (result nil) (program nil) (bytes 0))
                 (unwind-protect
-                     (setf result (%run-with-output argv timeout-ms stream on-unavailable input cwd environment)
-                           bytes (file-length stream))
+                     (multiple-value-setq (status result program)
+                       (%run-with-output argv timeout-ms stream input cwd environment))
+                  (setf bytes (file-length stream))
                   (close stream)
-                  (unless result
+                  (unless (eq status :result)
                     (%remove-file stdout-path)))
-                (finish result bytes)))))))
+                (ecase status
+                  (:result (finish result bytes))
+                  (:unavailable (values status result program)))))))))
 
-(defun %run-program (argv timeout-ms &key stdout-path stdin stdin-data stdin-file cwd env
-                                        on-exited on-timed-out on-unavailable on-exists)
+(defun %run-program (argv timeout-ms &key stdout-path stdin stdin-data stdin-file cwd env)
   (let ((environment (%environment-overlay env)))
     (flet ((run (input)
-             (%run-program-with-input argv timeout-ms input cwd environment
-                                      stdout-path on-exited on-timed-out on-unavailable on-exists)))
+             (%run-program-with-input argv timeout-ms input cwd environment stdout-path)))
       (if stdin-file
           (%port-io ("reading ~A" stdin-file)
             ;; Opening first with O_NONBLOCK avoids a FIFO wait; checking the

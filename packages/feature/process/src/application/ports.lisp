@@ -1,9 +1,9 @@
 ;;;; packages/feature/process/src/application/ports.lisp
 ;;;;
-;;;; The side-effect boundary of the process context. Each slot is a
-;;;; function; the infrastructure layer supplies the production ones and unit
-;;;; tests supply fakes. Ports signal PROCESS-PORT-ERROR (and nothing else)
-;;;; for an I/O failure, which the flows report as `environment.io`.
+;;;; The process context's side-effect boundary. Infrastructure supplies the
+;;;; production port functions; unit tests supply fakes. WORKSPACE-HOST carries
+;;;; optional workspace boundary data. Adapters signal PROCESS-PORT-ERROR for
+;;;; I/O failures, which application flows report as `environment.io`.
 (in-package #:aitools.process.application)
 
 (define-condition process-port-error (error)
@@ -41,23 +41,22 @@
                                     workspace-host
                                     (temporary-directory (constantly nil))))
                           (:copier nil))
-  ;; (ARGV TIMEOUT-MS &key STDOUT-PATH STDIN STDIN-DATA STDIN-FILE CWD ENV
-  ;; ON-EXITED ON-TIMED-OUT ON-UNAVAILABLE ON-EXISTS): run ARGV without a shell.
-  ;; Stdin defaults to /dev/null; explicit sources are mutually exclusive.
-  ;; CWD affects only the child; ENV overlays inherited KEY=VALUE entries.
-  ;; ON-EXITED /
-  ;; ON-TIMED-OUT receive a PROCESS-OUTCOME; ON-UNAVAILABLE receives (MESSAGE
-  ;; PROGRAM) when ARGV could not be started at all. With STDOUT-PATH, stdout
-  ;; goes to that newly created file instead of being captured; ON-EXISTS is
-  ;; called, and nothing runs, when the file already exists.
+  ;; (ARGV TIMEOUT-MS &key STDOUT-PATH STDIN STDIN-DATA STDIN-FILE CWD ENV):
+  ;; run ARGV without a shell. Returns multiple values: :EXITED and a
+  ;; PROCESS-OUTCOME, :TIMED-OUT and a PROCESS-OUTCOME, :UNAVAILABLE and a
+  ;; MESSAGE and PROGRAM, or :EXISTS when STDOUT-PATH already exists. No
+  ;; process starts in that case. Stdin defaults to /dev/null; explicit
+  ;; sources are mutually exclusive. CWD affects only the child; ENV overlays
+  ;; inherited KEY=VALUE entries. With STDOUT-PATH, stdout goes to that newly
+  ;; created file instead of being captured.
   (run-program nil :type function :read-only t)
   ;; () -> the workspace's `bg/` directory pathname (existing), or NIL when
   ;; no state directory is available to this process.
   (bg-directory nil :type function :read-only t)
-  ;; (ARGV LOG-PATH EXIT-PATH &key ON-STARTED ON-UNAVAILABLE): start ARGV
-  ;; detached in its own session with stdout+stderr appended to LOG-PATH; its
-  ;; exit status is later written to EXIT-PATH. ON-STARTED receives the PID
-  ;; (also the process-group and session ID); ON-UNAVAILABLE (MESSAGE PROGRAM).
+  ;; (ARGV LOG-PATH EXIT-PATH) -> multiple values: :STARTED and the PID, or
+  ;; :UNAVAILABLE, a MESSAGE, and the PROGRAM. Starts ARGV detached in its own
+  ;; session with stdout+stderr appended to LOG-PATH; its exit status is later
+  ;; written to EXIT-PATH. The PID is also the process-group and session ID.
   (launch-detached nil :type function :read-only t)
   ;; (DIRECTORY) -> list of file-name strings (no directory part).
   (list-directory nil :type function :read-only t)

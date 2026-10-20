@@ -1,7 +1,7 @@
-;;;; t/unit/process/domain-test.lisp
 ;;;;
 ;;;; aitools.process.domain terminal text, output summaries, line patterns,
-;;;; and bg ids. The records and the rest are in domain-records-test.lisp.
+;;;; and bg ids. Record serialization and log slicing tests are in
+;;;; t/unit/process/domain-records-test.lisp.
 (in-package #:aitools.process.test)
 
 (defparameter *dummy-token* "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
@@ -47,7 +47,7 @@
   (it "keeps only the last redraw of a carriage-return progress line"
     (expect (aitools.process.domain:collapse-carriage-returns (cr "10%|50%|100%")) :to-equal "100%"))
 
-  (it "drops the CR of a CRLF line end instead of emptying the line"
+  (it "drops a trailing carriage return"
     (expect (aitools.process.domain:collapse-carriage-returns (cr "done|")) :to-equal "done"))
 
   (it "strips escapes and redraws together, as a progress bar emits them"
@@ -167,6 +167,15 @@
       "accepts ~S"
       (id)
     (expect (aitools.process.domain:bg-id-p id) :to-be t))
+  (it-property "background record filenames round-trip canonical generated ids"
+               ((number (gen-integer :min 1 :max 999999999)))
+               (let ((id (format nil "bg-~D" number)))
+                 (expect (aitools.process.domain:bg-id-p id) :to-be t)
+                 (expect (aitools.process.domain:bg-id-number id) :to-be number)
+                 (expect
+                  (aitools.process.domain:bg-record-id-from-file-name
+                   (aitools.process.domain:bg-record-file-name id))
+                  :to-equal id)))
 
   (it-each (("bg-0") ("bg-01") ("bg-") ("bg-1/../x") ("../bg-1") ("bg-1.json")
             ("BG-1") ("bg-１") ("bg-1234567890") (""))

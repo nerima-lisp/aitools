@@ -182,14 +182,39 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun register-process-commands (registry ports)
   "Register `run`, `wait`, and `bg start|logs|status|stop` on REGISTRY, each
 handler running against PORTS (an AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS)."
-  (flet ((add (name group cli-command)
-           (aitools.protocol.application:register-command
-            registry :name name :group group :cli-command cli-command :schema (%schema name))))
-    (add "run" nil (%run-command ports))
-    (add "wait" nil (%wait-command ports))
-    (add "signal" nil (%signal-command ports))
-    (add "bg.start" "bg" (%bg-start-command ports))
-    (add "bg.logs" "bg" (%bg-logs-command ports))
-    (add "bg.status" "bg" (%bg-status-command ports))
-    (add "bg.stop" "bg" (%bg-stop-command ports)))
-  registry)
+  (aitools.protocol.application:register-command-declarations
+   registry
+   (list
+    (aitools.protocol.application:define-command
+     "run"
+     (:command-builder #'%run-command
+      :schema (%schema "run")))
+    (aitools.protocol.application:define-command
+     "wait"
+     (:command-builder #'%wait-command
+      :schema (%schema "wait")))
+    (aitools.protocol.application:define-command
+     "signal"
+     (:command-builder #'%signal-command
+      :schema (%schema "signal")))
+    (aitools.protocol.application:define-command
+     "bg.start"
+     (:group "bg"
+      :command-builder #'%bg-start-command
+      :schema (%schema "bg.start")))
+    (aitools.protocol.application:define-command
+     "bg.logs"
+     (:group "bg"
+      :command-builder #'%bg-logs-command
+      :schema (%schema "bg.logs")))
+    (aitools.protocol.application:define-command
+     "bg.status"
+     (:group "bg"
+      :command-builder #'%bg-status-command
+      :schema (%schema "bg.status")))
+    (aitools.protocol.application:define-command
+     "bg.stop"
+     (:group "bg"
+      :command-builder #'%bg-stop-command
+      :schema (%schema "bg.stop"))))
+   ports))

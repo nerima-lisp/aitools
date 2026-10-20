@@ -2,7 +2,8 @@
 
 (defsystem "aitools/feature/process"
   :description "Foreground and background process features."
-  :depends-on ("aitools/core/protocol" "aitools/core/text"
+  :depends-on ("aitools/data"
+               "aitools/core/protocol" "aitools/core/text"
                "cl-json-kit" "cl-host-kit" "cl-process-kit"
                "cl-concurrent-kit")
   :pathname "src/"
@@ -23,6 +24,7 @@
                  (:file "bg-stop-flow")
                  (:file "wait-flow")
                  (:file "signal-flow")))
-   (:module "infrastructure"
-    :components ((:file "package") (:file "host") (:file "signal-host")
+   (:module "infrastructure" :serial t
+    :components ((:file "package") (:file "host")
+                 (:file "signal-host-helpers") (:file "signal-host")
                  (:file "runner") (:file "bg-launcher") (:file "ports")))))

@@ -78,11 +78,12 @@ never name a file outside `bg/`."
 (defun bg-file-id (file-name)
   "The ID any of a bg process's three files belongs to, or NIL. An ID is
 taken once any of them exists, even before its record is written."
-  (some (lambda (suffix) (%id-before-suffix file-name suffix)) '(".json" ".log" ".exit")))
+  (some (lambda (suffix) (%id-before-suffix file-name suffix))
+        aitools.data:*process-bg-file-suffixes*))
 
 ;;; ------------------------------------------------------ serialization
 
-(defparameter +bg-record-keys+ '("id" "name" "argv" "pid" "started" "stop_signal"))
+(defparameter +bg-record-keys+ aitools.data:*process-bg-record-keys*)
 
 (defun serialize-bg-record (record)
   (json-kit:stringify

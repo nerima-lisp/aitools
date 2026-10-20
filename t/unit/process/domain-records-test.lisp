@@ -1,7 +1,6 @@
-;;;; t/unit/process/domain-records-test.lisp
 ;;;;
-;;;; aitools.process.domain bg records, log slices, wait conditions,
-;;;; run-result fields, and shell words.
+;;;; aitools.process.domain background records, log slices, wait conditions,
+;;;; and run-result fields.
 (in-package #:aitools.process.test)
 
 (defun sample-record (&key (id "bg-1") stop-signal)

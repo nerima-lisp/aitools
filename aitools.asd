@@ -18,6 +18,7 @@
    (:file "domain/protocol/redaction-patterns-data")
    (:file "domain/protocol/correspondence-table-data")
    (:file "domain/protocol/selector-options-data")
+   (:file "domain/process/process-tables-data")
    (:file "domain/workspace/builtin-excludes-data")
    (:file "domain/text/cp932-data")
    (:file "domain/text/euc-jp-data")

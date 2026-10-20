@@ -1,11 +1,8 @@
-;;;; t/integration/process-ports-test.lisp
-;;;;
-;;;; The production PROCESS-PORTS adapters exercised one port at a time on the
-;;;; real filesystem, signals, and sockets, including the failure arms the
-;;;; flows only see as PROCESS-PORT-ERROR. The package and the temporary
-;;;; directory helpers are in process-test.lisp; the run-program and
-;;;; launcher ports are in process-ports-launch-test.lisp, which uses the
-;;;; helpers defined here.
+;;;; These tests exercise production PROCESS-PORTS adapters one port at a time
+;;;; on the real filesystem, signals, and sockets. They check failures exposed
+;;;; to flows as PROCESS-PORT-ERROR. Package and directory helpers are in
+;;;; t/support/process-test-support.lisp; run-program and launcher tests are
+;;;; in t/integration/process-ports-launch-test.lisp and use port helpers here.
 (in-package #:aitools.process.integration-test)
 
 (defun production-ports (&optional state-directory)
@@ -13,11 +10,10 @@
    :state-directory-function (and state-directory (lambda () state-directory))))
 
 (defun call-port (ports accessor &rest arguments)
-  "Apply the port ACCESSOR (a PROCESS-PORTS slot reader) reads from PORTS."
   (apply (funcall accessor ports) arguments))
 
 (defun port-error-message (function)
-  "The printed PROCESS-PORT-ERROR FUNCTION signals, or :NO-ERROR."
+  "Run FUNCTION and return a printed PROCESS-PORT-ERROR, or :NO-ERROR."
   (handler-case (progn (funcall function) :no-error)
     (aitools.process.application:process-port-error (condition)
       (princ-to-string condition))))
@@ -49,12 +45,6 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
                    (sb-posix:unsetenv (car pair))))))
       (unwind-protect (progn (apply-bindings bindings) (funcall function))
         (apply-bindings saved)))))
-
-(defmacro with-environment ((&rest bindings) &body body)
-  `(call-with-environment (list ,@(mapcar (lambda (binding) `(cons ,(first binding) ,(second binding))) bindings))
-                          (lambda () ,@body)))
-
-;;; ---------------------------------------------------------------- files
 
 (describe "aitools process production ports: files (integration)"
   (it "creates a private file exclusively and refuses an existing file or a symlink"
@@ -97,33 +87,30 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
         (expect (call-port ports 'aitools.process.application::process-ports-list-directory directory)
                 :to-equal '("bg-1.json")))))
 
-  (it "retries past a planted temporary name, never writing through it, and gives up after its attempts"
+  (it "retries after two temporary-name collisions and errors when every name collides"
     (with-temporary-directory (directory)
       (let* ((ports (production-ports))
              (path (merge-pathnames "bg-1.json" directory))
              (victim (merge-pathnames "victim" directory))
              (planted (merge-pathnames ".bg-1.tmp-PLANTED.json" directory))
-             (original (fdefinition 'aitools.process.infrastructure::%random-temp-suffix))
-             (suffixes '()))
+             (suffixes (list "PLANTED" "PLANTED" "FRESH")))
         (sb-posix:symlink (uiop:native-namestring victim) (uiop:native-namestring planted))
-        (unwind-protect
-             (progn
-               ;; The first two names collide with the planted symlink.
-               (setf suffixes (list "PLANTED" "PLANTED" "FRESH")
-                     (fdefinition 'aitools.process.infrastructure::%random-temp-suffix)
-                     (lambda () (or (pop suffixes) "FRESH")))
-               (call-port ports 'aitools.process.application::process-ports-replace-file path "v1")
-               (expect (uiop:read-file-string path) :to-equal "v1")
-               (expect suffixes :to-equal '())
-               (setf (fdefinition 'aitools.process.infrastructure::%random-temp-suffix)
-                     (lambda () "PLANTED"))
-               (expect (starts-with-p (format nil "writing ~A failed: " path)
-                                      (port-error-message
-                                       (lambda ()
-                                         (call-port ports 'aitools.process.application::process-ports-replace-file
-                                                    path "v2"))))
-                       :to-be t))
-          (setf (fdefinition 'aitools.process.infrastructure::%random-temp-suffix) original))
+        ;; The first two names collide with the planted symlink.
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'aitools.process.infrastructure::%random-temp-suffix)
+              (lambda () (or (pop suffixes) "FRESH"))))
+          (call-port ports 'aitools.process.application::process-ports-replace-file path "v1")
+          (expect (uiop:read-file-string path) :to-equal "v1")
+          (expect suffixes :to-equal '()))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'aitools.process.infrastructure::%random-temp-suffix)
+              (lambda () "PLANTED")))
+          (expect (starts-with-p (format nil "writing ~A failed: " path)
+                                 (port-error-message
+                                  (lambda ()
+                                    (call-port ports 'aitools.process.application::process-ports-replace-file
+                                               path "v2"))))
+                  :to-be t))
         (expect (uiop:read-file-string path) :to-equal "v1")
         (expect (probe-file victim) :to-be nil))))
 
@@ -161,27 +148,27 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
     (with-temporary-directory (directory)
       (dolist (replacement '(nil "different replacement"))
         (let* ((path (write-file (merge-pathnames "bg-1.json" directory) "original"))
-               (original (fdefinition 'aitools.process.infrastructure::%open-input-file))
+               (original (symbol-function 'aitools.process.infrastructure::%open-input-file))
                (opens 0)
                (opened nil))
-          (unwind-protect
-               (progn
-                 (setf (fdefinition 'aitools.process.infrastructure::%open-input-file)
-                       (lambda (input &rest arguments)
-                         (let ((stream (apply original input arguments)))
-                           (incf opens)
-                           (when (= opens 1)
-                             (setf opened stream)
-                             (delete-file path)
-                             (when replacement (write-file path replacement)))
-                           stream)))
-                 (expect (call-port (production-ports)
-                                    'aitools.process.application::process-ports-read-file-text path)
-                         :to-equal "original")
-                 (expect opens :to-be 1)
-                 (expect (open-stream-p opened) :to-be nil))
-            (setf (fdefinition 'aitools.process.infrastructure::%open-input-file) original)
-            (when (and opened (open-stream-p opened)) (close opened)))))))
+          (cl-weave:with-mocked-functions
+              (((symbol-function 'aitools.process.infrastructure::%open-input-file)
+                (lambda (input &rest arguments)
+                  (let ((stream (apply original input arguments)))
+                    (incf opens)
+                    (when (= opens 1)
+                      (setf opened stream)
+                      (delete-file path)
+                      (when replacement (write-file path replacement)))
+                    stream))))
+            (unwind-protect
+                 (progn
+                   (expect (call-port (production-ports)
+                                      'aitools.process.application::process-ports-read-file-text path)
+                           :to-equal "original")
+                   (expect opens :to-be 1)
+                   (expect (open-stream-p opened) :to-be nil))
+              (when (and opened (open-stream-p opened)) (close opened))))))))
 
   (it "reads byte ranges, sizes, and text with replacement, and NIL for a missing file"
     (with-temporary-directory (directory)
@@ -206,107 +193,3 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
                                              missing 0 1))))
                 :to-be t)))))
 
-(defun call-with-mode (path mode function)
-  "Call FUNCTION with PATH's permission bits set to MODE, restoring 0700 (a
-directory) or 0600 after, so the temporary tree can always be deleted."
-  (let ((native (uiop:native-namestring path)))
-    (sb-posix:chmod native mode)
-    (unwind-protect (funcall function)
-      (sb-posix:chmod native (if (uiop:directory-pathname-p path) #o700 #o600)))))
-
-(defmacro with-mode ((path mode) &body body)
-  `(call-with-mode ,path ,mode (lambda () ,@body)))
-
-;; Root bypasses permission bits, so these refusals cannot be produced as root.
-(describe-skip-if (zerop (sb-posix:geteuid))
-    "aitools process production ports: permission failures (integration; skipped as root)"
-  (it "reports an unreadable bg directory as a port error instead of listing nothing"
-    (with-temporary-directory (directory)
-      (let ((bg (merge-pathnames "bg/" directory)))
-        (ensure-directories-exist bg)
-        (write-file (merge-pathnames "bg-1.json" bg) "{}")
-        (with-mode (bg #o300)
-          (expect (starts-with-p (format nil "listing ~A failed: " bg)
-                                 (port-error-message
-                                  (lambda ()
-                                    (call-port (production-ports)
-                                               'aitools.process.application::process-ports-list-directory bg))))
-                  :to-be t)))))
-
-  (it "fails bg status with environment.io when the bg directory cannot be listed"
-    (with-temporary-directory (state)
-      (let ((bg (merge-pathnames "bg/" state)))
-        (ensure-directories-exist bg)
-        (with-mode (bg #o300)
-          (multiple-value-bind (code envelope) (invoke (list "bg" "status") :state-directory state)
-            (expect code :to-be 1)
-            (expect (value envelope "error" "code") :to-equal "environment.io")
-            (expect (starts-with-p "listing " (value envelope "error" "message")) :to-be t))))))
-
-  (it "reports an unreadable log's size and a refused removal as port errors"
-    (with-temporary-directory (directory)
-      (let ((ports (production-ports))
-            (log (write-file (merge-pathnames "bg-1.log" directory) "x"))
-            (locked (merge-pathnames "locked/" directory)))
-        (with-mode (log 0)
-          (expect (starts-with-p (format nil "inspecting ~A failed: " log)
-                                 (port-error-message
-                                  (lambda () (call-port ports 'aitools.process.application::process-ports-file-size log))))
-                  :to-be t))
-        (ensure-directories-exist locked)
-        (let ((inside (write-file (merge-pathnames "bg-1.exit" locked) "0")))
-          (with-mode (locked #o500)
-            (expect (starts-with-p (format nil "removing ~A failed: " inside)
-                                   (port-error-message
-                                    (lambda ()
-                                      (call-port ports 'aitools.process.application::process-ports-remove-file inside))))
-                    :to-be t))
-          (expect (uiop:read-file-string inside) :to-equal "0"))))))
-
-;;; ------------------------------------------------------ state directory
-
-(describe "aitools process production ports: state directory (integration)"
-  (it "has no bg or temporary directory without a state directory"
-    (let ((ports (production-ports)))
-      (expect (call-port ports 'aitools.process.application::process-ports-bg-directory) :to-be nil)
-      (expect (call-port ports 'aitools.process.application::process-ports-temporary-directory) :to-be nil)))
-
-  (it "creates bg/ on first use and names the mktemp area without a trailing slash"
-    (with-temporary-directory (state)
-      (let* ((ports (production-ports state))
-             (bg (call-port ports 'aitools.process.application::process-ports-bg-directory)))
-        (expect (namestring bg) :to-equal (namestring (merge-pathnames "bg/" state)))
-        (expect (uiop:directory-exists-p bg) :not :to-be nil)
-        (expect (call-port ports 'aitools.process.application::process-ports-temporary-directory)
-                :to-equal (concatenate 'string (uiop:native-namestring state) "tmp")))))
-
-  (it "reports a state directory that is a regular file as a port error"
-    (with-temporary-directory (directory)
-      (let ((state (write-file (merge-pathnames "state" directory) "")))
-        (expect (starts-with-p (format nil "creating ~A failed: " (merge-pathnames "state/bg/" directory))
-                               (port-error-message
-                                (lambda ()
-                                  (call-port (production-ports (uiop:ensure-directory-pathname state))
-                                             'aitools.process.application::process-ports-bg-directory))))
-                :to-be t)))))
-
-;;; ------------------------------------------------------ sockets, clock
-
-(describe "aitools process production ports: sockets and clock (integration)"
-  (it "treats a socket that cannot be created as not connectable"
-    (expect (aitools.process.infrastructure::%connectable-p
-             (lambda () (error 'sb-bsd-sockets:socket-error :errno 24 :syscall "socket"))
-             #(127 0 0 1) 9)
-            :to-be nil))
-
-  (it "reports a port nothing listens on as not connectable"
-    (let ((port (call-with-listener #'identity)))
-      (expect (call-port (production-ports) 'aitools.process.application::process-ports-tcp-connectable-p port)
-              :to-be nil)))
-
-  (it "sleeps at least the requested milliseconds on a clock that never runs backwards"
-    (let* ((ports (production-ports))
-           (before (call-port ports 'aitools.process.application::process-ports-monotonic-ms)))
-      (call-port ports 'aitools.process.application::process-ports-sleep-ms 30)
-      (expect (>= (- (call-port ports 'aitools.process.application::process-ports-monotonic-ms) before) 30)
-              :to-be t))))

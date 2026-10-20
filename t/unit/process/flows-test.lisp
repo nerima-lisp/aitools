@@ -1,7 +1,7 @@
-;;;; t/unit/process/flows-test.lisp
 ;;;;
-;;;; The run-command and bg-start flows over the fake world. The bg-logs,
-;;;; bg-status, bg-stop and wait flows are in flows-bg-control-test.lisp.
+;;;; Run-command and bg-start flows use the fake world. Background log, status
+;;;; and stop tests are in t/unit/process/flows-bg-control-test.lisp; wait tests
+;;;; are in t/unit/process/flows-bg-wait-control-test.lisp.
 (in-package #:aitools.process.test)
 
 (defun run-request (&rest arguments &key (argv '("make")) &allow-other-keys)

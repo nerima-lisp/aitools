@@ -6,6 +6,7 @@
   (:export
    #:call-with-workspace
    #:with-workspace
+   #:with-temporary-directory
    #:run-aitools
    #:envelope-value
    #:read-bytes

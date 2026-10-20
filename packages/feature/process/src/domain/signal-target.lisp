@@ -17,8 +17,5 @@
 
 (defun signal-number (name)
   (cdr (assoc (and (stringp name) (string-upcase name))
-              '(("TERM" . 15) ("KILL" . 9) ("HUP" . 1) ("INT" . 2)
-                ("QUIT" . 3)
-                #+darwin ("USR1" . 30) #+darwin ("USR2" . 31)
-                #+linux ("USR1" . 10) #+linux ("USR2" . 12))
+              aitools.data:*process-signal-numbers*
               :test #'string=)))
