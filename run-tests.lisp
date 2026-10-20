@@ -80,7 +80,7 @@
         (setf (cdr group) (nreverse (cdr group))))
       (values groups (nreverse excluded))))
   (defun assert-coverage-baseline (statistics baseline context)
-    (dolist (metric (quote (:expression :branch)))
+    (dolist (metric '(:expression :branch))
       (multiple-value-bind (covered total)
           (require-positive-coverage-counts statistics context metric)
         (multiple-value-bind (base-covered base-total)
@@ -94,16 +94,17 @@
     t)
   (defun coverage-statistics-for (pathnames &optional context baseline)
     (let ((statistics
-            (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                              :include-pathnames pathnames)))
-      (if (eq context :journal)
-          (adjust-journal-expression-total
-           statistics
+           (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                             :include-pathnames pathnames)))
+      (if (nth-value 0
+                     (get-properties baseline (list :uncovered-in-package-expressions)))
+          (adjust-context-expression-total
+           statistics context
            (uncovered-in-package-expression-count
             (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
                               :include-pathnames pathnames))
-           (getf baseline :uncovered-in-package-expressions))
-          statistics)))
+           baseline)
+        statistics)))
   (defun measure-context-coverage (root groups)
     (mapcar (lambda (group)
               (let* ((context (car group))
@@ -122,7 +123,9 @@
            :expression-total (getf statistics :expression-total)
            :branch-covered (getf statistics :branch-covered)
            :branch-total (getf statistics :branch-total))
-     (when (eq context :journal)
+     (when (nth-value 0
+                      (get-properties baseline
+                                      (list :uncovered-in-package-expressions)))
        (list :uncovered-in-package-expressions
              (getf statistics :uncovered-in-package-expressions)
              :baseline-uncovered-in-package-expressions
@@ -166,7 +169,7 @@
                (events (coerce (gethash "events" parsed) 'list)))
           (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
                 (cons :json events))
-          (let* ((statistics (coverage-statistics-for selected))
+          (let* ((statistics (coverage-statistics-for selected :aggregate aggregate-baseline))
                  (measured (measure-context-coverage root groups))
                  (aggregate (coverage-measurement-record
                              :aggregate (length selected) statistics aggregate-baseline))

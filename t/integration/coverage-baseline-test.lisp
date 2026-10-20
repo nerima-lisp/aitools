@@ -2,22 +2,21 @@
 (progn
   (defun %call-with-coverage-baseline-fixture
       (state function &key (context :aggregate)
-                        (uncovered-in-package-expressions :missing))
+             (uncovered-in-package-expressions :missing))
     (aitools.test.support:call-with-workspace
      (lambda (root state-directory)
        (declare (ignore state-directory))
        (let* ((relative-path
-                (if (eq context :aggregate)
-                    "coverage-baseline.lisp"
-                    (format nil "coverage-baselines/~(~A~).lisp" context)))
+               (if (eq context :aggregate)
+                   "coverage-baseline.lisp"
+                 (format nil "coverage-baselines/~(~A~).lisp" context)))
               (path (merge-pathnames relative-path
                                      (uiop:ensure-directory-pathname root)))
               (total (if (eq state :bootstrap) 1000000000 3))
               (metadata
-                (when (and (eq context :journal)
-                           (not (eq uncovered-in-package-expressions :missing)))
-                  (list :uncovered-in-package-expressions
-                        uncovered-in-package-expressions))))
+               (unless (eq uncovered-in-package-expressions :missing)
+                 (list :uncovered-in-package-expressions
+                       uncovered-in-package-expressions))))
          (ensure-directories-exist path)
          (with-open-file (stream path :direction :output :if-exists :supersede)
            (write (append (list :context context :state state :source :linux-ci
@@ -49,8 +48,8 @@
         (expect (search "Invalid coverage baseline" message) :to-be-truthy))))
 )
 
-(describe "Journal coverage normalization"
-  (it "accepts a Journal baseline with a zero uncovered IN-PACKAGE count"
+(describe "Context coverage normalization"
+  (it "accepts a measured Journal baseline with a zero uncovered IN-PACKAGE count"
     (let ((baseline
             (%call-with-coverage-baseline-fixture
              :measured
@@ -60,31 +59,29 @@
              :uncovered-in-package-expressions 0)))
       (expect (getf baseline :uncovered-in-package-expressions) :to-equal 0)))
 
-  (it "rejects missing Journal uncovered IN-PACKAGE metadata"
-    (let ((message
+  (it "accepts a measured context baseline without optional IN-PACKAGE metadata"
+    (let ((baseline
             (%call-with-coverage-baseline-fixture
              :measured
              (lambda (root)
-               (handler-case
-                   (progn (cl-user::read-coverage-baseline root :journal) nil)
-                 (error (condition) (princ-to-string condition))))
-             :context :journal)))
-      (expect (search "Invalid Journal uncovered IN-PACKAGE expression count"
-                      message)
-              :to-be-truthy)))
+               (cl-user::read-coverage-baseline root :process))
+             :context :process)))
+      (expect (getf baseline :context) :to-equal :process)
+      (expect (nth-value 0 (get-properties baseline '(:uncovered-in-package-expressions)))
+              :to-be nil)))
 
-  (it "rejects negative and noninteger Journal uncovered IN-PACKAGE counts"
-    (dolist (count (list -1 14.0 "14"))
+  (it "rejects invalid IN-PACKAGE counts on any context baseline"
+    (dolist (count (list nil -1 14.0 "14"))
       (let ((message
               (%call-with-coverage-baseline-fixture
                :measured
                (lambda (root)
                  (handler-case
-                     (progn (cl-user::read-coverage-baseline root :journal) nil)
+                     (progn (cl-user::read-coverage-baseline root :process) nil)
                    (error (condition) (princ-to-string condition))))
-               :context :journal
+               :context :process
                :uncovered-in-package-expressions count)))
-        (expect (search "Invalid Journal uncovered IN-PACKAGE expression count"
+        (expect (search "Invalid uncovered IN-PACKAGE expression count"
                         message)
                 :to-be-truthy))))
 
@@ -112,15 +109,99 @@
                   (list (list :pathname path :uncovered-forms locations))))))))
       (expect count :to-equal 1)))
 
-  (it "adjusts only the Journal expression denominator by the baseline delta"
+  (it "leaves statistics unchanged without IN-PACKAGE baseline metadata"
     (let* ((statistics (list :expression-covered 1455 :expression-total 1486
                              :branch-covered 60 :branch-total 62))
-           (adjusted (cl-user::adjust-journal-expression-total
-                      statistics 16 14)))
+           (baseline
+             (%call-with-coverage-baseline-fixture
+              :measured
+              (lambda (root)
+                (cl-user::read-coverage-baseline root :process))
+              :context :process))
+           (adjusted
+             (cl-user::adjust-context-expression-total
+              statistics :process 16 baseline)))
+      (expect adjusted :to-equal statistics)))
+
+  (it "adjusts another context's expression denominator by the baseline delta"
+    (let* ((baseline
+             (%call-with-coverage-baseline-fixture
+              :measured
+              (lambda (root)
+                (cl-user::read-coverage-baseline root :process))
+              :context :process
+              :uncovered-in-package-expressions 14))
+           (statistics (list :expression-covered 1455 :expression-total 1486
+                             :branch-covered 60 :branch-total 62))
+           (adjusted
+             (cl-user::adjust-context-expression-total
+              statistics :process 16 baseline)))
       (expect (getf adjusted :expression-covered) :to-equal 1455)
       (expect (getf adjusted :expression-total) :to-equal 1484)
       (expect (getf adjusted :branch-covered) :to-equal 60)
       (expect (getf adjusted :branch-total) :to-equal 62)
       (expect (getf adjusted :uncovered-in-package-expressions) :to-equal 16)
+      (expect (getf adjusted :baseline-uncovered-in-package-expressions) :to-equal 14)
+      (expect (getf statistics :expression-total) :to-equal 1486)))
+
+  (it "adjusts process statistics through coverage-statistics-for"
+    (let* ((baseline
+             (%call-with-coverage-baseline-fixture
+              :measured
+              (lambda (root)
+                (cl-user::read-coverage-baseline root :process))
+              :context :process
+              :uncovered-in-package-expressions 14))
+           (statistics (list :expression-covered 1455 :expression-total 1486
+                             :branch-covered 60 :branch-total 62))
+           (adjusted nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (find-symbol "COVERAGE-STATISTICS" "CL-WEAVE"))
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              statistics))
+           ((symbol-function (find-symbol "COVERAGE-FILE-STATISTICS" "CL-WEAVE"))
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              nil)))
+        (setf adjusted
+              (cl-user::coverage-statistics-for nil :process baseline)))
+      (expect (getf adjusted :expression-covered) :to-equal 1455)
+      (expect (getf adjusted :expression-total) :to-equal 1500)
+      (expect (getf adjusted :branch-covered) :to-equal 60)
+      (expect (getf adjusted :branch-total) :to-equal 62)
+      (expect (getf adjusted :uncovered-in-package-expressions) :to-equal 0)
+      (expect (getf adjusted :baseline-uncovered-in-package-expressions) :to-equal 14)
+      (expect statistics :to-equal
+        (list :expression-covered 1455 :expression-total 1486
+              :branch-covered 60 :branch-total 62))))
+
+  (it "adjusts aggregate statistics using aggregate baseline metadata"
+    (let* ((baseline
+             (%call-with-coverage-baseline-fixture
+              :measured
+              (lambda (root)
+                (cl-user::read-coverage-baseline root :aggregate))
+              :context :aggregate
+              :uncovered-in-package-expressions 14))
+           (statistics (list :expression-covered 1455 :expression-total 1486
+                             :branch-covered 60 :branch-total 62))
+           (adjusted nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (find-symbol "COVERAGE-STATISTICS" "CL-WEAVE"))
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              statistics))
+           ((symbol-function (find-symbol "COVERAGE-FILE-STATISTICS" "CL-WEAVE"))
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              nil)))
+        (setf adjusted
+              (cl-user::coverage-statistics-for nil :aggregate baseline)))
+      (expect (getf adjusted :expression-covered) :to-equal 1455)
+      (expect (getf adjusted :expression-total) :to-equal 1500)
+      (expect (getf adjusted :branch-covered) :to-equal 60)
+      (expect (getf adjusted :branch-total) :to-equal 62)
+      (expect (getf adjusted :uncovered-in-package-expressions) :to-equal 0)
       (expect (getf adjusted :baseline-uncovered-in-package-expressions) :to-equal 14)
       (expect (getf statistics :expression-total) :to-equal 1486))))
