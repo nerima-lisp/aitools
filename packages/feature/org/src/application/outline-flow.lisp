@@ -4,7 +4,7 @@
   (json-object "kind" (string-downcase
                        (symbol-name (aitools.org.domain:org-outline-entry-kind entry)))
                "name" (aitools.org.domain:org-outline-entry-name entry)
-               "level" (or (aitools.org.domain:org-outline-entry-level entry) json-null)
+               "level" (or (aitools.org.domain:org-outline-entry-level entry) (json-null))
                "line" (aitools.org.domain:org-outline-entry-line entry)))
 
 (aitools.kernel.domain:define-flow

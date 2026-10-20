@@ -10,7 +10,7 @@
   (json-object "line" (aitools.org.domain:org-query-match-line match)
                "level" (aitools.org.domain:org-query-match-level match)
                "title" (aitools.org.domain:org-query-match-title match)
-               "todo" (or (aitools.org.domain:org-query-match-todo match) json-null)
+               "todo" (or (aitools.org.domain:org-query-match-todo match) (json-null))
                "tags" (aitools.org.domain:org-query-match-tags match)
                "heading_path"
                (%heading-path-json (aitools.org.domain:org-query-match-heading-path match))))

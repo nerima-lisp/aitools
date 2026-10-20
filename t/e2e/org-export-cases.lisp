@@ -34,7 +34,7 @@
       (dolist (backend (list "html" "gfm" "ascii"))
         (let* ((envelope (org-ok ws
                                  (list "org" "export" "source-modes.org" "--backend" backend)
-                                 "org.export"))
+                                 "org export"))
                (content (jget envelope "content")))
           (expect (jget envelope "backend") :to-equal backend)
           (expect (stringp content) :to-be t)
@@ -51,7 +51,7 @@
           (let* ((envelope (org-error ws
                                       (list "org" "export" "invalid-exports.org"
                                             "--backend" backend)
-                                      "org.export" "input.unsupported-format"))
+                                      "org export" "input.unsupported-format"))
                  (present (nth-value 1 (gethash "content" envelope))))
             (expect present :to-be nil))
           (expect (file-octets ws "invalid-exports.org") :to-equalp before)))))

@@ -88,7 +88,7 @@
            (let ((kind (%link-type-name (org-kit:node-property node :type))))
              (unless (member kind '("http" "https" "mailto")
                              :test #'string=)
-               (setf found (list node kind)))))
+               (setf found (list node kind))))))
        root))
     (when found
       (let* ((node (first found))
@@ -96,7 +96,7 @@
         (multiple-value-bind (line column) (org-kit:node-start-position node)
           (%failure :internal-link
                     (format nil "export does not support Org link type ~A" kind)
-                    :line line :column column)))))))
+                    :line line :column column))))))
 
 (defun export-org-document (document backend)
   (let ((link-failure (%export-link-failure document)))
