@@ -1,6 +1,3 @@
-;;;; t/unit/search/code-flow-test.lisp
-;;;;
-;;;; The `code` group: per-language outline and defs fixtures and word-bounded refs.
 (in-package #:aitools.search.test)
 
 (defun lines (&rest lines)
@@ -61,9 +58,6 @@
     (destructuring-bind (path content expected) (rest (assoc language *language-fixtures* :test #'string=))
       (expect (outline-of path content) :to-equal expected)))
 
-  ;; The table's Rust `impl` pattern needs `(?:[^{]*\s+for\s+)?` to match
-  ;; nothing for an inherent impl; cl-regex-kit v2.1.1 fixed the optional-group
-  ;; bug that made it return no match, so `impl Point {` is now found.
   (it "outlines a Rust impl block, with and without a trait"
     (expect (outline-of "/w/a.rs" (lines "impl Point {" "}"))
             :to-equal '((1 2 "impl" "Point")))

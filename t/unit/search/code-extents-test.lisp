@@ -29,4 +29,22 @@
             :to-equal '((1 1 "function" "f"))))
 
   (it "ends a brace definition followed only by blank lines at its own line"
-    (expect (outline-of "/w/a.rs" (format nil "fn g()~%~%")) :to-equal '((1 1 "function" "g")))))
+    (expect (outline-of "/w/a.rs" (format nil "fn g()~%~%")) :to-equal '((1 1 "function" "g"))))
+
+  (it-property "finds the matching close of generated nested Lisp forms"
+      ((depth (gen-integer :min 1 :max 20)))
+    (let ((content (apply #'lines
+                          (append (list "(defun probe ()")
+                                  (loop repeat depth collect "  (list")
+                                  (loop repeat depth collect "  )")
+                                  (list "  )")))))
+      (expect (outline-of "/w/probe.lisp" content)
+              :to-equal (list (list 1 (+ 2 (* 2 depth)) "function" "probe")))))
+
+  (it-property "hides headings between generated matching Markdown fences"
+      ((opening-length (gen-integer :min 3 :max 12))
+       (closing-extra (gen-integer :min 0 :max 12)))
+    (let ((opening (make-string opening-length :initial-element #\`))
+          (closing (make-string (+ opening-length closing-extra) :initial-element #\`)))
+      (expect (outline-of "/w/a.md" (lines "# before" opening "# hidden" closing "# after"))
+              :to-equal '((1 4 "heading" "before") (5 5 "heading" "after"))))))
