@@ -33,6 +33,92 @@ when NAME is not a Lisp family language."
         (or (member previous '(#\Space #\Tab #\( #\[ #\{ #\' #\` #\,))
             (char= previous #\Return)))))
 
+(defstruct (%lisp-scan-state
+            (:constructor %make-lisp-scan-state ()))
+  (mode :code)
+  (line 0)
+  (col 0)
+  (comment-depth 0))
+
+(defun %begin-lisp-scan (scanner mode line col)
+  (setf (%lisp-scan-state-mode scanner) mode
+        (%lisp-scan-state-line scanner) line
+        (%lisp-scan-state-col scanner) col))
+
+(defun %scan-code-character
+    (scanner char line line-index col dialect openers closers emit
+             block-comments bar-symbols)
+  (let ((length (length line)))
+    (cond
+      ((char= char #\;) length)
+      ((char= char #\")
+       (%begin-lisp-scan scanner :string line-index col)
+       (1+ col))
+      ((and bar-symbols (char= char #\|))
+       (%begin-lisp-scan scanner :bar line-index col)
+       (1+ col))
+      ((and block-comments (char= char #\#) (< (1+ col) length)
+            (char= (char line (1+ col)) #\|))
+       (%begin-lisp-scan scanner :block line-index col)
+       (setf (%lisp-scan-state-comment-depth scanner) 1)
+       (+ col 2))
+      ((and (member dialect '(:common-lisp :scheme))
+            (char= char #\#) (< (1+ col) length)
+            (char= (char line (1+ col)) #\\))
+       (+ col 3))
+      ((and (eq dialect :clojure) (char= char #\\))
+       (+ col 2))
+      ((and (eq dialect :emacs-lisp) (char= char #\?)
+            (%token-start-p line col))
+       (+ col
+          (if (and (< (1+ col) length)
+                   (char= (char line (1+ col)) #\\))
+              3
+              2)))
+      ((find char openers)
+       (if (eq (funcall emit :open char line-index col) :stop)
+           :stop
+           (1+ col)))
+      ((find char closers)
+       (if (eq (funcall emit :close char line-index col) :stop)
+           :stop
+           (1+ col)))
+      (t (1+ col)))))
+
+(defun %scan-quoted-character (scanner char col closing)
+  (cond
+    ((char= char #\\) (+ col 2))
+    ((char= char closing)
+     (setf (%lisp-scan-state-mode scanner) :code)
+     (1+ col))
+    (t (1+ col))))
+
+(defun %scan-block-comment-character (scanner char line col)
+  (let ((length (length line)))
+    (cond
+      ((and (char= char #\|) (< (1+ col) length)
+            (char= (char line (1+ col)) #\#))
+       (decf (%lisp-scan-state-comment-depth scanner))
+       (when (zerop (%lisp-scan-state-comment-depth scanner))
+         (setf (%lisp-scan-state-mode scanner) :code))
+       (+ col 2))
+      ((and (char= char #\#) (< (1+ col) length)
+            (char= (char line (1+ col)) #\|))
+       (incf (%lisp-scan-state-comment-depth scanner))
+       (+ col 2))
+      (t (1+ col)))))
+
+(defun %scan-lisp-state-character
+     (scanner char line line-index col dialect openers closers emit
+      block-comments bar-symbols)
+  (ecase (%lisp-scan-state-mode scanner)
+    (:code
+     (%scan-code-character scanner char line line-index col dialect
+                           openers closers emit block-comments bar-symbols))
+    (:string (%scan-quoted-character scanner char col #\"))
+    (:bar (%scan-quoted-character scanner char col #\|))
+    (:block (%scan-block-comment-character scanner char line col))))
+
 (defun scan-lisp-delimiters (lines dialect emit &key (start-line 0))
   "Walk LINES (a vector of strings) from index START-LINE, calling EMIT with
 (:OPEN char line col) or (:CLOSE char line col) for each delimiter outside
@@ -42,61 +128,32 @@ NIL, or (:STRING line col) / (:BLOCK-COMMENT line col) / (:ESCAPED-SYMBOL
 line col) naming where an unterminated construct began."
   (declare (type function emit))
   (multiple-value-bind (openers closers) (%dialect-delimiters dialect)
-    (let ((state :code) (state-line 0) (state-col 0) (comment-depth 0)
+    (let ((scanner (%make-lisp-scan-state))
           (block-comments (member dialect '(:common-lisp :scheme)))
           (bar-symbols (member dialect '(:common-lisp :scheme))))
       (loop for line-index from start-line below (length lines)
             for line = (svref lines line-index)
-            for length = (length line)
-            do (let ((col 0))
-                 (flet ((begin (new-state)
-                          (setf state new-state state-line line-index state-col col)))
-                   (loop while (< col length)
-                         do (let ((char (char line col)))
-                              (ecase state
-                                (:code
-                                 (cond
-                                   ((char= char #\;) (setf col length))
-                                   ((char= char #\") (begin :string) (incf col))
-                                   ((and bar-symbols (char= char #\|)) (begin :bar) (incf col))
-                                   ((and block-comments (char= char #\#) (< (1+ col) length)
-                                         (char= (char line (1+ col)) #\|))
-                                    (begin :block) (setf comment-depth 1) (incf col 2))
-                                   ((and (member dialect '(:common-lisp :scheme)) (char= char #\#)
-                                         (< (1+ col) length) (char= (char line (1+ col)) #\\))
-                                    (incf col 3))
-                                   ((and (eq dialect :clojure) (char= char #\\)) (incf col 2))
-                                   ((and (eq dialect :emacs-lisp) (char= char #\?) (%token-start-p line col))
-                                    (incf col (if (and (< (1+ col) length) (char= (char line (1+ col)) #\\)) 3 2)))
-                                   ((find char openers)
-                                    (when (eq (funcall emit :open char line-index col) :stop)
-                                      (return-from scan-lisp-delimiters :stopped))
-                                    (incf col))
-                                   ((find char closers)
-                                    (when (eq (funcall emit :close char line-index col) :stop)
-                                      (return-from scan-lisp-delimiters :stopped))
-                                    (incf col))
-                                   (t (incf col))))
-                                (:string
-                                 (cond ((char= char #\\) (incf col 2))
-                                       ((char= char #\") (setf state :code) (incf col))
-                                       (t (incf col))))
-                                (:bar
-                                 (cond ((char= char #\\) (incf col 2))
-                                       ((char= char #\|) (setf state :code) (incf col))
-                                       (t (incf col))))
-                                (:block
-                                 (cond ((and (char= char #\|) (< (1+ col) length) (char= (char line (1+ col)) #\#))
-                                        (decf comment-depth) (incf col 2)
-                                        (when (zerop comment-depth) (setf state :code)))
-                                       ((and (char= char #\#) (< (1+ col) length) (char= (char line (1+ col)) #\|))
-                                        (incf comment-depth) (incf col 2))
-                                       (t (incf col))))))))))
-      (ecase state
+            do (loop with col = 0
+                     while (< col (length line))
+                     do (let ((next-col
+                                (%scan-lisp-state-character
+                                 scanner (char line col) line line-index col
+                                 dialect openers closers emit
+                                 block-comments bar-symbols)))
+                          (when (eq next-col :stop)
+                            (return-from scan-lisp-delimiters :stopped))
+                          (setf col next-col))))
+      (ecase (%lisp-scan-state-mode scanner)
         (:code nil)
-        (:string (list :string state-line state-col))
-        (:bar (list :escaped-symbol state-line state-col))
-        (:block (list :block-comment state-line state-col))))))
+        (:string
+         (list :string (%lisp-scan-state-line scanner)
+               (%lisp-scan-state-col scanner)))
+        (:bar
+         (list :escaped-symbol (%lisp-scan-state-line scanner)
+               (%lisp-scan-state-col scanner)))
+        (:block
+         (list :block-comment (%lisp-scan-state-line scanner)
+               (%lisp-scan-state-col scanner)))))))
 
 (defun lisp-balance-diagnostics (lines dialect &key (limit 20))
   "Delimiter problems in LINES as a list of (line col message), 1-based
