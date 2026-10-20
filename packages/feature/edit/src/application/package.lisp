@@ -22,7 +22,7 @@
    #:command-display-name
    #:options-argv
    #:parse-recorded-argv
-   ;; write-plan.lisp, write-guards.lisp, pipeline.lisp
+   ;; write-plan.lisp, write-guards.lisp, write-runtime.lisp
    #:write-target
    #:make-write-target
    #:write-plan

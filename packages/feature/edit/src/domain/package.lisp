@@ -11,6 +11,10 @@
 
 (defpackage #:aitools.edit.domain
   (:use #:cl)
+  (:import-from #:aitools.data
+                #:+template-filters+
+                #:+line-transform-ops+
+                #:+whole-file-transform-ops+)
   (:export
    ;; refusal.lisp
    #:edit-refusal

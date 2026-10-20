@@ -21,10 +21,6 @@
 (defun %designator (token)
   (if (every #'%ascii-digit-p token) (parse-integer token) token))
 
-(defparameter +template-filters+
-  '("upper" "lower" "capitalize" "snake" "camel" "kebab" "trim" "inc" "dec" "pad<N>")
-  "The template filter names, as `schema` lists them.")
-
 (defun %pad-width (name)
   (and (> (length name) 3) (string= name "pad" :end1 3)
        (every #'%ascii-digit-p (subseq name 3))

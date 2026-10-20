@@ -15,6 +15,7 @@
   :components
   ((:file "package")
    (:file "table-macros" :depends-on ("package"))
+   (:file "domain/edit/transform-tables-data" :depends-on ("table-macros"))
    (:file "domain/protocol/error-catalog-data")
    (:file "domain/protocol/redaction-patterns-data")
    (:file "domain/protocol/correspondence-table-data")
@@ -34,6 +35,7 @@
    (:file "presentation/inspect/archive-command-schema-data")
    (:file "presentation/journal/command-schema-data")
    (:file "application/edit/command-spec-data")
+   (:file "application/edit/command-option-groups-data" :depends-on ("domain/protocol/selector-options-data"))
    (:file "presentation/process/command-schema-data")
    (:file "presentation/vcs/command-schema-data")
    (:file "domain/env/tools-data")

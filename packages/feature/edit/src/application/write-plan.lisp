@@ -1,6 +1,6 @@
 ;;;; packages/feature/edit/src/application/write-plan.lisp
 ;;;;
-;;;; The write-command model RUN-WRITE-COMMAND/K (pipeline.lisp) consumes:
+;;;; The write-command model RUN-WRITE-COMMAND/K (write-command.lisp) consumes:
 ;;;; WRITE-TARGET, WRITE-PLAN, the WRITE-CONTEXT a PLAN function sees, the
 ;;;; plan-side guard helpers (--expect-count, the state-dependent
 ;;;; --expect-hash), and the repairs every write error carries.

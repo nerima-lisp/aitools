@@ -1,10 +1,6 @@
 ;;;; t/integration/edit-text-commands-test.lisp
 ;;;;
-;;;; The text-editing commands after `edit` against a real temporary workspace: insert, replace, apply,
-;;;; transform, move-lines, write, split and transcode, and their undo. The
-;;;; shared helpers and the pipeline-level cases are in edit-text-test.lisp;
-;;;; argument refusals and inputs are in edit-text-commands-inputs-test.lisp,
-;;;; and the remaining paths in edit-text-commands-paths-test.lisp.
+;;;; Insert, replace, apply, transform, and move-lines integration cases.
 (in-package #:aitools.edit.test)
 
 (describe "aitools insert"
@@ -184,74 +180,3 @@
               :to-be :ok)
       (expect (text "b.txt") :to-equal (format nil "x~%1~%y~%")))))
 
-(describe "aitools write, split and transcode"
-  (it "refuses to replace a file without --overwrite and concatenates with --separator"
-    (with-workspace ()
-      (put "a.txt" "old")
-      (with-error (code) (run "write" '("a.txt") :content '("new")) (expect code :to-equal "refusal.exists"))
-      (put "p1" "one")
-      (put "p2" "two")
-      (expect (run "write" '("joined.txt") :content-file (list (disk "p1") (disk "p2")) :separator "--") :to-be :ok)
-      (expect (text "joined.txt") :to-equal "one--two")
-      (expect (run "write" '("a.txt") :content '("new") :overwrite t :expect-hash (list (hash "a.txt"))) :to-be :ok)
-      (expect (text "a.txt") :to-equal "new")))
-
-  (it "splits by lines and refuses when a piece exists"
-    (with-workspace ()
-      (put "a.txt" (format nil "1~%2~%3~%"))
-      (multiple-value-bind (kind fields) (run "split" '("a.txt") :lines "2")
-        (expect kind :to-be :ok)
-        (expect (mapcar (lambda (change) (list (json-field change "path") (json-field change "start_line")
-                                               (json-field change "lines")))
-                        (field fields "changes"))
-                :to-equal '(("a.txt.001" 1 2) ("a.txt.002" 3 1))))
-      (expect (text "a.txt.002") :to-equal (format nil "3~%"))
-      (let ((before (snapshot)))
-        (with-error (code) (run "split" '("a.txt") :lines "1") (expect code :to-equal "refusal.exists"))
-        (expect-unchanged before))))
-
-  (it-each (("shift_jis") ("euc-jp") ("utf-16le") ("utf-16be"))
-      "round-trips ~A through UTF-8 byte for byte"
-      (encoding)
-    (with-workspace ()
-      (let ((original (aitools.text.domain:encode-string/k (format nil "日本語テキスト~%abc~%")
-                                                            (aitools.text.domain:find-encoding encoding)
-                                                            :on-encoded (lambda (octets replaced) (declare (ignore replaced)) octets))))
-        (put "j.txt" original)
-        (multiple-value-bind (kind fields) (run "transcode" '("j.txt") :from encoding)
-          (expect kind :to-be :ok)
-          (expect (field fields "to") :to-equal "utf-8"))
-        (expect (text "j.txt") :to-equal (format nil "日本語テキスト~%abc~%"))
-        (expect (run "transcode" '("j.txt") :from "utf-8" :to encoding) :to-be :ok)
-        (expect (octets-of "j.txt") :to-equalp original))))
-
-  (it "refuses unrepresentable characters unless --replace-unmappable"
-    (with-workspace ()
-      (put "e.txt" (format nil "caf~C 😀~%" (code-char #xE9)))
-      (let ((before (snapshot)))
-        (with-error (code) (run "transcode" '("e.txt") :to "iso-8859-1") (expect code :to-equal "argument.invalid"))
-        (expect-unchanged before))
-      (multiple-value-bind (kind fields) (run "transcode" '("e.txt") :to "iso-8859-1" :replace-unmappable t)
-        (expect kind :to-be :ok)
-        (expect (field fields "replaced") :to-be 1))
-      (expect (octets-of "e.txt") :to-equalp (octet-vector 99 97 102 #xE9 32 63 10)))))
-
-(describe "aitools text writes and undo"
-  (it "restores the original bytes for each text command's op"
-    (with-workspace ()
-      (put "a.txt" (format nil "b~%a~%b~%"))
-      (put "c.json" (format nil "{~%  \"k\": 1~%}~%"))
-      (let ((before (snapshot)))
-        (dolist (call (list (list "edit" '("a.txt") :old "a" :new "z")
-                            (list "insert" '("a.txt") :at "start" :content "top")
-                            (list "replace" '("b" "B" "a.txt") :expect-count "2")
-                            (list "transform" '("a.txt") :op '("sort"))
-                            (list "move-lines" '("a.txt") :match "^a$" :expect-count "1" :to-position "start")
-                            (list "transcode" '("a.txt") :to "utf-16le")
-                            (list "json.set" '("c.json" "/k" "2"))
-                            (list "split" '("a.txt") :lines "1")
-                            (list "write" '("new.txt") :content '("n"))))
-          (multiple-value-bind (kind fields) (apply #'run call)
-            (expect kind :to-be :ok)
-            (expect (undo (field fields "op_id")) :to-be :committed)
-            (expect (snapshot) :to-equal before)))))))

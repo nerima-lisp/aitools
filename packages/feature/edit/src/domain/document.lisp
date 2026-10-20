@@ -60,20 +60,6 @@ terminator TEXT uses most."
   (multiple-value-bind (lines terminators) (%split-text text)
     (%make-text-document lines terminators (and bom-p t) (or eol (%dominant-eol terminators)))))
 
-(defun decode-text-document/k (octets &key on-decoded on-binary on-invalid)
-  "Decode a file's OCTETS for a text edit and call exactly one of
-ON-DECODED (document), ON-BINARY () when the first 8 KiB hold a NUL, or
-ON-INVALID (offset) at the first byte that is not valid UTF-8."
-  (declare (type function on-decoded on-binary on-invalid))
-  (let ((octets (coerce octets 'octets)))
-    (if (aitools.text.domain:binary-octets-p octets)
-        (funcall on-binary)
-        (let ((start (aitools.text.domain:utf8-bom-length octets)))
-          (aitools.text.domain:decode-utf8-strict/k
-           octets :start start
-           :on-decoded (lambda (text) (funcall on-decoded (make-text-document text :bom-p (plusp start))))
-           :on-invalid on-invalid)))))
-
 (defun document-text (document)
   "The document's text without BOM, terminators as stored."
   (with-output-to-string (out)
@@ -181,27 +167,3 @@ follows TEXT."
                            (if (plusp (length old)) old eol)))
                         (t eol))))))
       (%rebuild document lines terminators))))
-
-(defun document-with-eol (document eol)
-  "Every terminator rewritten as EOL (`transform --op eol-lf|eol-crlf`)."
-  (%make-text-document (text-document-lines document)
-                       (map 'simple-vector (lambda (terminator) (if (plusp (length terminator)) eol ""))
-                            (text-document-terminators document))
-                       (text-document-bom-p document)
-                       eol))
-
-(defun document-with-final-newline (document final-newline)
-  (let ((count (document-line-count document)))
-    (if (zerop count)
-        document
-        (let ((terminators (copy-seq (text-document-terminators document))))
-          (setf (svref terminators (1- count)) (if final-newline (text-document-eol document) ""))
-          (%rebuild document (text-document-lines document) terminators)))))
-
-(defun document-without-bom (document)
-  (%rebuild document (text-document-lines document) (text-document-terminators document) :bom-p nil))
-
-(defun document-with-lines (document lines)
-  "DOCUMENT with its lines replaced one for one by LINES (same count), every
-terminator kept."
-  (%rebuild document lines (text-document-terminators document)))

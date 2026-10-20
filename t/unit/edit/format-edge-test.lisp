@@ -26,7 +26,6 @@
       (dolist (pointer '("/a/2" "/a/x" "/a/-" "/s/0" "/missing"))
         (expect (refusal-code (lambda () (json-pointer-get value (parse-json-pointer pointer))))
                 :to-equal "input.not-found"))))
-
   (it "sets, inserts and removes below an array element without touching the original"
     (let* ((text "{\"a\": [{\"b\": 1}, [5, 6]]}")
            (value (j text)))

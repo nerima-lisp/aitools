@@ -1,6 +1,6 @@
 ;;;; packages/feature/edit/src/application/write-guards.lisp
 ;;;;
-;;;; The checks the write pipeline (pipeline.lisp) runs around a plan: the
+;;;; The checks write-runtime.lisp runs around a plan: the
 ;;;; redaction-marker refusal for inputs and for the bytes about to be
 ;;;; written, parsing of --expect-count, --expect-hash and --lock-timeout,
 ;;;; the workspace boundary for targets and for paths a plan discovers itself,
