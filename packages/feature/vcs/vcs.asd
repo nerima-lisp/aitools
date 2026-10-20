@@ -11,7 +11,7 @@
                  (:file "diff") (:file "blob")))
    (:module "application"
     :components ((:file "package") (:file "port") (:file "flows")
-                 (:file "diff-flow") (:file "blame-show-flows")
+                 (:file "diff-flow") (:file "blame-flows")
                  (:file "show-flow")))
    (:module "infrastructure"
     :components ((:file "package") (:file "git-port")))))

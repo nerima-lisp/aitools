@@ -113,4 +113,16 @@
     (expect (%fixture-violations
              "(define-flow (bad-positional &key on-ok) (helper on-ok)) (define-flow (bad-apply &key on-error) (apply on-error nil))")
             :to-equal '(("fixture.lisp" "BAD-POSITIONAL" :positional-continuation)
-                        ("fixture.lisp" "BAD-APPLY" :apply-continuation)))))
+                        ("fixture.lisp" "BAD-APPLY" :apply-continuation))))
+
+  (it "rejects continuation references in proper and dotted list tails"
+    (expect (%fixture-violations
+             "(define-flow (bad-quote-tail &key on-ok)
+  (apply (foo quote on-ok) nil))
+(define-flow (bad-function-tail &key on-error)
+  (apply (foo function on-error) nil))
+(define-flow (bad-dotted-tail &key on-later)
+  (apply (foo quote . on-later) nil))")
+            :to-equal '(("fixture.lisp" "BAD-QUOTE-TAIL" :apply-continuation)
+                        ("fixture.lisp" "BAD-FUNCTION-TAIL" :apply-continuation)
+                        ("fixture.lisp" "BAD-DOTTED-TAIL" :apply-continuation)))))

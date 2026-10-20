@@ -19,7 +19,7 @@ ON-FAILURE receives KIND and MESSAGE for other Git errors; and
 ON-NO-DIRECTORY receives the directory that does not exist.
 
 RUN: (funcall run subcommand arguments &key octets on-success on-failure) --
-run git SUBCOMMAND ARGUMENTS...; ON-SUCCESS receives stdout (a string, or
+run `git SUBCOMMAND ARGUMENTS...`; ON-SUCCESS receives stdout (a string, or
 an octet vector when OCTETS); ON-FAILURE receives (KIND MESSAGE), KIND being
 :EXIT (git ran and failed; MESSAGE is its stderr), :MISSING (git could not
 be started), or :FAILED (timeout or I/O failure).
@@ -29,7 +29,7 @@ the plist AITOOLS.VCS.DOMAIN:STATUS-FIELDS takes.
 
 NUMSTAT: (funcall numstat arguments &key on-success on-failure) -- ON-SUCCESS
 receives one plist (:PATH :ORIGINAL-PATH :ADDED :DELETED :BINARY) per file
-of the git diff --numstat invocation.
+of `git diff --numstat ARGUMENTS...`.
 
 AT: (funcall at directory) -- the same port running git in DIRECTORY
 (absolute, or relative to the working directory)."

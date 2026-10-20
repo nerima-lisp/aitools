@@ -22,21 +22,26 @@ default of 1 MiB would cut an ordinary large diff short.")
                    (sb-ext:octets-to-string output :external-format '(:utf-8 :replacement #\?)))))
 
 (defun %failure (condition)
-  "(VALUES KIND MESSAGE) for a cl-vcs-kit condition; see
+  "(VALUES KIND MESSAGE EXIT-CODE) for a cl-vcs-kit condition; see
 AITOOLS.VCS.APPLICATION:GIT-PORT for the kinds."
   (typecase condition
     (vcs-kit:git-exit-error
      (let* ((result (vcs-kit:git-error-result condition))
-            (stderr (and result (%text (vcs-kit:process-result-stderr result)))))
-       (values :exit (if (plusp (length stderr)) stderr (princ-to-string condition)))))
-    (vcs-kit:git-launch-error (values :missing (princ-to-string condition)))
-    (t (values :failed (princ-to-string condition)))))
+            (stderr (and result (%text (vcs-kit:process-result-stderr result))))
+            (exit-code (and result (vcs-kit:process-result-exit-code result))))
+       (values :exit
+               (if (and stderr (plusp (length stderr)))
+                   stderr
+                   (princ-to-string condition))
+               exit-code)))
+    (vcs-kit:git-launch-error (values :missing (princ-to-string condition) nil))
+    (t (values :failed (princ-to-string condition) nil))))
 
 (defun %run-vcs-operation (operation)
   (handler-case (values :ok (funcall operation))
     (vcs-kit:vcs-error (condition)
-      (multiple-value-bind (kind payload) (%failure condition)
-        (values :on-failure (list kind payload))))))
+      (multiple-value-bind (kind payload exit-code) (%failure condition)
+        (values :on-failure (list kind payload) exit-code)))))
 
 (defun %run (directory subcommand arguments &key octets)
   (multiple-value-bind (callback-key result)
@@ -57,7 +62,7 @@ AITOOLS.VCS.APPLICATION:GIT-PORT for the kinds."
         (values callback-key result))))
 
 (defun %probe-git (directory)
-  (multiple-value-bind (callback-key payload)
+  (multiple-value-bind (callback-key payload exit-code)
       (%run-vcs-operation
        (lambda ()
          (vcs-kit:run-git/checked
@@ -74,7 +79,8 @@ AITOOLS.VCS.APPLICATION:GIT-PORT for the kinds."
           ((eq (first payload) :missing)
            (values :on-missing nil))
           ((and (eq (first payload) :exit)
-                (search "not a git repository" (second payload)))
+                (eql exit-code 128)
+                (eq (%git-marker-state directory) :absent))
            (values :on-outside nil))
           (t (values :on-failure payload))))))
 
@@ -83,6 +89,17 @@ AITOOLS.VCS.APPLICATION:GIT-PORT for the kinds."
   (if (and directory (not (uiop:directory-exists-p directory)))
       (values :on-no-directory (list (uiop:native-namestring directory)))
       (%probe-git directory)))
+
+(defun %git-marker-state (directory)
+  (handler-case
+      (labels ((marker-p (current)
+                 (or (probe-file (merge-pathnames #p".git" current))
+                     (let ((parent (uiop:pathname-parent-directory-pathname current)))
+                       (and parent (not (equal parent current)) (marker-p parent))))))
+        (if (marker-p (truename (uiop:ensure-directory-pathname (or directory (uiop:getcwd)))))
+            :present
+            :absent))
+    (file-error () :unknown)))
 
 (defun %working-directory ()
   "The process's working directory with symlinks resolved, as git resolves

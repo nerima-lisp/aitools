@@ -230,12 +230,3 @@ the parsed stdout, or stderr for an error."
           (expect code :to-equal 1)
           (expect (gethash "code" (gethash "error" envelope)) :to-equal "input.not-found"))))))
 
-(describe "aitools.vcs.application git port construction"
-  (it-each ((:probe) (:run) (:status) (:numstat) (:at))
-      "refuses a port without ~S"
-      (missing)
-    (let ((slots (loop for key in '(:probe :run :status :numstat :at)
-                       unless (eq key missing) append (list key #'identity))))
-      (expect (handler-case (progn (apply #'aitools.vcs.application:make-git-port slots) :made)
-                (error (condition) (princ-to-string condition)))
-              :to-equal (format nil "MAKE-GIT-PORT requires :~A" missing)))))

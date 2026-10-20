@@ -148,5 +148,4 @@
      ("packages/feature/util/src/application/input.lisp" "RESOLVE-INPUT/K")
      ("packages/feature/util/src/domain/calc.lisp" "EVALUATE-EXPRESSION/K")
      ("packages/feature/util/src/domain/codec.lisp" "DECODE-TEXT/K")
-     ("packages/feature/util/src/domain/codec.lisp" "OCTETS->UTF-8/K")
-))
+     ("packages/feature/util/src/domain/codec.lisp" "OCTETS->UTF-8/K")))

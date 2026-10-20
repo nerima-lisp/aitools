@@ -38,13 +38,13 @@
         (expect (getf fields :message) :to-equal "git could not be started")))))
 
 (describe "aitools git production port failure kinds"
-  (it-each ((vcs-kit:git-exit-error (:command "git" :arguments ("log")) :exit "Git command failed: git log")
-            (vcs-kit:git-launch-error (:command "git" :arguments ("log")) :missing "Git could not be launched: git log")
-            (vcs-kit:vcs-error () :failed "VCS operation failed"))
+  (it-each ((vcs-kit:git-exit-error (:command "git" :arguments ("log")) :exit "Git command failed: git log" nil)
+            (vcs-kit:git-launch-error (:command "git" :arguments ("log")) :missing "Git could not be launched: git log" nil)
+            (vcs-kit:vcs-error () :failed "VCS operation failed" nil))
       "maps ~S to ~*~S"
-      (type initargs kind message)
+      (type initargs kind message exit-code)
     (expect (multiple-value-list (aitools.vcs.infrastructure::%failure (apply #'make-condition type initargs)))
-            :to-equal (list kind message)))
+            :to-equal (list kind message exit-code)))
 
   (it "treats a git that exits 0 without `true` from rev-parse as outside a work tree"
     ;; git before 2.25 printed `false` and exited 0 for --show-toplevel

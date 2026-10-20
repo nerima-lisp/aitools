@@ -125,5 +125,4 @@
      ("packages/feature/util/src/domain/codec.lisp" "DECODE-TEXT/K")
      ("packages/feature/util/src/domain/codec.lisp" "OCTETS->UTF-8/K")
      ("packages/feature/util/src/infrastructure/ports.lisp" "READ-FILE-OCTETS")
-     ("packages/feature/util/src/infrastructure/ports.lisp" "READ-STDIN-OCTETS")
-))
+     ("packages/feature/util/src/infrastructure/ports.lisp" "READ-STDIN-OCTETS")))

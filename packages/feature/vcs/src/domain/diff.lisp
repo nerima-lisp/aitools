@@ -120,7 +120,7 @@ lines in the same order.
 
 With OUTPUT :HUNKS, files are taken in order while their rendered hunk lines
 (one per hunk header plus one per body line) fit in MAX-LINES; that file and
-every later one become mode \"summary\" (counts only) once one does.
+every later one become mode \"summary\" (counts only) once one does not.
 
 Calls (ON-COMPLETE files character-count) when nothing was summarized, or
 (ON-TRUNCATED files character-count first-summary-path first-summary-lines)

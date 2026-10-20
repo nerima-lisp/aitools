@@ -78,6 +78,5 @@
     ("packages/feature/edit/src/domain/table.lisp" "%SCAN-RECORDS" 5)
     ("packages/feature/env/src/application/sys-flows.lisp" "%LINUX-SOCKET-OWNERS" 5)
     ("packages/feature/env/src/application/time-flows.lisp" "RESOLVE-ZONE/K" 5)
-    ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS" 5)
-    ))
+    ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS" 5)))
 

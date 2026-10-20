@@ -1,4 +1,4 @@
-;;;; packages/feature/vcs/src/application/blame-show-flows.lisp
+;;;; packages/feature/vcs/src/application/blame-flows.lisp
 ;;;;
 ;;;; `git blame` flow using the inspect context's public selector API.
 ;;;; Shared flow helpers are defined in flows.lisp.

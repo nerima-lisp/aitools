@@ -1,7 +1,7 @@
 ;;;; packages/feature/vcs/src/application/flows.lisp
 ;;;;
 ;;;; The `git status`, `git log`, and `git diff` flows are defined here.
-;;;; `git blame` is in `blame-show-flows.lisp`, and `git show` is in
+;;;; `git blame` is in `blame-flows.lisp`, and `git show` is in
 ;;;; `show-flow.lisp`. A flow calls ON-OK, ON-PARTIAL, or ON-ERROR with an
 ;;;; envelope-ordered alist, or with an error code, message, and repairs.
 ;;;; Flows do not write output or choose an exit code. ROOT is the global
