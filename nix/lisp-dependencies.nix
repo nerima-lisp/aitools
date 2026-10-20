@@ -2,8 +2,7 @@
 # the separate "aitools/cli" executable. These are built derivations,
 # not CL_SOURCE_REGISTRY strings; cl-nix-forge assembles the registry
 # transitively from them.
-inputs:
-ctx:
+inputs: ctx:
 let
   inherit (inputs)
     cl-date-kit
@@ -24,7 +23,8 @@ let
     cl-toml-kit
     cl-org-kit
     cl-observability-kit
-    cl-cli;
+    cl-cli
+    ;
   dateKit = ctx.cl.lispDerivation {
     pname = "cl-date-kit";
     version = ctx.cl.fromAsdSystem "${cl-date-kit}/cl-date-kit.asd";
@@ -207,4 +207,3 @@ in
     lispDependencies = [ hostKit ];
   })
 ]
-
