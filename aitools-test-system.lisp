@@ -54,6 +54,7 @@
                                               (:file "unit/workspace/root-boundary-test")
                                               (:file "unit/workspace/git-data-test")
                                               (:file "unit/workspace/scan-test")
+                                              (:file "unit/workspace/scan-options-test")
                                               (:file "unit/workspace/scan-worker-pool-test")
                                               (:file "unit/workspace/scan-git-config-test")
                                               (:file "integration/workspace-test-support")
