@@ -62,7 +62,7 @@
                                 (org-kit:org-kit-error-message condition))))
       (org-kit:org-kit-error (condition)
         (values nil
-                (%query-failure :invalid-time
+                (%query-failure :internal
                                 (org-kit:org-kit-error-message condition))))
       (cl-date-kit:cl-date-kit-error (condition)
         (values nil
@@ -127,7 +127,7 @@
       (org-kit:org-query-error (condition)
         (values nil (%query-syntax-failure match condition)))
       (org-kit:org-kit-error (condition)
-        (values nil (%query-failure :query-syntax
+        (values nil (%query-failure :internal
                                     (org-kit:org-kit-error-message condition))))
       (type-error (condition)
         (values nil (%query-failure :argument (princ-to-string condition)))))))

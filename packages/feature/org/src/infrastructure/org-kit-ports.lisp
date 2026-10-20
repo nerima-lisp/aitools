@@ -53,7 +53,8 @@
                                       :column (org-kit:org-parse-error-column condition)
                                       :offset (org-kit:org-parse-error-offset condition))))
               (org-kit:org-kit-error (condition)
-                (values nil (%failure :syntax (org-kit:org-kit-error-message condition))))
+                (values nil (%failure :internal
+                                      (org-kit:org-kit-error-message condition))))
               (type-error (condition)
                 (values nil (%failure :argument (princ-to-string condition))))))))))))
 
@@ -80,7 +81,7 @@
         (org-kit:org-resource-limit-error (condition)
           (values nil (%resource-failure condition)))
         (org-kit:org-kit-error (condition)
-          (values nil (%failure :syntax (org-kit:org-kit-error-message condition))))
+          (values nil (%failure :internal (org-kit:org-kit-error-message condition))))
         (type-error (condition)
           (values nil (%failure :argument (princ-to-string condition)))))))
 
@@ -138,5 +139,5 @@
          (org-kit:org-export-error (condition)
            (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))
          (org-kit:org-kit-error (condition)
-           (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))))))
+           (values nil (%failure :internal (org-kit:org-kit-error-message condition))))))))
 )
