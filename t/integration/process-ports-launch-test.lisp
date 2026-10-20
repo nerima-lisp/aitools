@@ -35,16 +35,19 @@
 ;;; ------------------------------------------------------------- launcher
 
 (defun call-with-launcher-environment (directory function &key override (path ""))
-  "Call FUNCTION with the trampoline search confined to DIRECTORY: the
-running executable pretends to live in DIRECTORY/bin/, CL_PROCESS_KIT_SPAWN is
-OVERRIDE, and PATH is PATH."
-  ;; *RUNTIME-PATHNAME* is a global lexical, so it is set and restored, not bound.
-  (let ((runtime sb-ext:*runtime-pathname*))
-    (ensure-directories-exist (merge-pathnames "bin/" directory))
-    (setf sb-ext:*runtime-pathname* (namestring (merge-pathnames "bin/sbcl" directory)))
-    (unwind-protect
-         (call-with-environment (list (cons "CL_PROCESS_KIT_SPAWN" override) (cons "PATH" path)) function)
-      (setf sb-ext:*runtime-pathname* runtime))))
+  "Call FUNCTION with trampoline lookup inputs confined to DIRECTORY."
+  (let ((environment (list (cons "CL_PROCESS_KIT_SPAWN" override)
+                           (cons "PATH" path))))
+    (let ((aitools.process.infrastructure::*environment-getter*
+            (lambda (name)
+              (loop for entry in environment
+                    when (string= (car entry) name)
+                      return (cdr entry))))
+          (aitools.process.infrastructure::*runtime-pathname-getter*
+            (lambda ()
+              (namestring (merge-pathnames "bin/sbcl" directory)))))
+      (ensure-directories-exist (merge-pathnames "bin/" directory))
+      (funcall function))))
 
 (defun launch (ports argv log exit)
   "Call the launch-detached port; return (:STARTED PID) or (:UNAVAILABLE
