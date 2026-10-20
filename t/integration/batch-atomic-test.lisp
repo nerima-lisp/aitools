@@ -60,7 +60,7 @@
       (put "b.txt" (format nil "bee~%"))
       ;; After the last element is staged (tx op 2), change a.txt on disk
       ;; behind the tx's back: the commit then meets a write conflict.
-      (let ((aitools.store.application:*fault-hook*
+      (let ((aitools.store.application::*fault-hook*
               (lambda (point &rest details)
                 (when (and (eq point :tx-after-index) (eql (second details) 2))
                   (put "a.txt" (format nil "external~%"))))))
