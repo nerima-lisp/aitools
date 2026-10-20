@@ -4,7 +4,7 @@
   250)
 
 (defparameter *line-budget-ratchet*
-  '(("aitools.asd" 320) ("data/application/edit/command-spec-data.lisp" 251)
+  '(("data/application/edit/command-spec-data.lisp" 251)
     ("packages/core/kernel/src/domain/json-model.lisp" 376)
     ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
     ("packages/core/store/src/domain/tx-model.lisp" 262)
@@ -42,7 +42,6 @@
     ("t/integration/store-security-test.lisp" 635)
     ("t/integration/store-tx-test.lisp" 610)
     ("t/integration/store-write-protocol-test.lisp" 268)
-    ("t/integration/structure-test.lisp" 389)
     ("t/integration/util-cli-test.lisp" 259)
     ("t/integration/vcs-git-test.lisp" 309)
     ("t/unit/edit/domain-edge-test.lisp" 283)
