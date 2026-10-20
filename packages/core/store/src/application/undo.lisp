@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/undo.lisp
 ;;;;
 ;;;; Undo: under the workspace lock, confirm every path of the op is
 ;;;; still in its `after` state, then write the `before` states back through
@@ -62,7 +61,9 @@ one path in one op."
                 append (ecase (change-result-action change)
                          (:created (list (delete-request path)))
                          (:modified (list (if (change-keeps-content-p change)
-                                          (mtime-request path (entry-state-mtime before) :mode (entry-state-mode before))
+                                          (mtime-request path
+                                                        (entry-state-mtime before)
+                                                        :mode (entry-state-mode before))
                                           (%restore-request store path before))))
                          ((:deleted :linked) (list (%restore-request store path before)))
                          (:moved (cons (move-request path (change-result-from change))
@@ -79,27 +80,51 @@ one path in one op."
                                rest))
             collect request)))
 
-(defun undo-op/k (store op-id argv &key (lock-timeout-ms +default-lock-timeout-ms+) dry-run
-                                     on-committed on-rejected on-busy)
-  "Undo OP-ID. Continuations as for COMMIT-CHANGES/K; the new op's
-journal entry has `undoes` = OP-ID. Rejections:
+(aitools.kernel.domain:define-flow
+    (undo-op/k store op-id argv
+               &key (lock-timeout-ms +default-lock-timeout-ms+) dry-run
+                 on-committed on-rejected on-busy)
+  "Undo OP-ID. Continuations as for COMMIT-CHANGES/K. Rejections:
   input.not-found          no such op in the journal
   refusal.target-changed   some path is no longer in its `after` state;
                            :CONFLICTS lists them and nothing is written"
-  (commit-changes/k store argv
-                    (lambda (commit reject)
-                      (let ((entry (find-journal-entry store op-id)))
-                        (if (null entry)
-                            (funcall reject "input.not-found" (format nil "no op ~A in the journal" op-id))
-                            (let ((conflicts (%undo-conflicts store entry)))
-                              (if conflicts
-                                  (funcall reject "refusal.target-changed"
-                                           (format nil "~D path~:P changed after ~A" (length conflicts) op-id)
-                                           :conflicts conflicts)
-                                  (funcall commit (%inverse-requests store entry)))))))
-                    :lock-timeout-ms lock-timeout-ms
-                    :dry-run dry-run
-                    :undoes op-id
-                    :on-committed on-committed
-                    :on-rejected on-rejected
-                    :on-busy on-busy))
+  (declare (type function on-committed on-rejected on-busy))
+  (aitools.kernel.domain:flow-call
+      (commit-changes/k
+       store argv
+       (lambda (commit reject)
+         (let ((entry (find-journal-entry store op-id)))
+           (if (null entry)
+               (funcall
+                reject "input.not-found"
+                (format nil "no op ~A in the journal" op-id))
+               (let ((conflicts (%undo-conflicts store entry)))
+                 (if conflicts
+                     (funcall
+                      reject "refusal.target-changed"
+                      (format nil "~D path~:P changed after ~A"
+                              (length conflicts) op-id)
+                      :conflicts conflicts)
+                     (funcall commit (%inverse-requests store entry)))))))
+       :lock-timeout-ms lock-timeout-ms
+       :dry-run dry-run
+       :undoes op-id)
+    (:on-committed (new-op results)
+      (aitools.kernel.domain:flow-continue
+       :on-committed new-op results))
+    (:on-rejected (code message &key
+                   (candidates nil candidates-p)
+                   (diagnostics nil diagnostics-p)
+                   (conflicts nil conflicts-p)
+                   (repairs nil repairs-p)
+                   (path nil path-p))
+      (%flow-continue-rejection
+       (list* code message
+              (%rejection-keywords
+               :candidates candidates :candidates-p candidates-p
+               :diagnostics diagnostics :diagnostics-p diagnostics-p
+               :conflicts conflicts :conflicts-p conflicts-p
+               :repairs repairs :repairs-p repairs-p
+               :path path :path-p path-p))))
+    (:on-busy ()
+      (aitools.kernel.domain:flow-continue :on-busy))))

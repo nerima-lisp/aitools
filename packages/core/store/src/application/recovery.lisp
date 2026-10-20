@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/recovery.lisp
 ;;;;
 ;;;; Write-protocol recovery, run by the composition root before every command.
 ;;;; The common case costs one readdir of `commit/`. Otherwise it takes the
@@ -37,75 +36,91 @@ reach) is discarded without touching the workspace."
     (multiple-value-bind (status intent) (decode-intent text)
       (let ((op-id (if intent (intent-op-id intent) (subseq name 0 (- (length name) 5)))))
         (ecase status
-          (:complete
-           ;; A replaced checkpoint target is an I/O failure, not an invalid
-           ;; intent to discard. Keep the durable record for operator recovery.
-           (dolist (step (intent-steps intent))
-             (when (and (member (intent-step-op step) '(:mkdir :chmod))
-                        (intent-step-identity step))
-               (%check-directory-identity store step)))
-           (if (%intent-violation store intent)
-               (progn
-                 (%io store unlink path)
-                 (cons op-id "discarded"))
-               (progn
-                 (%complete-intent store intent :recovered t)
-                 (cons op-id "rolled-forward"))))
-          (:incomplete
-           (when intent
-             (dolist (step (intent-steps intent))
-               (let ((temp (intent-step-temp step)))
-                 (when (and temp (null (%path-violation store temp)))
-                   (let ((temp (%workspace-path store temp)))
-                     (unless (eq (%kind-at store temp) :absent)
-                       (%io store unlink temp)))
-                   (fault-point :recovery-after-discard op-id)))))
-           (%io store unlink path)
-           (cons op-id "discarded")))))))
+          (:complete (%recover-complete-intent store path op-id intent))
+          (:incomplete (%discard-incomplete-intent store path op-id intent)))))))
+(defun %recover-complete-intent (store path op-id intent)
+  ;; A replaced checkpoint target is an I/O failure, not an invalid
+  ;; intent to discard. Keep the durable record for operator recovery.
+  (dolist (step (intent-steps intent))
+    (when (and (member (intent-step-op step) '(:mkdir :chmod))
+               (intent-step-identity step))
+      (%check-directory-identity store step)))
+  (if (%intent-violation store intent)
+      (progn
+        (%io store unlink path)
+        (cons op-id "discarded"))
+      (progn
+        (%complete-intent store intent :recovered t)
+        (cons op-id "rolled-forward"))))
+(defun %discard-incomplete-step (store op-id step)
+  (let ((temp (intent-step-temp step)))
+    (when (and temp (null (%path-violation store temp)))
+      (let ((temp-path (%workspace-path store temp)))
+        (unless (eq (%kind-at store temp-path) :absent)
+          (%io store unlink temp-path)))
+      (fault-point :recovery-after-discard op-id))))
+(defun %discard-incomplete-intent (store path op-id intent)
+  (when intent
+    (dolist (step (intent-steps intent))
+      (%discard-incomplete-step store op-id step)))
+  (%io store unlink path)
+  (cons op-id "discarded"))
+(aitools.kernel.domain:define-flow
+    (%notify-recovery-entry/k entry &key on-rolled-forward on-discarded)
+  (declare (type function on-rolled-forward on-discarded))
+  (if (string= (cdr entry) "rolled-forward")
+      (aitools.kernel.domain:flow-continue :on-rolled-forward (car entry))
+      (aitools.kernel.domain:flow-continue :on-discarded (car entry))))
 
-(defun recover/k (store &key (lock-timeout-ms +default-lock-timeout-ms+)
-                          on-rolled-forward on-discarded on-none on-busy on-failed)
-  "Recover unfinished write-protocol operations before a command runs.
+(aitools.kernel.domain:define-flow
+    (recover/k store &key (lock-timeout-ms +default-lock-timeout-ms+)
+               on-rolled-forward on-discarded on-none on-busy
+               (on-failed (lambda (condition entries)
+                            (declare (ignore entries))
+                            (error condition))))
+  "Recover unfinished write-protocol intents.
 
-When `commit/` is empty (or absent), calls ON-NONE () and returns its value.
-Otherwise acquires the workspace lock, recovers every record, releases the
-lock, then calls ON-ROLLED-FORWARD (op-id) or ON-DISCARDED (op-id) once per
-recovered op in op-id order and returns the list of (op-id . action)
-conses, action being \"rolled-forward\" or \"discarded\" -- the envelope's
-`recovered[]` elements. If another writer finished the
-record while this process waited, the outcome is ON-NONE. ON-BUSY () when
-the lock could not be acquired within LOCK-TIMEOUT-MS.
-
-An I/O failure while recovering a record stops recovery there: that record
-and every later one stay in `commit/` (a later record may depend on the
-failed one's paths). The records recovered before it are reported through
-ON-ROLLED-FORWARD and ON-DISCARDED as usual, and then ON-FAILED (condition
-entries) is called and its value returned, CONDITION being a
-STORE-COMMITTED-ERROR whose op id, operation and path name the failure and
-ENTRIES the (op-id . action) list so far. Without ON-FAILED the condition is
-signalled instead, after the lock is released."
-  (declare (type function on-rolled-forward on-discarded on-none on-busy)
-           (type (or null function) on-failed))
-  (unless (%intent-names store)
-    (return-from recover/k (funcall on-none)))
-  (let ((entries '())
-        (failure nil))
-    (call-with-workspace-lock/k store lock-timeout-ms
-                                :on-acquired (lambda ()
-                                               (dolist (name (%intent-names store))
-                                                 (handler-case (push (%recover-intent store name) entries)
-                                                   (store-io-error (condition)
-                                                     (setf failure (%as-committed-error condition name))
-                                                     (return)))))
-                                :on-timeout (lambda () (return-from recover/k (funcall on-busy))))
-    (setf entries (nreverse entries))
-    (dolist (entry entries)
-      (funcall (if (string= (cdr entry) "rolled-forward") on-rolled-forward on-discarded)
-               (car entry)))
-    (cond
-      (failure (if on-failed (funcall on-failed failure entries) (error failure)))
-      ((null entries) (funcall on-none))
-      (t entries))))
+Call ON-ROLLED-FORWARD (op-id) or ON-DISCARDED (op-id) after releasing the
+workspace lock for each recovered entry. On success, return the (op-id . action)
+list. Call ON-NONE () when no entries remain, without acquiring the lock if the
+initial scan is empty or after releasing it if the locked scan is empty. Call
+ON-BUSY () if acquisition times out without taking the lock. ON-FAILED
+(condition entries) receives the committed error and entries recovered before
+failure after lock release; the default signals that condition."
+  (declare (type function on-rolled-forward on-discarded on-none on-busy on-failed))
+  (if (null (%intent-names store))
+      (aitools.kernel.domain:flow-continue :on-none)
+      (let ((entries '())
+            (failure nil))
+        (let ((lock-result
+                (aitools.kernel.domain:flow-call
+                    (call-with-workspace-lock/k store lock-timeout-ms)
+                  (:on-acquired ()
+                    (dolist (name (%intent-names store))
+                      (handler-case (push (%recover-intent store name) entries)
+                        (store-io-error (condition)
+                          (setf failure (%as-committed-error condition name))
+                          (return))))
+                    :acquired)
+                  (:on-timeout ()
+                    :timeout))))
+          (if (eq lock-result :timeout)
+              (aitools.kernel.domain:flow-continue :on-busy)
+              (progn
+                (setf entries (nreverse entries))
+                (dolist (entry entries)
+                  (aitools.kernel.domain:flow-call
+                      (%notify-recovery-entry/k entry)
+                    (:on-rolled-forward (op-id)
+                      (aitools.kernel.domain:flow-continue :on-rolled-forward op-id))
+                    (:on-discarded (op-id)
+                      (aitools.kernel.domain:flow-continue :on-discarded op-id))))
+                (cond
+                  (failure
+                   (aitools.kernel.domain:flow-continue :on-failed failure entries))
+                  ((null entries)
+                   (aitools.kernel.domain:flow-continue :on-none))
+                  (t entries))))))))
 
 (defun %as-committed-error (condition name)
   "CONDITION as the STORE-COMMITTED-ERROR of the record NAME: a failure to

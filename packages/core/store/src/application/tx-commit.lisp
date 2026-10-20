@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/tx-commit.lisp
 ;;;;
 ;;;; `tx diff` and `tx commit`. Commit holds the
 ;;;; workspace lock and the tx lock, checks the write set and the read set
@@ -37,15 +36,18 @@
               when (tx-staged-changed-p entry) collect entry)
         #'string< :key #'tx-path-path))
 
-(defun tx-diff/k (store tx-id &key on-diff on-not-found)
+(aitools.kernel.domain:define-flow
+    (tx-diff/k store tx-id &key on-diff on-not-found)
   "ON-DIFF (results) with a CHANGE-RESULT from `base` to `staged` for
 every path the tx changes, sorted by path, carrying both contents for the
 caller's diff. ON-NOT-FOUND ()."
   (declare (type function on-diff on-not-found))
   (if (%tx-exists-p store tx-id)
-      (funcall on-diff (mapcar (lambda (entry) (%tx-diff-result store entry))
-                               (%changed-entries (nth-value 1 (%load-tx store tx-id)))))
-      (funcall on-not-found)))
+      (aitools.kernel.domain:flow-continue
+       :on-diff
+       (mapcar (lambda (entry) (%tx-diff-result store entry))
+               (%changed-entries (nth-value 1 (%load-tx store tx-id)))))
+      (aitools.kernel.domain:flow-continue :on-not-found)))
 
 (defun %tx-commit-requests (store index)
   "Requests reproducing INDEX's staged states on a disk that equals `base`:
@@ -75,39 +77,56 @@ reverse path order (contents before their directory)."
           (:symlink (push (symlink-request path (entry-state-target staged)) writes)))))
     (append (nreverse writes) deletions)))
 
-(defun tx-commit/k (store tx-id argv &key ignore-stale-reads (lock-timeout-ms +default-lock-timeout-ms+)
-                                       on-committed on-rejected on-not-found on-busy)
+(aitools.kernel.domain:define-flow
+    (tx-commit/k store tx-id argv &key ignore-stale-reads
+                 (lock-timeout-ms +default-lock-timeout-ms+)
+                 on-committed on-rejected on-not-found on-busy)
   "Commit the tx. Continuations, after the locks are released:
-  ON-COMMITTED (op-id results)  as for COMMIT-CHANGES/K; the journal holds the
-                                whole tx as op OP-ID (NIL for an empty tx,
-                                which is simply removed)
+  ON-COMMITTED (op-id results)  as for COMMIT-CHANGES/K; all changes in the
+                                tx are recorded as one journal operation with
+                                OP-ID (NIL for an empty tx, which is removed)
   ON-REJECTED (code message &rest keys)
                                 refusal.target-changed with :CONFLICTS (the
                                 write and read conflicts; nothing written),
                                 or environment.io
-  ON-NOT-FOUND () / ON-BUSY ()"
+  ON-NOT-FOUND () / ON-BUSY ()."
   (declare (type function on-committed on-rejected on-not-found on-busy))
-  (%run-under-tx-locks
-   store tx-id lock-timeout-ms
-   (lambda ()
-     (multiple-value-bind (meta index ops reads) (%load-tx store tx-id)
-       (declare (ignore meta ops))
-       (let ((conflicts (tx-commit-conflicts index reads (lambda (path) (workspace-state store path))
-                                             :ignore-stale-reads ignore-stale-reads)))
-         (if conflicts
-             (lambda ()
-               (funcall on-rejected "refusal.target-changed"
-                        (format nil "~D path~:P changed outside tx ~A" (length conflicts) tx-id)
-                        :conflicts conflicts))
-             (let ((requests (%tx-commit-requests store index)))
-               (if (null requests)
-                   (progn (%delete-tx-directory store tx-id)
-                          (collect-garbage store)
-                          (lambda () (funcall on-committed nil '())))
-                   (%plan-and-commit/k store argv requests
-                                       :tx-id tx-id
-                                       :on-committed (lambda (op-id results)
-                                                       (lambda () (funcall on-committed op-id results)))
-                                       :on-rejected (lambda (&rest rejection)
-                                                      (lambda () (apply on-rejected rejection))))))))))
-   on-busy on-not-found))
+  (aitools.kernel.domain:flow-call
+      (%run-under-tx-locks
+       store tx-id lock-timeout-ms
+       (lambda ()
+         (multiple-value-bind (meta index ops reads) (%load-tx store tx-id)
+           (declare (ignore meta ops))
+           (let ((conflicts
+                   (tx-commit-conflicts
+                    index reads (lambda (path) (workspace-state store path))
+                    :ignore-stale-reads ignore-stale-reads)))
+             (if conflicts
+                 (lambda ()
+                   (aitools.kernel.domain:flow-continue
+                    :on-rejected
+                    "refusal.target-changed"
+                    (format nil "~D path~:P changed outside tx ~A"
+                            (length conflicts) tx-id)
+                    :conflicts conflicts))
+                 (let ((requests (%tx-commit-requests store index)))
+                   (if (null requests)
+                       (progn
+                         (%delete-tx-directory store tx-id)
+                         (collect-garbage store)
+                         (lambda ()
+                           (aitools.kernel.domain:flow-continue :on-committed nil '())))
+                         (aitools.kernel.domain:flow-call
+                             (%plan-and-commit/k store argv requests :tx-id tx-id)
+                           (:on-committed (op-id results)
+                             (lambda ()
+                               (aitools.kernel.domain:flow-continue
+                                :on-committed op-id results)))
+                           (:on-rejected (code message)
+                             (lambda ()
+                               (aitools.kernel.domain:flow-continue
+                                :on-rejected code message)))))))))))
+    (:on-busy ()
+      (aitools.kernel.domain:flow-continue :on-busy))
+    (:on-not-found ()
+      (aitools.kernel.domain:flow-continue :on-not-found))))

@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/view.lisp
 ;;;;
 ;;;; A STORE-VIEW is the workspace as a command sees it: the disk (DISK-VIEW),
 ;;;; or the disk with a tx's staged states laid over it (the tx read-through:
@@ -80,14 +79,26 @@ walk; the write protocol's temp files are left out, as every scan excludes them.
         unless (or (temp-file-name-p name) (eq kind :absent))
           collect (cons name kind)))
 
-(defun %view-plan/k (view requests on-planned on-rejected)
-  (plan-changes/k requests
-                  :lookup-state (lambda (path) (view-path-state view path :max-bytes (%request-byte-limit requests path)))
-                  :lookup-content (lambda (path) (view-read-file view path :max-bytes (%request-byte-limit requests path)))
-                  :list-children (lambda (path) (%view-children view path))
-                  :lookup-mtime (lambda (path) (view-path-mtime view path))
-                  :on-planned on-planned
-                  :on-rejected on-rejected))
+(aitools.kernel.domain:define-flow
+    (%view-plan/k view requests &key on-planned on-rejected)
+  (aitools.kernel.domain:flow-call
+      (plan-changes/k requests
+                      :lookup-state
+                      (lambda (path)
+                        (view-path-state
+                         view path
+                         :max-bytes (%request-byte-limit requests path)))
+                      :lookup-content
+                      (lambda (path)
+                        (view-read-file
+                         view path
+                         :max-bytes (%request-byte-limit requests path)))
+                      :list-children (lambda (path) (%view-children view path))
+                      :lookup-mtime (lambda (path) (view-path-mtime view path)))
+    (:on-planned (results)
+      (aitools.kernel.domain:flow-continue :on-planned results))
+    (:on-rejected (code message)
+      (aitools.kernel.domain:flow-continue :on-rejected code message))))
 
 (defun %hash-view-relative (root real)
   "REAL relative to ROOT (\"\" for ROOT itself), or NIL when outside it."

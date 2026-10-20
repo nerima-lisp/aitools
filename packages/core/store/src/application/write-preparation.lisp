@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/write-preparation.lisp
 ;;;;
 ;;;; The write protocol before the commit point: refuse steps the protocol must not
 ;;;; perform, create the temp files, and discard what was prepared when an
@@ -37,7 +36,8 @@ including one outside the workspace."
                  :message (format nil "~A has ~D hard links; changing its mode or time in place would change every link"
                                   (intent-step-path step) links)))))))
 
-(defun call-with-prepared-intent/k (store intent-path steps on-prepared)
+(aitools.kernel.domain:define-flow
+    (call-with-prepared-intent/k store intent-path steps &key on-prepared)
   "Run ON-PREPARED, which prepares the write protocol's temp files and (when INTENT-PATH
 names one) the intent record for STEPS and then reaches the commit point.
 
@@ -68,13 +68,16 @@ survives for recovery to roll forward."
     (handler-bind ((error (lambda (condition)
                             (declare (ignore condition))
                             (discard))))
-      (funcall on-prepared))))
+      (aitools.kernel.domain:flow-continue :on-prepared))))
 
 (defmacro with-prepared-intent ((store intent-path steps) &body body)
   (let ((prepared (gensym "PREPARED")))
     `(flet ((,prepared () ,@body))
        (declare (dynamic-extent #',prepared))
-       (call-with-prepared-intent/k ,store ,intent-path ,steps #',prepared))))
+       (aitools.kernel.domain:flow-call
+           (call-with-prepared-intent/k ,store ,intent-path ,steps)
+         (:on-prepared ()
+           (,prepared))))))
 
 (defun %prepare-temps (store op-id steps by-path)
   "The write protocol's temp files for the :REPLACE STEPS, contents from BY-PATH

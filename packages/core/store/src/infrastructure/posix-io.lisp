@@ -144,6 +144,19 @@ waits between lock attempts."
      :monotonic-ms (lambda ()
                      (floor (* 1000 (cl-boundary-kit:clock-monotonic clock)) internal-time-units-per-second))
      :now (lambda () (cl-boundary-kit:clock-now clock))
+     :call-with-retry
+     (lambda (policy thunk monotonic-ms sleep)
+       (handler-case
+           (resilience-kit:call-with-retry
+            policy thunk
+            :clock (cl-boundary-kit:make-clock :monotonic-fn monotonic-ms)
+            :monotonic-units-per-second 1000d0
+            :sleeper
+            (cl-boundary-kit:make-sleeper
+             :sleep-fn
+             (lambda (seconds)
+               (funcall sleep (ceiling (* seconds 1000))))))
+         (resilience-kit:retry-exhausted () nil)))
      :random-hex #'%random-hex)))
 
 (defun %real-directory (path)

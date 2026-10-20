@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/change.lisp
 ;;;;
 ;;;; CHANGE-REQUEST is what a write command asks for (write these bytes,
 ;;;; delete, move, chmod, symlink, mkdir, set an mtime). CHANGE-RESULT is what the planner
@@ -66,16 +65,12 @@ that both chmods and touches a file commits both as one step)."
 (defun change-result-hash-after (result)
   (entry-state-hash (change-result-after result)))
 
-(defparameter *action-names*
-  '((:created . "created") (:modified . "modified") (:deleted . "deleted")
-    (:moved . "moved") (:mode-changed . "mode-changed") (:linked . "linked")))
-
 (defun action-name (action)
-  (or (cdr (assoc action *action-names*))
+  (or (cdr (assoc action aitools.data:*store-action-names*))
       (error "unknown change action ~S" action)))
 
 (defun parse-action-name (name)
-  (or (car (rassoc name *action-names* :test #'equal))
+  (or (car (rassoc name aitools.data:*store-action-names* :test #'equal))
       (%format-error "unknown change action")))
 
 (defstruct (conflict (:copier nil))

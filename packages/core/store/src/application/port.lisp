@@ -1,16 +1,17 @@
 ;;;; packages/core/store/src/application/port.lisp
 ;;;;
-;;;; STORE-IO is the store's filesystem-and-clock port. cl-boundary-kit's
+;;;; STORE-IO is the store's file, clock, and retry port. cl-boundary-kit's
 ;;;; filesystem shape (read/store/rename/delete whole files) cannot express
 ;;;; the write protocol: it needs exclusive creation with fsync, a separately
 ;;;; synced append, lstat without following symlinks, chmod, symlink
-;;;; creation, and flock. So the port is defined here, one closure per
+;;;; creation, and flock. So the port is defined here, with closures per
 ;;;; primitive over absolute native path strings; the production adapter
-;;;; (infrastructure) builds it from sb-posix, libc flock, and
-;;;; cl-boundary-kit's clock and sleeper. Tests wrap a real adapter with
-;;;; COPY-STORE-IO to inject behaviour at one primitive.
+;;;; (infrastructure) builds it from sb-posix, libc flock, and the
+;;;; cl-boundary-kit clock and sleeper boundaries. It also supplies the
+;;;; resilience-kit retry adapter. Tests wrap a real adapter with COPY-STORE-IO
+;;;; to inject behaviour at one port.
 ;;;;
-;;;; Primitives signal STORE-IO-ERROR on failure. Their contracts:
+;;;; File primitives signal STORE-IO-ERROR on failure. Their contracts:
 ;;;;
 ;;;;   lstat (path)                  -> (values kind mode target mtime links identity); kind
 ;;;;                                    is :absent :file :directory :symlink
@@ -34,6 +35,8 @@
 ;;;;   try-lock (path &key create)   -> handle, or NIL when another open file
 ;;;;                                    description holds the exclusive lock
 ;;;;   unlock (handle)
+;;;;   call-with-retry (policy thunk monotonic-ms sleep)
+;;;;                                  -> thunk result; NIL on exhaustion
 ;;;;   sleep (milliseconds) / monotonic-ms () / now () -> universal time
 ;;;;   random-hex (count)            -> COUNT lowercase hex digits
 (in-package #:aitools.store.application)
@@ -55,13 +58,14 @@
   (list-directory nil :type function :read-only t)
   (try-lock nil :type function :read-only t)
   (unlock nil :type function :read-only t)
+  (call-with-retry nil :type function :read-only t)
   (sleep nil :type function :read-only t)
   (monotonic-ms nil :type function :read-only t)
   (now nil :type function :read-only t)
   (random-hex nil :type function :read-only t))
 
 (defun copy-store-io (io &rest overrides &key &allow-other-keys)
-  "A STORE-IO identical to IO except for the primitives named in OVERRIDES
+  "A STORE-IO identical to IO except for the ports named in OVERRIDES
 (keyword = slot name)."
   (flet ((pick (key reader)
            (or (getf overrides key) (funcall reader io))))
@@ -81,6 +85,7 @@
                    :list-directory (pick :list-directory #'store-io-list-directory)
                    :try-lock (pick :try-lock #'store-io-try-lock)
                    :unlock (pick :unlock #'store-io-unlock)
+                   :call-with-retry (pick :call-with-retry #'store-io-call-with-retry)
                    :sleep (pick :sleep #'store-io-sleep)
                    :monotonic-ms (pick :monotonic-ms #'store-io-monotonic-ms)
                    :now (pick :now #'store-io-now)

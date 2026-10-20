@@ -38,6 +38,7 @@
    (:file "presentation/vcs/command-schema-data")
    (:file "domain/env/tools-data")
    (:file "domain/util/util-tables-data" :depends-on ("table-macros"))
+   (:file "domain/store/action-names-data")
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
    (:file "presentation/edit/command-schema-data")))

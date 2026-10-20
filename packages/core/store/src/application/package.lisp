@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/package.lisp
 ;;;;
 ;;;; The store context's public application boundary: the workspace and tx
 ;;;; locks, the write protocol and recovery, the journal, blobs and
@@ -14,7 +13,6 @@
    ;; port.lisp
    #:store-io
    #:make-store-io
-   #:copy-store-io
    #:store-io-p
    #:store-io-lstat
    #:store-io-read-file
@@ -52,7 +50,6 @@
    #:store-root
    #:store-state-directory
    #:store-temporary
-   #:*fault-hook*
    #:fault-point
    ;; lock.lisp
    #:+default-lock-timeout-ms+
