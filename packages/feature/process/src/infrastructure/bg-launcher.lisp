@@ -19,11 +19,7 @@
 ;;;; process comes from the signal `bg stop` recorded.
 (in-package #:aitools.process.infrastructure)
 
-(progn
-  (defparameter +spawn-trampoline-name+ "cl-process-kit-spawn")
-  (defvar *environment-getter*
-    (lambda (name) (sb-ext:posix-getenv name)))
-  (defvar *runtime-pathname-getter* (lambda () sb-ext:*runtime-pathname*)))
+(defparameter +spawn-trampoline-name+ "cl-process-kit-spawn")
 
 (defparameter +supervisor-script+
   "\"$@\"
@@ -41,11 +37,11 @@ printf '%s\\n' \"$status\" > \"$0\"
            (sb-posix:syscall-error () nil)))))
 
 (defun %search-path (name)
-  "The first executable NAME in an absolute PATH directory, or NIL. Relative
+  "The first executable NAME in an absolute $PATH directory, or NIL. Relative
 entries (including an empty entry, which means the working directory) are
 skipped: bg exec resolves the spawn trampoline and the target through PATH, so
 a relative entry could point at a workspace-controlled binary."
-  (let ((path (or (funcall *environment-getter* "PATH") "")))
+  (let ((path (or (sb-ext:posix-getenv "PATH") "")))
     (loop for start = 0 then (1+ end)
           for end = (position #\: path :start start)
           for directory = (subseq path start end)
@@ -57,13 +53,13 @@ a relative entry could point at a workspace-controlled binary."
           while end)))
 
 (defun find-spawn-trampoline ()
-  "The native spawn trampoline path, or NIL. Searched in order:
-$CL_PROCESS_KIT_SPAWN, the directory of the running executable, then PATH."
-  (let* ((override (funcall *environment-getter* "CL_PROCESS_KIT_SPAWN"))
-         (runtime-pathname (funcall *runtime-pathname-getter*))
-         (sibling (and runtime-pathname
-                       (merge-pathnames +spawn-trampoline-name+
-                                        (uiop:pathname-directory-pathname runtime-pathname)))))
+  "The native spawn trampoline's path, or NIL. Searched in order:
+$CL_PROCESS_KIT_SPAWN, the directory of the running executable (where the
+aitools package installs it), then $PATH."
+  (let ((override (sb-ext:posix-getenv "CL_PROCESS_KIT_SPAWN"))
+        (sibling (and sb-ext:*runtime-pathname*
+                      (merge-pathnames +spawn-trampoline-name+
+                                       (uiop:pathname-directory-pathname sb-ext:*runtime-pathname*)))))
     (cond ((and override (plusp (length override)) (%executable-file-p override)) override)
           ((and sibling (%executable-file-p sibling)) (uiop:native-namestring sibling))
           (t (%search-path +spawn-trampoline-name+)))))

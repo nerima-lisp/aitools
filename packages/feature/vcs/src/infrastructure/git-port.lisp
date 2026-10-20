@@ -7,17 +7,13 @@
 (in-package #:aitools.vcs.infrastructure)
 
 (defparameter *git-timeout-seconds* 120)
-(defvar *git-executable* "git")
 
 (defparameter *git-output-limit* (* 256 1024 1024)
   "Characters (or octets) of stdout kept per git run. cl-process-kit's own
 default of 1 MiB would cut an ordinary large diff short.")
 
 (defun %repository (directory)
-  (vcs-kit:make-repository
-   (or directory (uiop:getcwd))
-   :executable *git-executable*
-   :default-timeout *git-timeout-seconds*))
+  (vcs-kit:make-repository (or directory (uiop:getcwd)) :default-timeout *git-timeout-seconds*))
 
 (defun %text (output)
   (string-trim '(#\Space #\Tab #\Newline #\Return)

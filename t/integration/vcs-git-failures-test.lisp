@@ -69,9 +69,8 @@
           (format out "#!/bin/sh~%echo '致命的: Git リポジトリではありません' >&2~%exit 128~%"))
         (sb-posix:chmod (uiop:native-namestring fake) #o755)
         (multiple-value-bind (kind fields)
-            (let ((aitools.vcs.infrastructure::*git-executable*
-                   (uiop:native-namestring fake)))
-              (run-flow #'aitools.vcs.application:git-status/k directory))
+            (call-with-path (uiop:native-namestring directory)
+                            (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
           (expect kind :to-be :error)
           (expect (aitools.vcs.infrastructure::%git-marker-state
                  (merge-pathnames "missing/" directory))
@@ -91,9 +90,8 @@
             (format out "#!/bin/sh~%echo fatal: blocked by safe.directory >&2~%exit 128~%"))
           (sb-posix:chmod (uiop:native-namestring fake) #o755)
           (multiple-value-bind (kind fields)
-              (let ((aitools.vcs.infrastructure::*git-executable*
-                     (uiop:native-namestring fake)))
-                (run-flow #'aitools.vcs.application:git-status/k directory))
+              (call-with-path (uiop:native-namestring directory)
+                              (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
             (expect kind :to-be :error)
             (expect (getf fields :code) :to-equal "environment.io")
             (expect (getf fields :message) :to-equal message)))))))
