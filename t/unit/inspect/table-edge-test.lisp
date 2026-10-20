@@ -156,11 +156,16 @@
         (expect (getf fields :message) :to-contain "--sort \"amount\" names no output column")
         (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools schema table agg")))
 
-    (it "rejects an aggregate over an unknown column with near column names"
+    (it "rejects unknown aggregate and group-by columns with near column names"
       (multiple-value-bind (kind fields) (agg :sum "amont")
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal "argument.invalid")
-        (expect (json-object-get (first (getf fields :candidates)) "column") :to-equal "amount")))
+        (expect (json-object-get (first (getf fields :candidates)) "column") :to-equal "amount"))
+      (multiple-value-bind (kind fields) (agg :group-by '("regoin"))
+        (expect kind :to-be :error)
+        (expect (error-code fields) :to-equal "argument.invalid")
+        (expect (json-object-get (first (getf fields :candidates)) "column") :to-equal "region")
+        (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools schema table read")))
 
     (it "sorts ascending by an aggregate and by a --group-by column"
       (expect (regions (nth-value 1 (agg :group-by '("region") :sum "amount" :sort "sum"))) :to-equal '("west" "east"))

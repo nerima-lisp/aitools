@@ -116,10 +116,14 @@
       (expect (length (field fields "items")) :to-be 2)
       (expect (field fields "total") :to-be 3)))
 
-  (it "rejects a non-array as argument.invalid and a bad regex as input.syntax-error"
+  (it "rejects invalid input and reports a missing pointer"
     (expect (error-code (nth-value 1 (json-select "/a"))) :to-equal "argument.invalid")
     (expect (error-code (nth-value 1 (json-select "/items" :where '("/name~(")))) :to-equal "input.syntax-error")
-    (expect (error-code (nth-value 1 (json-select "/items" :where '("score")))) :to-equal "argument.invalid")))
+    (expect (error-code (nth-value 1 (json-select "/items" :where '("score")))) :to-equal "argument.invalid")
+    (let ((fields (nth-value 1 (json-select "/itemz/0"))))
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (json-object-get (first (getf fields :candidates)) "pointer") :to-equal "/items")
+      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools json get d.json '' --keys"))))
 
 (describe "json diff"
   (flet ((diff (a b &rest options)
