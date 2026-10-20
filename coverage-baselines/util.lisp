@@ -1,1 +1,1 @@
-(:context :util :state :measured :source :linux-ci :expression-covered 2543 :expression-total 2714 :branch-covered 224 :branch-total 256)
+(:context :util :state :measured :source :linux-ci :expression-covered 2565 :expression-total 2704 :branch-covered 232 :branch-total 254)

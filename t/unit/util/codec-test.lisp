@@ -81,7 +81,19 @@ YmE")) :to-equalp (string-bytes "fooba")))
     (expect (decode-text scheme (string-bytes text) :on-decoded (constantly :decoded) :on-invalid #'list)
             :to-equal (list offset reason)))
 
-  (it-each (("Zg==" (102)) ("Zm8=" (102 111)) ("Zm9v" (102 111 111)) ("Zm9vYg" (102 111 111 98)))
+  (it-each (("Zg==" (102)) ("Zm8=" (102 111)) ("Zm9v" (102 111 111)) ("Zm9vYg" (102 111 111 98)) ("Zm8" (102 111)))
       "decodes the padded or unpadded final group of ~S"
       (text expected)
-    (expect (coerce (nth-value 1 (decode "base64" text)) 'list) :to-equal expected)))
+    (expect (coerce (nth-value 1 (decode "base64" text)) 'list) :to-equal expected))
+  (it "decodes empty base64 input to no bytes"
+    (multiple-value-bind (kind bytes)
+        (decode "base64" "")
+      (expect kind :to-be :decoded)
+      (expect bytes :to-equalp (octets))))
+  (it "maps every byte to its RFC 4648 base64 value and decodes punctuation symbols"
+    (let ((digit-value (symbol-function (quote aitools.util.domain::%base64-digit-value)))
+          (alphabet (string-bytes "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")))
+      (expect (loop for octet below 256 collect (funcall digit-value octet))
+              :to-equal (loop for octet below 256 collect (position octet alphabet))))
+    (expect (coerce (nth-value 1 (decode "base64" "+/8=")) (quote list))
+            :to-equal (quote (251 255)))))

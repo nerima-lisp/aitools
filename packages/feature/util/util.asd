@@ -5,7 +5,7 @@
   :depends-on ("cl-codec-kit" "cl-host-kit")
   :pathname "src/"
   :components
-  ((:module "domain"
+  ((:module "domain" :serial t
     :components
     ((:file "package")
      (:file "codec")
@@ -14,7 +14,7 @@
      (:file "calc-parser")
      (:file "uuid")
      (:file "random-string")))
-   (:module "application" :serial t
+   (:module "application" :depends-on ("domain") :serial t
     :components
     ((:file "package")
      (:file "ports")
@@ -23,7 +23,7 @@
      (:file "codec-flows")
      (:file "calc-flow")
      (:file "random-flows")))
-   (:module "infrastructure"
+   (:module "infrastructure" :depends-on ("application") :serial t
     :components
     ((:file "package")
      (:file "os-random")
