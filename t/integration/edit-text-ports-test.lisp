@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-ports-test.lisp
 ;;;;
 ;;;; The --stdin and file-input production ports, the boundary rechecked
 ;;;; under the store lock, and the remaining write-guard cases (secret redaction
@@ -88,7 +87,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
   "Call THUNK with FUNCTION run once when a write takes the workspace lock
 (the store's test-only fault hook), as a concurrent process would act."
   (let ((fired nil))
-    (let ((aitools.store.application:*fault-hook*
+    (let ((aitools.store.application::*fault-hook*
             (lambda (point &rest details)
               (declare (ignore details))
               (when (and (eq point :after-lock) (not fired))

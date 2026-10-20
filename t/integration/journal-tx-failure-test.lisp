@@ -1,4 +1,3 @@
-;;;; t/integration/journal-tx-failure-test.lisp
 ;;;;
 ;;;; Journal and tx flows when the store fails (environment.io, via injected
 ;;;; I/O faults), when the tx lock is contended (environment.busy), and the
@@ -10,7 +9,7 @@
   "Call THUNK with the store's fault hook signalling one STORE-IO-ERROR, the
 condition a failing rename or fsync raises, at the first POINT."
   (let* ((fired nil)
-         (aitools.store.application:*fault-hook*
+         (aitools.store.application::*fault-hook*
            (lambda (name &rest details)
              (declare (ignore details))
              (when (and (eq name point) (not fired))

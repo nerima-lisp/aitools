@@ -1,4 +1,3 @@
-;;;; t/unit/store/package.lisp
 ;;;;
 ;;;; One test package for the store context's unit tests (t/unit/store/)
 ;;;; and its integration tests (t/integration/store-*.lisp), plus the few
@@ -8,7 +7,9 @@
 (defpackage #:aitools.store.test
   (:use #:cl #:aitools.store.domain #:aitools.store.application #:aitools.store.test-support)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect #:expect-not #:signals)
+  (:import-from #:cl-weave
+                #:it #:it-each #:it-property #:gen-string
+                #:expect #:expect-not #:signals)
   (:import-from #:aitools.store.infrastructure #:make-posix-store-io))
 
 (in-package #:aitools.store.test)

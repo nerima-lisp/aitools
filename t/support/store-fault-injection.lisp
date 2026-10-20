@@ -1,4 +1,3 @@
-;;;; t/support/store-fault-injection.lisp
 ;;;;
 ;;;; The interruption-injecting adapter for the store context. It
 ;;;; binds AITOOLS.STORE.APPLICATION:*FAULT-HOOK* so that the Nth occurrence
@@ -49,7 +48,7 @@ Returns (values fired-p thunk-value)."
                  (:exit (sb-ext:exit :code 99 :abort t))))))
       (let ((value :crashed))
         (catch 'simulated-crash
-          (let ((aitools.store.application:*fault-hook* #'hook))
+          (let ((aitools.store.application::*fault-hook* #'hook))
             (setf value (funcall thunk))))
         (values (>= seen nth) value)))))
 

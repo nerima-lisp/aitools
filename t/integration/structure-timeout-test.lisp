@@ -159,7 +159,7 @@
   (defun timeout-fixture-violations (name)
     (timeout-source-violations
      (merge-pathnames (format nil "t/integration/fixtures/~A/" name)
-                      (asdf:system-source-directory "aitools/test")))))
+                      (asdf:system-source-directory "aitools")))))
 
 (describe "process timeout structure"
   (it "rejects missing direct timeouts"

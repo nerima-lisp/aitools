@@ -1,4 +1,3 @@
-;;;; t/integration/batch-failure-test.lisp
 ;;;;
 ;;;; `batch` elements refused or failing before they run, and the
 ;;;; --atomic tx plumbing: --tx and --lock-timeout passed to each element, a
@@ -92,7 +91,7 @@
       (*root* state-home :chdir t)
       (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
-      (let ((aitools.store.application:*fault-hook*
+      (let ((aitools.store.application::*fault-hook*
               (lambda (point &rest details)
                 (when (and (eq point :tx-after-index) (eql (second details) 1))
                   (put "a.txt" (format nil "external~%"))))))
@@ -137,7 +136,7 @@
       (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
       (let ((fired nil))
-        (let ((aitools.store.application:*fault-hook*
+        (let ((aitools.store.application::*fault-hook*
                 (lambda (point &rest details)
                   (declare (ignore details))
                   (when (and (eq point :after-apply) (not fired))

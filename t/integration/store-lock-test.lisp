@@ -1,4 +1,3 @@
-;;;; t/integration/store-lock-test.lisp
 ;;;;
 ;;;; The workspace lock between two real processes:
 ;;;; a forked child holds the lock while the test process tries to write.
@@ -37,6 +36,50 @@ lock is held."
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
         (kill-child pid))))
+  (it "accepts a lock acquired after the deadline"
+    (with-temp-store (plain)
+      (let* ((base-io (store-io-port plain))
+             (real-try-lock (store-io-try-lock base-io))
+             (real-unlock (store-io-unlock base-io))
+             (clock-ms 0)
+             (acquired-handle nil)
+             (unlocked-handles nil)
+             (lock-path nil)
+             (io (aitools.store.application::copy-store-io
+                  base-io
+                  :monotonic-ms (lambda () clock-ms)
+                  :try-lock (lambda (path &rest keys)
+                              (setf lock-path path)
+                              (let ((handle (apply real-try-lock path keys)))
+                                (setf acquired-handle handle)
+                                (when handle
+                                  (incf clock-ms 101))
+                                handle))
+                  :unlock (lambda (handle)
+                            (push handle unlocked-handles)
+                            (funcall real-unlock handle))))
+             (store (make-store
+                     io
+                     (store-root plain)
+                     (subseq (store-state-directory plain)
+                             0
+                             (position (char "/" 0) (store-state-directory plain) :from-end t))))
+             (outcome nil))
+        (unwind-protect
+             (progn
+               (setf outcome
+                     (with-workspace-lock (store 100 :on-timeout :busy)
+                       :acquired))
+               (expect outcome :to-be :acquired)
+               (expect acquired-handle :to-be-truthy)
+               (expect unlocked-handles :to-equal (list acquired-handle))
+               (let ((again (funcall real-try-lock lock-path)))
+                 (expect (integerp again) :to-be t)
+                 (when (integerp again)
+                   (funcall real-unlock again))))
+          (when (and acquired-handle
+                     (not (member acquired-handle unlocked-handles :test (function eql))))
+            (funcall real-unlock acquired-handle))))))
 
   (it "waits for the holder and then writes"
     (with-temp-store (store)
@@ -110,3 +153,9 @@ lock is held."
         (expect (handler-case (funcall (store-io-try-lock io) (disk-path store "absent-lock"))
                   (store-io-error (condition) (store-io-error-operation condition)))
                 :to-equal "open")))))
+
+(describe "aitools.store zero-timeout lock acquisition"
+  (it "attempts acquisition immediately"
+    (with-temp-store (store)
+      (expect (with-workspace-lock (store 0 :on-timeout :busy) :acquired)
+              :to-be :acquired))))

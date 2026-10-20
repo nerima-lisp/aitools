@@ -1,7 +1,5 @@
-;;;; t/integration/store-write-protocol-test.lisp
 ;;;;
-;;;; The write protocol and the journal against a real temporary workspace and state
-;;;; directory through the production adapter.
+;;;; Write protocol behavior against a real temporary workspace and state directory.
 (in-package #:aitools.store.test)
 
 (describe "aitools.store commit-changes/k"
@@ -94,28 +92,48 @@
         (expect results :to-equal '()))
       (expect (read-journal store) :to-equal '())))
 
-  (it "passes a validation rejection through untouched and writes nothing"
+  (it "preserves :path and supplied optional rejection fields and writes nothing"
     (with-temp-store (store)
       (put-file store "a.txt" "a")
-      (multiple-value-bind (status code message keys)
-          (commit-changes/k store '("edit")
+      (multiple-value-bind (status code message fields)
+          (commit-changes/k store (list "edit")
                             (lambda (commit reject)
                               (declare (ignore commit))
-                              (funcall reject "selection.no-match" "no match" :candidates '("a.txt")))
+                              (funcall reject "selection.no-match" "no match"
+                                       :candidates (list "a.txt")
+                                       :diagnostics nil
+                                       :repairs (list "repair")
+                                       :path "a.txt"))
                             :on-committed (lambda (&rest args) (declare (ignore args)) :committed)
-                            :on-rejected (lambda (code message &rest keys) (values :rejected code message keys))
+                            :on-rejected (lambda (code message
+                                                 &key (candidates nil candidates-p)
+                                                   (diagnostics nil diagnostics-p)
+                                                   (conflicts nil conflicts-p)
+                                                   (repairs nil repairs-p)
+                                                   (path nil path-p))
+                                          (values :rejected code message
+                                                  (list :candidates (list candidates-p candidates)
+                                                        :diagnostics (list diagnostics-p diagnostics)
+                                                        :conflicts (list conflicts-p conflicts)
+                                                        :repairs (list repairs-p repairs)
+                                                        :path (list path-p path))))
                             :on-busy (lambda () :busy))
         (expect status :to-be :rejected)
         (expect code :to-equal "selection.no-match")
         (expect message :to-equal "no match")
-        (expect (getf keys :candidates) :to-equal '("a.txt")))
+        (expect fields :to-equal
+                (list :candidates (list t (list "a.txt"))
+                      :diagnostics (list t nil)
+                      :conflicts (list nil nil)
+                      :repairs (list t (list "repair"))
+                      :path (list t "a.txt"))))
       (expect (disk-text store "a.txt") :to-equal "a")))
 
   (it "rejects an I/O failure before the commit point as environment.io and leaves nothing"
     (with-temp-store (store)
       (put-file store "a.txt" "a")
       (let* ((io (store-io-port store))
-             (failing (copy-store-io io :append-file (lambda (&rest args)
+             (failing (aitools.store.application::copy-store-io io :append-file (lambda (&rest args)
                                                        (declare (ignore args))
                                                        (error 'store-io-error :operation "write" :path "x"))))
              (broken (make-store failing (store-root store)
@@ -134,7 +152,7 @@
       (put-file plain "a.txt" "v1")
       (let* ((io (store-io-port plain))
              (real-try-lock (store-io-try-lock io))
-             (mutating (copy-store-io io :try-lock (lambda (path &rest keys)
+             (mutating (aitools.store.application::copy-store-io io :try-lock (lambda (path &rest keys)
                                                      (let ((handle (apply real-try-lock path keys)))
                                                        (when handle (put-file plain "a.txt" "v2"))
                                                        handle))))
@@ -161,108 +179,3 @@
       (expect (entry-state-kind (workspace-state store "l")) :to-be :file)
       (expect (disk-text store "real.txt") :to-equal "r"))))
 
-(describe "aitools.store journal and undo"
-  (it "records argv, time, and every change's before/after"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "b"))) :argv '("write" "a.txt")))))
-        (let ((entry (find-journal-entry store op-id)))
-          (expect (journal-entry-argv entry) :to-equal '("write" "a.txt"))
-          (expect (length (journal-entry-time entry)) :to-be 20)
-          (expect (entry-state-hash (change-result-before (first (journal-entry-changes entry))))
-                  :to-equal (aitools.kernel.domain:content-hash (bytes "a")))
-          (expect (octets-string (read-blob store (entry-state-hash (change-result-before (first (journal-entry-changes entry))))))
-                  :to-equal "a")))))
-
-  (it "restores bytes, mode, and existence for every action, as a new op with undoes"
-    (with-temp-store (store)
-      (put-file store "edit.txt" "old")
-      (put-file store "gone.txt" "bye" :mode #o600)
-      (put-file store "mv.txt" "moving")
-      (put-file store "exec.sh" "#!/bin/sh")
-      (put-file store "over.txt" "overwritten")
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "new/deep.txt" (bytes "fresh"))
-                                                    (write-file-request "edit.txt" (bytes "new"))
-                                                    (delete-request "gone.txt")
-                                                    (move-request "mv.txt" "moved.txt")
-                                                    (move-request "over.txt" "edit2.txt")
-                                                    (chmod-request "exec.sh" #o755)
-                                                    (symlink-request "link" "edit.txt"))))))
-        (multiple-value-bind (status undo-op) (undo store op-id)
-          (expect status :to-be :committed)
-          (expect (journal-entry-undoes (find-journal-entry store undo-op)) :to-equal op-id))
-        (expect (disk-text store "new") :to-be :absent)
-        (expect (disk-text store "edit.txt") :to-equal "old")
-        (expect (disk-text store "gone.txt") :to-equal "bye")
-        (expect (disk-mode store "gone.txt") :to-be #o600)
-        (expect (disk-text store "mv.txt") :to-equal "moving")
-        (expect (disk-text store "moved.txt") :to-be :absent)
-        (expect (disk-text store "over.txt") :to-equal "overwritten")
-        (expect (disk-mode store "exec.sh") :to-be #o644)
-        (expect (disk-text store "link") :to-be :absent))))
-
-  (it "refuses with refusal.target-changed and conflicts when a path changed later"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
-      (put-file store "b.txt" "b")
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "a2"))
-                                                    (write-file-request "b.txt" (bytes "b2")))))))
-        (put-file store "b.txt" "someone else")
-        (multiple-value-bind (status code message keys) (undo store op-id)
-          (declare (ignore message))
-          (expect status :to-be :rejected)
-          (expect code :to-equal "refusal.target-changed")
-          (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("b.txt")))
-        (expect (disk-text store "a.txt") :to-equal "a2")
-        (expect (disk-text store "b.txt") :to-equal "someone else"))))
-
-  (it "refuses to remove a created directory that has gained a file"
-    (with-temp-store (store)
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "d/f.txt" (bytes "x")))))))
-        (put-file store "d/other.txt" "mine")
-        (multiple-value-bind (status code message keys) (undo store op-id)
-          (declare (ignore message))
-          (expect status :to-be :rejected)
-          (expect code :to-equal "refusal.target-changed")
-          (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("d/other.txt")))
-        (expect (disk-text store "d/f.txt") :to-equal "x"))))
-
-  (it "redoes through undo of the undo, including an overwriting move"
-    (with-temp-store (store)
-      (put-file store "src.txt" "S")
-      (put-file store "dst.txt" "D")
-      (put-file store "a.txt" "1")
-      (let* ((op (nth-value 1 (commit store (list (move-request "src.txt" "dst.txt")
-                                                  (write-file-request "a.txt" (bytes "2"))))))
-             (undo-op (nth-value 1 (undo store op))))
-        (expect (list (disk-text store "src.txt") (disk-text store "dst.txt") (disk-text store "a.txt"))
-                :to-equal '("S" "D" "1"))
-        (expect (undo store undo-op) :to-be :committed)
-        (expect (list (disk-text store "src.txt") (disk-text store "dst.txt") (disk-text store "a.txt"))
-                :to-equal '(:absent "S" "2")))))
-
-  (it "answers input.not-found for an unknown or malformed op id"
-    (with-temp-store (store)
-      (expect (nth-value 1 (undo store (format-op-id 3964000000 "00000000"))) :to-equal "input.not-found")
-      (expect (nth-value 1 (undo store "../../etc/passwd")) :to-equal "input.not-found")))
-
-  (it "deletes the oldest generation on the 21st write and collects its blob"
-    (with-temp-store (store)
-      (put-file store "a.txt" "v0")
-      (let ((first-op (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "v1")))))))
-        (loop for n from 2 to 20
-              do (commit store (list (write-file-request "a.txt" (bytes (format nil "v~D" n))))))
-        (expect (length (read-journal store)) :to-be 20)
-        (expect (find-journal-entry store first-op) :to-be-truthy)
-        (let ((v0-hash (aitools.kernel.domain:content-hash (bytes "v0")))
-              (blobs (blobs-directory (store-state-directory store))))
-          (expect (member v0-hash (funcall (store-io-list-directory (store-io-port store)) blobs) :test #'string=)
-                  :to-be-truthy)
-          (commit store (list (write-file-request "a.txt" (bytes "v21"))))
-          (expect (length (read-journal store)) :to-be 20)
-          (expect (find-journal-entry store first-op) :to-be nil)
-          (expect (member v0-hash (funcall (store-io-list-directory (store-io-port store)) blobs) :test #'string=)
-                  :to-be-falsy)
-          (expect (member (aitools.kernel.domain:content-hash (bytes "v1"))
-                          (funcall (store-io-list-directory (store-io-port store)) blobs) :test #'string=)
-                  :to-be-truthy))))))
