@@ -3,13 +3,13 @@
 ;;;; Reading and appending the journal (`journal/ops.jsonl`, one JSON
 ;;;; object per line). A normal write appends a single line with O_APPEND, so
 ;;;; its cost does not grow with the journal's length. The file therefore keeps
-;;;; the whole append history, including ops retention has since aged out and,
-;;;; after a crash mid-append, a torn final line; READ-JOURNAL is what turns
-;;;; that back into the retained view every caller expects: DECODE-JOURNAL
-;;;; keeps only the lines that parse (dropping a torn tail) and
-;;;; RETENTION-REMOVALS drops the aged-out ops. %REAP-JOURNAL (in blobs.lisp)
-;;;; compacts the file down to its retained lines once it has grown well past
-;;;; that size, so reads and garbage collection stay bounded.
+;;;; the full append history, including operations whose retention period has
+;;;; expired and any torn final line left by a crash mid-append. READ-JOURNAL
+;;;; returns the retained view callers expect: DECODE-JOURNAL keeps only lines
+;;;; that parse (dropping a torn tail), and RETENTION-REMOVALS drops expired
+;;;; operations. %REAP-JOURNAL (in blobs.lisp) compacts the file to retained
+;;;; lines after it grows well past that size, keeping reads and garbage
+;;;; collection bounded.
 ;;;;
 ;;;; Appends happen after an op's commit point, so recovery may replay the same
 ;;;; op. Its replay path (:RECOVERED) rewrites the file rather than appending:
