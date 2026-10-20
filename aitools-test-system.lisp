@@ -165,6 +165,7 @@
                                               (:file "unit/env/host-system-parsers-test")
                                               (:file "unit/env/time-flows-test")
                                               (:file "unit/env/sys-flows-test")
+                                              (:file "unit/env/sys-snapshot-flow-test")
                                               (:file "unit/env/sys-flow-edge-test")
                                               (:file "unit/env/sys-host-flows-test")
                                               (:file "unit/env/env-commands-test")
