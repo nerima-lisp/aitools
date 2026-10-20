@@ -39,7 +39,6 @@
     ("t/integration/store-tx-test.lisp" 610)
     ("t/integration/store-write-protocol-test.lisp" 268)
     ("t/integration/util-cli-test.lisp" 259)
-    ("t/integration/vcs-git-test.lisp" 297)
     ("t/unit/edit/domain-edge-test.lisp" 283)
     ("t/unit/env/host-parsers-test.lisp" 329)
     ("t/unit/env/sys-flows-test.lisp" 515)

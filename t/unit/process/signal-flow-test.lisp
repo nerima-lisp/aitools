@@ -223,4 +223,9 @@
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "environment.io")
         (expect (field fields :message) :to-equal "signal port failed"))
-      (expect (funcall sent) :to-equal '()))))
+      (expect (funcall sent) :to-equal '())))
+  #+linux
+  (it "rejects a truncated Linux proc stat record"
+    (expect
+     (aitools.process.infrastructure::%linux-stat-fields "4242 (worker) S 1")
+     :to-be nil)))
