@@ -20,7 +20,6 @@
     ("packages/feature/util/src/domain/calc.lisp" 274)
     ("t/e2e/transform-file-cases.lisp" 325)
     ("t/integration/edit-cli-test.lisp" 320)
-    ("t/integration/edit-files-refusals-test.lisp" 453)
     ("t/integration/edit-files-test.lisp" 364)
     ("t/integration/edit-text-commands-paths-test.lisp" 292)
     ("t/integration/edit-text-commands-test.lisp" 257)

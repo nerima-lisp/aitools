@@ -24,6 +24,10 @@ ON-NOT-FOUND means the tx or op is absent."
     (:on-not-found ()
       (aitools.kernel.domain:flow-continue :on-not-found))))
 
+(defun %mark-tx-rebase-paths-dirty (previous dirty)
+  (dolist (path (mapcar (function car) previous))
+    (pushnew path dirty :test (function string=))))
+
 (aitools.kernel.domain:define-flow
     (tx-rebase/k store tx-id replay &key (lock-timeout-ms +default-lock-timeout-ms+)
                                          on-rebased on-conflict on-not-found on-busy)
@@ -108,8 +112,7 @@ unchanged. ON-NOT-FOUND and ON-BUSY receive no arguments."
                                                   :replayable t
                                                   :time (tx-op-record-time record))
                                                  records)
-                                           (dolist (path (mapcar (function car) previous))
-                                             (pushnew path dirty :test (function string=))))))))))
+                                           (%mark-tx-rebase-paths-dirty previous dirty))))))))
                    (if conflict-p
                        (lambda () (aitools.kernel.domain:flow-continue :on-conflict conflicts))
                        (progn
