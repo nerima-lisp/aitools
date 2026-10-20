@@ -37,7 +37,10 @@ store temp file name."
 
   (it "reads a directory with a null mode and a file with an mtime"
     (expect (entry-state-mode (json->entry-state (record-json "{\"kind\":\"directory\",\"mode\":null}"))) :to-be nil)
-    (expect (entry-state-mtime (json->entry-state (record-json "{\"kind\":\"file\",\"hash\":\"@H\",\"mode\":420,\"mtime\":7}")))
+    (expect
+            (entry-state-mtime
+             (json->entry-state
+              (record-json "{\"kind\":\"file\",\"hash\":\"@H\",\"mode\":420,\"mtime\":7}")))
             :to-be 7))
   (it-property "entry-state JSON round-trips generated fields"
       ((hash (gen-string :min-length 64 :max-length 64 :alphabet "0123456789abcdef"))
@@ -77,7 +80,8 @@ store temp file name."
 (describe "aitools.store.domain intent step decoding"
   (it-each (("an unknown op" "{\"op\":\"frob\",\"path\":\"a\"}" "unknown intent step")
             ("an absolute path" "{\"op\":\"unlink\",\"path\":\"/a\"}" "intent step path has the wrong shape")
-            ("a temp that is not a store temp" "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"a.tmp\",\"kind\":\"file\"}"
+            ("a temp that is not a store temp"
+             "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"a.tmp\",\"kind\":\"file\"}"
              "intent temp is not a store temp file name")
             ("a replace without a kind" "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"@T\"}" "missing field \"kind\"")
             ("an unknown temp kind" "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"@T\",\"kind\":\"fifo\"}"
@@ -94,7 +98,8 @@ store temp file name."
 
   (it "decodes a symlink replace and a utime step"
     (let ((link (aitools.store.domain::%json->step
-                 (record-json "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"@T\",\"kind\":\"symlink\",\"target\":\"b\"}")))
+                 (record-json
+                    "{\"op\":\"replace\",\"path\":\"a\",\"temp\":\"@T\",\"kind\":\"symlink\",\"target\":\"b\"}")))
           (utime (aitools.store.domain::%json->step
                   (record-json "{\"op\":\"utime\",\"path\":\"a\",\"mode\":420,\"mtime\":9}"))))
       (expect (list (intent-step-kind link) (intent-step-target link)) :to-equal '(:symlink "b"))
@@ -112,7 +117,10 @@ store temp file name."
     (declare (ignore label))
     (let ((line (let ((at (search "@O" text)))
                   (if at
-                      (concatenate 'string (subseq text 0 at) (format-op-id 3964000000 "00000001") (subseq text (+ at 2)))
+                      (concatenate 'string
+                                  (subseq text 0 at)
+                                  (format-op-id 3964000000 "00000001")
+                                  (subseq text (+ at 2)))
                       text))))
       (expect (format-detail (lambda () (aitools.store.domain::%decode-header line))) :to-equal detail)
       (expect (multiple-value-list (decode-intent (format nil "~A~%" line))) :to-equal '(:incomplete nil)))))
@@ -129,21 +137,30 @@ store temp file name."
             ("a change path outside the workspace"
              "{\"op_id\":\"@O\",\"argv\":[],\"time\":\"t\",\"changes\":[{\"path\":\"../a\",\"action\":\"created\"}]}"
              "journal change path has the wrong shape")
-            ("a malformed move source"
-             "{\"op_id\":\"@O\",\"argv\":[],\"time\":\"t\",\"changes\":[{\"path\":\"a\",\"from\":\"/b\",\"action\":\"moved\"}]}"
-             "journal change path has the wrong shape")
             ("an unknown action"
              "{\"op_id\":\"@O\",\"argv\":[],\"time\":\"t\",\"changes\":[{\"path\":\"a\",\"action\":\"renamed\"}]}"
              "unknown change action")
             ("a line that is not an object" "[]" "journal line is not an object"))
-      "refuses ~A"
-      (label text detail)
+    "refuses ~A"
+    (label text detail)
     (declare (ignore label))
     (let ((line (let ((at (search "@O" text)))
                   (if at
-                      (concatenate 'string (subseq text 0 at) (format-op-id 3964000000 "00000001") (subseq text (+ at 2)))
+                      (concatenate 'string
+                                   (subseq text 0 at)
+                                   (format-op-id 3964000000 "00000001")
+                                   (subseq text (+ at 2)))
                       text))))
-      (expect (format-detail (lambda () (decode-journal (format nil "~A~%" line)))) :to-equal detail))))
+      (expect (format-detail (lambda () (decode-journal (format nil "~A~%" line))))
+              :to-equal detail)))
+  (it "refuses a malformed move source path"
+    (let ((line (concatenate 'string
+                             "{\"op_id\":\""
+                             (format-op-id 3964000000 "00000001")
+                             "\",\"argv\":[],\"time\":\"t\",\"changes\":["
+                             "{\"path\":\"a\",\"from\":\"/b\",\"action\":\"moved\"}]}")))
+      (expect (format-detail (lambda () (decode-journal (format nil "~A~%" line))))
+              :to-equal "journal change path has the wrong shape"))))
 
 (defun tx-op-line (n &key (argv "[]") (paths "[]") (replayable "true") (previous "[]"))
   (format nil "{\"tx_op\":~D,\"argv\":~A,\"paths\":~A,\"previous\":~A,\"after\":[],\"replayable\":~A,\"time\":\"t\"}~%"
@@ -177,8 +194,16 @@ store temp file name."
 
   (it "reads a tx meta with and without a name"
     (let ((id (format-tx-id 3964000000 "0123abcd")))
-      (expect (tx-meta-name (decode-tx-meta (format nil "{\"tx\":~S,\"name\":\"n\",\"created\":\"t\"}" id))) :to-equal "n")
-      (expect (tx-meta-name (decode-tx-meta (format nil "{\"tx\":~S,\"name\":null,\"created\":\"t\"}" id))) :to-be nil))))
+      (expect
+       (tx-meta-name
+        (decode-tx-meta
+         (format nil "{\"tx\":~S,\"name\":\"n\",\"created\":\"t\"}" id)))
+       :to-equal "n")
+      (expect
+       (tx-meta-name
+        (decode-tx-meta
+         (format nil "{\"tx\":~S,\"name\":null,\"created\":\"t\"}" id)))
+       :to-be nil))))
 (describe "aitools.store.domain codec properties"
   (it-property "round-trips generated journal entries through ops.jsonl"
       ((argument (gen-string :min-length 0 :max-length 40 :alphabet "abcXYZ0123 /é✓"))
