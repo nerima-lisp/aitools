@@ -59,15 +59,17 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
      host
      :root (journal-context-root context)
      :on-error (lambda (reason path)
-                 (aitools.kernel.domain:flow-continue :on-error "argument.invalid"
-                          (format nil "workspace root ~A: ~(~A~)" path reason)
-                          :repairs (list (%schema-repair command-name))))
+                 (aitools.kernel.domain:flow-continue
+                  :on-error "argument.invalid"
+                  (format nil "workspace root ~A: ~(~A~)" path reason)
+                  :repairs (list (%schema-repair command-name))))
      :on-resolved
      (lambda (root)
        (handler-case
-           (aitools.kernel.domain:flow-continue :on-store (funcall (journal-ports-open-store ports)
-                             (aitools.workspace.application:workspace-root-real root))
-                    root timeout)
+           (aitools.kernel.domain:flow-continue
+            :on-store (funcall (journal-ports-open-store ports)
+                               (aitools.workspace.application:workspace-root-real root))
+            root timeout)
          ;; A post-commit I/O failure: the op passed the store's commit point
          ;; (its intent is recorded under op-id) and only a later write was
          ;; interrupted. This is NOT a "nothing written" rejection; recovery
@@ -75,26 +77,30 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
          ;; so surface the op_id and the recovery status. This clause must
          ;; precede store-io-error, its superclass.
          (aitools.store.application:store-committed-error (condition)
-           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
-                    :diagnostics (list (json-object "op_id" (aitools.store.application:store-committed-error-op-id condition)
-                                                    "recovery" "pending"))
-                    :repairs (list (repair "recover"
-                                           "Re-run once the path is writable: aitools completes a committed-but-interrupted write on its next command. List the recorded op meanwhile."
-                                           (%aitools context "history")))))
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io" (princ-to-string condition)
+            :diagnostics (list (json-object "op_id" (aitools.store.application:store-committed-error-op-id condition)
+                                            "recovery" "pending"))
+            :repairs (list (repair "recover"
+                                   "Re-run once the path is writable: aitools completes a committed-but-interrupted write on its next command. List the recorded op meanwhile."
+                                   (%aitools context "history")))))
          (aitools.store.application:store-io-error (condition)
-           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
-                    :repairs (list (%schema-repair command-name))))
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io" (princ-to-string condition)
+            :repairs (list (%schema-repair command-name))))
          (aitools.store.domain:store-format-error (condition)
-           (aitools.kernel.domain:flow-continue :on-error "environment.io" (princ-to-string condition)
-                    :repairs (list (%schema-repair command-name)))))))))
+           (aitools.kernel.domain:flow-continue
+            :on-error "environment.io" (princ-to-string condition)
+            :repairs (list (%schema-repair command-name)))))))))
 
 (aitools.kernel.domain:define-flow
     (%report-busy context words &key on-error)
   (declare (type function on-error))
-  (aitools.kernel.domain:flow-continue :on-error "environment.busy"
-           "the workspace or tx lock could not be acquired within --lock-timeout"
-           :repairs (list (repair "retry" "Run the same command again once the other writer is done."
-                                  (apply #'%aitools context words)))))
+  (aitools.kernel.domain:flow-continue
+   :on-error "environment.busy"
+   "the workspace or tx lock could not be acquired within --lock-timeout"
+   :repairs (list (repair "retry" "Run the same command again once the other writer is done."
+                          (apply #'%aitools context words)))))
 
 (defun %conflicts-json (conflicts)
   (mapcar #'aitools.store.domain:conflict->json conflicts))
@@ -105,8 +111,9 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
 and `environment.io`. Only refusal.target-changed carries conflicts, and
 every caller answers that code itself."
   (declare (type function on-error))
-  (aitools.kernel.domain:flow-continue :on-error code message
-           :repairs (list (%schema-repair command-name))))
+  (aitools.kernel.domain:flow-continue
+   :on-error code message
+   :repairs (list (%schema-repair command-name))))
 
 (defun %fields-with (fields &rest extra)
   "FIELDS (a write-result alist) with the EXTRA alist entries inserted before its

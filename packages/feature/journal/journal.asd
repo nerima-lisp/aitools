@@ -8,8 +8,14 @@
   ((:module "domain"
     :components ((:file "package") (:file "command-line") (:file "render")))
    (:module "application"
-    :components ((:file "package") (:file "ports") (:file "replayers")
-                 (:file "common") (:file "history-flow")
-                 (:file "undo-flow") (:file "tx-flows")))
+    :components ((:file "package")
+                 (:file "ports")
+                 (:file "replayers")
+                 (:file "common")
+                 (:file "history-flow")
+                 (:file "undo-flow")
+                 (:file "tx-flows")
+                 (:file "tx-stage-flows")
+                 (:file "tx-commit-flows")))
    (:module "infrastructure"
     :components ((:file "package") (:file "ports")))))
