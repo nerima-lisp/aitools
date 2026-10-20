@@ -15,8 +15,6 @@
     ("packages/feature/edit/src/application/line-flows.lisp" 272)
     ("packages/feature/edit/src/application/pipeline.lisp" 386)
     ("packages/feature/edit/src/domain/transform.lisp" 265)
-    ("packages/feature/inspect/src/application/json-flows.lisp" 303)
-    ("packages/feature/inspect/src/application/read-flow.lisp" 423)
     ("packages/feature/search/src/application/search-flow.lisp" 259)
     ("packages/feature/search/src/application/session.lisp" 277)
     ("packages/feature/search/src/domain/code.lisp" 278)
@@ -69,5 +67,5 @@
     ("packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT" 5)
     ("packages/feature/edit/src/domain/regex.lisp" "PARSE-MTIME" 6)
     ("packages/feature/edit/src/domain/table.lisp" "%SCAN-RECORDS" 5)
-    ("packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS" 5)))
+    ))
 
