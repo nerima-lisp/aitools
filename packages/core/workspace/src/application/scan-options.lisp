@@ -40,7 +40,7 @@ so the same normalization works for each feature context."
                   (when (null error-kind)
                     (setf threshold
                           (- (funcall current-time)
-                             (floor milliseconds 1000)))))))
+                             (floor milliseconds 1000))))))))
         (when (and (null error-kind) lang (not predicate))
           (invalid :unknown-language lang language-names))
         (if error-kind
@@ -49,4 +49,4 @@ so the same normalization works for each feature context."
             (aitools.kernel.domain:flow-continue
              :on-options
              (list :glob glob :lang predicate :no-ignore no-ignore
-                   :skip-larger-than limit :newer threshold :overlay overlay))))))))
+                   :skip-larger-than limit :newer threshold :overlay overlay)))))))
