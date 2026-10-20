@@ -10,14 +10,15 @@
     (expect (multiple-value-list
              (gzip-member-header (octets #x1f #x8b 8 (logior 2 4 8 16) 1 0 0 0 0 3 2 0 9 9 #xE9 0 67 0 #xB9 #x0B)))
             :to-equal (list (string (code-char #xE9)) 1 20)))
-  (it "reads a gzip member header at a nonzero offset"
+  (it "validates gzip member header offsets"
     (let* ((prefix (octets #xAA #xBB))
            (gzip (gzip-compress (string-bytes "payload")
                                 :name "x"
                                 :mtime 1700000000))
            (input (join-octets prefix gzip)))
       (expect (multiple-value-list (gzip-member-header input :start (length prefix)))
-              :to-equal (list "x" 1700000000 14))))
+              :to-equal (list "x" 1700000000 14))
+      (signals archive-error (gzip-member-header input :start -1))))
 
   (it-each (("shorter than a header" (#x1f #x8b 8 0 0 0 0) (archive-error "gzip header is truncated"))
             ("without the magic" (1 2 8 0 0 0 0 0 0 3) (archive-error "not a gzip stream"))
