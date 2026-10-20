@@ -35,6 +35,15 @@
       (signals archive-limit-exceeded (inflate bomb :max-output 4096))
       (expect (length (inflate bomb :max-output 100000)) :to-be 100000)))
 
+  (it "returns a tar-block prefix and no consumed index when TRUNCATE-AT is set"
+    (let* ((source (coerce (loop for index below 100000 collect (mod index 251))
+                           '(vector (unsigned-byte 8))))
+           (bomb (deflate source)))
+      (multiple-value-bind (prefix consumed-index)
+          (inflate bomb :truncate-at aitools.text.domain::+tar-block+)
+        (expect (equalp prefix (subseq source 0 aitools.text.domain::+tar-block+)) :to-be-truthy)
+        (expect consumed-index :to-be-falsy))))
+
   (it "rejects every truncation and checks bit-flipped streams"
     (let ((valid (hex-octets *dynamic-vector*)))
       (expect (loop for end from 0 below (length valid)
