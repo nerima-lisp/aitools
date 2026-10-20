@@ -8,13 +8,11 @@
   (declare (type octet-vector bytes))
   (crypto-kit:digest-hex :sha256 bytes))
 
-;;; -------------------------------------------------------------------- SHA-1
 (defun sha1-hex (bytes)
   "Return the lowercase hex SHA-1 digest of BYTES for `info --digest sha1` compatibility."
   (declare (type octet-vector bytes))
   (crypto-kit:digest-hex :sha1 bytes))
 
-;;; ---------------------------------------------------------------------- MD5
 (defun md5-hex (bytes)
   "Return the lowercase hex MD5 digest of BYTES for `info --digest md5` compatibility."
   (declare (type octet-vector bytes))

@@ -70,9 +70,10 @@
       (expect (sha256-hex bytes) :to-equal sha256)
       (expect (sha1-hex bytes) :to-equal sha1)
       (expect (md5-hex bytes) :to-equal md5))))
+
 (describe "aitools.kernel.domain digest large input"
   (it "matches fixed hashes for 1 MiB of repeating bytes"
-    (let ((bytes (make-array 1048576 :element-type (quote (unsigned-byte 8)))))
+    (let ((bytes (make-array 1048576 :element-type '(unsigned-byte 8))))
       (loop for index below (length bytes)
             do (setf (aref bytes index) (mod index 256)))
       (expect (md5-hex bytes)
