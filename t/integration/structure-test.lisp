@@ -22,7 +22,7 @@
 (in-package #:aitools.integration.structure-test)
 
 (defparameter *core-contexts* '("kernel" "protocol" "workspace" "text" "store"))
-(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "vcs" "env" "util"))
+(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "vcs" "org" "env" "util"))
 (defparameter *all-contexts* (append *core-contexts* *feature-contexts*))
 
 (defun context-package-name (context layer)
@@ -58,12 +58,57 @@
      "pure Unicode normalization")))
 
 (defparameter *context-symbol-allowances*
-  ;; (context layers package symbol reason): a pure shared helper used by
-  ;; only the named feature adapters.
-  '(("edit" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
+  ;; (context layers package symbol reason): exact symbol allowances stay
+  ;; scoped to the named layer; Org kit entries apply only to its adapter.
+  (quote
+   (("edit" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
      "pure Unix-time conversion for the edit adapter")
     ("search" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
-     "pure Unix-time conversion for the search adapter")))
+     "pure Unix-time conversion for the search adapter")
+    ("org" (:infrastructure) "CL-DATE-KIT" "FIND-TIME-ZONE" "find zone rules for query time conversion")
+    ("org" (:infrastructure) "CL-DATE-KIT" "LOCAL-DATE-TIME-OF-INSTANT" "convert the query instant in the selected zone to local date-time fields")
+    ("org" (:infrastructure) "CL-DATE-KIT" "CL-DATE-KIT-ERROR" "catch date-kit time conversion failures")
+    ("org" (:infrastructure) "ORG-KIT" "DOCUMENT-ROOT" "traverse parsed Org nodes")
+    ("org" (:infrastructure) "ORG-KIT" "EXPORT-ORG" "render a supported export backend")
+    ("org" (:infrastructure) "ORG-KIT" "LIMIT-VALUE" "read the parser input limit")
+    ("org" (:infrastructure) "ORG-KIT" "MAKE-LIMITS" "bound parser, query, and export resources")
+    ("org" (:infrastructure) "ORG-KIT" "MAKE-ORG-TIME-VALUE" "parse explicit query time")
+    ("org" (:infrastructure) "ORG-KIT" "MAKE-TIME-CONTEXT" "validate the query time context")
+    ("org" (:infrastructure) "ORG-KIT" "MAP-NODES" "walk nodes for outline, query, and links")
+    ("org" (:infrastructure) "ORG-KIT" "NODE-PARENT" "walk heading ancestors")
+    ("org" (:infrastructure) "ORG-KIT" "NODE-PROPERTY" "read node and heading fields")
+    ("org" (:infrastructure) "ORG-KIT" "NODE-START-POSITION" "locate nodes in source")
+    ("org" (:infrastructure) "ORG-KIT" "NODE-TYPE" "select heading, link, and block nodes")
+    ("org" (:infrastructure) "ORG-KIT" "OFFSET-LINE-COLUMN" "map export offsets to source")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-EXPORT-ERROR" "map exporter failures")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-EXPORT-UNSUPPORTED-SYNTAX" "reject unsupported export syntax")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-EXPORT-UNSUPPORTED-SYNTAX-POSITION" "locate unsupported export syntax")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-KIT-ERROR" "map kit operation failures")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-KIT-ERROR-MESSAGE" "preserve kit failure details")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-PARSE-ERROR" "map parser diagnostics")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-PARSE-ERROR-COLUMN" "include parser column diagnostics")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-PARSE-ERROR-LINE" "include parser line diagnostics")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-PARSE-ERROR-OFFSET" "preserve parser source offsets")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-QUERY-ERROR" "map match syntax failures")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-QUERY-ERROR-POSITION" "locate match syntax failures")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-RESOURCE-LIMIT-ERROR" "map kit resource limits")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-TIME-ERROR" "map invalid query times")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-TIME-VALUE-KIND" "require a date-time query value")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-TIME-VALUE-OFFSET-MINUTES" "require a zone-less query value")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-TIME-VALUE-SECOND" "validate query seconds")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE" "extract supported outline entries")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-ENTRY-KIND" "map outline entry kind")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-ENTRY-LEVEL" "map outline entry level")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-ENTRY-LINE" "map outline source line")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-ENTRY-NAME" "map outline entry name")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-RESULT-SYMBOLS" "get limited outline entries")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-RESULT-TOTAL" "report outline entry total")
+    ("org" (:infrastructure) "ORG-KIT" "OUTLINE-RESULT-TRUNCATED" "report outline truncation")
+    ("org" (:infrastructure) "ORG-KIT" "PARSE-ORG" "parse UTF-8 Org bytes")
+    ("org" (:infrastructure) "ORG-KIT" "QUERY-MATCH-AT" "run match against query time")
+    ("org" (:infrastructure) "ORG-KIT" "RESOLVE-TIME-ZONE" "resolve the explicit IANA zone")
+    ("org" (:infrastructure) "ORG-KIT" "ORG-TIME-CONTEXT-REFERENCE-INSTANT"
+     "read the resolved instant for query evaluation"))))
 
 (defun allowed-package-names (context layer core-or-feature)
   "The packages a file at CONTEXT/LAYER may depend on, per the layer table in

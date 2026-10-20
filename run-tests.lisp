@@ -39,7 +39,8 @@
       (:store . "packages/core/store/src/") (:composition . "src/") (:search . "packages/feature/search/src/")
       (:inspect . "packages/feature/inspect/src/") (:edit . "packages/feature/edit/src/")
       (:journal . "packages/feature/journal/src/") (:process . "packages/feature/process/src/")
-      (:vcs . "packages/feature/vcs/src/") (:env . "packages/feature/env/src/") (:util . "packages/feature/util/src/")))
+      (:vcs . "packages/feature/vcs/src/") (:org . "packages/feature/org/src/")
+      (:env . "packages/feature/env/src/") (:util . "packages/feature/util/src/")))
   (defparameter *coverage-exclusion-rules* '(("data/" . "Shared data tables have no single executable-context owner.")))
   (defun coverage-prefix-p (prefix string)
     (and (<= (length prefix) (length string))
@@ -92,53 +93,32 @@
                   "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
                   context metric covered total base-covered base-total))))
     t)
-  (defun coverage-statistics-for (pathnames &optional context baseline)
-    (let ((statistics
-           (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                             :include-pathnames pathnames)))
-      (if (nth-value 0
-                     (get-properties baseline (list :uncovered-in-package-expressions)))
-          (adjust-context-expression-total
-           statistics context
-           (uncovered-in-package-expression-count
-            (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
-                              :include-pathnames pathnames))
-           baseline)
-        statistics)))
+  (defun coverage-statistics-for (pathnames &optional context baseline &key new-baseline-p)
+    (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                                         :include-pathnames pathnames))
+           (current-count
+             (when (or new-baseline-p
+                       (getf baseline :uncovered-in-package-expressions))
+               (uncovered-in-package-expression-count
+                (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                                  :include-pathnames pathnames)))))
+      (cond
+        (new-baseline-p
+         (let ((measured (copy-list statistics)))
+           (setf (getf measured :uncovered-in-package-expressions) current-count)
+           measured))
+        ((getf baseline :uncovered-in-package-expressions)
+         (adjust-context-expression-total statistics context current-count baseline))
+        (t statistics))))
   (defun measure-context-coverage (root groups)
     (mapcar (lambda (group)
-              (let* ((context (car group))
-                     (pathnames (cdr group))
-                     (baseline (read-coverage-baseline root context)))
+              (let* ((context (car group)) (pathnames (cdr group))
+                     (baseline (read-coverage-baseline-if-present root context)))
                 (list context (length pathnames)
-                      (coverage-statistics-for pathnames context baseline)
+                      (coverage-statistics-for pathnames context baseline
+                                               :new-baseline-p (null baseline))
                       baseline)))
             groups))
-  (defun coverage-measurement-record (context source-count statistics baseline)
-    (append
-     (list :context context :source-count source-count
-           :baseline-state (getf baseline :state)
-           :baseline-source (getf baseline :source)
-           :expression-covered (getf statistics :expression-covered)
-           :expression-total (getf statistics :expression-total)
-           :branch-covered (getf statistics :branch-covered)
-           :branch-total (getf statistics :branch-total))
-     (when (nth-value 0
-                      (get-properties baseline
-                                      (list :uncovered-in-package-expressions)))
-       (list :uncovered-in-package-expressions
-             (getf statistics :uncovered-in-package-expressions)
-             :baseline-uncovered-in-package-expressions
-             (getf statistics :baseline-uncovered-in-package-expressions)))))
-  (defun write-context-measurements (root aggregate contexts exclusions)
-    (let* ((path (merge-pathnames "coverage/context-measurements.sexp" root))
-           (record (list :schema-version 1 :platform (software-type) :aggregate aggregate
-                         :contexts contexts :exclusions exclusions)))
-      (ensure-directories-exist path)
-      (with-open-file (stream path :direction :output :if-exists :supersede :if-does-not-exist :create)
-        (write record :stream stream :pretty t :readably t) (terpri stream))
-      (format t "~&coverage-context-measurements-sexp ") (write record :stream *standard-output* :readably t) (terpri)
-      path))
   (defun run-coverage (root)
     (asdf:load-system "cl-weave")
     (uiop:symbol-call "CL-WEAVE" "REQUIRE-COVERAGE-SUPPORT")
@@ -184,7 +164,9 @@
             (write-context-measurements root aggregate contexts exclusions)
             (assert-coverage-baseline statistics aggregate-baseline :aggregate)
             (dolist (entry measured)
-              (assert-coverage-baseline (third entry) (fourth entry) (first entry)))
+              (when (fourth entry)
+                (assert-coverage-baseline
+                 (third entry) (fourth entry) (first entry))))
             (unless passed (error "aitools coverage suite failed"))
             (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
                     (getf statistics :expression-covered)
@@ -200,12 +182,14 @@
                   (format t "  ~A via ~A: ~A~%"
                           (getf entry :path) (getf entry :rule) (getf entry :reason)))
                 (format t "  none~%"))
-            (dolist (entry measured)
-              (let ((stats (third entry)))
-                (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
-                        (first entry) (getf stats :expression-covered)
-                        (getf stats :expression-total) (getf stats :branch-covered)
-                        (getf stats :branch-total)))))))))
+            (progn
+              (dolist (entry measured)
+                (let ((stats (third entry)))
+                  (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
+                          (first entry) (getf stats :expression-covered)
+                          (getf stats :expression-total) (getf stats :branch-covered)
+                          (getf stats :branch-total))))
+              (require-context-coverage-baselines measured)))))))
  )
 
 (handler-case

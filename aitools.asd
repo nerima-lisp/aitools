@@ -27,6 +27,7 @@
    (:file "domain/text/mime-data")
    (:file "domain/text/language-data")
    (:file "domain/search/build-files-data")
+   (:file "presentation/org/command-schema-data")
    (:file "presentation/search/command-schema-data")
    (:file "presentation/inspect/command-schema-data")
    (:file "presentation/inspect/format-command-schema-data")
@@ -62,6 +63,7 @@
                "aitools/feature/edit"
                "aitools/feature/process"
                "aitools/feature/vcs"
+               "aitools/feature/org"
                "aitools/feature/env"
                "aitools/feature/util")
   :pathname "."
@@ -111,6 +113,10 @@
                              (:file "presentation/commands")))
                (:module "feature-vcs"
                 :pathname "packages/feature/vcs/src/"
+                :components ((:file "presentation/package")
+                             (:file "presentation/commands")))
+               (:module "feature-org"
+                :pathname "packages/feature/org/src/"
                 :components ((:file "presentation/package")
                              (:file "presentation/commands")))
                (:module "feature-env"

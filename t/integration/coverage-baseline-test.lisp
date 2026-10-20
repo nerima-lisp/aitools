@@ -43,7 +43,7 @@
                :bootstrap
                (lambda (root)
                  (handler-case
-                     (progn (cl-user::read-coverage-baseline root :aggregate) nil)
+                     (progn (cl-user::read-coverage-baseline-if-present root :aggregate) nil)
                    (error (condition) (princ-to-string condition)))))))
         (expect (search "Invalid coverage baseline" message) :to-be-truthy))))
 )
@@ -123,7 +123,7 @@
               statistics :process 16 baseline)))
       (expect adjusted :to-equal statistics)))
 
-  (it "adjusts another context's expression denominator by the baseline delta"
+  (it "adjusts another context's expression denominator and fails closed for a missing baseline"
     (let* ((baseline
              (%call-with-coverage-baseline-fixture
               :measured
@@ -135,11 +135,52 @@
                              :branch-covered 60 :branch-total 62))
            (adjusted
              (cl-user::adjust-context-expression-total
-              statistics :process 16 baseline)))
+              statistics :process 16 baseline))
+           (missing-result
+             (aitools.test.support:call-with-workspace
+              (lambda (root state-directory)
+                (declare (ignore state-directory))
+                (let* ((measured-statistics
+                         (list :expression-covered 2 :expression-total 3
+                               :branch-covered 1 :branch-total 2
+                               :uncovered-in-package-expressions 0))
+                       (missing-baseline
+                         (cl-user::read-coverage-baseline-if-present root :org))
+                       (measurement (list :org 1 measured-statistics missing-baseline))
+                       (record
+                         (cl-user::coverage-measurement-record
+                          :org 1 measured-statistics missing-baseline))
+                       (path (cl-user::write-context-measurements
+                              root nil (list record) nil))
+                       (failure
+                         (handler-case
+                             (progn
+                               (cl-user::require-context-coverage-baselines
+                                (list measurement))
+                               nil)
+                           (error (condition) (princ-to-string condition))))
+                       (artifact
+                         (with-open-file (stream path)
+                           (read stream nil :eof))))
+                  (list :failure failure :baseline missing-baseline
+                        :artifact-exists (probe-file path)
+                        :record (first (getf artifact :contexts))))))))
       (expect (getf adjusted :expression-covered) :to-equal 1455)
       (expect (getf adjusted :expression-total) :to-equal 1484)
       (expect (getf adjusted :branch-covered) :to-equal 60)
       (expect (getf adjusted :branch-total) :to-equal 62)
       (expect (getf adjusted :uncovered-in-package-expressions) :to-equal 16)
       (expect (getf adjusted :baseline-uncovered-in-package-expressions) :to-equal 14)
-      (expect (getf statistics :expression-total) :to-equal 1486))))
+      (expect (getf statistics :expression-total) :to-equal 1486)
+      (expect (search "Missing coverage baselines"
+                      (getf missing-result :failure))
+              :to-be-truthy)
+      (expect (getf missing-result :baseline) :to-be nil)
+      (expect (getf missing-result :artifact-exists) :to-be-truthy)
+      (expect (getf (getf missing-result :record) :baseline-state) :to-be nil)
+      (expect (getf (getf missing-result :record)
+                    :uncovered-in-package-expressions)
+              :to-equal 0)
+      (expect (getf (getf missing-result :record)
+                    :baseline-uncovered-in-package-expressions)
+              :to-be nil))))

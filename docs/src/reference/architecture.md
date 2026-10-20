@@ -1,6 +1,6 @@
 # Architecture
 
-aitools is cut vertically into 13 bounded contexts (5 core, 8 feature), and
+aitools is cut vertically into 14 bounded contexts (5 core, 9 feature), and
 each context is split into the DDD layers it needs. Adding or changing a
 command touches one feature context rather than a layer that spans every
 context. The layout follows nshell's architecture.
@@ -20,6 +20,7 @@ context. The layout follows nshell's architecture.
 | feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
 | feature/vcs | domain, application, infrastructure, presentation | The read-only `git` group |
+| feature/org | domain, application, infrastructure, presentation | Read-only `org outline`, `org query`, and `org export` |
 | feature/env | domain, application, infrastructure, presentation | The `sys` and `time` groups |
 | feature/util | domain, application, infrastructure, presentation | The `util` group |
 
@@ -58,6 +59,11 @@ command reads or writes.
   structure test allows
   `JSON-KIT` in infrastructure for this reason
   (`packages/core/protocol/src/infrastructure/json-writer.lisp`).
+- **Org parsing and export live in feature/org.** The infrastructure adapter
+  calls `cl-org-kit` and `cl-date-kit`; application flows reach these APIs
+  through ports. The structure test allows only the adapter's used kit symbols
+  for this context. File reads go through text and workspace ports. Export
+  refuses file, ID, and internal links until link resolution exists.
 
 ## Layers and dependency direction
 
@@ -93,6 +99,10 @@ live configuration changes take effect without a scanner branch edit.
 comments and string literals and looks for package-qualified references
 (`name:` or `name::`) to any package it knows. A reference that the file's
 layer may not make is a violation. The rules beyond the table:
+
+The structure test also supports context-specific symbol allowances, each
+with a reason. The Org kit API is allowed only for the symbols used by the
+`org` infrastructure adapter; neither kit is added to a global package list.
 
 - A core context's application may reach only core applications, never a
   feature context.

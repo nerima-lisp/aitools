@@ -36,6 +36,8 @@ ports, in context order (docs/src/reference/architecture.md). Returns REGISTRY."
                 #'aitools.process.infrastructure:make-production-process-ports)
       (register #'aitools.vcs.presentation:register-vcs-commands
                 #'aitools.vcs.infrastructure:make-production-vcs-ports)
+      (register #'aitools.org.presentation:register-org-commands
+                #'aitools.org.infrastructure:make-production-org-ports)
       (register #'aitools.env.presentation:register-env-commands
                 #'aitools.env.infrastructure:make-production-env-ports)
       (register #'aitools.util.presentation:register-util-commands

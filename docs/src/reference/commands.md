@@ -159,6 +159,9 @@ The meaning and exit code of each error code are in
 | [`git diff`](#git-diff) | vcs | Show changed files with line counts and, in hunks mode, their hunks. |
 | [`git blame`](#git-blame) | vcs | Show who last changed each line of a work-tree file. |
 | [`git show`](#git-show) | vcs | Read a file as stored at a revision, in read's shape. |
+| [`org outline`](#org-outline) | org | List Org headings and named or unnamed source and example blocks. |
+| [`org query`](#org-query) | org | Find Org headings that match an Org match expression. |
+| [`org export`](#org-export) | org | Export an Org file as HTML, GFM, or ASCII text. |
 | [`sys info`](#sys-info) | env | Describe the host: OS, architecture, CPUs, user, memory, and the workspace's disk. |
 | [`sys env`](#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](#sys-tools) | env | Find commands on PATH and report the first line of their version output. |
@@ -1912,6 +1915,67 @@ Read a file as stored at a revision, in read's shape.
 Errors: `argument.invalid`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `environment.unavailable`, `input.not-found`, `environment.io`.
 
 
+## The org context
+
+### `org outline` {#org-outline}
+
+List Org headings and named or unnamed source and example blocks.
+
+Reads one UTF-8 Org file. Syntax errors include source diagnostics with one-based line and column. All errors include a repair; failed parses return no entries.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file, relative to the working directory. |
+| `--limit` | integer |  | Maximum entries; 0 returns none. Omit to return all entries. |
+
+| Output field | Description |
+|---|---|
+| `entries` | [{kind,name,level,line}] in document order. kind is headline, src-block, or example-block. Headline name omits TODO keywords. A block name uses #+NAME, then source language for src-block, or empty for unnamed example-block. level is null for blocks. |
+| `total` | All outline entries before --limit. |
+| `truncated` | True only when total exceeds --limit. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.
+
+### `org query` {#org-query}
+
+Find Org headings that match an Org match expression.
+
+MATCH uses cl-org-kit Org match syntax. --at and --tz are required. --at is a zone-less local datetime in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. --tz is an IANA zone name; --dst-policy defaults to compatible. Match syntax errors include source diagnostics with one-based line and col fields and a message field. Every error has at least one repair.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file, relative to the working directory. |
+| `--match`, required | string |  | Org match expression, not a title substring search. |
+| `--at`, required | string |  | Zone-less local datetime YYYY-MM-DDTHH:MM:SS; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | Resolve daylight-saving gaps and overlaps. |
+
+| Output field | Description |
+|---|---|
+| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title is raw text; todo is a keyword or null; tags is a string array. heading_path is [{title,index}] from the root with one-based sibling ordinals. |
+| `count` | Number of matching headings. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.
+
+### `org export` {#org-export}
+
+Export an Org file as HTML, GFM, or ASCII text.
+
+Returns the complete export as a string in content. Unsupported syntax fails the whole command without content. File, ID, and internal links return input.unsupported-format until link resolution is available. Errors have a nonempty repairs list; exporter syntax errors include a source location when provided by the exporter.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file, relative to the working directory. |
+| `--backend`, required | enum: `html`, `gfm`, `ascii` |  | Export backend. |
+
+| Output field | Description |
+|---|---|
+| `backend` | The selected backend. |
+| `content` | Complete export text. Present only on success. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.
+
+
 ## The env context
 
 ### `sys info` {#sys-info}
@@ -2313,7 +2377,7 @@ Errors: `input.not-found`, `argument.invalid`.
 
 Run several aitools invocations from one JSON input, optionally as one tx.
 
---stdin is a JSON array of argv arrays without the leading aitools, e.g. [["read","a.lisp"],["edit","a.lisp","--old","x","--new","y"]]. Each element is parsed and validated exactly as a standalone call, with batch's --root and --lock-timeout placed before it. Elements run in order; after the first failure the rest are skipped unless --continue-on-error. Without --atomic each write commits on its own: undo the successful elements' op_id values to reverse a partial batch. --atomic runs tx begin, every element with --tx <tx>, then tx commit, as one op; a failing element or a conflicting commit aborts the tx and writes nothing. An element may not be a batch, may not read --stdin (batch has consumed it; pass --content or --stdin-data), and under --atomic may not carry --tx. On failure the answer is an error with the first failing element's error.code and exit code, and results[] in error.diagnostics.
+--stdin is a JSON array of argv arrays without the leading aitools, e.g. [["read","a.lisp"],["edit","a.lisp","--old","x","--new","y"]]]. Each element is parsed and validated exactly as a standalone call, with batch's --root and --lock-timeout placed before it. Elements run in order; after the first failure the rest are skipped unless --continue-on-error. Without --atomic each write commits on its own: undo the successful elements' op_id values to reverse a partial batch. --atomic runs tx begin, every element with --tx <tx>, then tx commit, as one op; a failing element or a conflicting commit aborts the tx and writes nothing. An element may not be a batch, may not read --stdin (batch has consumed it; pass --content or --stdin-data), and under --atomic may not carry --tx. On failure the answer is an error with the first failing element's error.code and exit code, and results[] in error.diagnostics.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -2327,8 +2391,9 @@ Run several aitools invocations from one JSON input, optionally as one tx.
 | `tx` | --atomic: the tx the elements were staged in. |
 | `changes` | --atomic: the committed tx's changes, in the standard write output shape. |
 | `op_id` | --atomic: the single journal op of the whole batch (undo reverses it). |
+| `next_commands` | Commands to show full diffs when a committed change diff is truncated. |
 
-Errors: `argument.invalid`, `input.syntax-error`, `refusal.target-changed`, `environment.busy`.
+Errors: `argument.invalid`, `input.syntax-error`, `refusal.target-changed`, `environment.busy`, `input.not-found`, `environment.io`, `internal.unexpected`, `input.unsupported-language`, `input.unsupported-format`, `selection.no-match`, `selection.ambiguous`, `refusal.not-a-file`, `refusal.too-large`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `selection.count-mismatch`, `input.not-utf8`, `environment.unavailable`, `environment.timeout`.
 
 <!-- END GENERATED: commands -->
 

@@ -100,6 +100,8 @@ under the matching `## The <context> context' heading."
               #'aitools.process.infrastructure:make-production-process-ports)
         (list "vcs" #'aitools.vcs.presentation:register-vcs-commands
               #'aitools.vcs.infrastructure:make-production-vcs-ports)
+        (list "org" #'aitools.org.presentation:register-org-commands
+              #'aitools.org.infrastructure:make-production-org-ports)
         (list "env" #'aitools.env.presentation:register-env-commands
               #'aitools.env.infrastructure:make-production-env-ports)
         (list "util" #'aitools.util.presentation:register-util-commands
