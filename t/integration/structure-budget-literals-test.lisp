@@ -124,7 +124,7 @@
             :to-be-truthy)
     (expect (search "19 is the smallest above" *literal-table-limit-rationale*)
             :to-be-truthy)
-    (expect (length *literal-table-ratchet*) :to-equal 3)
+    (expect (length *literal-table-ratchet*) :to-equal 1)
     (expect (literal-table-violations (repository-root)) :to-equal nil))
   (it "passes a clean top-level src fixture with matching ratchets"
     (expect

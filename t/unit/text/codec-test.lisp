@@ -1,27 +1,11 @@
 ;;;; t/unit/text/codec-test.lisp
 ;;;;
-;;;; CRC-32, DEFLATE, and gzip. Known vectors: the CRC-32 check value from
+;;;; CRC-32 and raw DEFLATE. Known vectors: the CRC-32 check value from
 ;;;; the CRC catalogue ("123456789" -> CBF43926), RFC 1951 stored block, and
 ;;;; streams produced by zlib 1.2.12 (Python's zlib.compressobj(9, DEFLATED,
-;;;; -15)) and GNU gzip -n. The dynamic-block vector's input is generated
+;;;; -15). The dynamic-block vector's input is generated
 ;;;; below by the same formula used to produce it.
 (in-package #:aitools.text.test)
-
-(defun dynamic-vector-input ()
-  "bytes(97 + (i**3 + i//13) % 11 for i in range(3000))"
-  (let ((result (make-array 3000 :element-type '(unsigned-byte 8))))
-    (dotimes (i 3000 result)
-      (setf (aref result i) (+ 97 (mod (+ (* i i i) (floor i 13)) 11))))))
-
-(defparameter *dynamic-vector*
-  "edcea901c0400c03b059edc479f7e73dde15428504768ccad2179cdc682f8136891c75d07c0bcf27cd85666d6cb98263fdbc1469ebc3422bcaa1b5e6449633e0639bd56250eba89eb0a420f66c7a5940368b527b326c709deb5ce73ad7b9ce75ae739deb5ce7dff900")
-
-(defun only-archive-errors-p (function input)
-  "True when FUNCTION on INPUT returns or signals ARCHIVE-ERROR, never any
-other condition (an index error would mean an unchecked read)."
-  (handler-case (progn (funcall function input) t)
-    (archive-error () t)
-    (error () nil)))
 
 (describe "aitools.text.domain CRC-32"
   (it "matches the catalogue check value and continues incrementally"
@@ -51,10 +35,15 @@ other condition (an index error would mean an unchecked read)."
       (signals archive-limit-exceeded (inflate bomb :max-output 4096))
       (expect (length (inflate bomb :max-output 100000)) :to-be 100000)))
 
-  (it "survives every truncation and many bit flips of a valid stream"
+  (it "rejects every truncation and checks bit-flipped streams"
     (let ((valid (hex-octets *dynamic-vector*)))
       (expect (loop for end from 0 below (length valid)
-                    always (only-archive-errors-p (lambda (bytes) (inflate bytes)) (subseq valid 0 end)))
+                    always
+                      (eq (handler-case
+                              (progn (inflate (subseq valid 0 end)) :returned)
+                            (archive-error () :archive-error)
+                            (error () :other))
+                          :archive-error))
               :to-be-truthy)
       (expect (loop for i from 0 below (length valid)
                     always (let ((copy (copy-seq valid)))
@@ -72,37 +61,41 @@ other condition (an index error would mean an unchecked read)."
                          (let ((all (make-array 1024 :element-type '(unsigned-byte 8))))
                            (dotimes (i 1024 all) (setf (aref all i) (mod i 256))))))
       (expect (inflate (deflate input)) :to-equalp input)))
+  (it "compresses and decodes nonzero input and stream slices"
+    (let* ((input (octets #xAA 1 2 3 #xBB))
+           (compressed (deflate input :start 1 :end 4))
+           (prefix (octets #xCC #xDD))
+           (stream (join-octets prefix compressed (octets #xEE)))
+           (end (+ (length prefix) (length compressed))))
+      (expect (inflate stream :start (length prefix) :end end)
+              :to-equalp (octets 1 2 3))
+      (expect (nth-value 1 (inflate stream :start (length prefix) :end end))
+              :to-be end)
+      (signals archive-error
+        (inflate stream :start (length prefix) :end (1- end)))))
+  (it-property "round-trips generated octet vectors through raw DEFLATE"
+    ((input (gen-map (lambda (bytes)
+                       (map '(simple-array (unsigned-byte 8) (*)) #'identity bytes))
+                     (gen-vector (gen-integer :min 0 :max 255)
+                                 :min-length 0
+                                 :max-length 4096))))
+    (expect (equalp (inflate (deflate input)) input) :to-be t))
 
   (it "compresses repetitive input"
-    (expect (< (length (deflate (dynamic-vector-input))) 600) :to-be-truthy)))
-
-(describe "aitools.text.domain gzip"
-  (it "reads GNU gzip -n output and checks its CRC"
-    (expect (gzip-decompress (hex-octets "1f8b0800000000000003cb48cdc9c9e7020020303a3606000000"))
-            :to-equalp (string-bytes (format nil "hello~%"))))
-
-  (it "round-trips with a name and mtime in the header"
-    (let ((gz (gzip-compress (string-bytes "payload") :name "a.txt" :mtime 1700000000)))
-      (expect (gzip-decompress gz) :to-equalp (string-bytes "payload"))
-      (multiple-value-bind (name mtime) (gzip-member-header gz)
-        (expect name :to-equal "a.txt")
-        (expect mtime :to-be 1700000000))))
-
-  (it "concatenates members and tolerates trailing zeros"
-    (let ((two (join-octets (gzip-compress (string-bytes "ab")) (gzip-compress (string-bytes "cd")) (octets 0 0))))
-      (expect (gzip-decompress two) :to-equalp (string-bytes "abcd"))))
-
-  (it "rejects a CRC mismatch, a bad magic, and trailing garbage"
-    (let ((gz (gzip-compress (string-bytes "payload"))))
-      (let ((corrupt (copy-seq gz)))
-        (setf (aref corrupt (- (length corrupt) 6)) (logxor 1 (aref corrupt (- (length corrupt) 6))))
-        (signals archive-error (gzip-decompress corrupt)))
-      (signals archive-error (gzip-decompress (octets 1 2 3 4 5 6 7 8 9 10 11)))
-      (signals archive-error (gzip-decompress (join-octets gz (octets 9 9))))))
-
-  (it "bounds output across members"
-    (let ((gz (gzip-compress (make-array 50000 :element-type '(unsigned-byte 8) :initial-element 1))))
-      (signals archive-limit-exceeded (gzip-decompress gz :max-output 1000)))))
+    (expect (< (length (deflate (dynamic-vector-input))) 600) :to-be-truthy))
+  (it-each (("empty input" 0)
+            ("one byte" 1)
+            ("32 KiB minus one" 32767)
+            ("32 KiB" 32768)
+            ("32 KiB plus one" 32769)
+            ("65,535 bytes" 65535)
+            ("65,536 bytes" 65536)
+            ("1 MiB" 1048576))
+    "round-trips ~A bytes through raw DEFLATE"
+    (description size)
+    (declare (ignore description))
+    (let ((input (pseudo-random-octets size 42)))
+      (expect (equalp (inflate (deflate input)) input) :to-be t))))
 
 (defun pack-bits (fields)
   "FIELDS, a list of (VALUE . COUNT), packed least significant bit first as
@@ -176,93 +169,71 @@ literal/length symbols, or (:RAW VALUE . COUNT) bit fields."
 
 (describe "aitools.text.domain inflate on crafted streams"
   (it "decodes the crafted blocks the malformed cases below are variations of"
-    (expect (multiple-value-list (inflate (dynamic-block :literals '((97 . 1) (256 . 1)) :body '(97 97 256))))
+    (expect (multiple-value-list
+             (inflate (dynamic-block :literals '((97 . 1) (256 . 1))
+                                    :distances '((0 . 1))
+                                    :body '(97 97 256))))
             :to-equalp (list (string-bytes "aa") 139))
-    (expect (inflate (dynamic-block :literals '((256 . 1)) :body '(256))) :to-equalp (octets))
+    (expect (inflate (dynamic-block :literals '((256 . 1)) :distances '((0 . 1)) :body '(256))) :to-equalp (octets))
     (expect (inflate (dynamic-block :literals '((97 . 1) (256 . 1)) :distances '((0 . 1)) :body '(97 256)))
             :to-equalp (string-bytes "a"))
     (expect (inflate (fixed-block (huffman-field (+ #x30 97) 8) (huffman-field 1 7) (huffman-field 0 5) (huffman-field 0 7)))
             :to-equalp (string-bytes "aaaa")))
 
   (it-each (("an over-subscribed literal/length code"
-             :dynamic (:literals ((0 . 1) (1 . 1) (256 . 1))) "invalid literal/length code")
-            ("an incomplete literal/length code of more than one symbol"
-             :dynamic (:literals ((97 . 2) (256 . 2))) "invalid literal/length code")
-            ("an over-subscribed distance code"
-             :dynamic (:literals ((97 . 1) (256 . 1)) :distance-count 3 :distances ((0 . 1) (1 . 1) (2 . 1)))
-             "invalid distance code")
-            ("an incomplete distance code of more than one symbol"
-             :dynamic (:literals ((97 . 1) (256 . 1)) :distance-count 2 :distances ((0 . 2) (1 . 2)))
-             "invalid distance code")
-            ("a literal/length code without end-of-block"
-             :dynamic (:literals ((97 . 1) (98 . 1))) "no end-of-block code")
-            ("a repeat code before any length" :dynamic (:code-length-symbols ((16 . 0)))
-             "repeat with no previous length")
-            ("more code lengths than codes" :dynamic (:code-length-symbols ((18 . 127) (18 . 127)))
-             "too many code lengths")
-            ("more than 286 literal/length codes" :dynamic (:literal-count 287) "too many length or distance codes")
-            ("more than 30 distance codes" :dynamic (:distance-count 31) "too many length or distance codes")
-            ("the unused code of a one-symbol literal/length code"
-             :dynamic (:literals ((256 . 1)) :body ((:raw 1 . 1))) "deflate stream uses an undefined Huffman code")
-            ("fixed length symbol 286" :fixed ((#xC6 . 8)) "invalid length code")
-            ("fixed distance symbol 30" :fixed ((1 . 7) (30 . 5)) "deflate stream uses an undefined Huffman code")
-            ("a stored block shorter than its length" :hex "010500faff6865" "stored block is truncated"))
-      "rejects ~A"
-      (description kind arguments reason)
-    (declare (ignore description))
-    (expect (inflate-reason (ecase kind
-                              (:dynamic (apply #'dynamic-block arguments))
-                              (:fixed (apply #'fixed-block (mapcar (lambda (code) (huffman-field (car code) (cdr code)))
-                                                                   arguments)))
-                              (:hex (hex-octets arguments))))
-            :to-equal reason)))
+           :dynamic (:literals ((0 . 1) (1 . 1) (256 . 1)) :distances ((0 . 1)))
+           "A DEFLATE Huffman tree is oversubscribed.")
+          ("an incomplete literal/length code of more than one symbol"
+           :dynamic (:literals ((97 . 2) (256 . 2)) :distances ((0 . 1)))
+           "The DEFLATE stream ended prematurely.")
+          ("an over-subscribed distance code"
+           :dynamic (:literals ((97 . 1) (256 . 1))
+                     :distance-count 3
+                     :distances ((0 . 1) (1 . 1) (2 . 1)))
+           "A DEFLATE Huffman tree is oversubscribed.")
+          ("an incomplete distance code of more than one symbol"
+           :dynamic (:literals ((97 . 1) (256 . 1))
+                     :distance-count 2
+                     :distances ((0 . 2) (1 . 2)))
+           "The DEFLATE stream ended prematurely.")
+          ("a literal/length code without end-of-block"
+           :dynamic (:literals ((97 . 1) (98 . 1)))
+           "The literal/length table has no end-of-block symbol.")
+          ("a repeat code before any length"
+           :dynamic (:code-length-symbols ((16 . 0)))
+           "A repeat code has no previous length.")
+          ("more code lengths than codes"
+           :dynamic (:code-length-symbols ((18 . 127) (18 . 127)))
+           "A zero repeat exceeds the Huffman table.")
+          ("more than 286 literal/length codes"
+           :dynamic (:literal-count 287)
+           "The DEFLATE literal/length count is reserved.")
+          ("more than 30 distance codes"
+           :dynamic (:distance-count 31)
+           "The DEFLATE distance count is reserved.")
+          ("the unused code of a one-symbol literal/length code"
+           :dynamic (:literals ((256 . 1)) :distances ((0 . 1)) :body ((:raw 1 . 1)))
+           "The DEFLATE stream contains an invalid Huffman code.")
+          ("fixed length symbol 286"
+           :fixed ((#xC6 . 8))
+           "The DEFLATE literal/length symbol is invalid.")
+          ("fixed distance symbol 30"
+           :fixed ((1 . 7) (30 . 5))
+           "The DEFLATE distance symbol is reserved.")
+          ("a stored block shorter than its length"
+           :hex "010500faff6865"
+           "The DEFLATE stream ended prematurely."))
+    "rejects ~A"
+    (description kind arguments reason)
+  (declare (ignore description))
+  (expect (inflate-reason (ecase kind
+                            (:dynamic (apply #'dynamic-block arguments))
+                            (:fixed
+                             (apply #'fixed-block
+                                    (mapcar
+                                     (lambda (code)
+                                       (huffman-field (car code) (cdr code)))
+                                     arguments)))
+                            (:hex (hex-octets arguments))))
+          :to-equal reason)))
 
-(defun gzip-reason (function)
-  (handler-case (progn (funcall function) :no-error)
-    (archive-error (condition) (list (type-of condition) (archive-error-reason condition)))))
-
-(describe "aitools.text.domain gzip member headers"
-  (it "skips FEXTRA, FCOMMENT, and FHCRC and reads a Latin-1 FNAME"
-    (expect (multiple-value-list
-             (gzip-member-header (octets #x1f #x8b 8 (logior 2 4 8 16) 1 0 0 0 0 3 2 0 9 9 #xE9 0 67 0 1 2)))
-            :to-equal (list (string (code-char #xE9)) 1 20)))
-
-  (it-each (("shorter than a header" (#x1f #x8b 8 0 0 0 0) (archive-error "gzip header is truncated"))
-            ("without the magic" (1 2 8 0 0 0 0 0 0 3) (archive-error "not a gzip stream"))
-            ("with another method" (#x1f #x8b 7 0 0 0 0 0 0 3) (archive-unsupported "gzip compression method"))
-            ("with a reserved flag" (#x1f #x8b 8 #x20 0 0 0 0 0 3) (archive-error "reserved gzip flags are set"))
-            ("with FEXTRA but no length" (#x1f #x8b 8 4 0 0 0 0 0 3) (archive-error "field is truncated"))
-            ("with an unterminated FNAME" (#x1f #x8b 8 8 0 0 0 0 0 3 65 66)
-             (archive-error "unterminated gzip header string"))
-            ("with FHCRC cut short" (#x1f #x8b 8 2 0 0 0 0 0 3 0) (archive-error "gzip header is truncated")))
-      "rejects a header ~A"
-      (description header expected)
-    (declare (ignore description))
-    (expect (gzip-reason (lambda () (gzip-member-header (apply #'octets header)))) :to-equal expected))
-
-  (it-each (("FNAME with a path" "dir/x" "bundle.gz" "bundle")
-            ("empty FNAME" "" "bundle.gz" "bundle")
-            ("a.gz without FNAME" nil "a.gz" "a")
-            ("A.GZ without FNAME" nil "A.GZ" "A")
-            (".gz without FNAME" nil ".gz" ".gz.out")
-            ("extensionless archive without FNAME" nil "archive" "archive.out")
-            ("NIL archive path without FNAME" nil nil ".out")
-            ("empty archive path without FNAME" nil "" ".out")
-            ("a.gz.bak without FNAME" nil "a.gz.bak" "a")
-            ("dot FNAME falls back" "." "bundle.gz" "bundle")
-            ("a dot fallback is unsafe" nil "..gz" ".out"))
-      "names a gzip member ~A"
-      (description member-name archive-path expected)
-    (let ((gzip (if member-name
-                    (gzip-compress (string-bytes "payload") :name member-name)
-                    (gzip-compress (string-bytes "payload")))))
-      (expect (gzip-member-name gzip archive-path) :to-equal expected)))
-
-  (it "rejects a cut trailer and an ISIZE that disagrees with the data"
-    (let ((gz (gzip-compress (string-bytes "payload"))))
-      (expect (gzip-reason (lambda () (gzip-decompress (subseq gz 0 (- (length gz) 2)))))
-              :to-equal '(archive-error "field is truncated"))
-      (let ((wrong-size (copy-seq gz)))
-        (setf (aref wrong-size (- (length wrong-size) 4)) 99)
-        (expect (gzip-reason (lambda () (gzip-decompress wrong-size)))
-                :to-equal '(archive-error "gzip length mismatch"))))))

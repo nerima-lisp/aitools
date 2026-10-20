@@ -108,7 +108,10 @@ returns :UNREADABLE as its second value; a lone NIL means missing."
 (defun source-read-range (source path start end)
   (funcall (text-source-read-range source) path start end))
 
-(defun call-with-sniffed-octets/k (source path &key max-bytes on-text on-binary on-missing on-unreadable on-too-large)
+(aitools.kernel.domain:define-flow
+  (call-with-sniffed-octets/k
+   source path &key max-bytes on-text on-binary on-missing on-unreadable
+   (on-too-large (lambda (size) (funcall nil size))))
   "The binary-before-read decision over one open of PATH: the first
 +BINARY-SNIFF-LENGTH+ bytes decide, and only a text file within MAX-BYTES is
 read further, on the same descriptor. Calls exactly one continuation:
@@ -130,21 +133,37 @@ ON-TOO-LARGE (size): a text file larger than MAX-BYTES (only when MAX-BYTES
                                                    ((and max-bytes (> size max-bytes)) :too-large)
                                                    (t :text)))
                                (eq outcome :text)))
-      (cond ((null octets)
-             (if (eq problem :unreadable) (funcall on-unreadable path) (funcall on-missing path)))
-            ((eq outcome :binary) (funcall on-binary octets file-size))
-            ((eq outcome :too-large) (funcall on-too-large file-size))
-            (t (funcall on-text octets))))))
+      (cond
+            ((null octets)
+             (if (eq problem :unreadable)
+                 (aitools.kernel.domain:flow-continue :on-unreadable path)
+                 (aitools.kernel.domain:flow-continue :on-missing path)))
+            ((eq outcome :binary)
+             (aitools.kernel.domain:flow-continue :on-binary octets file-size))
+            ((eq outcome :too-large)
+             (aitools.kernel.domain:flow-continue :on-too-large file-size))
+            (t
+             (aitools.kernel.domain:flow-continue :on-text octets))))))
 
-(defun call-with-text-file/k (source path &key max-bytes on-text on-binary on-missing on-unreadable on-too-large)
+(aitools.kernel.domain:define-flow
+  (call-with-text-file/k
+   source path &key max-bytes on-text on-binary on-missing
+   (on-unreadable (lambda (path) (funcall on-missing path)))
+   (on-too-large (lambda (size) (funcall nil size))))
   "CALL-WITH-SNIFFED-OCTETS/K with the text's layout: ON-TEXT (octets
 layout) gets the whole file and its TEXT-LAYOUT. ON-MISSING (path) is called
 for an unreadable PATH when ON-UNREADABLE is not given."
   (declare (type function on-text on-binary on-missing))
-  (call-with-sniffed-octets/k source path
-                              :max-bytes max-bytes
-                              :on-text (lambda (octets) (funcall on-text octets (detect-text-layout octets)))
-                              :on-binary on-binary
-                              :on-missing on-missing
-                              :on-unreadable (or on-unreadable on-missing)
-                              :on-too-large on-too-large))
+  (aitools.kernel.domain:flow-call
+    (call-with-sniffed-octets/k source path :max-bytes max-bytes)
+    (:on-text (octets)
+      (aitools.kernel.domain:flow-continue
+        :on-text octets (detect-text-layout octets)))
+    (:on-binary (octets size)
+      (aitools.kernel.domain:flow-continue :on-binary octets size))
+    (:on-missing (missing-path)
+      (aitools.kernel.domain:flow-continue :on-missing missing-path))
+    (:on-unreadable (unreadable-path)
+      (aitools.kernel.domain:flow-continue :on-unreadable unreadable-path))
+    (:on-too-large (size)
+      (aitools.kernel.domain:flow-continue :on-too-large size))))

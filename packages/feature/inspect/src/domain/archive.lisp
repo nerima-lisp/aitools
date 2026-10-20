@@ -55,10 +55,10 @@ single member of a plain `.gz`."
                         entry))
    entries))
 
-(defun %open-gzip (octets path tar-gz)
+(defun %open-gzip (octets path tar-gz max-output)
   "The decompressed gzip OCTETS as an archive: a `.tar.gz` when TAR-GZ, else
 a single-member `.gz`."
-  (let ((data (gzip-decompress octets :max-output +archive-max-decompressed+)))
+  (let ((data (gzip-decompress octets :max-output max-output)))
     (if tar-gz
         (make-archive :tar.gz (%tar-items (read-tar-entries data)) data)
         (make-archive :gz
@@ -73,13 +73,15 @@ a single-member `.gz`."
                       data))))
 
 (aitools.kernel.domain:define-flow
- (open-archive/k octets
-                 path
-                 &key
-                 on-archive
-                 on-unsupported
-                 on-malformed
-                 on-too-large)
+ (open-archive/k
+  octets
+  path
+  &key
+  on-archive
+  on-unsupported
+  on-malformed
+  on-too-large
+  (max-gzip-output +archive-max-decompressed+))
  "Detect OCTETS' archive format through the one shared detector
 (AITOOLS.TEXT.DOMAIN:DETECT-ARCHIVE-FORMAT; magic bytes first, a v7 tar by
 its header checksum, `.tar`/`.tgz`/`.tar.gz` names) and call exactly one
@@ -99,8 +101,8 @@ continuation: ON-ARCHIVE (archive), ON-UNSUPPORTED (), ON-MALFORMED
                        (make-archive :tar
                                      (%tar-items (read-tar-entries octets))
                                      octets))
-                      (:tar-gz (%open-gzip octets path t))
-                      (:gz (%open-gzip octets path nil))
+                      (:tar-gz (%open-gzip octets path t +archive-max-decompressed+))
+                      (:gz (%open-gzip octets path nil max-gzip-output))
                       ((nil) nil))
                     :opened
                     nil)

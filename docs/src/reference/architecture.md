@@ -12,7 +12,7 @@ context. The layout follows nshell's architecture.
 | core/kernel | domain | Shared value types: path, selector, guard, duration, size, digests and the content hash, token estimate, unified diff generation, parsing, and application. |
 | core/protocol | domain, application, infrastructure | Envelopes, the error catalog, secret masking, the schema model, the command registry, unknown-name repairs, the streaming JSON writer. |
 | core/workspace | domain, application, infrastructure | Root resolution, the write boundary, native `.gitignore` evaluation, the parallel ordered scan. |
-| core/text | domain, application, infrastructure | Byte decoding, line index, binary sniffing, line endings and BOM, charsets and encoding guesses, MIME, the language table, and the byte-format codecs (deflate, gzip, zip, tar). |
+| core/text | domain, application, infrastructure | Byte decoding, line index, binary sniffing, line endings and BOM, charsets and encoding guesses, MIME, the language table, and byte-format codecs (DEFLATE and gzip via `cl-deflate-kit`, ZIP, and TAR). |
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
 | feature/search | domain, application, infrastructure, presentation | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
 | feature/inspect | domain, application, infrastructure, presentation | `read`, `info`, `check`, `diff`, `json get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
@@ -35,9 +35,10 @@ command reads or writes.
 
 - **Byte codecs in core/text.** `archive list` and `archive read` (inspect)
   and `archive extract` and `archive create` (edit) all need deflate, gzip,
-  zip, and tar. A feature domain may not depend on another feature context,
-  so the codecs live in `packages/core/text/src/domain/codec-*.lisp`, where
-  both can reach them.
+  zip, and tar. `cl-deflate-kit` supplies DEFLATE and gzip; core/text keeps
+  the ZIP and TAR codecs. A feature domain may not depend on another feature
+  context, so the adapters and archive codecs live in
+  `packages/core/text/src/domain/codec-*.lisp`, where both can reach them.
 - **Command registry in core/protocol.** A presentation layer may reference
   protocol but not the composition root, and presentation modules load
   before `aitools/cli`. So `make-command-registry` and `register-command`
@@ -62,7 +63,7 @@ command reads or writes.
 
 | Layer | Holds | May reference |
 |---|---|---|
-| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, and `cl-date-kit` |
+| domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, `cl-date-kit`, and `cl-deflate-kit` |
 | application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications |
 | infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
@@ -295,7 +296,7 @@ with the number of non-matching lines. See
 | Diff generation (LCS) | `generate-diff-hunks`, `generate-unified-diff` | `packages/core/kernel/src/domain/unified-diff.lisp` |
 | Diff parsing | `parse-unified-diff` | `packages/core/kernel/src/domain/unified-diff-patch.lisp` |
 | `transform` operations | `transform-lines` | `packages/feature/edit/src/domain/transform.lisp` |
-| Compression | `inflate`, `deflate` | `packages/core/text/src/domain/codec-deflate.lisp` |
+| Compression adapters | `inflate`, `deflate` | `packages/core/text/src/domain/codec-deflate.lisp` (`cl-deflate-kit`) |
 | Envelope construction | `make-ok-envelope`, `make-error-envelope` | `packages/core/protocol/src/domain/envelope.lisp` |
 
 Each has a single outcome (or signals a condition that its caller's `/k`

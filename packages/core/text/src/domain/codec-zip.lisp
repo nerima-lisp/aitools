@@ -26,16 +26,6 @@
        (* 60 (min 59 (ldb (byte 6 5) time)))
        (* 2 (min 29 (ldb (byte 5 0) time))))))
 
-(defun %unix-to-dos-time (unix)
-  "(VALUES TIME DATE), clamped to MS-DOS's 1980-2107 range."
-  (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time
-       (aitools.kernel.domain:unix-seconds-to-universal-time (max unix 315532800)) 0)
-    (if (> year 2107)
-        (values #xBF7D #xFF9F)
-        (values (logior (ash hour 11) (ash minute 5) (floor second 2))
-                (logior (ash (- year 1980) 9) (ash month 5) day)))))
-
 (defun %zip-signature-p (octets offset signature)
   (and (<= 0 offset) (<= (+ offset 4) (length octets))
        (= (%u32le octets offset) signature)))
@@ -66,22 +56,30 @@
 
 (defun read-zip-entries (octets)
   "The ARCHIVE-ENTRY list of the zip archive OCTETS in central directory
-order. Directory names lose their trailing `/`. A symlink's target is read
+order. Directory names lose their trailing '/'. A symlink's target is read
 from its (small) data."
   (declare (type octets octets))
   (let* ((eocd (%find-end-of-central-directory octets))
          (disk (%u16le octets (+ eocd 4)))
          (count (%u16le octets (+ eocd 10)))
          (directory-size (%u32le octets (+ eocd 12)))
-         (directory-offset (%u32le octets (+ eocd 16))))
+         (directory-offset (%u32le octets (+ eocd 16)))
+         (directory-end (+ directory-offset directory-size)))
     (when (or (%zip-signature-p octets (- eocd 20) #x07064b50)
-              (= count #xFFFF) (= directory-size #xFFFFFFFF) (= directory-offset #xFFFFFFFF))
+              (or (= count #xFFFF) (= (%u16le octets (+ eocd 8)) #xFFFF))
+              (= directory-size #xFFFFFFFF)
+              (= directory-offset #xFFFFFFFF))
       (%archive-unsupported "ZIP64"))
-    (unless (zerop disk) (%archive-unsupported "multi-disk zip"))
-    (when (> (+ directory-offset directory-size) eocd)
+    (unless (and (zerop disk)
+                 (zerop (%u16le octets (+ eocd 6)))
+                 (= count (%u16le octets (+ eocd 8))))
+      (%archive-unsupported "multi-disk zip"))
+    (when (> directory-end eocd)
       (%archive-fail "central directory lies outside the archive"))
     (let ((offset directory-offset) (entries '()))
-      (dotimes (i count (nreverse entries))
+      (dotimes (i count)
+        (when (> (+ offset 46) directory-end)
+          (%archive-fail "central directory entry exceeds declared size"))
         (unless (%zip-signature-p octets offset #x02014b50)
           (%archive-fail "bad central directory entry signature"))
         (let* ((made-by (%u16le octets (+ offset 4)))
@@ -99,35 +97,73 @@ from its (small) data."
                (local (%u32le octets (+ offset 42)))
                (name-start (+ offset 46))
                (next (+ name-start name-length extra-length comment-length)))
-          (when (> next (length octets)) (%archive-fail "central directory entry is truncated"))
-          (when (or (= compressed #xFFFFFFFF) (= size #xFFFFFFFF) (= local #xFFFFFFFF))
-            (%archive-unsupported "ZIP64"))
+          (when (> next (length octets))
+            (%archive-fail "central directory entry is truncated"))
+          (when (> next directory-end)
+            (%archive-fail "central directory entry exceeds declared size"))
+          (cond
+            ((or (= compressed #xFFFFFFFF)
+                 (= size #xFFFFFFFF)
+                 (= local #xFFFFFFFF)
+                 (= (%u16le octets (+ offset 34)) #xFFFF))
+             (%archive-unsupported "ZIP64"))
+            ((/= (%u16le octets (+ offset 34)) 0)
+             (%archive-unsupported "multi-disk zip")))
+          (when (> (+ local 30) directory-offset)
+            (%archive-fail "local entry header overlaps central directory"))
           (unless (%zip-signature-p octets local #x04034b50)
             (%archive-fail "bad local header signature"))
-          (let* ((data-offset (+ local 30 (%u16le octets (+ local 26)) (%u16le octets (+ local 28))))
+          (let* ((data-offset (+ local 30
+                                 (%u16le octets (+ local 26))
+                                 (%u16le octets (+ local 28))))
+                 (data-end (+ data-offset compressed))
                  (raw-name (if (logbitp 11 flags)
                                (decode-utf8 octets :start name-start :end (+ name-start name-length))
                                (%name-from-octets octets name-start (+ name-start name-length)))))
-            (when (> (+ data-offset compressed) (length octets))
+            (when (> data-end (length octets))
               (%archive-fail "entry data lies outside the archive"))
+            (when (> data-end directory-offset)
+              (%archive-fail "entry data overlaps central directory"))
             (multiple-value-bind (kind mode) (%zip-kind-and-mode made-by external raw-name)
-              (let ((entry (make-archive-entry :format :zip
-                                               :name (string-right-trim "/" raw-name)
-                                               :kind kind :size size :mode mode
-                                               :mtime (%dos-time-to-unix time date)
-                                               :data-offset data-offset :compressed-size compressed
-                                               :method method :flags flags :crc crc)))
+              (let ((entry (make-archive-entry
+                            :format :zip
+                            :name (string-right-trim "/" raw-name)
+                            :kind kind
+                            :size size
+                            :mode mode
+                            :mtime (%dos-time-to-unix time date)
+                            :data-offset data-offset
+                            :compressed-size compressed
+                            :method method
+                            :flags flags
+                            :crc crc)))
                 (push (if (eq kind :symlink)
-                          (make-archive-entry :format :zip :name (archive-entry-name entry)
-                                              :kind kind :size size :mode mode
-                                              :mtime (archive-entry-mtime entry)
-                                              :link-target (decode-utf8
-                                                            (archive-entry-data octets entry :max-output 4096))
-                                              :data-offset data-offset :compressed-size compressed
-                                              :method method :flags flags :crc crc)
+                          (make-archive-entry
+                           :format :zip
+                           :name (archive-entry-name entry)
+                           :kind kind
+                           :size size
+                           :mode mode
+                           :mtime (archive-entry-mtime entry)
+                           :link-target
+                           (decode-utf8 (archive-entry-data octets entry :max-output 4096))
+                           :data-offset data-offset
+                           :compressed-size compressed
+                           :method method
+                           :flags flags
+                           :crc crc)
                           entry)
                       entries))))
-          (setf offset next))))))
+          (setf offset next)))
+      (unless (= offset directory-end)
+        (unless (and (<= (+ offset 6) directory-end)
+                     (%zip-signature-p octets offset #x05054b50))
+          (%archive-fail "parsed entries do not consume declared directory size"))
+        (let ((signature-end (+ offset 6 (%u16le octets (+ offset 4)))))
+          (unless (= signature-end directory-end)
+            (%archive-fail "parsed entries do not consume declared directory size"))
+          (setf offset signature-end)))
+      (nreverse entries))))
 
 (defun %zip-entry-data (octets entry max-output)
   (let ((size (archive-entry-size entry))
@@ -139,9 +175,17 @@ from its (small) data."
     (let ((data (case (archive-entry-method entry)
                   (0 (unless (= size compressed) (%archive-fail "stored entry sizes disagree"))
                    (subseq octets start (+ start size)))
-                  (8 (handler-case (inflate octets :start start :end (+ start compressed) :max-output size)
-                       (archive-limit-exceeded ()
-                         (%archive-fail "entry inflates past its declared size"))))
+                  (8 (handler-case
+                           (multiple-value-bind (data consumed)
+                               (inflate octets
+                                        :start start
+                                        :end (+ start compressed)
+                                        :max-output size)
+                             (unless (eql consumed (+ start compressed))
+                               (%archive-fail "deflated entry has trailing data"))
+                             data)
+                         (archive-limit-exceeded ()
+                           (%archive-fail "entry inflates past its declared size"))))
                   (t (%archive-unsupported "zip compression method")))))
       (unless (= (length data) size) (%archive-fail "entry size mismatch"))
       (unless (= (crc32 data) (archive-entry-crc entry)) (%archive-fail "zip CRC-32 mismatch"))
@@ -149,98 +193,3 @@ from its (small) data."
 
 ;;; ------------------------------------------------------------ writing
 
-(defun %byte-sink ()
-  (make-array 1024 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0))
-
-(defun %put-u16le (sink value)
-  (vector-push-extend (ldb (byte 8 0) value) sink)
-  (vector-push-extend (ldb (byte 8 8) value) sink))
-
-(defun %put-u32le (sink value)
-  (%put-u16le sink (ldb (byte 16 0) value))
-  (%put-u16le sink (ldb (byte 16 16) value)))
-
-(defun %put-octets (sink octets)
-  (loop for byte across octets do (vector-push-extend byte sink)))
-
-(defun %member-payload (member)
-  (ecase (archive-member-kind member)
-    (:file (archive-member-data member))
-    (:symlink (encode-utf8 (or (archive-member-link-target member) "")))
-    (:directory (make-array 0 :element-type '(unsigned-byte 8)))))
-
-(defun %member-unix-mode (member)
-  (logior (archive-member-mode member)
-          (ecase (archive-member-kind member)
-            (:file #o100000) (:directory #o040000) (:symlink #o120000))))
-
-(defun write-zip (members)
-  "A zip archive holding MEMBERS (ARCHIVE-MEMBERs) in order. File data is
-deflated when that is smaller, else stored. Names are UTF-8 (flag bit 11 set
-when non-ASCII). Signals ARCHIVE-UNSUPPORTED past the non-ZIP64 limits."
-  (when (> (length members) #xFFFF) (%archive-unsupported "more than 65535 zip entries"))
-  (let ((sink (%byte-sink)) (central '()))
-    (dolist (member members)
-      (let* ((name (encode-utf8 (if (eq (archive-member-kind member) :directory)
-                                    (concatenate 'string (archive-member-name member) "/")
-                                    (archive-member-name member))))
-             (flags (if (find-if (lambda (byte) (>= byte #x80)) name) #x0800 0))
-             (data (%member-payload member))
-             (deflated (and (eq (archive-member-kind member) :file) (plusp (length data)) (deflate data)))
-             (method (if (and deflated (< (length deflated) (length data))) 8 0))
-             (stored (if (= method 8) deflated data))
-             (crc (crc32 data))
-             (offset (fill-pointer sink)))
-        (when (or (>= (length data) #xFFFFFFFF) (>= offset #xFFFFFFFF))
-          (%archive-unsupported "zip entry beyond 4GiB"))
-        (multiple-value-bind (time date) (%unix-to-dos-time (archive-member-mtime member))
-          (%put-u32le sink #x04034b50)
-          (%put-u16le sink 20)
-          (%put-u16le sink flags)
-          (%put-u16le sink method)
-          (%put-u16le sink time)
-          (%put-u16le sink date)
-          (%put-u32le sink crc)
-          (%put-u32le sink (length stored))
-          (%put-u32le sink (length data))
-          (%put-u16le sink (length name))
-          (%put-u16le sink 0)
-          (%put-octets sink name)
-          (%put-octets sink stored)
-          (push (list name flags method time date crc (length stored) (length data)
-                      (logior (ash (%member-unix-mode member) 16)
-                              (if (eq (archive-member-kind member) :directory) #x10 0))
-                      offset)
-                central))))
-    (let ((directory-offset (fill-pointer sink)))
-      (dolist (record (reverse central))
-        (destructuring-bind (name flags method time date crc compressed size external offset) record
-          (%put-u32le sink #x02014b50)
-          (%put-u16le sink #x0314)
-          (%put-u16le sink 20)
-          (%put-u16le sink flags)
-          (%put-u16le sink method)
-          (%put-u16le sink time)
-          (%put-u16le sink date)
-          (%put-u32le sink crc)
-          (%put-u32le sink compressed)
-          (%put-u32le sink size)
-          (%put-u16le sink (length name))
-          (%put-u16le sink 0)
-          (%put-u16le sink 0)
-          (%put-u16le sink 0)
-          (%put-u16le sink 0)
-          (%put-u32le sink external)
-          (%put-u32le sink offset)
-          (%put-octets sink name)))
-      (let ((directory-size (- (fill-pointer sink) directory-offset)))
-        (when (>= (fill-pointer sink) #xFFFFFFFF) (%archive-unsupported "zip archive beyond 4GiB"))
-        (%put-u32le sink #x06054b50)
-        (%put-u16le sink 0)
-        (%put-u16le sink 0)
-        (%put-u16le sink (length members))
-        (%put-u16le sink (length members))
-        (%put-u32le sink directory-size)
-        (%put-u32le sink directory-offset)
-        (%put-u16le sink 0)))
-    (coerce sink 'octets)))

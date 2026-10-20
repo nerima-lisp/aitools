@@ -167,3 +167,4 @@ call and (:rest path) when it goes on past the prefix."
                                             :call-with-chunks #'identity)
               (error (condition) (princ-to-string condition)))
             :to-equal "make-text-source: FILE-SIZE must be a function, got 1")))
+

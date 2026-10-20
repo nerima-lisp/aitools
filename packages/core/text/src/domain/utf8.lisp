@@ -32,18 +32,25 @@ replacements (genuine U+FFFD characters in the input are not counted)."
                 (- (count (code-char #xFFFD) string) (%genuine-replacement-count octets start end))
                 0))))
 
-(defun decode-utf8-strict/k (octets &key (start 0) end on-decoded on-invalid)
+(aitools.kernel.domain:define-flow
+  (decode-utf8-strict/k octets &key (start 0) end on-decoded on-invalid)
   "Decode OCTETS[START,END) strictly and call exactly one continuation:
 ON-DECODED with the string, or ON-INVALID with the byte offset (into OCTETS)
 of the first invalid or truncated sequence."
   (declare (type octets octets) (type function on-decoded on-invalid))
-  (let ((string (handler-case
-                    (cl-codec-kit:octets-to-string octets :start start :end (or end (length octets))
-                                                          :encoding :utf-8)
+  (multiple-value-bind (string invalid-position)
+        (handler-case
+                    (values
+                      (cl-codec-kit:octets-to-string octets
+                                                     :start start
+                                                     :end (or end (length octets))
+                                                     :encoding :utf-8)
+                      nil)
                   (cl-codec-kit:decode-error (condition)
-                    (return-from decode-utf8-strict/k
-                      (funcall on-invalid (cl-codec-kit:decode-error-position condition)))))))
-    (funcall on-decoded string)))
+                    (values nil (cl-codec-kit:decode-error-position condition))))
+    (if invalid-position
+        (aitools.kernel.domain:flow-continue :on-invalid invalid-position)
+        (aitools.kernel.domain:flow-continue :on-decoded string))))
 
 (defun utf8-valid-p (octets &key (start 0) end)
   (flet ((decoded (string) (declare (ignore string)) t)

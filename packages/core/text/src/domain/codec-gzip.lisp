@@ -1,9 +1,8 @@
 ;;;; packages/core/text/src/domain/codec-gzip.lisp
 ;;;;
-;;;; gzip (RFC 1952) over INFLATE/DEFLATE. Reading accepts concatenated
-;;;; members (as `gzip -c a b` writes) and trailing zero padding, and checks
-;;;; each member's CRC-32 and ISIZE. The FNAME field is written as UTF-8 and
-;;;; read as UTF-8 when valid, else ISO-8859-1 as RFC 1952 specifies.
+;;;; gzip compatibility wrappers over cl-deflate-kit. Reading accepts
+;;;; concatenated members and trailing zero padding. FNAME is written as
+;;;; UTF-8 and read as UTF-8 when valid, else bytewise.
 (in-package #:aitools.text.domain)
 
 (defun %u16le (octets offset)
@@ -24,38 +23,58 @@
     (decode-utf8-strict/k octets :start start :end end :on-decoded #'identity :on-invalid #'bytewise)))
 
 (defun gzip-member-header (octets &key (start 0))
-  "Parse the gzip member header at START. Returns (VALUES NAME MTIME
-DATA-START): NAME from FNAME (or NIL), MTIME in Unix seconds, DATA-START the
-index of the DEFLATE stream."
+  "Parse a gzip member header at START. Return its name, mtime, and data index."
   (declare (type octets octets))
-  (when (> (+ start 10) (length octets)) (%archive-fail "gzip header is truncated"))
-  (unless (and (= (aref octets start) #x1F) (= (aref octets (+ start 1)) #x8B))
-    (%archive-fail "not a gzip stream"))
-  (unless (= (aref octets (+ start 2)) 8) (%archive-unsupported "gzip compression method"))
-  (let ((flags (aref octets (+ start 3)))
-        (mtime (%u32le octets (+ start 4)))
-        (position (+ start 10))
-        (name nil))
-    (unless (zerop (logand flags #xE0)) (%archive-fail "reserved gzip flags are set"))
-    (when (logbitp 2 flags)
-      (incf position (+ 2 (%u16le octets position))))
-    (flet ((zero-terminated ()
-             (let ((zero (position 0 octets :start (min position (length octets)))))
-               (unless zero (%archive-fail "unterminated gzip header string"))
-               (prog1 (cons position zero) (setf position (1+ zero))))))
-      (when (logbitp 3 flags)
-        (destructuring-bind (from . to) (zero-terminated)
-          (setf name (%name-from-octets octets from to))))
-      (when (logbitp 4 flags) (zero-terminated)))
-    (when (logbitp 1 flags) (incf position 2))
-    (when (> position (length octets)) (%archive-fail "gzip header is truncated"))
-    (values name mtime position)))
+  (when (and (integerp start)
+             (<= 0 start)
+             (<= (+ start 10) (length octets))
+             (= (aref octets start) #x1F)
+             (= (aref octets (+ start 1)) #x8B)
+             (/= (aref octets (+ start 2)) 8))
+    (%archive-unsupported "gzip compression method"))
+  (handler-case
+      (multiple-value-bind (header data-start)
+          (deflate-kit:gzip-member-header-at octets :start start)
+        (let ((name (deflate-kit:gzip-member-header-fname header)))
+          (values (and name (%name-from-octets name 0 (length name)))
+                  (deflate-kit:gzip-member-header-mtime header)
+                  data-start)))
+    (deflate-kit:invalid-container-error (condition)
+      (%archive-fail
+       (%gzip-archive-error-reason
+        (deflate-kit:deflate-error-reason condition)
+        "invalid gzip header")))
+    (deflate-kit:checksum-error ()
+      (%archive-fail "gzip header CRC-32 mismatch"))
+    (deflate-kit:deflate-error ()
+      (%archive-fail "invalid gzip header"))))
 
 (defun %gzip-safe-member-name-p (name)
   (and (plusp (length name))
        (not (string= name "."))
        (null (archive-entry-path-problem name))
        (not (find #\/ name))))
+
+(defun %gzip-archive-error-reason (reason fallback)
+  (cond
+    ((member reason
+             '("empty stream" "truncated member header" "truncated header CRC")
+             :test #'string=)
+     "gzip header is truncated")
+    ((string= reason "invalid member signature or compression method")
+     "not a gzip stream")
+    ((string= reason "reserved header flags are set")
+     "reserved gzip flags are set")
+    ((member reason
+             '("truncated extra field length" "truncated extra field"
+               "truncated member trailer")
+             :test #'string=)
+     "field is truncated")
+    ((string= reason "unterminated gzip header field")
+     "unterminated gzip header string")
+    ((string= reason "member input size mismatch")
+     "gzip length mismatch")
+    (t fallback)))
 
 (defun %path-basename (path)
   (subseq path (1+ (or (position #\/ path :from-end t) -1))))
@@ -77,54 +96,73 @@ or to `.out` when that fallback is unsafe or has no basename."
           (if (%gzip-safe-member-name-p fallback) fallback ".out")))))
 
 (defun gzip-decompress (octets &key max-output)
-  "The decompressed bytes of every member of the gzip stream OCTETS, each
-checked against its CRC-32 and length. MAX-OUTPUT bounds the total and is
-signalled as ARCHIVE-LIMIT-EXCEEDED. Peak memory stays near one copy of the
-output: the last four bytes (a one-member stream's ISIZE) size the first
-member's buffer, and a lone member is returned without concatenating."
+  "Decode every gzip member in OCTETS, checking CRCs and the cumulative limit."
   (declare (type octets octets))
-  (let ((position 0) (parts '()) (total 0))
-    (loop
-      (multiple-value-bind (name mtime data-start) (gzip-member-header octets :start position)
-        (declare (ignore name mtime))
-        (multiple-value-bind (data next)
-            (inflate octets :start data-start :max-output (and max-output (- max-output total))
-                            :size-hint (and (zerop position) (>= (length octets) 4)
-                                            (%u32le octets (- (length octets) 4))))
-          (let ((crc (%u32le octets next))
-                (size (%u32le octets (+ next 4))))
-            (unless (= crc (crc32 data)) (%archive-fail "gzip CRC-32 mismatch"))
-            (unless (= size (logand (length data) #xFFFFFFFF)) (%archive-fail "gzip length mismatch"))
-            (push data parts)
-            (incf total (length data))
-            (setf position (+ next 8)))))
-      (when (or (>= position (length octets))
-                (not (find-if-not #'zerop octets :start position)))
-        (return))
-      (unless (and (< (1+ position) (length octets))
-                   (= (aref octets position) #x1F) (= (aref octets (1+ position)) #x8B))
-        (%archive-fail "trailing data after the gzip stream")))
-    (if (null (rest parts))
-        (first parts)
-        (let ((result (make-array total :element-type '(unsigned-byte 8))) (offset 0))
-          (dolist (part (nreverse parts) result)
-            (replace result part :start1 offset)
-            (incf offset (length part)))))))
+  (when (and max-output
+             (not (and (integerp max-output) (>= max-output 0))))
+    (%archive-fail "invalid gzip output limit"))
+  (when (and (>= (length octets) 10)
+             (= (aref octets 0) #x1F)
+             (= (aref octets 1) #x8B)
+             (/= (aref octets 2) 8))
+    (%archive-unsupported "gzip compression method"))
+  (handler-case
+      (let ((index 0)
+            (member-count 0)
+            (output-size 0)
+            (members '()))
+        (when (zerop (length octets))
+          (%archive-fail "gzip header is truncated"))
+        (loop while (< index (length octets))
+              do (when (and (plusp member-count)
+                            (loop for position from index below (length octets)
+                                  always (zerop (aref octets position))))
+                   (return))
+                 (multiple-value-bind (member header next)
+                     (deflate-kit:gzip-decode-prefix
+                      octets :start index
+                      :max-output (if max-output
+                                      (1+ (- max-output output-size))
+                                      most-positive-fixnum))
+                   (declare (ignore header))
+                   (unless next
+                     (error 'archive-limit-exceeded
+                            :limit max-output :reason "gzip output limit"))
+                   (push member members)
+                   (incf member-count)
+                   (incf output-size (length member))
+                   (setf index next)))
+        (let ((members (nreverse members)))
+          (if (null (cdr members))
+              (let ((member (car members)))
+                (if (typep member 'octets)
+                    member
+                    (let ((result (make-array output-size
+                                              :element-type '(unsigned-byte 8))))
+                      (replace result member)
+                      result)))
+              (let ((result (make-array output-size
+                                        :element-type '(unsigned-byte 8)))
+                    (offset 0))
+                (dolist (member members result)
+                  (replace result member :start1 offset)
+                  (incf offset (length member)))))))
+    (deflate-kit:invalid-container-error (condition)
+      (%archive-fail
+       (%gzip-archive-error-reason
+        (deflate-kit:deflate-error-reason condition)
+        "invalid gzip stream")))
+    (deflate-kit:checksum-error ()
+      (%archive-fail "gzip checksum mismatch"))
+    (deflate-kit:inflate-invalid-data (condition)
+      (%archive-fail (deflate-kit:deflate-error-message condition)))
+    (deflate-kit:deflate-error ()
+      (%archive-fail "invalid gzip stream"))))
 
 (defun gzip-compress (octets &key name (mtime 0))
-  "OCTETS as a single-member gzip stream. NAME, when given, is stored in
-FNAME; MTIME is Unix seconds (0 means unknown, keeping output reproducible)."
+  "OCTETS as one gzip member with an optional UTF-8 NAME and MTIME."
   (declare (type octets octets))
-  (let* ((name-octets (and name (encode-utf8 name)))
-         (header (concatenate 'octets
-                              (vector #x1F #x8B 8 (if name 8 0)
-                                      (ldb (byte 8 0) mtime) (ldb (byte 8 8) mtime)
-                                      (ldb (byte 8 16) mtime) (ldb (byte 8 24) mtime)
-                                      0 255)
-                              (or name-octets #())
-                              (if name #(0) #())))
-         (crc (crc32 octets))
-         (size (logand (length octets) #xFFFFFFFF)))
-    (concatenate 'octets header (deflate octets)
-                 (vector (ldb (byte 8 0) crc) (ldb (byte 8 8) crc) (ldb (byte 8 16) crc) (ldb (byte 8 24) crc)
-                         (ldb (byte 8 0) size) (ldb (byte 8 8) size) (ldb (byte 8 16) size) (ldb (byte 8 24) size)))))
+  (deflate-kit:gzip-encode octets
+                           :level 6
+                           :filename (and name (encode-utf8 name))
+                           :mtime mtime))

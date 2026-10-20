@@ -4,7 +4,7 @@
 (defpackage #:aitools.text.test
   (:use #:cl #:aitools.text.domain #:aitools.text.application)
   (:shadowing-import-from #:cl-weave #:describe)
-  (:import-from #:cl-weave #:it #:it-each #:expect #:expect-not #:signals #:fail)
+  (:import-from #:cl-weave #:it #:it-each #:it-property #:gen-integer #:gen-vector #:gen-map #:expect #:expect-not #:signals #:fail)
   (:import-from #:aitools.test.support #:string-bytes))
 
 (in-package #:aitools.text.test)

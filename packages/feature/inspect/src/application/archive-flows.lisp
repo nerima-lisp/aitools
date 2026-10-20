@@ -8,7 +8,13 @@
   (command-line context (list "archive" "list" path)))
 
 (aitools.kernel.domain:define-flow
- (call-with-archive/k context target &key on-archive on-error)
+ (call-with-archive/k
+  context
+  target
+  &key
+  on-archive
+  on-error
+  (max-gzip-output +archive-max-decompressed+))
  "Read TARGET's bytes and open them as an archive: ON-ARCHIVE (archive), or
 the matching error through ON-ERROR."
  (declare (type function on-archive on-error))
@@ -53,7 +59,7 @@ the matching error through ON-ERROR."
                                                                        :tx
                                                                        :none)))))
        (aitools.kernel.domain:flow-call
-        (open-archive/k octets absolute)
+        (open-archive/k octets absolute :max-gzip-output max-gzip-output)
         (:on-archive (archive)
                      (aitools.kernel.domain:flow-continue
                       :on-archive

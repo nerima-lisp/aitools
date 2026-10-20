@@ -23,6 +23,7 @@
    (:file "domain/workspace/builtin-excludes-data")
    (:file "domain/text/cp932-data")
    (:file "domain/text/euc-jp-data")
+   (:file "domain/text/encoding-aliases-data")
    (:file "domain/text/mime-data")
    (:file "domain/text/language-data")
    (:file "domain/search/build-files-data")

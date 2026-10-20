@@ -11,7 +11,7 @@
                        &key on-ok on-partial on-error)
  (declare (type function on-ok on-partial on-error))
  (aitools.kernel.domain:flow-call
-  (call-with-archive/k context target)
+  (call-with-archive/k context target :max-gzip-output +archive-max-entry+)
   (:on-error (code message &key candidates diagnostics conflicts repairs)
     (aitools.kernel.domain:flow-continue
      :on-error code message

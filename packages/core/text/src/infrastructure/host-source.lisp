@@ -13,12 +13,10 @@
 
 (defconstant +read-buffer-size+ 65536)
 
-(defun %posix-read (fd sap count)
-  "read(2) of at most COUNT bytes into SAP, retrying an interrupted call so a
-signal delivered to a scan worker does not surface as a short read. Other
-syscall errors propagate."
+(defun %posix-read (fd sap count &optional (read-function #'sb-posix:read))
+  "read(2) of at most COUNT bytes into SAP, retrying interrupted calls. Other syscall errors propagate."
   (loop
-    (handler-case (return (sb-posix:read fd sap count))
+    (handler-case (return (funcall read-function fd sap count))
       (sb-posix:syscall-error (condition)
         (unless (= (sb-posix:syscall-errno condition) sb-posix:eintr)
           (error condition))))))

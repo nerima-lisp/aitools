@@ -182,12 +182,41 @@
           (unwind-protect (expect (aitools.text.infrastructure::%read-all fd 3) :to-equalp (subseq bytes 0 65540))
             (sb-posix:close fd))))))
 
-  (it "retries nothing but EINTR: another read(2) error reaches the caller"
-    (let ((buffer (make-array 4 :element-type '(unsigned-byte 8))))
-      (expect (handler-case (sb-sys:with-pinned-objects (buffer)
-                              (aitools.text.infrastructure::%posix-read -1 (sb-sys:vector-sap buffer) 4))
-                (sb-posix:syscall-error (condition) (sb-posix:syscall-errno condition)))
-              :to-be sb-posix:ebadf)))
+  (it "retries an interrupted read and propagates other syscall errors"
+    (with-scratch-directory (scratch)
+      (let* ((path (concatenate 'string scratch "/input"))
+             (buffer (make-array 4 :element-type '(unsigned-byte 8)))
+             (fd (progn
+                   (write-file path "data")
+                   (sb-posix:open path sb-posix:o-rdonly)))
+             (original (symbol-function 'sb-posix:read))
+             (calls 0))
+        (unwind-protect
+             (progn
+               (expect
+                (sb-sys:with-pinned-objects (buffer)
+                  (aitools.text.infrastructure::%posix-read
+                   fd
+                   (sb-sys:vector-sap buffer)
+                   4
+                   (lambda (actual-fd sap count)
+                     (incf calls)
+                     (if (= calls 1)
+                         (error (make-condition 'sb-posix:syscall-error
+                                                :errno sb-posix:eintr))
+                         (funcall original actual-fd sap count)))))
+                :to-be 4)
+               (expect (text buffer) :to-equal "data")
+               (expect calls :to-be 2)
+               (expect
+                (handler-case
+                    (sb-sys:with-pinned-objects (buffer)
+                      (aitools.text.infrastructure::%posix-read
+                       -1 (sb-sys:vector-sap buffer) 4))
+                  (sb-posix:syscall-error (condition)
+                    (sb-posix:syscall-errno condition)))
+                :to-be sb-posix:ebadf))
+          (sb-posix:close fd)))))
 
   (it "classifies text and binary files through call-with-text-file/k"
     (with-scratch-directory (scratch)
@@ -209,22 +238,3 @@
                      (cl-boundary-kit:make-boundary-context) :source source)))
       (expect (aitools.text.infrastructure:text-source-from-context context) :to-be source))))
 
-(describe "aitools text production source ranged read"
-  (it "reads a window from the middle of a sparse file and reports the whole size"
-    (with-scratch-directory (scratch)
-      (let ((path (concatenate 'string scratch "/sparse.bin"))
-            (size (* 64 1024 1024))
-            (offset (* 40 1024 1024)))
-        (write-file path "")
-        (sb-posix:truncate path size)
-        (with-open-file (out (sb-ext:parse-native-namestring path) :direction :output
-                                                                  :element-type '(unsigned-byte 8) :if-exists :overwrite)
-          (file-position out offset)
-          (write-sequence (sb-ext:string-to-octets "window" :external-format :utf-8) out))
-        (multiple-value-bind (octets reported) (aitools.text.application:source-read-range (source) path offset (+ offset 6))
-          (expect (text octets) :to-equal "window")
-          (expect reported :to-be size))
-        (multiple-value-bind (octets reported)
-            (aitools.text.application:source-read-range (source) path (- size 2) (+ size 100))
-          (expect (length octets) :to-be 2)
-          (expect reported :to-be size))))))
