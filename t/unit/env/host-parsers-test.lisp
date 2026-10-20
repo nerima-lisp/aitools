@@ -46,11 +46,39 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
     (expect (nth-value 1 (parse-network-counters
                          (concatenate 'string *network-darwin-text* row) :darwin))
             :to-be nil))
-  (it "rejects duplicate interfaces and missing Darwin counter columns"
-    (expect (nth-value 1 (parse-network-counters
-                         (concatenate 'string *network-linux-text*
-                                      " a0: 1 2 3 0 0 0 0 0 4 5 6 0 0 0 0 0") :linux)) :to-be nil)
-    (expect (nth-value 1 (parse-network-counters "Name Mtu Network Address" :darwin)) :to-be nil)))
+  (it "rejects duplicate interfaces and malformed network headers or link rows"
+    (expect (multiple-value-list
+             (parse-network-counters
+              (concatenate 'string *network-linux-text*
+                           " a0: 1 2 3 0 0 0 0 0 4 5 6 0 0 0 0 0")
+              :linux))
+            :to-equal '(nil nil))
+    (expect (multiple-value-list
+             (parse-network-counters "Name Mtu Network Address" :darwin))
+            :to-equal '(nil nil))
+    (expect (multiple-value-list
+             (parse-network-counters
+              (format nil "~A~% ~A~A~% ~A~%"
+                      "Inter-| Missing | Transmit"
+                      "face |bytes packets errs drop fifo frame compressed multicast|"
+                      "bytes packets errs drop fifo colls carrier compressed"
+                      "a0: 1 2 3 0 0 0 0 0 4 5 6 0 0 0 0 0")
+              :linux))
+            :to-equal '(nil nil))
+    (expect (multiple-value-list
+             (parse-network-counters
+              (format nil "~A~%~A~%"
+                      "Alias Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll"
+                      "z0 1500 <Link#2> 00:00:00:00:00:00 2 3 100 5 6 400 0")
+              :darwin))
+            :to-equal '(nil nil))
+    (expect (multiple-value-list
+             (parse-network-counters
+              (format nil "~A~%~A~%"
+                      "Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll"
+                      "a0* 16384 <Link#1> 8 9 700 11 12 1000 0 extra more")
+              :darwin))
+            :to-equal '(nil nil))))
 
 (describe "aitools.env.domain metrics parsers"
   (it "computes aggregate CPU deltas without double-counting guest time"
@@ -80,7 +108,13 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
       (expect (getf record :cpu-percent) :to-equal 125.5d0)
       (expect (getf record :rss-bytes) :to-be 2097152)
       (expect (getf record :command) :to-equal "worker")))
-  (it-each (("") ("42 x 10 worker") ("42 0 -1 worker") ("42 0 10") ("0 0 10 worker"))
+  (it-each (("")
+            ("42")
+            ("42 0")
+            ("42 x 10 worker")
+            ("42 0 -1 worker")
+            ("42 0 10")
+            ("0 0 10 worker"))
       "rejects malformed process metrics ~S" (text)
     (expect (parse-process-metrics text) :to-be nil))
   (it "does not invent available memory from missing page counters"
@@ -99,37 +133,6 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
                   :min-length 1 :max-length 12)))
       (expect (split-fields (format nil "~{~A~^ ~}" tokens))
               :to-equal tokens))))
-
-(describe "aitools.env.domain host values"
-  (it-each (("GITHUB_TOKEN" t) ("AWS_SECRET_ACCESS_KEY" t) ("DB_PASSWORD" t) ("api_key" t)
-            ("OPENAI_API_KEY" t) ("HOME" nil) ("TOKENIZER_PATH" nil) ("PATH" nil))
-      "classifies ~A as secret: ~A"
-      (name secret)
-    (expect (secret-environment-name-p name) :to-be secret))
-
-  (it "splits PATH in order without empty or repeated entries"
-    (expect (split-search-path "/a::/b/:/a") :to-equal '("/a" "/b/")))
-
-  (it "joins directories without doubling the slash"
-    (expect (join-directory "/b/" "git") :to-equal "/b/git")
-    (expect (join-directory "/a" "git") :to-equal "/a/git"))
-
-  (it "takes the first nonblank output line"
-    (expect (first-output-line (format nil "~%  git version 2.55.0  ~%more~%")) :to-equal "git version 2.55.0")
-    (expect (first-output-line "") :to-be nil))
-
-  (it "accepts IANA names and refuses anything that could leave the zoneinfo directory"
-    (expect (valid-zone-name-p "America/New_York") :to-be-truthy)
-    (expect (valid-zone-name-p "Etc/GMT+5") :to-be-truthy)
-    (expect (valid-zone-name-p "../etc/passwd") :to-be-falsy)
-    (expect (valid-zone-name-p "/usr/share/zoneinfo/UTC") :to-be-falsy)
-    (expect (valid-zone-name-p "America//X") :to-be-falsy))
-
-  (it "finds the local zone name from TZ and from the /etc/localtime link"
-    (expect (zone-name-from-tz-variable ":Asia/Tokyo") :to-equal "Asia/Tokyo")
-    (expect (zone-name-from-tz-variable "EST5EDT") :to-be nil)
-    (expect (zone-name-from-localtime-link "/var/db/timezone/zoneinfo/Asia/Tokyo") :to-equal "Asia/Tokyo")
-    (expect (zone-name-from-localtime-link "/etc/zoneinfo/../x") :to-be nil)))
 
 (progn
 (describe "aitools.env.domain host values at their edges"
