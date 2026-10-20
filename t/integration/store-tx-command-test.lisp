@@ -10,8 +10,13 @@ the composition root; the envelope is parsed from stdout, else stderr."
            (err (make-string-output-stream))
            (code (aitools/cli:dispatch app registry (list* "aitools" "--root" root arguments)
                                        :stdout out :stderr err))
-           (stdout (get-output-stream-string out)))
-      (values code (json-kit:parse (if (plusp (length stdout)) stdout (get-output-stream-string err)))))))
+           (stdout (get-output-stream-string out))
+           (stderr (get-output-stream-string err))
+           (envelope (json-kit:parse (if (plusp (length stdout)) stdout stderr))))
+      (expect envelope :to-match-envelope '())
+      (values code envelope))))
+
+
 
 (defun envelope-field (envelope &rest keys)
   (reduce (lambda (value key) (and value (gethash key value))) keys :initial-value envelope))
