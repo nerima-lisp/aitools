@@ -1948,7 +1948,7 @@ MATCH uses cl-org-kit Org match syntax. --at and --tz are required. --at is a zo
 | `--match`, required | string |  | Org match expression, not a title substring search. |
 | `--at`, required | string |  | Zone-less local datetime YYYY-MM-DDTHH:MM:SS; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
-| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | Resolve daylight-saving gaps and overlaps. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | Resolve daylight-saving gaps and overlaps; Org date predicates compare local wall time in --tz. |
 
 | Output field | Description |
 |---|---|

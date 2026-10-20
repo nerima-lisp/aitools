@@ -31,11 +31,6 @@
           (%failure-diagnostics failure)
           (%schema-repair command "Check the command arguments and Org input.")))
 
-(defun %report-org-failure (on-error failure command)
-  (multiple-value-bind (code message diagnostics repairs)
-      (%failure-response failure command)
-    (funcall on-error code message :diagnostics diagnostics :repairs repairs)))
-
 (defun %utf16-or-32-bom (octets)
   (let ((length (length octets)))
     (cond
@@ -47,6 +42,14 @@
        "UTF-16 little-endian")
       ((and (>= length 2) (equalp (subseq octets 0 2) #(254 255)))
        "UTF-16 big-endian"))))
+
+(defun %invalid-utf8-offset (octets)
+  (let ((offset nil))
+    (aitools.text.domain:decode-utf8-strict/k
+     octets
+     :on-decoded (lambda (string) (declare (ignore string)) nil)
+     :on-invalid (lambda (position) (setf offset position)))
+    offset))
 
 (aitools.kernel.domain:define-flow
     (org-read-document/k ports path root command &key on-document on-error)
@@ -98,12 +101,25 @@
                              (setf outcome (list :too-large size))))
             (case (first outcome)
               (:octets
-               (multiple-value-bind (document failure)
-                   (funcall parser (second outcome) :source-name absolute)
-                 (if failure
-                     (%report-org-failure on-error failure command)
-                     (aitools.kernel.domain:flow-continue
-                      :on-document document))))
+               (labels ((report (failure)
+                          (multiple-value-bind (code message diagnostics repairs)
+                              (%failure-response failure command)
+                            (aitools.kernel.domain:flow-continue
+                             :on-error code message
+                             :diagnostics diagnostics :repairs repairs))))
+                 (let* ((octets (second outcome))
+                        (offset (%invalid-utf8-offset octets)))
+                   (if (integerp offset)
+                       (report
+                        (aitools.org.domain:make-org-failure
+                         :kind :invalid-utf8
+                         :message "Org input is not valid UTF-8" :offset offset))
+                       (multiple-value-bind (document failure)
+                           (funcall parser octets :source-name absolute)
+                         (if failure
+                             (report failure)
+                             (aitools.kernel.domain:flow-continue
+                              :on-document document)))))))
               (:binary
                (let ((encoding (%utf16-or-32-bom (second outcome))))
                  (aitools.kernel.domain:flow-continue

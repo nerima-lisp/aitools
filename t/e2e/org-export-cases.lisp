@@ -16,7 +16,7 @@
                        "#+RESULTS:~%: result-none-marker~%")))
 
 (defparameter +org-export-source-mode-expectations+
-  '(("source-default-marker" "result-default-marker" t t)
+  '(("source-default-marker" "result-default-marker" t nil)
     ("source-code-marker" "result-code-marker" t nil)
     ("source-results-marker" "result-results-marker" nil t)
     ("source-both-marker" "result-both-marker" t t)

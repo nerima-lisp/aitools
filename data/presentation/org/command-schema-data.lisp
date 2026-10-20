@@ -1,4 +1,3 @@
-;;;; data/presentation/org/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the read-only Org commands. AITOOLS.ORG.PRESENTATION
 ;;;; builds each COMMAND-SCHEMA from this table; CLI options live beside the
@@ -45,7 +44,8 @@
              :description "Resolvable IANA time zone name.")
             (:name "--dst-policy" :type "enum"
              :choices ("compatible" "earlier" "later" "strict")
-             :default "compatible" :description "Resolve daylight-saving gaps and overlaps."))
+             :default "compatible"
+             :description "Resolve daylight-saving gaps and overlaps; Org date predicates compare local wall time in --tz."))
      :output-fields ((:name "matches" :description
                       ,(concatenate 'string
                                     "[{line,level,title,todo,tags,heading_path}] in document order. line is one-based; "
