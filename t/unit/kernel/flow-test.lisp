@@ -23,6 +23,8 @@
   (it "routes the error clause through its named continuation"
     (expect (flow-test-caller nil :on-success #'identity :on-error #'list)
             :to-equal '("missing")))
+  (it "uses a default for a NIL optional continuation"
+    (expect (flow-test-defaulted-continuation :input :on-success nil) :to-equal '(:default :input)))
 
   (it "checks every continuation at function entry"
     (signals type-error
@@ -53,6 +55,11 @@
 
 (define-flow (flow-test-redefined value &key on-old)
   value)
+(define-flow
+  (flow-test-defaulted-continuation
+    value
+    &key (on-success (lambda (result) (list :default result))))
+  (flow-continue :on-success value))
 
 (define-flow
   (flow-test-lambda-sections

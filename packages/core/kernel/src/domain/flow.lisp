@@ -26,7 +26,8 @@
 
 (defun %flow-continuations (lambda-list)
   (let ((section :required)
-        (continuations '()))
+        (continuations '())
+        (continuation-defaults '()))
     (dolist (parameter lambda-list)
       (cond
         ((eq parameter '&optional) (setf section :optional))
@@ -50,14 +51,16 @@
                         parameter))
                (when (assoc key continuations :test #'eq)
                  (error "Duplicate flow continuation ~S." key))
-               (push (cons key variable) continuations)))))
+               (push (cons key variable) continuations)
+               (when (and (consp parameter) (consp (cdr parameter)))
+                 (push (cons variable (second parameter)) continuation-defaults))))))
         ((member section '(:required :optional :rest :aux))
          (let ((variable (%flow-parameter-variable parameter)))
            (when (%flow-variable-name-starts-with-on-p variable)
              (error "Flow continuation ~S must be declared under &KEY." variable))
            (when (eq section :rest) (setf section :required))))
         (t nil)))
-    (nreverse continuations)))
+    (values (nreverse continuations) (nreverse continuation-defaults))))
 
 (defun %register-flow-signature (name keys)
   (setf (gethash name *flow-signatures*) (copy-list keys)))
@@ -75,32 +78,36 @@
   (unless (and (consp lambda-list) (symbolp (first lambda-list)))
     (error "DEFINE-FLOW requires a function name and lambda list: ~S." lambda-list))
   (let* ((name (first lambda-list))
-         (function-lambda-list (rest lambda-list))
-         (continuations (%flow-continuations function-lambda-list))
-         (continuation-keys (mapcar #'car continuations))
-         (docstring (when (stringp (first body)) (pop body)))
-         (declarations (loop while (and (consp body)
-                                        (consp (first body))
-                                        (eq (caar body) 'declare))
-                             collect (pop body))))
-    (%register-flow-signature name continuation-keys)
-    `(progn
-       (eval-when (:compile-toplevel :load-toplevel :execute)
-         (%register-flow-signature ',name ',continuation-keys))
-       (defun ,name ,function-lambda-list
-         ,@(when docstring (list docstring))
-         ,@declarations
-         (%check-flow-continuations
-          (list ,@(mapcar (lambda (continuation)
-                            `(cons ',(car continuation) ,(cdr continuation)))
-                          continuations)))
-         (macrolet
-             ((flow-continue (key &rest arguments)
-                (let ((variable (cdr (assoc key ',continuations :test #'eq))))
-                  (unless variable
-                    (error "Undeclared flow continuation ~S." key))
-                  `(funcall ,variable ,@arguments))))
-           ,@body)))))
+         (function-lambda-list (rest lambda-list)))
+    (multiple-value-bind (continuations continuation-defaults)
+        (%flow-continuations function-lambda-list)
+      (let* ((continuation-keys (mapcar #'car continuations))
+             (docstring (when (stringp (first body)) (pop body)))
+             (declarations (loop while (and (consp body)
+                                            (consp (first body))
+                                            (eq (caar body) 'declare))
+                                 collect (pop body))))
+        (%register-flow-signature name continuation-keys)
+        `(progn
+           (eval-when (:compile-toplevel :load-toplevel :execute)
+             (%register-flow-signature ',name ',continuation-keys))
+           (defun ,name ,function-lambda-list
+             ,@(when docstring (list docstring))
+             ,@declarations
+             (let ,(mapcar (lambda (default)
+                             `(,(car default) (or ,(car default) ,(cdr default))))
+                           continuation-defaults)
+               (%check-flow-continuations
+                (list ,@(mapcar (lambda (continuation)
+                                  `(cons ',(car continuation) ,(cdr continuation)))
+                                continuations)))
+               (macrolet
+                   ((flow-continue (key &rest arguments)
+                      (let ((variable (cdr (assoc key ',continuations :test #'eq))))
+                        (unless variable
+                          (error "Undeclared flow continuation ~S." key))
+                        `(funcall ,variable ,@arguments))))
+                 ,@body))))))))
 
 (defmacro flow-call (call &body clauses)
   "Compile each callee with DEFINE-FLOW before compiling its caller with FLOW-CALL.

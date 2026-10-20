@@ -224,7 +224,15 @@ build/
       (expect (call-with-workspace-scan/k host root :paths '("missing")
                                                     :emit (constantly nil) :on-complete (constantly :done)
                                                     :on-error (lambda (reason path) (list reason path)))
-              :to-equal '(:not-found "missing")))))
+              :to-equal '(:not-found "missing"))))
+  (it "treats a NIL skip callback as omitted"
+    (let ((host (repo-host '(("big" . "0123456789")))))
+      (expect (call-with-workspace-scan/k host (resolved-root host)
+                :skip-larger-than 5 :on-skip nil
+                :emit (constantly nil)
+                :on-complete (constantly :done)
+                :on-error (constantly :error))
+              :to-be :done))))
 
 (describe "aitools.workspace.application ignored-path query"
   (it "reports a path ignored by itself or through an ignored ancestor"
