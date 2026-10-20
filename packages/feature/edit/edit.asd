@@ -17,7 +17,8 @@
    (:module "application"
     :components ((:file "package") (:file "ports") (:file "command-spec")
                  (:file "write-plan") (:file "write-guards")
-                 (:file "pipeline") (:file "input") (:file "scan")
+                 (:file "pipeline")
+                 (:file "pipeline-store") (:file "input") (:file "scan")
                  (:file "edit-flows") (:file "replace-flows")
                  (:file "apply-flows") (:file "line-flows")
                  (:file "content-flows") (:file "file-flows")
