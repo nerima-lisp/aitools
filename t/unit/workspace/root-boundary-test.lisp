@@ -173,3 +173,22 @@
     (let* ((host (make-fake-host :directories '("/ws") :symlinks '(("/ws/a" . "b") ("/ws/b" . "a"))))
            (root (resolved-root host :root "/ws")))
       (expect (boundary-verdict host root "a/x") :to-be :unresolvable))))
+(describe "aitools.workspace.application nested-root scan"
+  (it "inherits repository ignore rules and applies a nested negation"
+    (let* ((host
+             (make-fake-host
+              :files
+              (list (cons "/r/.git/HEAD" "x")
+                    (cons "/r/.gitignore" (format nil "*.tmp~%"))
+                    (cons "/r/sub/.gitignore" (format nil "!keep.tmp~%"))
+                    (cons "/r/sub/a.tmp" "")
+                    (cons "/r/sub/keep.tmp" "")
+                    (cons "/r/sub/other.txt" ""))
+              :cwd "/r"))
+           (root (resolved-root host :root "sub")))
+      (expect (workspace-root-path root) :to-equal "/r/sub")
+      (expect (workspace-path-ignored-p host root "a.tmp") :to-be-truthy)
+      (expect (workspace-path-ignored-p host root "keep.tmp") :to-be-falsy)
+      (multiple-value-bind (paths source) (scan-paths host root)
+        (expect source :to-be :gitignore)
+        (expect paths :to-equal (list ".gitignore" "keep.tmp" "other.txt"))))))
