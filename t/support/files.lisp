@@ -26,16 +26,3 @@
 (defun write-text (path text)
   (write-bytes path (sb-ext:string-to-octets text :external-format :utf-8)))
 
-(defun call-with-temporary-directory (function)
-  (let ((directory
-         (uiop:ensure-directory-pathname
-          (merge-pathnames
-           (format nil "aitools-test-~36R/" (random (expt 36 10) (make-random-state t)))
-           (uiop:temporary-directory)))))
-    (ensure-directories-exist directory)
-    (unwind-protect
-        (funcall function (truename directory))
-      (uiop:delete-directory-tree directory :validate t :if-does-not-exist :ignore))))
-(defmacro with-temporary-directory ((variable) &body body)
-  `(call-with-temporary-directory (lambda (,variable) ,@body)))
-
