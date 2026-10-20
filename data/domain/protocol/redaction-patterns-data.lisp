@@ -9,7 +9,7 @@
 (defparameter *redaction-literal-prefixes*
   '("ghp_" "gho_" "github_pat_" "sk-")
   "Prefixes that, once seen, mask themselves plus every following token
-character (see TOKEN-CHAR-P in redaction.lisp). Matched case-sensitively:
+character (see %TOKEN-CHAR-P in redaction-patterns.lisp). Matched case-sensitively:
 issuers emit them in exactly this case.")
 
 (defparameter *redaction-aws-key-prefixes*
