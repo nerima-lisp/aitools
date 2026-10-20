@@ -66,36 +66,43 @@ relative `--stdout-to` means."
          (list (repair "capture-instead"
                        "Capture stdout in the result instead."
                        "aitools schema run")))
-        (aitools.kernel.domain:flow-call
-            (aitools.workspace.application:call-with-resolved-root/k host :root root)
-          (:on-error (reason path)
-            (aitools.kernel.domain:flow-continue
-             :on-error
-             "environment.io"
-             (format nil "cannot resolve the workspace root (~(~A~): ~A)" reason path)
-             :repairs (list (%schema-repair "run"))))
-          (:on-resolved (resolved-root)
-            (aitools.kernel.domain:flow-call
-                (aitools.workspace.application:call-with-workspace-boundary/k
-                 host resolved-root (%absolute-target host target)
-                 :temporary-root
-                 (funcall (process-ports-temporary-directory ports)))
-              (:on-inside (path verdict)
-                (declare (ignore verdict))
-                (aitools.kernel.domain:flow-continue
-                 :on-resolved
-                 (aitools.kernel.domain:workspace-path-real path)
-                 (aitools.kernel.domain:workspace-path-relative path)))
-              (:on-outside (verdict lexical real)
-                (declare (ignore real))
-                (aitools.kernel.domain:flow-continue
-                 :on-error
-                 "refusal.outside-workspace"
-                 (format nil "--stdout-to ~A is outside the workspace (~(~A~))" lexical verdict)
-                 :repairs
-                 (list (repair "use-temporary-file"
-                               "Create a file in the temporary area and write there."
-                               "aitools mktemp"))))))))))
+        (aitools.workspace.application:call-with-resolved-root/k
+         host
+         :root root
+         :on-error
+         (lambda (reason path)
+           (aitools.kernel.domain:flow-continue
+            :on-error
+            "environment.io"
+            (format nil "cannot resolve the workspace root (~(~A~): ~A)"
+                    reason path)
+            :repairs (list (%schema-repair "run"))))
+         :on-resolved
+         (lambda (resolved-root)
+           (aitools.workspace.application:call-with-workspace-boundary/k
+            host
+            resolved-root
+            (%absolute-target host target)
+            :temporary-root (funcall (process-ports-temporary-directory ports))
+            :on-inside
+            (lambda (path verdict)
+              (declare (ignore verdict))
+              (aitools.kernel.domain:flow-continue
+               :on-resolved
+               (aitools.kernel.domain:workspace-path-real path)
+               (aitools.kernel.domain:workspace-path-relative path)))
+            :on-outside
+            (lambda (verdict lexical real)
+              (declare (ignore real))
+              (aitools.kernel.domain:flow-continue
+               :on-error
+               "refusal.outside-workspace"
+               (format nil "--stdout-to ~A is outside the workspace (~(~A~))"
+                       lexical verdict)
+               :repairs
+               (list (repair "use-temporary-file"
+                             "Create a file in the temporary area and write there."
+                             "aitools mktemp"))))))))))
 
 (aitools.kernel.domain:define-flow
     (%run-program ports request pattern timeout-ms stdout-real stdout-reported
