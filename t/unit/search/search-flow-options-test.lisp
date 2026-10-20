@@ -38,24 +38,30 @@
             (:no-port "internal.unexpected" "without its workspace host or text source"))
       "maps a --stdin ~A to ~A"
       (case code message)
-    (let ((ports (ecase case
-                   (:invalid-utf8
-                    (make-fake-ports :stdin (coerce #(97 255) (quote (vector (unsigned-byte 8))))))
-                   (:too-large
-                    (make-fake-ports :stdin (make-array (1+ (* 1024 1024))
-                                                        :element-type (quote (unsigned-byte 8))
-                                                        :initial-element 97)))
-                   (:failure
-                    (make-fake-ports
-                     :stdin-port (lambda (limit &key on-octets on-too-large on-failure)
-                                   (declare (ignore limit on-octets on-too-large))
-                                   (funcall on-failure "stdin closed"))))
-                   (:no-port (make-fake-ports :stdin-port nil)))))
-      (multiple-value-bind (kind fields)
-          (run-flow (function search/k) ports :stdin t)
-        (expect kind :to-be :error)
-        (expect (error-code fields) :to-equal code)
-        (expect (error-message fields) :to-contain message))))
+    (flet ((verify (ports)
+                   (multiple-value-bind (kind fields)
+                       (run-flow (function search/k) ports :stdin t)
+                     (expect kind :to-be :error)
+                     (expect (error-code fields) :to-equal code)
+                     (expect (error-message fields) :to-contain message))))
+      (ecase case
+        (:invalid-utf8
+         (verify (make-fake-ports
+                  :stdin (coerce #(97 255) (quote (vector (unsigned-byte 8)))))))
+        (:too-large
+         (verify (make-fake-ports
+                  :stdin (make-array (1+ (* 1024 1024))
+                                     :element-type (quote (unsigned-byte 8))
+                                     :initial-element 97))))
+        (:failure
+         (cl-weave:with-mocked-functions
+          (((symbol-function (quote aitools.search.infrastructure::read-stdin-octets))
+            (lambda (limit &key on-octets on-too-large on-failure)
+              (declare (ignore limit on-octets on-too-large))
+              (funcall on-failure "stdin closed"))))
+          (verify (aitools.search.infrastructure:make-production-search-ports))))
+        (:no-port
+         (verify (make-fake-ports :stdin-port nil))))))
 
   (it "ends a search whose pattern can match empty on a file without a final newline"
     (destructuring-bind (kind fields)
