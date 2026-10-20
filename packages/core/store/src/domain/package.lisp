@@ -205,5 +205,4 @@
    #:change-diff
    #:changes->json
    #:op-diff-command
-   #:write-result-fields
-   #:recovered->json))
+   #:write-result-fields))

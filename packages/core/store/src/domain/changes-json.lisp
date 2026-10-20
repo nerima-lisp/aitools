@@ -4,7 +4,7 @@
 ;;;; diff` and `tx commit`: CHANGE-RESULTs rendered as `changes[]` with a
 ;;;; per-change unified diff cut at `--max-diff-lines`, and the fields that
 ;;;; accompany them (`op_id`, or `tx`/`tx_op`, or `dry_run`, and
-;;;; `next_commands` when a diff was cut). Also recovery's `recovered[]`.
+;;;; `next_commands` when a diff was cut).
 ;;;;
 ;;;; A diff is rendered only for a change whose both sides are a regular
 ;;;; file or absent and whose bytes are text (the NUL sniff); moves,
@@ -121,7 +121,3 @@ run has nothing to point at and gets none."
                                     (format nil "aitools tx diff ~A --max-diff-lines ~D" tx longest)
                                     (op-diff-command op-id)))))))))
 
-(defun recovered->json (entries)
-  "Recovery's `recovered[]` elements {op_id, action} for RECOVER/K's
-((op-id . action) ...) result."
-  (mapcar (lambda (entry) (json-object "op_id" (car entry) "action" (cdr entry))) entries))

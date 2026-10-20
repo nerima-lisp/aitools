@@ -2,7 +2,7 @@
 ;;;;
 ;;;; The shared write-output renderer in AITOOLS.STORE.DOMAIN (changes-json.lisp),
 ;;;; which the journal writer owns: `changes[]`, per-change diff truncation,
-;;;; the op_id / tx / dry_run variants and `next_commands`, and `recovered[]`.
+;;;; the op_id / tx / dry_run variants and `next_commands`.
 (in-package #:aitools.journal.test)
 
 (defun %result (path action before-text after-text &key from binary)
@@ -91,7 +91,3 @@
                            (list (%result "a" :created nil "a")) :op-id "op-x"))
             :to-equal '("changes" "op_id"))))
 
-(describe "aitools.store recovered->json"
-  (it "renders recover/k's entries as {op_id, action}"
-    (expect (mapcar #'json-alist (aitools.store.domain:recovered->json '(("op-1" . "rolled-forward"))))
-            :to-equal '((("op_id" . "op-1") ("action" . "rolled-forward"))))))
