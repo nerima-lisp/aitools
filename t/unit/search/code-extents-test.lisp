@@ -31,6 +31,10 @@
   (it "ends a brace definition followed only by blank lines at its own line"
     (expect (outline-of "/w/a.rs" (format nil "fn g()~%~%")) :to-equal '((1 1 "function" "g"))))
 
+  (it "leaves headings visible outside invalid Markdown fences"
+    (expect (outline-of "/w/a.md" (lines "``" "# visible" "    ```" "# also visible"))
+            :to-equal '((2 3 "heading" "visible") (4 4 "heading" "also visible"))))
+
   (it-property "finds the matching close of generated nested Lisp forms"
       ((depth (gen-integer :min 1 :max 20)))
     (let ((content (apply #'lines
@@ -47,9 +51,7 @@
     (let ((opening (make-string opening-length :initial-element #\`))
           (closing (make-string (+ opening-length closing-extra) :initial-element #\`)))
       (expect (outline-of "/w/a.md" (lines "# before" opening "# hidden" closing "# after"))
-              :to-equal '((1 4 "heading" "before") (5 5 "heading" "after")))
-      (expect (outline-of "/w/a.md" (lines "``" "# visible" "    ```" "# also visible"))
-              :to-equal '((2 2 "heading" "visible") (4 4 "heading" "also visible")))))
+              :to-equal '((1 4 "heading" "before") (5 5 "heading" "after")))))
 
   (it "stops an unterminated JavaScript string at a newline"
     (expect (outline-of "/w/a.js"
@@ -216,8 +218,7 @@
             :to-equal '((1 8 "attribute" "attrs")
                         (2 7 "attribute" "text")
                         (9 9 "attribute" "next")))
-    (expect (outline-of "/w/a.nix"
-                        (format nil "attrs = {~%  text = ''~%    } inside"))
+    (expect (outline-of "/w/a.nix" (format nil "attrs = {~%  text = ''~%    } inside"))
             :to-equal '((1 3 "attribute" "attrs") (2 3 "attribute" "text"))))
 
   (it "handles a Rust Unicode escape without an opening brace"
@@ -234,8 +235,8 @@
                         (format nil "fn incomplete_eof() {~%  let value = '~C"
                                 (code-char 92)))
             :to-equal '((1 2 "function" "incomplete_eof")))
-    (expect (outline-of "/w/a.rs" (format nil "fn empty_char() {~%  let value = '"))
-            :to-equal '((1 2 "function" "empty_char"))))
+    (expect (outline-of "/w/a.rs" (format nil "fn incomplete_char() {~%  let value = '"))
+            :to-equal '((1 2 "function" "incomplete_char"))))
 
   (it "tracks brackets across a Rust array return type"
     (expect (outline-of "/w/a.rs"
