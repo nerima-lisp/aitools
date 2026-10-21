@@ -101,56 +101,30 @@
       (with-error (code) (run "copy" '("a.txt" "b.txt") :max-bytes "10XB") (expect code :to-equal "argument.invalid"))
       (expect (text "a.txt") :to-equal "a")))
 
-  (it "reports environment.busy with the same command as repair when the lock is held"
+  (it "reports environment.busy and leaves the tx unstaged while another thread holds its tx lock"
     (with-workspace ()
       (put "a.txt" "a")
-      (let ((result nil))
-        ;; The store's lock is reentrant within one dynamic extent, so hold
-        ;; the flock through the port directly, as another process would.
-        (let* ((store (open-store *root*))
-               (io (aitools.store.application:store-io-port store))
-               (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
-          (aitools.store.application:call-with-workspace-lock/k store 1000 :on-acquired (lambda () nil)
-                                                                          :on-timeout (lambda () nil))
-          (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
-            (unwind-protect
-                 (run-edit-command *ports* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "20ms"
-                                   :display-argv '("edit" "a.txt" "--old" "a" "--new" "b")
-                                   :on-ok (lambda (fields) (setf result fields))
-                                   :on-error (lambda (code message &key repairs &allow-other-keys)
-                                               (declare (ignore message))
-                                               (setf result (list code (getf (first repairs) :command)))))
-              (funcall (aitools.store.application:store-io-unlock io) handle))))
-        (expect result :to-equal '("environment.busy" "aitools edit a.txt --old a --new b"))
-        (expect (text "a.txt") :to-equal "a"))))
-  (it "reports environment.busy when a tx write cannot take the workspace lock"
-    (with-workspace ()
-      (put "a.txt" "a")
-      (let* ((tx (begin-tx))
-             (result nil)
-             (store (open-store *root*))
-             (io (aitools.store.application:store-io-port store))
-             (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
-        (aitools.store.application:call-with-workspace-lock/k
-         store 1000 :on-acquired (lambda () nil)
-         :on-timeout (lambda () nil))
-        (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
-          (unwind-protect
-              (run-edit-command *ports* "edit" '("a.txt") (list :old "a" :new "b" :tx tx)
-                                :root *root* :lock-timeout "20ms"
-                                :on-ok (lambda (fields) (setf result fields))
-                                :on-error (lambda (code message &rest keys)
-                                            (declare (ignore message keys))
-                                            (setf result code)))
-            (funcall (aitools.store.application:store-io-unlock io) handle)))
-        (expect result :to-equal "environment.busy")
-        (expect (text "a.txt") :to-equal "a")
-        (expect (run-in tx "edit" '("a.txt") :old "a" :new "b") :to-be :ok)
+      (let* ((tx (begin-tx)) (store (open-store *root*)) (acquired nil)
+             (lock-result-ready (sb-thread:make-semaphore)) (release (sb-thread:make-semaphore))
+             (holder (sb-thread:make-thread
+                      (lambda ()
+                        (aitools.store.application:call-with-tx-lock/k store tx 5000
+                          :on-acquired (lambda () (setf acquired t) (sb-thread:signal-semaphore lock-result-ready)
+                                         (sb-thread:wait-on-semaphore release))
+                          :on-timeout (lambda () (sb-thread:signal-semaphore lock-result-ready))
+                          :on-not-found (lambda () (sb-thread:signal-semaphore lock-result-ready)))))))
+        (unwind-protect
+            (progn (sb-thread:wait-on-semaphore lock-result-ready) (expect acquired :to-be t)
+                   (multiple-value-bind (kind code)
+                       (run-in tx "edit" (list "a.txt") :old "a" :new "b" :lock-timeout "20ms")
+                     (expect kind :to-be :error)
+                     (expect code :to-equal "environment.busy")))
+          (sb-thread:signal-semaphore release) (sb-thread:join-thread holder))
+        ;; An empty operation list confirms that the busy edit staged nothing.
+        (expect (list (text "a.txt") (aitools.store.application:tx-status/k store tx :on-status #'aitools.store.application:tx-status-ops :on-not-found (lambda () :not-found))) :to-equal (list "a" '()))
+        (expect (run-in tx "edit" (list "a.txt") :old "a" :new "b") :to-be :ok)
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal "b"))))
-
-
-
   (it "plans against the tx with --dry-run --tx, and stages a directory move per path"
     (with-workspace ()
       (put "d/a.txt" "a")

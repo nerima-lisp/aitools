@@ -160,6 +160,7 @@
                                               (:file "integration/edit-files-inputs-test")
                                               (:file "integration/edit-files-workspace-test")
                                               (:file "integration/edit-tx-and-limits-test")
+                                              (:file "integration/edit-tx-lock-test")
                                               (:file "integration/edit-cli-test")
                                               (:file "integration/edit-security-test")
                                               (:file "unit/process/package")
