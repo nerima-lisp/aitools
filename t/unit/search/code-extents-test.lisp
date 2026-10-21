@@ -221,14 +221,14 @@
     (expect (outline-of "/w/a.nix" (format nil "attrs = {~%  text = ''~%    } inside"))
             :to-equal '((1 3 "attribute" "attrs") (2 3 "attribute" "text"))))
 
-  (it "handles a Rust Unicode escape without an opening brace"
+  (it "handles Rust Unicode escapes without an opening brace"
     (expect (outline-of "/w/a.rs"
                         (lines "fn malformed_unicode() {"
                                "  let value = '\\uX';"
+                               "  let incomplete = '\\u"
                                "}"
                                "fn later() {}"))
-            :to-equal '((1 3 "function" "malformed_unicode")
-                        (4 4 "function" "later"))))
+            :to-equal '((1 4 "function" "malformed_unicode") (5 5 "function" "later"))))
 
   (it "handles a Rust escape ending at EOF without a final newline"
     (expect (outline-of "/w/a.rs"
