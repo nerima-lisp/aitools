@@ -104,13 +104,15 @@ paths, drift and stale reads."
                                 :repairs repairs)))))))))
 
 (aitools.kernel.domain:define-flow
-    (tx-diff-flow ports context tx-id &key (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
+    (tx-diff-flow ports context tx-id &key (max-diff-lines nil max-diff-lines-supplied-p)
                   on-ok on-partial on-error)
   "The tx's changes from `base` to `staged` in the write-result shape, without
 an op id. A cut diff points at the same command with a limit that fits."
   (declare (type function on-ok on-error) (ignore on-partial))
+  (unless max-diff-lines-supplied-p
+    (setf max-diff-lines aitools.store.domain:+default-max-diff-lines+))
   (aitools.kernel.domain:flow-call
-      (%call-with-store ports context "tx.diff")
+    (%call-with-store ports context "tx.diff")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message
