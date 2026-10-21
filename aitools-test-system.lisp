@@ -200,6 +200,7 @@
                                                                     (:file "batch-atomic-test") (:file "batch-failure-test")
                                                                     (:file "cli-schema-drift-test")
                                                                     (:file "org-dispatch-test")
+                                                                    (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
                                                                     (:file "skill-contract-test") (:file "runner-failure-report-test") (:file "structure-test")
                                                                     (:file "structure-source-scanner")
                                                                     (:file "coverage-baseline-reader") (:file "coverage-baseline-test") (:file "structure-timeout-test") (:file "structure-budget-baseline")
