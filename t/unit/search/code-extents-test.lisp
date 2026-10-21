@@ -104,19 +104,25 @@
     (expect (outline-of "/w/a.rs"
                         (lines "fn close_char() {"
                                "  let close = '}';"
+                               "  let unicode = '\\u{7d}';"
+                               "  let hex = '\\x7d';"
+                               "  let newline = '\\n';"
                                "  use_value(close);"
                                "}"
                                "fn later() {}"))
-            :to-equal '((1 4 "function" "close_char") (5 5 "function" "later"))))
+            :to-equal '((1 7 "function" "close_char") (8 8 "function" "later"))))
 
-  (it "skips Rust raw string literals"
+  (it "skips Rust raw and byte strings"
     (expect (outline-of "/w/a.rs"
                         (lines "fn close_raw() {"
                                "  let close = r#\"}\"#;"
+                               "  let plain = r\"}\";"
+                               "  let bytes = b\"}\";"
+                               "  let byte_raw = br##\"}\"##;"
                                "  use_value(close);"
                                "}"
                                "fn later() {}"))
-            :to-equal '((1 4 "function" "close_raw") (5 5 "function" "later"))))
+            :to-equal '((1 7 "function" "close_raw") (8 8 "function" "later"))))
 
   (it "skips nested Common Lisp and Scheme block comments"
     (expect (outline-of "/w/a.lisp"
@@ -163,10 +169,13 @@
                         (lines "attrs = {"
                                "  text = ''"
                                "    } inside"
+                               "    ''' } inside"
+                               "    ''${x} } inside"
+                               "    ''\\ } inside"
                                "  '';"
                                "}"
                                "next = {};"))
-            :to-equal '((1 5 "attribute" "attrs")
-                        (2 2 "attribute" "text")
-                        (6 6 "attribute" "next"))))
+            :to-equal '((1 8 "attribute" "attrs")
+                        (2 7 "attribute" "text")
+                        (9 9 "attribute" "next"))))
 )
