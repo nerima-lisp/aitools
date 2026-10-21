@@ -157,17 +157,25 @@
         (expect (getf fields :message) :to-contain "entry z.txt of bad.zip cannot be decoded")
         (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools archive list bad.zip"))))
 
-  (it "routes a reported tar size limit through archive read"
+  (it "routes oversized tar metadata through archive read"
     (let ((tar
             (aitools.text.domain:write-tar
              (list (archive-member "big.bin" "x")))))
-      ;; Keep the fixture small; the reported size exercises the pre-copy guard.
+      ;; Keep tar bytes small; the mocked index entry hits the real size guard.
       (cl-weave:with-mocked-functions
           (((symbol-function
-             (quote aitools.text.domain:archive-entry-size))
-            (lambda (entry)
-              (declare (ignore entry))
-              (1+ +archive-max-entry+))))
+             (quote aitools.text.domain:read-tar-entries))
+            (lambda (octets)
+              (declare (ignore octets))
+              (list
+               (aitools.text.domain::make-archive-entry
+                :format :tar
+                :name "big.bin"
+                :kind :file
+                :size (1+ +archive-max-entry+)
+                :mode #o644
+                :mtime 1700000000
+                :data-offset 512)))))
         (multiple-value-bind (kind fields)
             (run-flow
              (function archive-read-flow)
