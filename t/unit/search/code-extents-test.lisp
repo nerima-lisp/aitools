@@ -208,4 +208,29 @@
             :to-equal '((1 8 "attribute" "attrs")
                         (2 7 "attribute" "text")
                         (9 9 "attribute" "next"))))
+
+  (it "handles a Rust Unicode escape without an opening brace"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn malformed_unicode() {"
+                               "  let value = '\\uX';"
+                               "}"
+                               "fn later() {}"))
+            :to-equal '((1 3 "function" "malformed_unicode")
+                        (4 4 "function" "later"))))
+
+  (it "handles a Rust escape ending at EOF without a final newline"
+    (expect (outline-of "/w/a.rs"
+                        (format nil "fn incomplete_eof() {~%  let value = '~C"
+                                (code-char 92)))
+            :to-equal '((1 2 "function" "incomplete_eof"))))
+
+  (it "tracks brackets across a Rust array return type"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn array() -> [u8;"
+                               "  4]"
+                               "{"
+                               "}"
+                               "fn later() {}"))
+            :to-equal '((1 4 "function" "array")
+                        (5 5 "function" "later"))))
 )
