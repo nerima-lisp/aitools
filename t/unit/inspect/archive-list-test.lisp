@@ -81,4 +81,12 @@
       (multiple-value-bind (kind fields)
           (run-flow #'archive-list-flow (make-test-ports :files `(("/work/cut.zip" . ,(subseq zip 0 40)))) "cut.zip")
         (expect kind :to-be :error)
-        (expect (error-code fields) :to-equal "input.unsupported-format")))))
+        (expect (error-code fields) :to-equal "input.unsupported-format"))))
+
+  (it "reports input.not-found when the archive path is missing"
+    (multiple-value-bind (kind fields)
+        (run-flow (function archive-list-flow) (make-test-ports) "missing.zip")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (getf fields :message)
+              :to-equal "file missing.zip does not exist"))))
