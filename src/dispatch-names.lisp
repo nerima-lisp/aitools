@@ -7,15 +7,20 @@ or NIL when no command was dispatched (bare `--help`/`--version`)."
     (when path
       (format nil "~{~A~^.~}" (mapcar #'command-name path)))))
 
-(defun %display-name (command-name)
-  "COMMAND-NAME as the agent types it (\"json get\") for envelopes and
-repairs; registry lookups keep the dotted dispatch name (\"json.get\")."
-  (and command-name (substitute #\Space #\. command-name)))
+(defun %display-name (command-name &key cli-p)
+  "COMMAND-NAME in response form. N2 Org envelopes keep the dotted dispatch
+name; repairs use CLI words."
+  (and command-name
+       (let ((org-command-p (and (>= (length command-name) 4)
+                                 (string= "org." command-name :end2 4))))
+         (if (or cli-p (not org-command-p))
+             (substitute #\Space #\. command-name)
+             command-name))))
 
 (defun %generic-repair (command-name)
   (schema-repair
    (if command-name
-       (format nil "aitools schema ~A" (%display-name command-name))
+       (format nil "aitools schema ~A" (%display-name command-name :cli-p t))
        "aitools schema")))
 
 (defun %groups-with-subcommand (registry name)

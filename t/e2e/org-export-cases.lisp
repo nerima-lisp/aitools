@@ -17,14 +17,14 @@
     ("value-less" . ,(format nil "#+BEGIN_SRC text :exports~%code~%#+END_SRC~%"))
     ("equals" . ,(format nil "#+BEGIN_SRC text :exports=both~%code~%#+END_SRC~%"))))
 
-(describe "aitools e2e org source block export"
+(describe "aitools e2e org export"
   (define-org-read-case ("org export preserves supported source block modes in every backend" ws)
     (put ws "source.org" +org-export-source-mode-fixture+)
     (let ((before (file-octets ws "source.org")))
       (dolist (backend (list "html" "gfm" "ascii"))
         (let* ((envelope (org-ok ws (list "org" "export" "source.org"
                                           "--backend" backend)
-                                 "org export"))
+                                 "org.export"))
                (content (jget envelope "content")))
           (expect (jget envelope "backend") :to-equal backend)
           (expect (stringp content) :to-be t)
@@ -51,7 +51,7 @@
           (dolist (backend (list "html" "gfm" "ascii"))
             (let* ((envelope (org-error ws
                                         (list "org" "export" path "--backend" backend)
-                                        "org export" "input.unsupported-format"))
+                                        "org.export" "input.unsupported-format"))
                    (present (nth-value 1 (gethash "content" envelope))))
               (expect present :to-be nil)))
           (expect (file-octets ws path) :to-equalp before)))))
@@ -63,8 +63,83 @@
           (let* ((envelope (org-error ws
                                       (list "org" "export" "invalid-exports.org"
                                             "--backend" backend)
-                                      "org export" "input.unsupported-format"))
+                                      "org.export" "input.unsupported-format"))
                  (present (nth-value 1 (gethash "content" envelope))))
             (expect present :to-be nil)))
-        (expect (file-octets ws "invalid-exports.org") :to-equalp before)))))
+        (expect (file-octets ws "invalid-exports.org") :to-equalp before))))
+  (define-org-read-case ("org export preserves ordered lists in every backend" ws)
+    (put ws "ordered.org" (format nil "1. ordered~%"))
+    (let ((before (file-octets ws "ordered.org")))
+      (dolist (backend (list "html" "gfm" "ascii"))
+        (let* ((envelope (org-ok ws (list "org" "export" "ordered.org"
+                                          "--backend" backend)
+                                 "org.export"))
+               (content (jget envelope "content")))
+          (expect (jget envelope "backend") :to-equal backend)
+          (expect (stringp content) :to-be t)
+          (if (string= backend "html")
+              (expect (search "<ol" content) :to-be-truthy)
+              (expect (search "1. ordered" content) :to-be-truthy))))
+      (expect (file-octets ws "ordered.org") :to-equalp before)))
+  (define-org-read-case
+   ("org export preserves mailto links in every backend" ws)
+   (put ws "mailto.org"
+        (format nil "* Contact~%[[mailto:ops@example.test][mail]]~%"))
+   (let ((before (file-octets ws "mailto.org")))
+     (dolist (backend (list "html" "gfm" "ascii"))
+       (let* ((envelope (org-ok ws (list "org" "export" "mailto.org"
+                                         "--backend" backend)
+                                "org.export"))
+              (content (jget envelope "content")))
+         (expect (jget envelope "backend") :to-equal backend)
+         (expect (stringp content) :to-be t)
+         (cond
+          ((string= backend "html")
+           (expect-org-fragments
+            content (list "<a href=\"mailto:ops@example.test\">mail</a>")))
+          ((string= backend "gfm")
+           (expect-org-fragments
+            content (list "[mail](<mailto:ops@example.test>)")))
+          (t
+           (expect-org-fragments
+            content (list "[mail]" "[mail] <mailto:ops@example.test>"))))))
+     (expect (file-octets ws "mailto.org") :to-equalp before)))
+  (define-org-read-case
+   ("org export rejects unknown link schemes without partial content" ws)
+   (put ws "unsafe.org"
+        (format nil "* Link~%[[javascript:alert(1)][unsafe]]~%"))
+   (let ((before (file-octets ws "unsafe.org")))
+     (dolist (backend (list "html" "gfm" "ascii"))
+       (let* ((envelope (org-error ws (list "org" "export" "unsafe.org"
+                                            "--backend" backend)
+                                   "org.export" "input.unsupported-format"))
+              (present (nth-value 1 (gethash "content" envelope)))
+              (diagnostics (jlist (jget envelope "error" "diagnostics")))
+              (diagnostic (first diagnostics)))
+         (expect present :to-be nil)
+         (expect (jget diagnostic "line") :to-be 2)
+         (expect (plusp (jget diagnostic "col")) :to-be t)))
+     (expect (file-octets ws "unsafe.org") :to-equalp before)))
+  (define-org-read-case ("org export includes metadata in the documented backends" ws)
+    (put ws "metadata.org"
+         (format nil "#+TITLE: ~A~%#+AUTHOR: ~A~%#+DATE: ~A~%#+LANGUAGE: en~%* Content~%"
+                "Quarterly Report" "Ada Lovelace" "2026-10-19"))
+    (let ((before (file-octets ws "metadata.org")))
+      (dolist (backend '("html" "gfm" "ascii"))
+        (let* ((envelope (org-ok ws
+                                 (list "org" "export" "metadata.org" "--backend" backend)
+                                 "org.export"))
+               (content (jget envelope "content")))
+          (expect (jget envelope "backend") :to-equal backend)
+          (expect (stringp content) :to-be t)
+          (cond ((string= backend "html")
+                 (expect-org-fragments
+                  content '("Quarterly Report" "Ada Lovelace" "2026-10-19" "lang=\"en\"")))
+                ((string= backend "gfm")
+                 (dolist (metadata '("Quarterly Report" "Ada Lovelace" "2026-10-19"))
+                   (expect (search metadata content) :to-be nil)))
+                (t
+                 (expect-org-fragments
+                  content '("QUARTERLY REPORT" "Ada Lovelace" "2026-10-19"))))))
+      (expect (file-octets ws "metadata.org") :to-equalp before))))
 
