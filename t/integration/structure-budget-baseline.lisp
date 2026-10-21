@@ -7,24 +7,17 @@
   '(("data/application/edit/command-spec-data.lisp" 251)
     ("packages/core/kernel/src/domain/json-model.lisp" 376)
     ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
-    ("packages/core/text/src/domain/codec-deflate.lisp" 294)
     ("packages/feature/edit/src/application/file-flows.lisp" 443)
     ("packages/feature/edit/src/application/input.lisp" 275)
     ("packages/feature/edit/src/application/line-flows.lisp" 272)
     ("packages/feature/edit/src/domain/transform.lisp" 265)
-    ("packages/feature/search/src/application/search-flow.lisp" 259)
-    ("packages/feature/search/src/domain/code.lisp" 278)
-    ("packages/feature/search/src/domain/matcher.lisp" 312)
     ("t/e2e/transform-file-cases.lisp" 325)
     ("t/integration/edit-cli-test.lisp" 320)
     ("t/integration/edit-files-test.lisp" 364)
+    ("t/integration/edit-files-refusals-test.lisp" 309)
     ("t/integration/edit-text-commands-paths-test.lisp" 292)
     ("t/integration/edit-text-commands-test.lisp" 257)
-    ("t/integration/edit-tx-and-limits-test.lisp" 239)
-    ("t/unit/edit/domain-edge-test.lisp" 283)
-    ("t/unit/search/code-flow-test.lisp" 333)
-    ("t/unit/text/archive-test.lisp" 415)
-    ("t/unit/text/codec-test.lisp" 268)))
+    ("t/unit/edit/domain-edge-test.lisp" 283)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
@@ -39,9 +32,7 @@
   "Measured quoted collections have a gap: 15 is the largest below the threshold and 19 is the smallest above it.")
 
 (defparameter *literal-table-ratchet*
-  '(("packages/core/text/src/domain/charset.lisp" (19))
-    ("packages/core/text/src/domain/codec-deflate.lisp" (29 29 30 30 19))
-    ("packages/feature/edit/src/domain/transform.lisp" (21))))
+  '(("packages/feature/edit/src/domain/transform.lisp" (21))))
 
 (defparameter *complex-function-ratchet*
   '(("packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV" 5)
