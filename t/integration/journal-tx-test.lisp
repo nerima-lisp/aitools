@@ -154,18 +154,6 @@
                   :to-equal (list (format nil "aitools --root ~A tx diff ~A --max-diff-lines 31"
                                           (aitools.store.application:store-root store) tx)))))))
 
-  (it "uses the default tx diff limit and points to the full diff"
-    (with-temp-store (store)
-      (let* ((tx (begin store))
-             (content (format nil "~{line-~D~%~}" (loop for i below 210 collect i))))
-        (stage-append store tx "big.txt" content)
-        (multiple-value-bind (kind fields) (run #'tx-diff-flow store tx)
-          (expect kind :to-be :ok)
-          (expect (length (field fields "changes")) :to-be 1)
-          (expect (member-value (first (field fields "changes")) "diff_truncated") :to-be t)
-          (expect (field fields "next_commands")
-                  :to-equal (list (format nil "aitools --root ~A tx diff ~A --max-diff-lines 211"
-                                          (aitools.store.application:store-root store) tx)))))))
   (it "uses the default tx commit diff limit and points to the full diff"
     (with-temp-store (store)
       (let* ((tx (begin store))

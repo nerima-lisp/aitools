@@ -16,10 +16,8 @@ outside the workspace."
    :on-outside (constantly nil)))
 
 (aitools.kernel.domain:define-flow
-    (history-flow ports context &key path (limit nil limit-supplied-p) on-ok on-partial on-error)
+    (history-flow ports context &key path (limit +default-history-limit+) on-ok on-partial on-error)
   (declare (type function on-ok on-partial on-error))
-  (unless limit-supplied-p
-    (setf limit +default-history-limit+))
   (aitools.kernel.domain:flow-call
     (%call-with-store ports context "history")
     (:on-error (code message &key candidates diagnostics conflicts repairs)

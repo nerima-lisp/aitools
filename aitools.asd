@@ -148,6 +148,9 @@
   :build-operation "program-op"
   :build-pathname "aitools"
   :entry-point "aitools/cli::image-entry-point")
+(load (merge-pathnames "aitools-test-system-base.lisp"
+                      (make-pathname :name nil :type nil
+                                     :defaults *load-truename*)))
 (load (merge-pathnames "aitools-test-system.lisp"
                       (make-pathname :name nil :type nil
                                      :defaults *load-truename*)))
