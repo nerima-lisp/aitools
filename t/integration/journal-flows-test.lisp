@@ -181,6 +181,15 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
           (expect (mapcar #'car fields) :to-equal '("changes" "op_id" "undoes" "next_commands"))
           (expect (field fields "next_commands")
                   :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))))
+  (it "uses the default undo diff limit and points at the full diff"
+    (with-temp-store (store)
+      (let* ((content (format nil "~{line-~D~%~}" (loop for i below 210 collect i)))
+             (op (write-op store "big.txt" content)))
+        (multiple-value-bind (kind fields) (undo store op)
+          (expect kind :to-be :ok)
+          (expect (member-value (first (field fields "changes")) "diff_truncated") :to-be t)
+          (expect (field fields "next_commands")
+                  :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))))
 
   (it "answers environment.busy with the same command as the repair"
     (with-temp-store (store)
