@@ -26,7 +26,6 @@
     ("t/integration/store-tx-test.lisp" 610)
     ("t/integration/store-write-protocol-test.lisp" 268)
     ("t/unit/edit/domain-edge-test.lisp" 283)
-    ("t/unit/search/code-flow-test.lisp" 241)
     ("t/unit/store/domain-test.lisp" 414)
     ("t/unit/text/archive-test.lisp" 415)
     ("t/unit/text/codec-test.lisp" 268)))
