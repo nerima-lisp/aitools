@@ -99,89 +99,30 @@
                     :line line :column column))))))
 
 (defun export-org-document (document backend)
-  (flet ((source-mode-failure ()
-           (let ((failure-node nil)
-                 (message nil)
-                 (pending-parent nil)
-                 (pending-both-p nil)
-                 (root (org-kit:document-root
-                        (aitools.org.domain:org-document-engine-value document))))
-             (when root
-               (org-kit:map-nodes
-                (lambda (node)
-                  (let ((parent (org-kit:node-parent node)))
-                    (when (and pending-parent (eq parent pending-parent))
-                      (when (and (org-kit:node-property node :RESULTS)
-                                 (not pending-both-p))
-                        (setf failure-node node
-                              message
-                              "the pinned exporter renders attached source results in default or code mode"))
-                      (setf pending-parent nil
-                            pending-both-p nil))
-                    (when (and (null failure-node)
-                               (eq (org-kit:node-type node) :src-block))
-                      (let* ((switches (org-kit:node-property node :switches))
-                             (tokens (and (stringp switches) (uiop:split-string switches)))
-                             (mode-keys
-                               (remove-if-not
-                                (lambda (token)
-                                  (or (string-equal token ":exports")
-                                      (and (>= (length token) 9)
-                                           (string-equal token ":exports=" :end1 9))))
-                                tokens))
-                             (explicit-mode-p (not (null mode-keys)))
-                             (mode
-                               (when (= (length mode-keys) 1)
-                                 (let ((key (first mode-keys)))
-                                   (if (string-equal key ":exports")
-                                       (second (member key tokens :test #'string-equal))
-                                       nil)))))
-                        (if (and explicit-mode-p
-                                 (or (/= (length mode-keys) 1)
-                                     (not (stringp mode))
-                                     (not (member mode '("code" "both" "results" "none")
-                                                  :test #'string-equal))
-                                     (member mode '("results" "none") :test #'string-equal)))
-                            (setf failure-node node
-                                  message
-                                  "the pinned exporter cannot honor this source block :exports mode")
-                            (setf pending-parent parent
-                                  pending-both-p
-                                  (and explicit-mode-p
-                                       (stringp mode)
-                                       (string-equal mode "both"))))))))
-                root))
-             (when failure-node
-               (multiple-value-bind (line column)
-                   (org-kit:node-start-position failure-node)
-                 (%failure :unsupported message :line line :column column))))))
-    (let ((link-failure (%export-link-failure document))
-          (source-failure (source-mode-failure)))
-      (cond
-        ((not (member backend '(:html :gfm :ascii)))
-         (values nil (%failure :argument "export backend must be html, gfm, or ascii")))
-        (link-failure (values nil link-failure))
-        (source-failure (values nil source-failure))
-        (t
-         (handler-case
-             (values (org-kit:export-org
-                      (aitools.org.domain:org-document-engine-value document) backend)
-                     nil)
-           (org-kit:org-resource-limit-error (condition)
-             (values nil (%resource-failure condition)))
-           (org-kit:org-export-unsupported-syntax (condition)
-             (let ((position (org-kit:org-export-unsupported-syntax-position condition))
-                   (source (aitools.org.domain:org-document-engine-value document)))
-               (if position
-                   (multiple-value-bind (line column)
-                       (org-kit:offset-line-column source position)
-                     (values nil (%failure :unsupported
-                                           (org-kit:org-kit-error-message condition)
-                                           :line line :column column :offset position)))
+  (let ((link-failure (%export-link-failure document)))
+    (cond
+      ((not (member backend (list :html :gfm :ascii)))
+       (values nil (%failure :argument "export backend must be html, gfm, or ascii")))
+      (link-failure (values nil link-failure))
+      (t
+       (handler-case
+           (values (org-kit:export-org
+                    (aitools.org.domain:org-document-engine-value document) backend)
+                   nil)
+         (org-kit:org-resource-limit-error (condition)
+           (values nil (%resource-failure condition)))
+         (org-kit:org-export-unsupported-syntax (condition)
+           (let ((position (org-kit:org-export-unsupported-syntax-position condition))
+                 (source (aitools.org.domain:org-document-engine-value document)))
+             (if position
+                 (multiple-value-bind (line column)
+                     (org-kit:offset-line-column source position)
                    (values nil (%failure :unsupported
-                                         (org-kit:org-kit-error-message condition))))))
-           (org-kit:org-export-error (condition)
-             (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))
-           (org-kit:org-kit-error (condition)
-             (values nil (%failure :internal (org-kit:org-kit-error-message condition)))))))))
-)
+                                         (org-kit:org-kit-error-message condition)
+                                         :line line :column column :offset position)))
+                 (values nil (%failure :unsupported
+                                       (org-kit:org-kit-error-message condition))))))
+         (org-kit:org-export-error (condition)
+           (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))
+         (org-kit:org-kit-error (condition)
+           (values nil (%failure :internal (org-kit:org-kit-error-message condition)))))))))

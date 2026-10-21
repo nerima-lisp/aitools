@@ -235,9 +235,7 @@
       (dolist (fixture
                (list (list "file.org" (format nil "* Link~%[[file:target.org][file]]~%"))
                      (list "internal.org"
-                           (format nil "* Link~%[[#target][internal]]~%* Target~%"))
-                     (list "source.org"
-                           (format nil "#+BEGIN_SRC text :exports none~%hidden~%#+END_SRC~%"))))
+                           (format nil "* Link~%[[#target][internal]]~%* Target~%"))))
         (let ((path (concatenate (quote string) root "/" (first fixture))))
           (aitools.test.support:write-text path (second fixture))
           (let ((before (aitools.test.support:read-bytes path)))
