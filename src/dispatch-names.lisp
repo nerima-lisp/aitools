@@ -8,8 +8,7 @@ or NIL when no command was dispatched (bare `--help`/`--version`)."
       (format nil "~{~A~^.~}" (mapcar #'command-name path)))))
 
 (defun %display-name (command-name &key cli-p)
-  "COMMAND-NAME in response form. N2 Org envelopes keep the dotted dispatch
-name; repairs use CLI words."
+  "Response form of COMMAND-NAME. Org envelopes use dotted names; CLI forms use spaces."
   (and command-name
        (let ((org-command-p (and (>= (length command-name) 4)
                                  (string= "org." command-name :end2 4))))

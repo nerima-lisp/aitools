@@ -1,4 +1,3 @@
-;;;; t/e2e/org-export-cases.lisp
 (in-package #:aitools.e2e.test)
 
 (defparameter +org-export-invalid-source-mode-fixtures+

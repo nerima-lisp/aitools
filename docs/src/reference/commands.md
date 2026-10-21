@@ -1961,7 +1961,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Export an Org file as HTML, GFM, or ASCII text.
 
-Unsupported syntax fails the whole command without content. File, ID, and internal links return `input.unsupported-format` until link resolution is available. For a source block with an omitted or recognized `:exports` mode, the pinned `cl-org-kit v0.1.0` exporter renders its code and any attached `#+RESULTS` block without mode-specific filtering. Mode-specific filtering is deferred until the cl-org-kit K8 tag is released and this repository updates its pin. Unknown, repeated, or value-less `:exports` declarations fail with `input.unsupported-format`. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
+Unsupported syntax fails the whole command without content. HTTP, HTTPS, and mailto links are supported; other link types return `input.unsupported-format`. Source-block code and attached `#+RESULTS` blocks are emitted when `:exports` is omitted or recognized, regardless of the selected mode. Unknown, repeated, or value-less `:exports` declarations fail with `input.unsupported-format`. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|

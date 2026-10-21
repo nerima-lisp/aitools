@@ -63,7 +63,7 @@ command reads or writes.
   calls `cl-org-kit` and `cl-date-kit`; application flows reach these APIs
   through ports. The structure test allows only the adapter's used kit symbols
   for this context. File reads go through text and workspace ports. Export
-  refuses file, ID, and internal links until link resolution exists.
+  supports HTTP, HTTPS, and mailto links; it rejects other link types.
 
 ## Layers and dependency direction
 
