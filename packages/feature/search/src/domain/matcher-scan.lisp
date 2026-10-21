@@ -76,7 +76,6 @@ ends the last line rather than starting an empty one."
 ;;; with no LF), so the position after it must be able to pass that end;
 ;;; otherwise the walk finds the same match there forever.
 (defun %after-empty-match (octets position)
-  "The position to resume at after an empty match at POSITION."
   (declare (type octets octets) (type fixnum position))
   (if (< position (length octets)) (next-char-boundary octets position) (1+ (length octets))))
 
