@@ -298,7 +298,7 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
                   :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
                   :open-store (lambda (root)
                                 (aitools.store.application:make-store
-                                 (apply #'aitools.store.application:copy-store-io
+                                 (apply #'aitools.store.application::copy-store-io
                                         (aitools.store.infrastructure:make-posix-store-io) overrides)
                                  root *home* :temporary (%temporary-area-p root)))
                   :text-source (aitools.edit.application::edit-ports-text-source *ports*)
