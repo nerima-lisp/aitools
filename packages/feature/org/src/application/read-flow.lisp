@@ -100,12 +100,17 @@
                              :on-error code message
                              :diagnostics diagnostics :repairs repairs))))
                  (let ((octets (second outcome)))
-                   (multiple-value-bind (document failure)
-                       (funcall parser octets :source-name absolute)
-                     (if failure
-                         (report failure)
-                         (aitools.kernel.domain:flow-continue
-                          :on-document document))))))
+                   (if (find 0 octets)
+                       (report
+                        (aitools.org.domain:make-org-failure
+                         :kind :unsupported
+                         :message "Org input contains a NUL byte"))
+                       (multiple-value-bind (document failure)
+                           (funcall parser octets :source-name absolute)
+                         (if failure
+                             (report failure)
+                             (aitools.kernel.domain:flow-continue
+                              :on-document document)))))))
               (:binary
                (let ((encoding (%utf16-or-32-bom (second outcome))))
                  (aitools.kernel.domain:flow-continue
