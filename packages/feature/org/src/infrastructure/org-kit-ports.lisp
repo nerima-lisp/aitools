@@ -9,40 +9,30 @@
 (defun %resource-failure (condition)
   (%failure :too-large (org-kit:org-kit-error-message condition)))
 
-(defun %utf16-or-32-bom (octets)
-  (let ((length (length octets)))
-    (cond
-      ((and (>= length 4) (equalp (subseq octets 0 4) #(255 254 0 0))) t)
-      ((and (>= length 4) (equalp (subseq octets 0 4) #(0 0 254 255))) t)
-      ((and (>= length 2) (equalp (subseq octets 0 2) #(255 254))) t)
-      ((and (>= length 2) (equalp (subseq octets 0 2) #(254 255))) t))))
-
 (defun parse-org-octets (octets &key source-name)
   (let ((bytes (coerce octets '(simple-array (unsigned-byte 8) (*)))))
-    (cond
-      ((%utf16-or-32-bom bytes)
-       (values nil (%failure :unsupported "UTF-16 and UTF-32 Org input is unsupported")))
-      ((find 0 bytes)
-       (values nil (%failure :unsupported "Org input contains a NUL byte")))
-      (t
-       (handler-case
-           (values (aitools.org.domain:make-org-document
-                    source-name bytes
-                    (org-kit:parse-org bytes :source-name source-name :encoding :utf-8
-                                       :limits *org-kit-limits*))
-                   nil)
-         (org-kit:org-resource-limit-error (condition)
-           (values nil (%resource-failure condition)))
-         (org-kit:org-parse-error (condition)
-           (values nil (%failure :syntax (org-kit:org-kit-error-message condition)
-                                 :line (org-kit:org-parse-error-line condition)
-                                 :column (org-kit:org-parse-error-column condition)
-                                 :offset (org-kit:org-parse-error-offset condition))))
-         (org-kit:org-kit-error (condition)
-           (values nil (%failure :internal
-                                 (org-kit:org-kit-error-message condition))))
-         (type-error (condition)
-           (values nil (%failure :argument (princ-to-string condition)))))))))
+    (handler-case
+        (values (aitools.org.domain:make-org-document
+                 source-name bytes
+                 (org-kit:parse-org bytes :source-name source-name :encoding :utf-8
+                                    :limits *org-kit-limits*))
+                nil)
+      (org-kit:org-resource-limit-error (condition)
+        (values nil (%resource-failure condition)))
+      (org-kit:org-parse-error (condition)
+        (let* ((message (org-kit:org-kit-error-message condition))
+               (invalid-utf8-p (string= message "Input is not validly encoded")))
+          (values nil
+                  (%failure (if invalid-utf8-p :invalid-utf8 :syntax)
+                            (if invalid-utf8-p "Org input is not valid UTF-8" message)
+                            :line (org-kit:org-parse-error-line condition)
+                            :column (org-kit:org-parse-error-column condition)
+                            :offset (org-kit:org-parse-error-offset condition)))))
+      (org-kit:org-kit-error (condition)
+        (values nil (%failure :internal
+                              (org-kit:org-kit-error-message condition))))
+      (type-error (condition)
+        (values nil (%failure :argument (princ-to-string condition)))))))
 
 (defun %outline-entry (entry)
   (aitools.org.domain:make-org-outline-entry

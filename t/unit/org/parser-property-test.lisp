@@ -54,31 +54,3 @@
                              :to-be
                              offset)))))))
 
-(cl-weave:describe "aitools.org infrastructure parser refusals"
-                   (cl-weave:it "rejects UTF-16 and UTF-32 BOMs and NUL bytes"
-                                (dolist
-                                    (case (list
-                                           (list #(255 254 65 0)
-                                                 "UTF-16 and UTF-32 Org input is unsupported")
-                                           (list #(254 255 0 65)
-                                                 "UTF-16 and UTF-32 Org input is unsupported")
-                                           (list #(255 254 0 0)
-                                                 "UTF-16 and UTF-32 Org input is unsupported")
-                                           (list #(0 0 254 255)
-                                                 "UTF-16 and UTF-32 Org input is unsupported")
-                                           (list #(65 0)
-                                                 "Org input contains a NUL byte")))
-                                  (multiple-value-bind (document failure)
-                                      (aitools.org.infrastructure:parse-org-octets
-                                       (first case))
-                                    (expect document :to-be nil)
-                                    (expect
-                                     (aitools.org.domain:org-failure-kind
-                                      failure)
-                                     :to-be
-                                     :unsupported)
-                                    (expect
-                                     (aitools.org.domain:org-failure-message
-                                      failure)
-                                     :to-equal
-                                     (second case))))))
