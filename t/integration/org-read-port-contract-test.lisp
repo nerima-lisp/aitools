@@ -34,27 +34,35 @@
 
 (describe "Org application read flow contracts"
   (it "validates command arguments before requiring ports or opening a file"
-    (let ((ports (%empty-org-ports)))
-      (%expect-org-flow-error
-       (%org-flow-result (function aitools.org.application:org-outline/k) ports
-                         :path nil)
-       "argument.invalid" "an Org file path is required")
-      (%expect-org-flow-error
-       (%org-flow-result (function aitools.org.application:org-outline/k) ports
-                         :path "")
-       "argument.invalid" "an Org file path is required")
-      (%expect-org-flow-error
-       (%org-flow-result (function aitools.org.application:org-outline/k) ports
-                         :path "missing.org" :limit -1)
-       "argument.invalid" "outline limit must be a non-negative integer")
-      (%expect-org-flow-error
-       (%org-flow-result (function aitools.org.application:org-query/k) ports
-                         :path "missing.org" :match "TODO" :at "" :tz "UTC")
-       "argument.invalid" "--match, --at, and --tz are required")
-      (%expect-org-flow-error
-       (%org-flow-result (function aitools.org.application:org-export/k) ports
-                         :path "missing.org" :backend :pdf)
-       "argument.invalid" "--backend must be html, gfm, or ascii")))
+      (let ((ports (%empty-org-ports)))
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+                           :path nil)
+         "argument.invalid" "an Org file path is required")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+                           :path "")
+         "argument.invalid" "an Org file path is required")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+                           :path "missing.org" :limit -1)
+         "argument.invalid" "outline limit must be a non-negative integer")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-query/k) ports
+                           :path "missing.org" :match nil :at "2026-10-19T09:00:00" :tz "UTC")
+         "argument.invalid" "--match, --at, and --tz are required")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-query/k) ports
+                           :path "missing.org" :match "" :at "2026-10-19T09:00:00" :tz "UTC")
+         "argument.invalid" "--match, --at, and --tz are required")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-query/k) ports
+                           :path "missing.org" :match "TODO" :at "" :tz "UTC")
+         "argument.invalid" "--match, --at, and --tz are required")
+        (%expect-org-flow-error
+         (%org-flow-result (function aitools.org.application:org-export/k) ports
+                           :path "missing.org" :backend :pdf)
+         "argument.invalid" "--backend must be html, gfm, or ascii")))
   (it "accepts all keyword DST policies through the query flow"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
@@ -77,32 +85,28 @@
                            :at "2026-10-19T09:00:00" :tz "UTC" :dst-policy :unknown)
          "argument.invalid"
          "query requires valid --at, --tz, and --dst-policy"))))
-  (it "validates query adapter inputs at its own boundary"
-    (multiple-value-bind (document parse-failure)
-        (aitools.org.infrastructure:parse-org-octets
-         (sb-ext:string-to-octets (format nil "* Task~%")
-                                  :external-format :utf-8))
-      (expect (null parse-failure) :to-be t)
-      (expect (aitools.org.domain:org-document-p document) :to-be t)
-      (labels ((expect-failure (match at tz dst-policy message)
-                 (multiple-value-bind (matches failure)
-                     (aitools.org.infrastructure::query-org-document
-                      document match at tz dst-policy)
-                   (expect matches :to-be nil)
-                   (expect (aitools.org.domain:org-failure-kind failure)
-                           :to-be :argument)
-                   (expect (aitools.org.domain:org-failure-message failure)
-                           :to-equal message))))
-        (expect-failure nil "2026-10-19T09:00:00" "UTC" "compatible"
-                        "--match is required")
-        (expect-failure "" "2026-10-19T09:00:00" "UTC" "compatible"
-                        "--match is required")
-        (expect-failure "LEVEL=1" nil "UTC" "compatible"
-                        "query requires valid --at, --tz, and --dst-policy")
-        (expect-failure "LEVEL=1" "2026-10-19T09:00:00" nil "compatible"
-                        "query requires valid --at, --tz, and --dst-policy")
-        (expect-failure "LEVEL=1" "2026-10-19T09:00:00" "" "compatible"
-                        "query requires valid --at, --tz, and --dst-policy"))))
+  (it "validates query time inputs at its own boundary"
+      (multiple-value-bind (document parse-failure)
+          (aitools.org.infrastructure:parse-org-octets
+           (sb-ext:string-to-octets (format nil "* Task~%")
+                                    :external-format :utf-8))
+        (expect (null parse-failure) :to-be t)
+        (expect (aitools.org.domain:org-document-p document) :to-be t)
+        (labels ((expect-failure (at tz dst-policy message)
+                                 (multiple-value-bind (matches failure)
+                                     (aitools.org.infrastructure::query-org-document
+                                      document "LEVEL=1" at tz dst-policy)
+                                   (expect matches :to-be nil)
+                                   (expect (aitools.org.domain:org-failure-kind failure)
+                                           :to-be :argument)
+                                   (expect (aitools.org.domain:org-failure-message failure)
+                                           :to-equal message))))
+          (expect-failure nil "UTC" "compatible"
+                          "query requires valid --at, --tz, and --dst-policy")
+          (expect-failure "2026-10-19T09:00:00" nil "compatible"
+                          "query requires valid --at, --tz, and --dst-policy")
+          (expect-failure "2026-10-19T09:00:00" "" "compatible"
+                          "query requires valid --at, --tz, and --dst-policy"))))
   (it "returns internal errors for each missing required or operation port"
     (dolist (ports
              (list (aitools.org.application:make-org-ports
@@ -148,25 +152,4 @@
             (expect (getf (first (getf fields :repairs)) :command)
                     :to-equal command)))
         (expect (aitools.test.support:read-bytes path)
-                :to-equalp (sb-ext:string-to-octets source :external-format :utf-8)))))
-  (it
-  "validates outline and export adapter arguments"
-  (multiple-value-bind (document parse-failure)
-      (aitools.org.infrastructure:parse-org-octets
-       (sb-ext:string-to-octets (format nil "* Task~%")
-                                :external-format :utf-8))
-    (expect (null parse-failure) :to-be t)
-    (multiple-value-bind (entries outline-failure)
-        (aitools.org.infrastructure::outline-org-document document -1)
-      (expect entries :to-be nil)
-      (expect (aitools.org.domain:org-failure-kind outline-failure)
-              :to-be :argument)
-      (expect (aitools.org.domain:org-failure-message outline-failure)
-              :to-equal "outline limit must be a non-negative integer"))
-    (multiple-value-bind (content export-failure)
-        (aitools.org.infrastructure::export-org-document document :pdf)
-      (expect content :to-be nil)
-      (expect (aitools.org.domain:org-failure-kind export-failure)
-              :to-be :argument)
-      (expect (aitools.org.domain:org-failure-message export-failure)
-              :to-equal "export backend must be html, gfm, or ascii")))))
+                :to-equalp (sb-ext:string-to-octets source :external-format :utf-8))))))

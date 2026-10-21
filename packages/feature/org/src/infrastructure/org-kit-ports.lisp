@@ -42,24 +42,22 @@
    :line (org-kit:outline-entry-line entry)))
 
 (defun outline-org-document (document limit)
-  (if (and limit (not (typep limit '(integer 0 *))))
-      (values nil (%failure :argument "outline limit must be a non-negative integer"))
-      (handler-case
-          (let* ((result (org-kit:outline
-                          (aitools.org.domain:org-document-engine-value document)
-                          :limit limit))
-                 (entries (mapcar #'%outline-entry
-                                  (org-kit:outline-result-symbols result))))
-            (values (list :entries entries
-                          :total (org-kit:outline-result-total result)
-                          :truncated (org-kit:outline-result-truncated result))
-                    nil))
-        (org-kit:org-resource-limit-error (condition)
-          (values nil (%resource-failure condition)))
-        (org-kit:org-kit-error (condition)
-          (values nil (%failure :internal (org-kit:org-kit-error-message condition))))
-        (type-error (condition)
-          (values nil (%failure :argument (princ-to-string condition)))))))
+  (handler-case
+      (let* ((result (org-kit:outline
+                      (aitools.org.domain:org-document-engine-value document)
+                      :limit limit))
+             (entries (mapcar (function %outline-entry)
+                              (org-kit:outline-result-symbols result))))
+        (values (list :entries entries
+                      :total (org-kit:outline-result-total result)
+                      :truncated (org-kit:outline-result-truncated result))
+                nil))
+    (org-kit:org-resource-limit-error (condition)
+      (values nil (%resource-failure condition)))
+    (org-kit:org-kit-error (condition)
+      (values nil (%failure :internal (org-kit:org-kit-error-message condition))))
+    (type-error (condition)
+      (values nil (%failure :argument (princ-to-string condition))))))
 
 (defun %link-type-name (value)
   (typecase value
@@ -90,29 +88,26 @@
 
 (defun export-org-document (document backend)
   (let ((link-failure (%export-link-failure document)))
-    (cond
-      ((not (member backend (list :html :gfm :ascii)))
-       (values nil (%failure :argument "export backend must be html, gfm, or ascii")))
-      (link-failure (values nil link-failure))
-      (t
-       (handler-case
-           (values (org-kit:export-org
-                    (aitools.org.domain:org-document-engine-value document) backend)
-                   nil)
-         (org-kit:org-resource-limit-error (condition)
-           (values nil (%resource-failure condition)))
-         (org-kit:org-export-unsupported-syntax (condition)
-           (let ((position (org-kit:org-export-unsupported-syntax-position condition))
-                 (source (aitools.org.domain:org-document-engine-value document)))
-             (if position
-                 (multiple-value-bind (line column)
-                     (org-kit:offset-line-column source position)
-                   (values nil (%failure :unsupported
-                                         (org-kit:org-kit-error-message condition)
-                                         :line line :column column :offset position)))
-                 (values nil (%failure :unsupported
-                                       (org-kit:org-kit-error-message condition))))))
-         (org-kit:org-export-error (condition)
-           (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))
-         (org-kit:org-kit-error (condition)
-           (values nil (%failure :internal (org-kit:org-kit-error-message condition)))))))))
+    (if link-failure
+        (values nil link-failure)
+        (handler-case
+            (values (org-kit:export-org
+                     (aitools.org.domain:org-document-engine-value document) backend)
+                    nil)
+          (org-kit:org-resource-limit-error (condition)
+            (values nil (%resource-failure condition)))
+          (org-kit:org-export-unsupported-syntax (condition)
+            (let ((position (org-kit:org-export-unsupported-syntax-position condition))
+                  (source (aitools.org.domain:org-document-engine-value document)))
+              (if position
+                  (multiple-value-bind (line column)
+                      (org-kit:offset-line-column source position)
+                    (values nil (%failure :unsupported
+                                          (org-kit:org-kit-error-message condition)
+                                          :line line :column column :offset position)))
+                  (values nil (%failure :unsupported
+                                        (org-kit:org-kit-error-message condition))))))
+          (org-kit:org-export-error (condition)
+            (values nil (%failure :unsupported (org-kit:org-kit-error-message condition))))
+          (org-kit:org-kit-error (condition)
+            (values nil (%failure :internal (org-kit:org-kit-error-message condition))))))))

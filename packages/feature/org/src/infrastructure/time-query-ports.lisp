@@ -87,9 +87,6 @@
      :heading-path (%heading-path node))))
 
 (defun query-org-document (document match at tz dst-policy)
-  (unless (and (stringp match) (plusp (length match)))
-    (return-from query-org-document
-      (values nil (%query-failure :argument "--match is required"))))
   (multiple-value-bind (reference failure) (%query-reference-time at tz dst-policy)
     (when failure (return-from query-org-document (values nil failure)))
     (handler-case
