@@ -1952,7 +1952,7 @@ Match syntax errors appear in `error.diagnostics`. Source positions use one-base
 
 | Output field | Description |
 |---|---|
-| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. heading_path is an array of `{title,index}` objects from root to match. Each index is the one-based sibling ordinal within its parent. |
+| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. heading_path is an array of `{title,index}` objects from root to match. Each index is the one-based ordinal among siblings with the same title and parent. |
 | `count` | Number of matching headings. |
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.

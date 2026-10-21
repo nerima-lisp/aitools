@@ -24,7 +24,7 @@
                       matches)
               :to-equal (list (list (list "Parent" 1) (list "Repeated" 1))
                               (list (list "Parent" 1) (list "Repeated" 2))
-                              (list (list "Other" 2) (list "Repeated" 1))))
+                              (list (list "Other" 1) (list "Repeated" 1))))
       (let* ((top-level
                (org-ok ws
                        (list "org" "query" "siblings.org" "--match" "LEVEL=1"
@@ -39,7 +39,7 @@
         (expect (mapcar (lambda (part)
                           (list (jget part "title") (jget part "index")))
                         (jlist (jget other "heading_path")))
-                :to-equal (list (list "Other" 2)))
+                :to-equal (list (list "Other" 1)))
         (multiple-value-bind (todo present) (gethash "todo" parent)
           (expect present :to-be t)
           (expect (null todo) :to-be-truthy))

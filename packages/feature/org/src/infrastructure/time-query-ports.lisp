@@ -68,38 +68,14 @@
         (values nil
                 (%query-failure :invalid-time (princ-to-string condition)))))))
 
-(defun %nearest-heading-parent (node)
-  (loop for parent = (org-kit:node-parent node) then (org-kit:node-parent parent)
-        while parent
-        when (eq (org-kit:node-type parent) :headline)
-          do (return parent)))
+(defun %heading-path (node)
+  (mapcar (lambda (segment)
+            (aitools.org.domain:make-org-heading-path-entry
+             :title (getf segment :title)
+             :index (getf segment :index)))
+          (org-kit:node-heading-path node)))
 
-(defun %heading-sibling-indices (root)
-  (let ((counts (make-hash-table :test #'eq))
-        (indices (make-hash-table :test #'eq)))
-    (org-kit:map-nodes
-     (lambda (node)
-       (when (eq (org-kit:node-type node) :headline)
-         (let* ((parent (%nearest-heading-parent node))
-                (index (1+ (gethash parent counts 0))))
-           (setf (gethash parent counts) index
-                 (gethash node indices) index))))
-     root)
-    indices))
-
-(defun %heading-path (node indices)
-  (let ((headings nil))
-    (loop for current = node then (org-kit:node-parent current)
-          while current
-          when (eq (org-kit:node-type current) :headline)
-            do (push current headings))
-    (mapcar (lambda (heading)
-              (aitools.org.domain:make-org-heading-path-entry
-               :title (org-kit:node-property heading :raw-value "")
-               :index (gethash heading indices 1)))
-            headings)))
-
-(defun %query-match-entry (node indices)
+(defun %query-match-entry (node)
   (multiple-value-bind (line column) (org-kit:node-start-position node)
     (declare (ignore column))
     (aitools.org.domain:make-org-query-match
@@ -108,7 +84,7 @@
      :title (org-kit:node-property node :raw-value "")
      :todo (org-kit:node-property node :todo-keyword)
      :tags (or (org-kit:node-property node :tags) '())
-     :heading-path (%heading-path node indices))))
+     :heading-path (%heading-path node))))
 
 (defun query-org-document (document match at tz dst-policy)
   (unless (and (stringp match) (plusp (length match)))
@@ -118,9 +94,8 @@
     (when failure (return-from query-org-document (values nil failure)))
     (handler-case
         (let* ((engine (aitools.org.domain:org-document-engine-value document))
-               (nodes (org-kit:query-match-at engine match reference))
-               (indices (%heading-sibling-indices (org-kit:document-root engine))))
-          (values (mapcar (lambda (node) (%query-match-entry node indices)) nodes) nil))
+               (nodes (org-kit:query-match-at engine match reference)))
+          (values (mapcar (lambda (node) (%query-match-entry node)) nodes) nil))
       (org-kit:org-resource-limit-error (condition)
         (values nil (%query-failure :too-large
                                     (org-kit:org-kit-error-message condition))))

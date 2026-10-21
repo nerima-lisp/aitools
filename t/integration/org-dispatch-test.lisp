@@ -74,7 +74,7 @@
                                 (mapcar (lambda (part) (aitools.test.support:envelope-value part "index"))
                                         (coerce (aitools.test.support:envelope-value match "heading_path") 'list)))
                               matches)
-                      :to-equal '((1 2) (2)))))
+                      :to-equal '((1 1) (1)))))
           (expect (aitools.test.support:read-bytes path) :to-equalp before)
           (multiple-value-bind (code envelope stream)
               (aitools.test.support:run-aitools

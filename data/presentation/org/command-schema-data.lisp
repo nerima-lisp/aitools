@@ -69,7 +69,7 @@
                                     "title omits its TODO keyword and tags; todo is a keyword or null; "
                                     "tags is a string array. "
                                     "heading_path is an array of `{title,index}` objects from root to match. "
-                                    "Each index is the one-based sibling ordinal within its parent."))
+                                    "Each index is the one-based ordinal among siblings with the same title and parent."))
                      (:name "count" :description "Number of matching headings."))
      :error-codes ("argument.invalid" "input.not-found" "input.not-utf8"
                    "input.unsupported-format" "input.syntax-error" "refusal.too-large"
