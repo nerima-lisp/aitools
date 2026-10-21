@@ -18,6 +18,13 @@
                  (t (incf i)))))
     (max start (1- length))))
 
+(defun %rust-unicode-escape-end (octets position)
+  (let* ((length (length octets))
+         (brace (1+ position)))
+    (when (and (< brace length) (= (aref octets brace) 123))
+      (let ((close (position 125 octets :start (1+ brace))))
+        (and close (1+ close))))))
+
 (defun %rust-raw-string-end (octets start)
   (let* ((length (length octets))
          (prefix start))
@@ -44,25 +51,25 @@
                      (return-from %rust-raw-string-end (1- after))))
             finally (return (1- length))))))
 
+(defun %rust-char-escape-end (octets position)
+  (let ((length (length octets)))
+    (cond
+      ((>= position length) position)
+      ((= (aref octets position) 117)
+       (or (%rust-unicode-escape-end octets position) position))
+      ((= (aref octets position) 120) (+ position 3))
+      (t (1+ position)))))
+
 (defun %rust-char-literal-end (octets start)
   (let ((i (1+ start)) (length (length octets)))
     (when (< i length)
       (cond
         ((= (aref octets i) 92)
-         (incf i)
-         (when (< i length)
-           (cond
-             ((= (aref octets i) 117)
-              (let ((brace (1+ i)))
-                (when (and (< brace length) (= (aref octets brace) 123))
-                  (let ((close (position 125 octets :start (1+ brace))))
-                    (when close (setf i (1+ close)))))))
-             ((= (aref octets i) 120) (incf i 3))
-             (t (incf i)))))
+         (setf i (%rust-char-escape-end octets (1+ i))))
         ((= (aref octets i) 10)
          (return-from %rust-char-literal-end nil))
         (t (setf i (next-char-boundary octets i))))
-      (and (< i length) (= (aref octets i) 39) i))))
+    (and (< i length) (= (aref octets i) 39) i))))
 
 (defun %brace-end (octets start line-comment block-comment language)
   "Offset ending a brace-delimited definition that starts at START: its
