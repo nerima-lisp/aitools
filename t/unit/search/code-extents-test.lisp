@@ -47,4 +47,126 @@
     (let ((opening (make-string opening-length :initial-element #\`))
           (closing (make-string (+ opening-length closing-extra) :initial-element #\`)))
       (expect (outline-of "/w/a.md" (lines "# before" opening "# hidden" closing "# after"))
-              :to-equal '((1 4 "heading" "before") (5 5 "heading" "after"))))))
+              :to-equal '((1 4 "heading" "before") (5 5 "heading" "after")))))
+
+  (it "skips JavaScript single-quoted strings"
+    (expect (outline-of "/w/a.js"
+                        (lines "function a() {"
+                               "  const close = '}';"
+                               "  return close;"
+                               "}"
+                               "function b() {}"))
+            :to-equal '((1 4 "function" "a") (5 5 "function" "b"))))
+
+  (it "skips JavaScript template literals"
+    (expect (outline-of "/w/a.js"
+                        (lines "function a() {"
+                               "  const close = `}`;"
+                               "  return close;"
+                               "}"
+                               "function b() {}"))
+            :to-equal '((1 4 "function" "a") (5 5 "function" "b"))))
+
+  (it "skips nested JavaScript template substitutions"
+    (expect (outline-of "/w/a.ts"
+                        (lines "function a() {"
+                               "  const value = `${`}`}`;"
+                               "  return value;"
+                               "}"
+                               "function b() {}"))
+            :to-equal '((1 4 "function" "a") (5 5 "function" "b"))))
+
+  (it "skips Go rune literals"
+    (expect (outline-of "/w/a.go"
+                        (lines "func a() {"
+                               "  close := '}'"
+                               "}"
+                               "func b() {}"))
+            :to-equal '((1 3 "function" "a") (4 4 "function" "b"))))
+
+  (it "skips Go raw string literals"
+    (expect (outline-of "/w/a.go"
+                        (lines "func a() {"
+                               "  close := `}`"
+                               "}"
+                               "func b() {}"))
+            :to-equal '((1 3 "function" "a") (4 4 "function" "b"))))
+
+  (it "keeps Rust lifetimes in function signatures outside string skipping"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn borrow<'a>(x: &'a str) {"
+                               "  use_value(x);"
+                               "}"
+                               "fn later() {}"))
+            :to-equal '((1 3 "function" "borrow") (4 4 "function" "later"))))
+
+  (it "skips Rust character literals"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn close_char() {"
+                               "  let close = '}';"
+                               "  use_value(close);"
+                               "}"
+                               "fn later() {}"))
+            :to-equal '((1 4 "function" "close_char") (5 5 "function" "later"))))
+
+  (it "skips Rust raw string literals"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn close_raw() {"
+                               "  let close = r#\"}\"#;"
+                               "  use_value(close);"
+                               "}"
+                               "fn later() {}"))
+            :to-equal '((1 4 "function" "close_raw") (5 5 "function" "later"))))
+
+  (it "skips nested Common Lisp and Scheme block comments"
+    (expect (outline-of "/w/a.lisp"
+                        (lines "(defun f ()"
+                               "  #| outer #| inner |# ) |#"
+                               "  (work)"
+                               ")"
+                               "(defun g ())"))
+            :to-equal '((1 4 "function" "f") (5 5 "function" "g")))
+    (expect (outline-of "/w/a.scm"
+                        (lines "(define (f)"
+                               "  #| outer #| inner |# ) |#"
+                               "  (work)"
+                               ")"
+                               "(define (g))"))
+            :to-equal '((1 4 "function" "f") (5 5 "function" "g"))))
+
+  (it "skips nested Rust block comments"
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn a() {"
+                               "  /* outer /* inner */ } */"
+                               "  work();"
+                               "}"
+                               "fn b() {}"))
+            :to-equal '((1 4 "function" "a") (5 5 "function" "b"))))
+
+  (it "keeps JavaScript block comments non-nesting"
+    (expect (outline-of "/w/a.js"
+                        (lines "function a() {"
+                               "  /* outer /* inner */ }"
+                               "function b() {}"))
+            :to-equal '((1 2 "function" "a") (3 3 "function" "b"))))
+
+  (it "skips shell single-quoted strings"
+    (expect (outline-of "/w/a.sh"
+                        (lines "function a() {"
+                               "  value='}'"
+                               "}"
+                               "function b() {}"))
+            :to-equal '((1 3 "function" "a") (4 4 "function" "b"))))
+
+  (it "skips Nix indented strings"
+    (expect (outline-of "/w/a.nix"
+                        (lines "attrs = {"
+                               "  text = ''"
+                               "    } inside"
+                               "  '';"
+                               "}"
+                               "next = {};"))
+            :to-equal '((1 5 "attribute" "attrs")
+                        (2 2 "attribute" "text")
+                        (6 6 "attribute" "next"))))
+)

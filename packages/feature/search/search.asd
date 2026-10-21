@@ -12,7 +12,7 @@
     :components ((:file "package") (:file "bytes")
                  (:file "matcher") (:file "matcher-scan")
                  (:file "results") (:file "find")
-                 (:file "code-extents") (:file "code")
+                 (:file "code-extent-common") (:file "code-extents") (:file "code")
                  (:file "overview")))
    (:module "application" :serial t
     :components ((:file "package") (:file "ports") (:file "session")

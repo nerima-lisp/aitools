@@ -96,7 +96,8 @@ DEFINITIONs in line order."
                                                         (aitools.text.domain:language-block-comment language))))
                      (:brace (%line-of octets (%brace-end octets line-start
                                                           (aitools.text.domain:language-line-comment language)
-                                                          (aitools.text.domain:language-block-comment language))))
+                                                          (aitools.text.domain:language-block-comment language)
+                                                          (language-name language))))
                      (:indent (%indent-end-line octets line line-start))
                      (:heading
                       (let* ((level-group (svref (language-index-level-groups index) pattern))
