@@ -157,7 +157,6 @@
                                               (:file "integration/edit-text-commands-paths-test")
                                               (:file "integration/edit-files-test")
                                               (:file "integration/edit-files-refusals-test")
-                                              (:file "integration/edit-files-workspace-test")
                                               (:file "integration/edit-tx-and-limits-test")
                                               (:file "integration/edit-tx-lock-test")
                                               (:file "integration/edit-cli-test")

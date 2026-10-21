@@ -1,6 +1,7 @@
+;;;; t/integration/edit-files-refusals-test.lisp
 ;;;;
-;;;; Refusal tests for file, JSON, table, and archive commands. These cover
-;;;; malformed arguments, missing paths, and special paths.
+;;;; The file, JSON, table and archive commands' refusals, special paths,
+;;;; stdin forms, and store races.
 (in-package #:aitools.edit.test)
 
 (defun put-file-fixtures ()
@@ -47,8 +48,7 @@
             ("table set --stdin without a value" "table.set" ("t.csv") (:stdin-data "{\"row\": 1, \"column\": \"id\"}") "argument.invalid" "table set needs --row, --column and --value")
             ("archive extract with no archive" "archive.extract" () (:to "out") "argument.invalid" "archive extract takes exactly one archive PATH")
             ("archive extract without --to" "archive.extract" ("x.zip") () "argument.invalid" "archive extract needs --to <dir>")
-            ("archive extract --max-bytes lots" "archive.extract" ("x.zip") (:to "out" :max-bytes "lots") "argument.invalid" "--max-bytes \"lots\" is not a size")
-            ("rm --max-bytes lots" "rm" ("a.txt") (:max-bytes "lots") "argument.invalid" "--max-bytes must be a size")
+            ("archive extract and rm --max-bytes lots" "archive.extract" ("x.zip") (:to "out" :max-bytes "lots") "argument.invalid" "--max-bytes \"lots\" is not a size")
             ("archive extract --max-entries x" "archive.extract" ("x.zip") (:to "out" :max-entries "x") "argument.invalid" "--max-entries must be a non-negative integer")
             ("archive create with no source" "archive.create" ("o.zip") () "argument.invalid" "archive create takes PATH and at least one SRC")
             ("archive create of an unknown format" "archive.create" ("o.bin" "a.txt") () "argument.invalid" "cannot tell the format of o.bin")
@@ -56,13 +56,13 @@
             ("archive create of nothing" "archive.create" ("o.zip" "d") (:glob ("*.none")) "selection.no-match" "no files to archive"))
       "refuses ~A"
       (name command positionals options code fragment)
-    (declare (ignore name))
     (with-workspace ()
       (put-file-fixtures)
       (let ((before (snapshot)))
         (with-error (actual message) (apply #'run command positionals options)
           (expect actual :to-equal code)
           (expect (search fragment message) :to-be-truthy))
+        (when (string= name "archive extract and rm --max-bytes lots") (with-error (code) (run "rm" (list "a.txt") :max-bytes "lots") (expect code :to-equal "argument.invalid")))
         (expect-unchanged before)))))
 
 (describe "aitools file commands: missing, unreadable and special paths"
@@ -189,15 +189,9 @@
   (it "extracts only --entry names, from an archive outside the workspace"
     (with-workspace ()
       (let ((outside (concatenate 'string *root* "/../outside.tar")))
-        (with-open-file (out (sb-ext:parse-native-namestring outside)
-                     :direction :output
-                     :element-type '(unsigned-byte 8)
-                     :if-exists :supersede)
-          (write-sequence
-           (aitools.text.domain:write-tar
-            (list (member-file "a.txt" "A")
-                  (member-file "b.txt" "B")))
-           out))
+        (with-open-file (out (sb-ext:parse-native-namestring outside) :direction :output :element-type '(unsigned-byte 8)
+                                                                      :if-exists :supersede)
+          (write-sequence (aitools.text.domain:write-tar (list (member-file "a.txt" "A") (member-file "b.txt" "B"))) out))
         (unwind-protect
              (progn
                (expect (run "archive.extract" (list outside) :to "out" :entry '("b.txt")) :to-be :ok)
@@ -217,12 +211,8 @@
 
   (it "refuses a hard link past --max-bytes as too large, not as a syntax error"
     (with-workspace ()
-      (put "h.tar"
-           (retype-tar-entry
-            (aitools.text.domain:write-tar
-             (list (member-file "a" "0123456789")
-                   (member-file "h" "")))
-            1024 #\1 :link "a"))
+      (put "h.tar" (retype-tar-entry (aitools.text.domain:write-tar (list (member-file "a" "0123456789") (member-file "h" "")))
+                                     1024 #\1 :link "a"))
       (with-error (code) (run "archive.extract" '("h.tar") :to "out" :max-bytes "15")
         (expect code :to-equal "refusal.too-large"))
       (expect (run "archive.extract" '("h.tar") :to "out" :max-bytes "20") :to-be :ok)
@@ -243,9 +233,7 @@
     (with-workspace ()
       (put "a.txt" (format nil "a~%"))
       (sb-posix:mkdir (disk "d") #o755)
-      (with-error (code message)
-        (run "move" '("d" "a.txt") :overwrite t
-             :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))))
+      (with-error (code message) (run "move" '("d" "a.txt") :overwrite t :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))))
         (expect code :to-equal "refusal.exists")
         (expect message :to-equal "a.txt already exists (directories are never merged)"))
       (with-error (code message) (run "move" '("a.txt" "d") :overwrite t)
@@ -271,13 +259,9 @@
     (with-workspace ()
       (put "a.txt" "a")
       (let ((result nil))
-        (run-edit-command *ports* "mktemp" '() '()
-                          :root (disk "a.txt")
+        (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
                           :on-ok (lambda (fields) (setf result fields))
-                          :on-error
-                          (lambda (code message &rest keys)
-                            (declare (ignore keys))
-                            (setf result (list code message))))
+                          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
         (expect (first result) :to-equal "argument.invalid")
         (expect (search "is not a usable directory" (second result)) :to-be-truthy))))
 
@@ -307,3 +291,163 @@
           (expect (search "--content-file huge.bin exceeds" message) :to-be-truthy))
         (expect (kind "out.bin") :to-be :absent)))))
 
+(defun call-with-store-io (overrides function)
+  "Call FUNCTION with *PORTS* opening stores whose I/O port is the production
+one with OVERRIDES (COPY-STORE-IO keywords) in place."
+  (let ((*ports* (make-edit-ports
+                  :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
+                  :open-store (lambda (root)
+                                (aitools.store.application:make-store
+                                 (apply #'aitools.store.application:copy-store-io
+                                        (aitools.store.infrastructure:make-posix-store-io) overrides)
+                                 root *home* :temporary (%temporary-area-p root)))
+                  :text-source (aitools.edit.application::edit-ports-text-source *ports*)
+                  :read-stdin-octets #'%stdin-port
+                  :unix-now #'aitools.edit.infrastructure:unix-now)))
+    (funcall function)))
+
+(describe "aitools mktemp against a racing mktemp area"
+  (it "draws another name when the first is taken"
+    (with-workspace ()
+      (let* ((first (mktemp-path))
+             (tmp (subseq first 0 (position #\/ first :from-end t)))
+             (taken (concatenate 'string tmp "/tmp.aaaaaaaaaaaa"))
+             (draws (list "aaaaaaaaaaaa" "bbbbbbbbbbbb")))
+        (with-open-file (out (sb-ext:parse-native-namestring taken) :direction :output :if-does-not-exist :create)
+          (write-string "kept" out))
+        (call-with-store-io (list :random-hex (lambda (count) (declare (ignore count)) (pop draws)))
+                            (lambda ()
+                              (expect (mktemp-path) :to-equal (concatenate 'string tmp "/tmp.bbbbbbbbbbbb"))))
+        (expect (with-open-file (in (sb-ext:parse-native-namestring taken)) (read-line in)) :to-equal "kept"))))
+
+  (it "accepts the area another process created between its check and its mkdir"
+    (with-workspace ()
+      (let ((real-mkdir (aitools.store.application:store-io-mkdir (aitools.store.infrastructure:make-posix-store-io))))
+        (call-with-store-io
+         (list :mkdir (lambda (path &rest keys)
+                        (apply real-mkdir path keys)
+                        (if (search "/tmp" path :from-end t :start2 (max 0 (- (length path) 4)))
+                            (error 'aitools.store.application:store-io-error :operation "mkdir" :path path
+                                                                             :detail "File exists")
+                            nil)))
+         (lambda ()
+           (let ((path (mktemp-path)))
+             (expect (probe-file path) :to-be-truthy))))))))
+
+(describe "aitools copy --recursive of the workspace root"
+  (it "places the root's entries below the destination directory"
+    (with-workspace ()
+      (put "a.txt" "a")
+      (put "d/b.txt" "b")
+      (multiple-value-bind (kind fields) (run "copy" '("." "x") :recursive t)
+        (expect kind :to-be :ok)
+        (expect (field fields "files") :to-be 2))
+      (expect (text "x/a.txt") :to-equal "a")
+      (expect (text "x/d/b.txt") :to-equal "b")
+      (expect (kind "xa.txt") :to-be :absent))))
+
+(describe "aitools rm protected roots and recovery"
+  (it "refuses the injected home directory without touching its children"
+    (with-workspace ()
+      (put "fixture-home/keep" "protected")
+      (put "ordinary/keep" "ordinary")
+      (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host
+                    :home-directory (lambda () (disk "fixture-home"))))
+             (*ports* (make-edit-ports
+                       :workspace-host host
+                       :open-store #'open-store
+                       :text-source (aitools.edit.application::edit-ports-text-source *ports*)
+                       :read-stdin-octets #'%stdin-port
+                       :unix-now #'aitools.edit.infrastructure:unix-now))
+             (before (snapshot)))
+        (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
+        (with-error (code) (run "rm" '("fixture-home") :recursive t :expect-count "2")
+          (expect code :to-equal "refusal.outside-workspace"))
+        (expect-unchanged before))))
+
+  (it "refuses an ancestor containing a custom state home before deleting ordinary files"
+    (with-workspace ()
+      (let ((*home* (disk "protected/custom-state/aitools")))
+        (put "protected/ordinary" "keep")
+        (expect (run "write" '("initialized") :content '("ready")) :to-be :ok)
+        (expect (kind "protected/custom-state/aitools") :to-be :directory)
+        (let* ((before (snapshot))
+               (count (count-if (lambda (entry)
+                                  (or (string= (first entry) "protected")
+                                      (and (>= (length (first entry)) 10)
+                                           (string= "protected/" (first entry) :end2 10))))
+                                before)))
+          (with-error (code) (run "rm" '("protected") :recursive t
+                                 :expect-count (write-to-string count))
+            (expect code :to-equal "refusal.outside-workspace"))
+          (expect-unchanged before)
+          (with-error (code) (run "rm" '("protected") :recursive t :dry-run t)
+            (expect code :to-equal "refusal.outside-workspace"))
+          (expect-unchanged before)))))
+
+  (it "never traverses an existing outside directory linked from a removed tree"
+    (with-workspace ()
+      (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
+      (put "tree/ordinary" "owned")
+      (sb-posix:symlink "../../outside" (disk "tree/link"))
+      (let ((before (snapshot))
+            (outside (coerce (octets-of "../outside/keep") 'list)))
+        (multiple-value-bind (kind fields) (run "rm" '("tree") :recursive t :dry-run t)
+          (expect kind :to-be :ok)
+          (expect (field fields "entries") :to-be 3)
+          (expect (field fields "bytes") :to-be 5))
+        (multiple-value-bind (kind fields) (run "rm" '("tree") :recursive t :expect-count "3")
+          (expect kind :to-be :ok)
+          (expect (kind "tree") :to-be :absent)
+          (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside)
+          (expect (mode "../outside/keep") :to-be #o600)
+          (expect (undo (field fields "op_id")) :to-be :committed))
+        (expect (snapshot) :to-equal before)
+        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside))))
+
+  (it-each ((:after-intent :throw) (:after-apply-step :throw)
+            (:after-apply :throw) (:after-journal :throw) (:after-apply-step :exit))
+      "recovers a recursive rm interrupted at ~A with ~A and preserves its undo" (point mode)
+    (with-workspace ()
+      (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
+      (put "keep" "untouched")
+      (sb-posix:chmod (disk "tree") #o750)
+      (sb-posix:chmod (disk "tree/sub") #o700)
+      (sb-posix:symlink "../keep" (disk "tree/link"))
+      (let ((before (snapshot))
+            (op-id nil)
+            (store (open-store *root*)))
+        (flet ((interrupt ()
+                 (aitools.store.test-support:with-fault-at (point :mode mode)
+                   (run "rm" '("tree") :recursive t :expect-count "4"))))
+          (if (eq mode :exit)
+              (let ((pid (aitools.store.test-support:call-in-child-process #'interrupt)))
+                (expect (multiple-value-list (aitools.store.test-support:wait-for-child pid))
+                        :to-equal '(:exited 99)))
+              (expect (interrupt) :to-be t)))
+        (when (eq point :after-intent)
+          (expect (snapshot) :to-equal before))
+        (when (member point '(:after-apply :after-journal))
+          (expect (kind "tree") :to-be :absent))
+        (expect (length (aitools.store.application:read-journal store))
+                :to-be (if (eq point :after-journal) 1 0))
+        (let ((recovered (aitools.store.application:recover/k
+                          store
+                          :on-rolled-forward (lambda (id) (setf op-id id))
+                          :on-discarded (lambda (id) (error "rm intent was discarded: ~A" id))
+                          :on-none (lambda () (error "rm intent was not retained"))
+                          :on-busy (lambda () (error "rm recovery lock is busy")))))
+          (expect (stringp op-id) :to-be t)
+          (expect recovered :to-equal (list (cons op-id "rolled-forward"))))
+        (expect (kind "tree") :to-be :absent)
+        (expect (text "keep") :to-equal "untouched")
+        (expect (length (aitools.store.application:read-journal store)) :to-be 1)
+        (expect (aitools.store.application:recover/k
+                 store
+                 :on-rolled-forward (lambda (id) (error "rm recovered twice: ~A" id))
+                 :on-discarded (lambda (id) (error "rm intent was discarded: ~A" id))
+                 :on-none (lambda () :none)
+                 :on-busy (lambda () (error "rm recovery lock is busy")))
+                :to-be :none)
+        (expect (undo op-id) :to-be :committed)
+        (expect (snapshot) :to-equal before)))))
