@@ -157,32 +157,30 @@
         (expect (getf fields :message) :to-contain "entry z.txt of bad.zip cannot be decoded")
         (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools archive list bad.zip"))))
 
-  (it "refuses a tar member above the entry limit before reading data"
+  (it "routes a reported tar size limit through archive read"
     (let ((tar
             (aitools.text.domain:write-tar
-             (list
-              (aitools.text.domain:make-archive-member
-               :name "big.bin"
-               :kind :file
-               :mode #o644
-               :mtime 1700000000
-               :data
-               (make-array (1+ +archive-max-entry+)
-                           :element-type (quote (unsigned-byte 8))
-                           :initial-element 0))))))
-      (multiple-value-bind (kind fields)
-          (run-flow
-           (function archive-read-flow)
-           (make-test-ports :files `(("/work/big.tar" . ,tar)))
-           "big.tar"
-           "big.bin")
-        (expect kind :to-be :error)
-        (expect (error-code fields) :to-equal "refusal.too-large")
-        (expect (getf fields :message)
-                :to-equal
-                (format nil
-                        "entry big.bin of big.tar is larger than ~D bytes"
-                        +archive-max-entry+))))))
+             (list (archive-member "big.bin" "x")))))
+      ;; Keep the fixture small; the reported size exercises the pre-copy guard.
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.text.domain:archive-entry-size))
+            (lambda (entry)
+              (declare (ignore entry))
+              (1+ +archive-max-entry+))))
+        (multiple-value-bind (kind fields)
+            (run-flow
+             (function archive-read-flow)
+             (make-test-ports :files `(("/work/big.tar" . ,tar)))
+             "big.tar"
+             "big.bin")
+          (expect kind :to-be :error)
+          (expect (error-code fields) :to-equal "refusal.too-large")
+          (expect (getf fields :message)
+                  :to-equal
+                  (format nil
+                          "entry big.bin of big.tar is larger than ~D bytes"
+                          +archive-max-entry+)))))))
 
 (describe "archive read of a member with a line past the per-line byte cap"
   (it "cuts the line, marks it, and names the hex dump through the cut"
