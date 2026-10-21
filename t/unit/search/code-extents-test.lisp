@@ -49,14 +49,20 @@
       (expect (outline-of "/w/a.md" (lines "# before" opening "# hidden" closing "# after"))
               :to-equal '((1 4 "heading" "before") (5 5 "heading" "after")))))
 
-  (it "skips JavaScript single-quoted strings"
+  (it "stops an unterminated JavaScript string at a newline"
     (expect (outline-of "/w/a.js"
                         (lines "function a() {"
                                "  const close = '}';"
                                "  return close;"
                                "}"
                                "function b() {}"))
-            :to-equal '((1 4 "function" "a") (5 5 "function" "b"))))
+            :to-equal '((1 4 "function" "a") (5 5 "function" "b")))
+    (expect (outline-of "/w/a.js"
+                        (lines "function incomplete() {"
+                               "  const close = 'unterminated"
+                               "  }"
+                               "function later() {}"))
+            :to-equal '((1 3 "function" "incomplete") (4 4 "function" "later"))))
 
   (it "skips JavaScript template literals"
     (expect (outline-of "/w/a.js"
@@ -100,7 +106,7 @@
                                "fn later() {}"))
             :to-equal '((1 3 "function" "borrow") (4 4 "function" "later"))))
 
-  (it "skips Rust character literals"
+  (it "handles complete and incomplete Rust character literals"
     (expect (outline-of "/w/a.rs"
                         (lines "fn close_char() {"
                                "  let close = '}';"
@@ -110,19 +116,37 @@
                                "  use_value(close);"
                                "}"
                                "fn later() {}"))
-            :to-equal '((1 7 "function" "close_char") (8 8 "function" "later"))))
+            :to-equal '((1 7 "function" "close_char") (8 8 "function" "later")))
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn incomplete_char() {"
+                               "  let value = '"
+                               "  }"
+                               "fn later() {}"))
+            :to-equal '((1 3 "function" "incomplete_char") (4 4 "function" "later")))
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn incomplete_escape() {"
+                               (format nil "  let value = '~C" #\\)
+                               "  }"
+                               "fn later() {}"))
+            :to-equal '((1 3 "function" "incomplete_escape") (4 4 "function" "later"))))
 
-  (it "skips Rust raw and byte strings"
+  (it "skips Rust raw and byte strings with matching delimiters"
     (expect (outline-of "/w/a.rs"
                         (lines "fn close_raw() {"
                                "  let close = r#\"}\"#;"
                                "  let plain = r\"}\";"
                                "  let bytes = b\"}\";"
                                "  let byte_raw = br##\"}\"##;"
+                               "  let shorter = r##\" } \"# } still inside \"##;"
                                "  use_value(close);"
                                "}"
                                "fn later() {}"))
-            :to-equal '((1 7 "function" "close_raw") (8 8 "function" "later"))))
+            :to-equal '((1 8 "function" "close_raw") (9 9 "function" "later")))
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn incomplete_raw() {"
+                               "  let value = r##\" } \"#"
+                               "  } inside"))
+            :to-equal '((1 3 "function" "incomplete_raw"))))
 
   (it "skips nested Common Lisp and Scheme block comments"
     (expect (outline-of "/w/a.lisp"
