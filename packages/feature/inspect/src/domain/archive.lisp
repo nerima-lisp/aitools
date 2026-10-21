@@ -82,11 +82,13 @@ a single-member `.gz`."
   on-malformed
   on-too-large
   (max-gzip-output +archive-max-decompressed+))
- "Detect OCTETS' archive format through the one shared detector
+ "Detect OCTETS using the shared detector
 (AITOOLS.TEXT.DOMAIN:DETECT-ARCHIVE-FORMAT; magic bytes first, a v7 tar by
-its header checksum, `.tar`/`.tgz`/`.tar.gz` names) and call exactly one
-continuation: ON-ARCHIVE (archive), ON-UNSUPPORTED (), ON-MALFORMED
-(reason), or ON-TOO-LARGE (limit) when decompression passes
+its header checksum, with .tar, .tgz, and .tar.gz extensions) and call exactly
+one continuation: ON-ARCHIVE (archive), ON-UNSUPPORTED (), ON-MALFORMED
+(reason), or ON-TOO-LARGE (limit) when decompression exceeds
+MAX-GZIP-OUTPUT. MAX-GZIP-OUTPUT sets the decompressed byte limit for :GZ
+and :TAR-GZ inputs and defaults to
 +ARCHIVE-MAX-DECOMPRESSED+."
  (declare (type function on-archive on-unsupported on-malformed on-too-large))
  (multiple-value-bind (archive outcome value)
@@ -101,7 +103,7 @@ continuation: ON-ARCHIVE (archive), ON-UNSUPPORTED (), ON-MALFORMED
                        (make-archive :tar
                                      (%tar-items (read-tar-entries octets))
                                      octets))
-                      (:tar-gz (%open-gzip octets path t +archive-max-decompressed+))
+                      (:tar-gz (%open-gzip octets path t max-gzip-output))
                       (:gz (%open-gzip octets path nil max-gzip-output))
                       ((nil) nil))
                     :opened

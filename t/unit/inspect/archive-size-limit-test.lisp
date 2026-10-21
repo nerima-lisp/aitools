@@ -1,6 +1,6 @@
 (in-package #:aitools.inspect.test)
 
-(describe "archive plain gzip entry size limits"
+(describe "archive gzip decompression limits"
   (it "rejects oversized plain gzip member content after opening"
     (let* ((gzip (cdr (assoc "notes.txt.gz" (sample-archives) :test (function string=))))
            (decoded (make-array (1+ +archive-max-entry+)
@@ -67,4 +67,23 @@
        :on-too-large (lambda (limit)
                        (fail (format nil "content at the limit was rejected at ~D bytes" limit)))
        :on-malformed (lambda (reason)
-                       (fail (format nil "content at the limit was malformed: ~A" reason))))))))
+                       (fail (format nil "content at the limit was malformed: ~A" reason)))))))
+  (it "uses the configured decompression limit for tar.gz archives"
+    (let ((tar-gz
+            (cdr (assoc "a.tar.gz"
+                        (sample-archives)
+                        :test (function string=)))))
+      (aitools.inspect.domain:open-archive/k
+       tar-gz
+       "a.tar.gz"
+       :max-gzip-output 1
+       :on-archive (lambda (archive)
+                     (declare (ignore archive))
+                     (fail "tar.gz exceeded the configured decompression limit"))
+       :on-unsupported
+       (lambda () (fail "valid tar.gz was not recognized"))
+       :on-malformed
+       (lambda (reason)
+         (fail (format nil "valid tar.gz was malformed: ~A" reason)))
+       :on-too-large
+       (lambda (limit) (expect limit :to-be 1))))))
