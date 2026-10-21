@@ -111,6 +111,7 @@
                                               (:file "unit/inspect/table-test")
                                               (:file "unit/inspect/table-edge-test")
                                               (:file "unit/inspect/archive-test")
+                                              (:file "unit/inspect/archive-size-limit-test")
                                               (:file "unit/inspect/archive-list-test")
                                               (:file "unit/inspect/snapshot-test")
                                               (:file "integration/inspect-snapshot-test")
