@@ -1,9 +1,7 @@
 # Architecture
 
-aitools is cut vertically into 14 bounded contexts (5 core, 9 feature), and
-each context is split into the DDD layers it needs. Adding or changing a
-command touches one feature context rather than a layer that spans every
-context. The layout follows nshell's architecture.
+Adding or changing a command touches one feature context rather than a layer
+that spans every context. The layout follows nshell's architecture.
 
 ## Contexts
 
@@ -34,6 +32,10 @@ command reads or writes.
 
 ### Placement decisions
 
+A port is a structure of function slots for side-effect operations.
+Application flows call these functions, and infrastructure supplies their
+production implementations.
+
 - **Byte codecs in core/text.** `archive list` and `archive read` (inspect)
   and `archive extract` and `archive create` (edit) all need deflate, gzip,
   zip, and tar. `cl-deflate-kit` supplies DEFLATE and gzip; core/text keeps
@@ -55,9 +57,7 @@ command reads or writes.
 - **The streaming JSON writer in protocol infrastructure calls json-kit.**
   json-kit is otherwise a domain-layer kit, but writing an envelope directly
   to the output stream, rather than building the whole document as a string
-  first, requires calling `json-kit:write-json` where the stream is. The
-  structure test allows
-  `JSON-KIT` in infrastructure for this reason
+  first, requires calling `json-kit:write-json` where the stream is
   (`packages/core/protocol/src/infrastructure/json-writer.lisp`).
 - **Org parsing and export live in feature/org.** The infrastructure adapter
   calls `cl-org-kit` and `cl-date-kit`; application flows reach these APIs
@@ -70,8 +70,8 @@ command reads or writes.
 | Layer | Holds | May reference |
 |---|---|---|
 | domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, `cl-date-kit`, and `cl-deflate-kit` |
-| application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications |
-| infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit` |
+| application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications; in Store, the pure `resilience-kit:make-retry-policy` constructor |
+| infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
@@ -80,6 +80,13 @@ The `define-flow`, `flow-call`, and `flow-continue` macros live in
 maps an octet vector to a lowercase hexadecimal digest without I/O. The kernel
 domain has no application dependencies, so domain and application flows can
 share the DSL without reversing the dependency direction.
+
+Store application uses `resilience-kit:make-retry-policy` only to describe
+lock retry behavior. Its infrastructure adapter wraps the monotonic-clock and
+sleep callbacks from `store-io` with `cl-boundary-kit` boundaries, invokes
+`resilience-kit:call-with-retry`, and maps
+`resilience-kit:retry-exhausted` to `NIL`. Store application then calls its
+timeout continuation when no lock was acquired.
 
 Each context/layer pair is one package, `aitools.<context>.<layer>`
 (`aitools.search.domain`). Table data lives in the shared `aitools.data`
@@ -101,8 +108,9 @@ comments and string literals and looks for package-qualified references
 layer may not make is a violation. The rules beyond the table:
 
 The structure test also supports context-specific symbol allowances, each
-with a reason. The Org kit API is allowed only for the symbols used by the
-`org` infrastructure adapter; neither kit is added to a global package list.
+with a reason. The Org adapter may reference only the kit symbols it uses.
+Protocol infrastructure may use `JSON-KIT` for the streaming JSON writer.
+Neither allowance adds a kit to a global package list.
 
 - A core context's application may reach only core applications, never a
   feature context.
@@ -120,9 +128,8 @@ reference every layer.
 
 ## Ports and the composition root
 
-Side effects reach application code through ports: structures whose slots
-hold plain functions, such as `search-ports`
-(`packages/feature/search/src/application/ports.lisp`) or `store-io`
+Application flows use context-specific ports such as `search-ports`
+(`packages/feature/search/src/application/ports.lisp`) and Store's `store-io`
 (`packages/core/store/src/application/port.lisp`). Each feature context's
 infrastructure exports a constructor,
 `make-production-<context>-ports (&key ... &allow-other-keys)`, that builds
@@ -170,6 +177,9 @@ with an alist of output fields in envelope order, or `on-error` with
 `(code message &key candidates diagnostics conflicts repairs)`. A flow never
 writes to a stream and never chooses an exit code. `src/dispatch.lisp` turns
 the result into an envelope and an exit code, and adds `recovered`.
+See [CPS audit](#cps-audit) for the flow and continuation conventions, and
+the [success envelope](json-schema.md#success-envelope) for field order and
+the [error envelope](errors.md#the-error-envelope) for error fields.
 
 `dispatch` calls cl-cli's `parse-argv` directly instead of `run-app`,
 because `run-app` prints usage errors and help as plain text. Every exit
@@ -200,15 +210,18 @@ creates in the working tree are the write protocol's temporary files,
 The store creates its state files with mode `0600` and its directories with
 mode `0700`, opening files `O_CREAT|O_EXCL|O_NOFOLLOW`, so the state is
 private to the owner and a pre-planted symlink cannot redirect a create.
-The bg records store a redacted copy of the launched argv, so
-display-only state holds no raw secrets.
+The bg records store a redacted copy of the launched argv. `bg status` displays
+that value and does not rerun it, so the displayed command line contains no raw
+secrets.
 
 The journal keeps the newest 20 operations per path
 (`+retained-generations+` in `packages/core/store/src/domain/journal.lisp`).
-The workspace lock is an exclusive `flock(2)` on `lock`, taken by polling a
-non-blocking attempt with a backoff from 5 ms to 100 ms until
-`--lock-timeout` expires (`packages/core/store/src/application/lock.lisp`).
-The OS releases it when the process exits.
+The workspace and per-transaction locks use exclusive `flock(2)` on lock files.
+Store application supplies a retry policy with delays that grow from 5 ms to
+100 ms, bounded by `--lock-timeout`, which defaults to `10s` (see
+[global options](commands.md#global-options) and
+`packages/core/store/src/application/lock.lisp`).
+The OS releases a lock when its process exits.
 
 ## CPS audit
 
@@ -248,8 +261,9 @@ omitted.
 
 ### Resources
 
-Each resource is acquired by a `call-with-X` function that releases it on
-every exit, with a `with-X` macro as sugar:
+Each resource is scoped by a `call-with-X` function, with a `with-X` macro as
+sugar. The description below states how normal, error, and crash-like exits
+handle each resource:
 
 | Resource | Form | Used by |
 |---|---|---|
