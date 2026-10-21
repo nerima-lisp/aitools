@@ -1921,8 +1921,6 @@ Errors: `argument.invalid`, `selection.no-match`, `selection.ambiguous`, `input.
 
 List Org headings and named or unnamed source and example blocks.
 
-Org envelopes use full dotted dispatch names in `command`, such as `org.outline`, `org.query`, and `org.export`. Schema repairs keep the runnable CLI form, such as `aitools schema org outline`.
-
 Syntax diagnostics appear in `error.diagnostics` when available. Source positions use one-based `line` and `col` fields. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for repair fields and how to use the suggested command. Failed parses return no entries.
 
 | Argument | Type | Default | Description |
@@ -1954,7 +1952,7 @@ Match syntax errors appear in `error.diagnostics`. Source positions use one-base
 
 | Output field | Description |
 |---|---|
-| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. `heading_path` lists `{title,index}` objects for headings from the top level through the match. `index` is the one-based ordinal among siblings; the document root is the parent of top-level headings. |
+| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. heading_path is an array of `{title,index}` objects from root to match. Each index is the one-based sibling ordinal within its parent. |
 | `count` | Number of matching headings. |
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.
@@ -1963,11 +1961,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Export an Org file as HTML, GFM, or ASCII text.
 
-Unsupported syntax fails the whole command without content. File, ID, and internal links return `input.unsupported-format` until link resolution is available.
-
-`cl-org-kit v0.1.0` renders code and results for `:exports results` and `:exports none`, so aitools rejects those modes with `input.unsupported-format`. The default and `:exports code` modes are rejected when an attached `#+RESULTS` block follows with only whitespace between the blocks. Without attached results, those modes are supported. `:exports both` is supported with or without attached results.
-
-Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
+Unsupported syntax fails the whole command without content. File, ID, and internal links return `input.unsupported-format` until link resolution is available. For a source block with an omitted or recognized `:exports` mode, the pinned `cl-org-kit v0.1.0` exporter renders its code and any attached `#+RESULTS` block without mode-specific filtering. Mode-specific filtering is deferred until the cl-org-kit K8 tag is released and this repository updates its pin. Unknown, repeated, or value-less `:exports` declarations fail with `input.unsupported-format`. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
