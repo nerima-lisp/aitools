@@ -40,7 +40,6 @@
      ("packages/feature/search/src/application/search-flow.lisp" "%READ-STDIN-PATTERN/K")
      ("packages/feature/search/src/application/search-flow.lisp" "SEARCH/K")
      ("packages/feature/search/src/application/session.lisp" "%READ-FILE/K")
-     ("packages/feature/search/src/application/session-open.lisp" "CALL-WITH-SESSION/K")
      ("packages/feature/search/src/application/session.lisp" "SCAN-OPTIONS/K")
      ("packages/feature/search/src/domain/matcher.lisp" "BUILD-MATCHER/K")
      ("packages/feature/search/src/domain/matcher.lisp" "CALL-WITH-REGEX-BUDGET/K")
