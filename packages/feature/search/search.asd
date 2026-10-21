@@ -15,7 +15,7 @@
                  (:file "code-extent-common") (:file "code-extents") (:file "code")
                  (:file "overview")))
    (:module "application" :serial t
-    :components ((:file "package") (:file "ports") (:file "session")
+    :components ((:file "package") (:file "ports") (:file "session") (:file "session-open")
                  (:file "session-file-read")
                  (:file "search-command-line") (:file "search-worker")
                  (:file "search-run") (:file "search-flow")

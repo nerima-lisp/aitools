@@ -15,7 +15,7 @@ session carrying the tx overlay, or ON-ERROR."
     (if (null open-store)
         (%unavailable on-error command)
         (let ((store (funcall open-store (aitools.workspace.application:workspace-root-real workspace-root)))
-              (staged (make-hash-table :test 'equal)))
+              (staged (make-hash-table :test (function equal))))
           (flet ((missing ()
                    (funcall on-error "input.not-found" (format nil "tx ~A does not exist" tx)
                             :repairs (list (repair "list-tx" "List the open transactions." "aitools tx status"))))
@@ -23,15 +23,21 @@ session carrying the tx overlay, or ON-ERROR."
                    (funcall on-session
                             (%make-session ports workspace-root (%make-overlay view staged (%now ports))
                                            view staged))))
-            (aitools.store.application:tx-status/k
-             store tx
-             :on-not-found #'missing
-             :on-status (lambda (status)
-                          (dolist (entry (aitools.store.application:tx-status-paths status))
-                            (setf (gethash (aitools.store.domain:tx-path-path entry) staged)
-                                  (aitools.store.domain:tx-path-staged entry)))
-                          (aitools.store.application:call-with-tx-view/k
-                           store tx :on-view #'with-view :on-not-found #'missing))))))))
+            (aitools.kernel.domain:flow-call
+             (aitools.store.application:tx-status/k store tx)
+             (:on-not-found ()
+               (funcall (function missing)))
+             (:on-status (status)
+               (dolist (entry (aitools.store.application:tx-status-paths status))
+                 (setf (gethash (aitools.store.domain:tx-path-path entry) staged)
+                       (aitools.store.domain:tx-path-staged entry)))
+               (aitools.kernel.domain:flow-call
+                (aitools.store.application:call-with-tx-view/k store tx)
+                (:on-view (view)
+                  (funcall (function with-view) view))
+                (:on-not-found ()
+                  (funcall (function missing)))))))))))
+
 
 (defun call-with-session/k (ports command &key root tx on-session on-error)
   "Resolve the workspace root (the global `--root` ROOT, else git's top
