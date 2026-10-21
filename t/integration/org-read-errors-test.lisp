@@ -14,6 +14,7 @@
     (unless (file-position stream limit)
       (error "Could not seek to the production Org input limit"))
     (write-byte 65 stream)
+    (finish-output stream)
     (expect (file-length stream) :to-be (1+ limit))))
 
 (describe "Org read error envelopes through the loaded dispatcher"
