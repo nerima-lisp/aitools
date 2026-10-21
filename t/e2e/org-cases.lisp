@@ -167,20 +167,26 @@
                   "--at" "2026-10-19T09:00:00" "--tz" "NotAZone/Nowhere")
                  ("org" "query" "query.org" "--match" "work/TODO" "--tz" "UTC")))
         (org-error ws arguments "org.query" "argument.invalid"))
-      (labels ((query-arguments (at policy)
-             (list "org" "query" "query.org" "--match"
-                   "SCHEDULED<=\"<now>\"" "--at" at
-                   "--tz" "America/New_York" "--dst-policy" policy))
-           (match-count (at policy)
-             (jget (org-ok ws (query-arguments at policy) "org.query") "count")))
+      (labels ((query-arguments (at policy &optional (path "query.org"))
+                 (list "org" "query" path "--match"
+                       "SCHEDULED<=\"<now>\"" "--at" at
+                       "--tz" "America/New_York" "--dst-policy" policy))
+               (match-count (at policy &optional (path "query.org"))
+                 (jget (org-ok ws (query-arguments at policy path) "org.query") "count")))
         (expect (match-count "2026-03-08T02:30:00" "earlier") :to-be 0)
         (expect (match-count "2026-03-08T02:30:00" "compatible") :to-be 1)
         (org-error ws (query-arguments "2026-03-08T02:30:00" "strict")
                    "org.query" "argument.invalid")
-        (dolist (policy '("compatible" "earlier" "later"))
-          (expect (match-count "2026-11-01T01:30:00" policy) :to-be 1))
-        (org-error ws (query-arguments "2026-11-01T01:30:00" "strict")
-                   "org.query" "argument.invalid"))
+        (put ws "overlap.org"
+             (format nil "* Overlap~%SCHEDULED: <2026-11-01 Sun 01:45>~%"))
+        (let ((overlap-before (file-octets ws "overlap.org")))
+          (dolist (policy '("earlier" "later"))
+            (expect (match-count "2026-11-01T01:30:00" policy "overlap.org")
+                    :to-be 0))
+          (org-error ws
+                     (query-arguments "2026-11-01T01:30:00" "strict" "overlap.org")
+                     "org.query" "argument.invalid")
+          (expect (file-octets ws "overlap.org") :to-equalp overlap-before)))
       (expect (file-octets ws "query.org") :to-equalp before)))
   (define-org-read-case ("org export returns HTML, GFM, and ASCII strings" ws)
     (put ws "export.org" +org-export-basic-fixture+)
