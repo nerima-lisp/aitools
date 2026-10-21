@@ -107,6 +107,20 @@
                           "query requires valid --at, --tz, and --dst-policy")
           (expect-failure "2026-10-19T09:00:00" "" "compatible"
                           "query requires valid --at, --tz, and --dst-policy"))))
+  (it "propagates kit type errors instead of mapping them to input errors"
+      (let ((bytes (sb-ext:string-to-octets (format nil "* Task~%")
+                                            :external-format :utf-8)))
+        (cl-weave:signals type-error
+                          (let ((aitools.org.infrastructure::*org-kit-limits* nil))
+                            (aitools.org.infrastructure:parse-org-octets bytes)))
+        (multiple-value-bind (document parse-failure)
+            (aitools.org.infrastructure:parse-org-octets bytes)
+          (expect (null parse-failure) :to-be t)
+          (cl-weave:signals type-error
+                            (aitools.org.infrastructure::outline-org-document document -1))
+          (cl-weave:signals type-error
+                            (aitools.org.infrastructure::query-org-document
+                             document 7 "2026-10-19T09:00:00" "UTC" "compatible")))))
   (it "returns internal errors for each missing required or operation port"
     (dolist (ports
              (list (aitools.org.application:make-org-ports

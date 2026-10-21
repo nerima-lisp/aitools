@@ -30,9 +30,7 @@
                             :offset (org-kit:org-parse-error-offset condition)))))
       (org-kit:org-kit-error (condition)
         (values nil (%failure :internal
-                              (org-kit:org-kit-error-message condition))))
-      (type-error (condition)
-        (values nil (%failure :argument (princ-to-string condition)))))))
+                              (org-kit:org-kit-error-message condition)))))))
 
 (defun %outline-entry (entry)
   (aitools.org.domain:make-org-outline-entry
@@ -55,9 +53,7 @@
     (org-kit:org-resource-limit-error (condition)
       (values nil (%resource-failure condition)))
     (org-kit:org-kit-error (condition)
-      (values nil (%failure :internal (org-kit:org-kit-error-message condition))))
-    (type-error (condition)
-      (values nil (%failure :argument (princ-to-string condition))))))
+      (values nil (%failure :internal (org-kit:org-kit-error-message condition))))))
 
 (defun %link-type-name (value)
   (typecase value

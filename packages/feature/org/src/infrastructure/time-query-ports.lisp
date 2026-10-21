@@ -100,6 +100,4 @@
         (values nil (%query-syntax-failure match condition)))
       (org-kit:org-kit-error (condition)
         (values nil (%query-failure :internal
-                                    (org-kit:org-kit-error-message condition))))
-      (type-error (condition)
-        (values nil (%query-failure :argument (princ-to-string condition)))))))
+                                    (org-kit:org-kit-error-message condition)))))))
