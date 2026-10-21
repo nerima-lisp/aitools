@@ -19,11 +19,12 @@
     (max start (1- length))))
 
 (defun %rust-unicode-escape-end (octets position)
-  (let* ((length (length octets))
+  "End of a Unicode escape on this line, using the line end when unclosed."
+  (let* ((line-end (line-content-end octets position))
          (brace (1+ position)))
-    (when (and (< brace length) (= (aref octets brace) 123))
-      (let ((close (position 125 octets :start (1+ brace))))
-        (and close (1+ close))))))
+    (when (and (< brace line-end) (= (aref octets brace) 123))
+      (let ((close (position 125 octets :start (1+ brace) :end line-end)))
+        (if close (1+ close) line-end)))))
 
 (defun %rust-raw-string-end (octets start)
   (let* ((length (length octets))
@@ -61,15 +62,19 @@
       (t (1+ position)))))
 
 (defun %rust-char-literal-end (octets start)
-  (let ((i (1+ start)) (length (length octets)))
+  "Return the closing quote, or the line end when a candidate runs out of line."
+  (let ((i (1+ start)) (length (length octets))
+        (line-end (line-content-end octets start)))
     (when (< i length)
       (cond
         ((= (aref octets i) 92)
          (setf i (%rust-char-escape-end octets (1+ i))))
         ((= (aref octets i) 10)
          (return-from %rust-char-literal-end nil))
-        (t (setf i (next-char-boundary octets i))))
-    (and (< i length) (= (aref octets i) 39) i))))
+        (t (setf i (next-char-boundary octets i)))))
+    (if (>= i line-end)
+        line-end
+        (and (< i length) (= (aref octets i) 39) i))))
 
 (defun %brace-end (octets start line-comment block-comment language)
   "Offset ending a brace-delimited definition that starts at START: its

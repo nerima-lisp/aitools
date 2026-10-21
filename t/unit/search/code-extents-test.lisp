@@ -128,7 +128,13 @@
                                (format nil "  let value = '~C" #\\)
                                "  }"
                                "fn later() {}"))
-            :to-equal '((1 3 "function" "incomplete_escape") (4 4 "function" "later"))))
+            :to-equal '((1 3 "function" "incomplete_escape") (4 4 "function" "later")))
+    (expect (outline-of "/w/a.rs"
+                        (lines "fn incomplete_unicode() {"
+                               "  let value = '\\u{"
+                               "  }'"
+                               "fn later() {}"))
+            :to-equal '((1 3 "function" "incomplete_unicode") (4 4 "function" "later"))))
 
   (it "skips Rust raw and byte strings with matching delimiters"
     (expect (outline-of "/w/a.rs"
