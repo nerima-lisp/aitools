@@ -33,7 +33,7 @@
            :to-equal
            (format nil "workspace root ~A does not exist" missing-root))))))
   (it "refuses UTF-8 input above the production limit after an ASCII sniff"
-    (aitools.test.support:with-workspace (root state)
+    (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
       (let* ((path (concatenate (quote string) root "/large.org"))
              (limit (org-kit:limit-value (org-kit:make-limits) :max-input-length)))
