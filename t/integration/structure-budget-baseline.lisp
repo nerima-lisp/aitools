@@ -8,7 +8,6 @@
     ("packages/core/kernel/src/domain/json-model.lisp" 376)
     ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
     ("packages/core/store/src/domain/tx-model.lisp" 262)
-    ("packages/core/text/src/domain/codec-deflate.lisp" 294)
     ("packages/feature/edit/src/application/file-flows.lisp" 443)
     ("packages/feature/edit/src/application/input.lisp" 275)
     ("packages/feature/edit/src/application/line-flows.lisp" 272)
@@ -26,9 +25,7 @@
     ("t/integration/store-tx-test.lisp" 610)
     ("t/integration/store-write-protocol-test.lisp" 268)
     ("t/unit/edit/domain-edge-test.lisp" 283)
-    ("t/unit/store/domain-test.lisp" 414)
-    ("t/unit/text/archive-test.lisp" 415)
-    ("t/unit/text/codec-test.lisp" 268)))
+    ("t/unit/store/domain-test.lisp" 414)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
@@ -43,9 +40,7 @@
   "Measured quoted collections have a gap: 15 is the largest below the threshold and 19 is the smallest above it.")
 
 (defparameter *literal-table-ratchet*
-  '(("packages/core/text/src/domain/charset.lisp" (19))
-    ("packages/core/text/src/domain/codec-deflate.lisp" (29 29 30 30 19))
-    ("packages/feature/edit/src/domain/transform.lisp" (21))))
+  '(("packages/feature/edit/src/domain/transform.lisp" (21))))
 
 (defparameter *complex-function-ratchet*
   '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
