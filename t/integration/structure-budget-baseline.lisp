@@ -20,7 +20,7 @@
     ("t/integration/edit-files-test.lisp" 364)
     ("t/integration/edit-text-commands-paths-test.lisp" 292)
     ("t/integration/edit-text-commands-test.lisp" 257)
-    ("t/integration/edit-tx-and-limits-test.lisp" 262)
+    ("t/integration/edit-tx-and-limits-test.lisp" 239)
     ("t/unit/edit/domain-edge-test.lisp" 283)
     ("t/unit/search/code-flow-test.lisp" 333)
     ("t/unit/text/archive-test.lisp" 415)

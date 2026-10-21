@@ -25,6 +25,30 @@
         (expect (run-in tx "edit" (list "a.txt") :old "a" :new "b") :to-be :ok)
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal "b"))))
+  (it "reports environment.busy and leaves the tx unstaged while another thread holds its tx lock"
+    (with-workspace ()
+      (put "a.txt" "a")
+      (let* ((tx (begin-tx)) (store (open-store *root*)) (acquired nil)
+             (lock-result-ready (sb-thread:make-semaphore)) (release (sb-thread:make-semaphore))
+             (holder (sb-thread:make-thread
+                      (lambda ()
+                        (aitools.store.application:call-with-tx-lock/k store tx 5000
+                          :on-acquired (lambda () (setf acquired t) (sb-thread:signal-semaphore lock-result-ready)
+                                         (sb-thread:wait-on-semaphore release))
+                          :on-timeout (lambda () (sb-thread:signal-semaphore lock-result-ready))
+                          :on-not-found (lambda () (sb-thread:signal-semaphore lock-result-ready)))))))
+        (unwind-protect
+            (progn (sb-thread:wait-on-semaphore lock-result-ready) (expect acquired :to-be t)
+                   (multiple-value-bind (kind code)
+                       (run-in tx "edit" (list "a.txt") :old "a" :new "b" :lock-timeout "20ms")
+                     (expect kind :to-be :error)
+                     (expect code :to-equal "environment.busy")))
+          (sb-thread:signal-semaphore release) (sb-thread:join-thread holder))
+        ;; An empty operation list confirms that the busy edit staged nothing.
+        (expect (list (text "a.txt") (aitools.store.application:tx-status/k store tx :on-status #'aitools.store.application:tx-status-ops :on-not-found (lambda () :not-found))) :to-equal (list "a" '()))
+        (expect (run-in tx "edit" (list "a.txt") :old "a" :new "b") :to-be :ok)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (text "a.txt") :to-equal "b"))))
   (it "reports environment.busy with the same command as repair when the workspace lock is held"
     (with-workspace ()
       (put "a.txt" "a")

@@ -48,6 +48,7 @@
             ("archive extract with no archive" "archive.extract" () (:to "out") "argument.invalid" "archive extract takes exactly one archive PATH")
             ("archive extract without --to" "archive.extract" ("x.zip") () "argument.invalid" "archive extract needs --to <dir>")
             ("archive extract --max-bytes lots" "archive.extract" ("x.zip") (:to "out" :max-bytes "lots") "argument.invalid" "--max-bytes \"lots\" is not a size")
+            ("rm --max-bytes lots" "rm" ("a.txt") (:max-bytes "lots") "argument.invalid" "--max-bytes must be a size")
             ("archive extract --max-entries x" "archive.extract" ("x.zip") (:to "out" :max-entries "x") "argument.invalid" "--max-entries must be a non-negative integer")
             ("archive create with no source" "archive.create" ("o.zip") () "argument.invalid" "archive create takes PATH and at least one SRC")
             ("archive create of an unknown format" "archive.create" ("o.bin" "a.txt") () "argument.invalid" "cannot tell the format of o.bin")
