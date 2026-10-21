@@ -13,11 +13,10 @@
   (:use #:cl)
   (:import-from #:aitools.protocol.domain
                 #:json-object-from-alist #:json-null
-                #:shell-quote #:command-line)
+                #:command-line)
   (:import-from #:aitools.text.domain
                 #:decode-utf8
                 #:utf8-bom-length
-                #:binary-octets-p
                 #:count-lines
                 #:language-name
                 #:language-extent
@@ -27,13 +26,9 @@
   (:export
    ;; bytes.lisp
    #:octets
-   #:line-content-end
-   #:line-start-at
-   #:next-line-start
    #:strip-bom
    #:octets-find
    ;; protocol shell-word helpers
-   #:shell-quote
    #:command-line
    ;; matcher.lisp
    #:matcher
