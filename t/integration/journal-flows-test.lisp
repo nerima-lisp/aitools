@@ -59,6 +59,19 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         (expect (field fields "truncated") :to-be t)
         (expect (field fields "next_commands")
                 :to-equal (list (format nil "aitools --root ~A history --limit 3" (aitools.store.application:store-root store)))))))
+  (it "uses the default history limit and suggests listing every operation"
+    (with-temp-store (store)
+      (dotimes (i 51)
+        (write-op store (format nil "entry-~D.txt" i) (princ-to-string i)))
+      (multiple-value-bind (kind fields) (run (function history-flow) store)
+        (expect kind :to-be :partial)
+        (expect (length (field fields "items")) :to-be 50)
+        (expect (field fields "total") :to-be 51)
+        (expect (field fields "truncated") :to-be t)
+        (expect (field fields "next_commands")
+                :to-equal
+                (list (format nil "aitools --root ~A history --limit 51"
+                              (aitools.store.application:store-root store)))))))
 
   (it "refuses a path outside the workspace"
     (with-temp-store (store)

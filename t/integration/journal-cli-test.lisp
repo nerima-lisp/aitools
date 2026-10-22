@@ -72,6 +72,16 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
         (expect (envelope-value envelope "error" "code") :to-equal "argument.invalid")
         (expect (envelope-value (aref (envelope-value envelope "error" "repairs") 0) "command")
                 :to-equal (format nil "aitools --root ~A history" root)))))
+  (it "returns default history truncation through dispatch as partial"
+    (with-cli-workspace (root store)
+      (dotimes (i 51)
+        (write-op store (format nil "entry-~D.txt" i) (princ-to-string i)))
+      (multiple-value-bind (code envelope stream) (run-aitools "--root" root "history")
+        (expect (list code stream) :to-equal (list 3 :stdout))
+        (expect (envelope-value envelope "status") :to-equal "partial")
+        (expect (length (envelope-value envelope "items")) :to-be 50)
+        (expect (envelope-value envelope "total") :to-be 51)
+        (expect (envelope-value envelope "truncated") :to-be t))))
 
   (it "runs a tx from begin to commit"
     (with-cli-workspace (root store)
