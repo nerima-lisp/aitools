@@ -119,6 +119,9 @@
                                               (:file "unit/inspect/context-test")
                                               (:file "unit/inspect/read-test")
                                               (:file "unit/inspect/read-more-test")
+                                              (:module "yaml-toml-read-tests" :pathname "unit/inspect/" :serial t
+                                                :components ((:file "yaml-values-test") (:file "toml-values-test")
+                                                            (:file "yaml-flows-test") (:file "toml-flows-test")))
                                               (:file "unit/inspect/json-query-test")
                                               (:file "unit/inspect/json-query-property-test")
                                               (:file "unit/inspect/table-test")
@@ -136,6 +139,7 @@
                                               (:file "unit/inspect/selector-property-test")
                                               (:file "integration/inspect-cli-test")
                                               (:file "integration/inspect-cli-commands-test")
+                                              (:file "integration/inspect-yaml-toml-read-test")
                                               (:file "integration/inspect-cli-store-test")
                                               (:file "unit/journal/package")
                                               (:file "unit/journal/domain-test")

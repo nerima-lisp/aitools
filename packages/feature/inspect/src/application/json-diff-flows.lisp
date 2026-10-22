@@ -19,6 +19,7 @@
                  root
                  tx
                  lock-timeout
+                 (format :json)
                  (limit 100)
                  on-ok
                  on-partial
@@ -38,16 +39,16 @@
              :conflicts conflicts
              :repairs repairs)))
    (aitools.kernel.domain:flow-call
-    (%call-with-json-file
-     ports a
+    (%call-with-format-file
+     ports a format "diff"
      :root root
      :tx tx
      :lock-timeout lock-timeout)
     (:on-document (context target-a document-a)
       (declare (ignore context target-a))
       (aitools.kernel.domain:flow-call
-       (%call-with-json-file
-        ports b
+       (%call-with-format-file
+        ports b format "diff"
         :root root
         :tx tx
         :lock-timeout lock-timeout)

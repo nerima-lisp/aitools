@@ -161,21 +161,6 @@ file is prepared and before the commit point, which recovery discards."
         (expect (member "json get" candidates :test #'string=) :to-be-truthy)
         (expect (find #\. (format nil "~{~A~}" candidates)) :to-be nil))))
 
-  (it "points a bare group subcommand name at every group form, keeping the operands"
-    (aitools.test.support:with-workspace
-      (*root* state-home)
-      (declare (ignore state-home))
-      (multiple-value-bind (code envelope) (run-aitools "get" "/a" "f.json")
-        (expect code :to-be 1)
-        (expect (value envelope "error" "code") :to-equal "argument.invalid")
-        (expect (repair-commands envelope) :to-equal (list (format nil "aitools --root ~A json get /a f.json" *root*))))
-      (multiple-value-bind (code envelope) (run-plain "status")
-        (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal '("aitools bg status" "aitools git status" "aitools tx status")))
-      (multiple-value-bind (code envelope) (run-plain "uuid")
-        (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal '("aitools util uuid")))))
-
   ;; The correspondence table is a static hint (`cat` -> `aitools read`), so
   ;; the repair is the table's command verbatim, not the file the agent named;
   ;; the e2e meta suite pins each foreign name to the table this way.

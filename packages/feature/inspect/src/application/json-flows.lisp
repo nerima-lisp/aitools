@@ -71,49 +71,7 @@
                                           "json")))))))))))
 
 (aitools.kernel.domain:define-flow
- (%call-with-json-file ports path
-                       &key root tx lock-timeout record
-                       on-document on-error)
- "Resolve PATH, record the read when RECORD (and --tx), parse it, and call
-ON-DOCUMENT (context target document)."
- (declare (type function on-document on-error))
- (labels ((report-error (code message &key candidates diagnostics conflicts repairs)
-            (aitools.kernel.domain:flow-continue
-             :on-error code message
-             :candidates candidates
-             :diagnostics diagnostics
-             :conflicts conflicts
-             :repairs repairs)))
-   (aitools.kernel.domain:flow-call
-    (call-with-inspect-file/k
-     ports path
-     :root root
-     :tx tx
-     :lock-timeout lock-timeout
-     :record record)
-    (:on-file (context target)
-      (aitools.kernel.domain:flow-call
-       (%json-document context target)
-       (:on-document (document)
-         (aitools.kernel.domain:flow-continue
-          :on-document context target document))
-       (:on-error (code message
-                        &key candidates diagnostics conflicts repairs)
-         (report-error code message
-                       :candidates candidates
-                       :diagnostics diagnostics
-                       :conflicts conflicts
-                       :repairs repairs))))
-    (:on-error (code message
-                     &key candidates diagnostics conflicts repairs)
-      (report-error code message
-                    :candidates candidates
-                    :diagnostics diagnostics
-                    :conflicts conflicts
-                    :repairs repairs)))))
-
-(aitools.kernel.domain:define-flow
- (%pointer-tokens pointer &key on-tokens on-error)
+ (%pointer-tokens pointer group &key on-tokens on-error)
  (declare (type function on-tokens on-error))
  (let ((tokens (parse-json-pointer pointer)))
    (if (eq tokens :invalid)
@@ -127,11 +85,11 @@ ON-DOCUMENT (context target document)."
         (list
          (repair "whole-document"
                  "Start from the document's top-level keys."
-                 "aitools schema json get")))
+                 (format nil "aitools schema ~A get" group))))
        (aitools.kernel.domain:flow-continue :on-tokens tokens))))
 
 (aitools.kernel.domain:define-flow
- (%resolve-or-fail context target document tokens &key on-found on-error)
+ (%resolve-or-fail context target document tokens group &key on-found on-error)
  (declare (type function on-found on-error))
  (aitools.kernel.domain:flow-call
   (resolve-json-pointer/k document tokens)
@@ -158,14 +116,14 @@ ON-DOCUMENT (context target document)."
         (repair "list-keys"
                 "List the keys that exist there."
                 (command-line context
-                              (list "json"
+                              (list group
                                     "get"
                                     (file-target-argument target)
                                     parent-pointer
                                     "--keys")))))))))
 
 (aitools.kernel.domain:define-flow
- (%max-bytes text &key on-bytes on-error)
+ (%max-bytes text group &key on-bytes on-error)
  (declare (type function on-bytes on-error))
  (let ((bytes (handler-case (size-bytes (parse-size text))
                 (error () nil))))
@@ -181,9 +139,9 @@ ON-DOCUMENT (context target document)."
         (list
          (repair "default-size"
                  "Use the default limit."
-                 "aitools schema json get"))))))
+                 (format nil "aitools schema ~A get" group)))))))
 
-(defun %json-get-fields (context target pointer value keys raw max-bytes)
+(defun %json-get-fields (context target group pointer value keys raw max-bytes)
   "(VALUES fields truncated) for `json get`."
   (let* ((head
           (list (cons "path" (file-target-argument target))
@@ -225,7 +183,7 @@ ON-DOCUMENT (context target document)."
                                                      :test
                                                      #'string=)
                                              (command-line context
-                                                           (list "json"
+                                                           (list group
                                                                  "get"
                                                                  (file-target-argument
                                                                   target)
@@ -234,7 +192,7 @@ ON-DOCUMENT (context target document)."
                                         (and (json-array-value-p value)
                                              (plusp (length value))
                                              (command-line context
-                                                           (list "json"
+                                                           (list group
                                                                  "get"
                                                                  (file-target-argument
                                                                   target)

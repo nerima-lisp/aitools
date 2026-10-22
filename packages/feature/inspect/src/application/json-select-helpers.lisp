@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (%where-comparisons texts &key on-comparisons on-error)
+ (%where-comparisons texts group &key on-comparisons on-error)
  "COMPARISONs keyed by relative pointer tokens for each --where text."
  (declare (type function on-comparisons on-error))
  (let ((comparisons '())
@@ -20,7 +20,7 @@
                       (list
                        (repair "where-example"
                                "Compare a member of each element, e.g. /status=\"open\"."
-                               "aitools schema json select"))))
+                               (format nil "aitools schema ~A select" group)))))
              (aitools.kernel.domain:flow-call
               (make-comparison/k tokens operator right)
               (:on-comparison (comparison)
@@ -33,7 +33,7 @@
                                 (list
                                  (repair "fix-pattern"
                                          "Correct the regular expression."
-                                         "aitools schema json select")))))))))))
+                                         (format nil "aitools schema ~A select" group))))))))))))
    (if failure
        (aitools.kernel.domain:flow-continue
         :on-error (first failure) (second failure)
@@ -99,7 +99,8 @@ value under SORT-TOKENS when given."
                                output
                                limit
                                &key
-                               where)
+                               where
+                               group)
   "(VALUES fields truncated)."
   (if (string= output "count")
       (values
@@ -133,7 +134,7 @@ value under SORT-TOKENS when given."
                    (list
                     (command-line context
                                   (append
-                                   (list "json"
+                                   (list group
                                          "select"
                                          (file-target-argument target)
                                          pointer)

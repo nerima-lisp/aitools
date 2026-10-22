@@ -7,6 +7,9 @@
                                               "aitools/core/text"
                                               "aitools/core/store"
                                               "cl-json-kit"
+                                              "cl-yaml-kit"
+                                              "cl-toml-kit"
+                                              "cl-date-kit"
                                               "cl-codec-kit"
                                               "cl-host-kit"
                                               "cl-boundary-kit")
@@ -26,6 +29,8 @@
                                   (:file "file-facts")
                                   (:file "diff")
                                   (:file "json-query")
+                                  (:file "yaml-values")
+                                  (:file "toml-values")
                                   (:file "table")
                                   (:file "table-text-build")
                                   (:file "table-build")
@@ -33,7 +38,7 @@
                                   (:file "table-agg")
                                   (:file "archive")
                                   (:file "snapshot")))
-                        (:module "application"
+                        (:module "application" :serial t
                                  :components
                                  ((:file "package")
                                   (:file "ports")
@@ -56,10 +61,14 @@
                                   (:file "diff-flow")
                                   (:file "diff-op-flows")
                                   (:file "json-flows")
+                                  (:file "format-document-flows")
+                                  (:file "format-flows")
                                   (:file "json-get-flow")
                                   (:file "json-select-helpers")
                                   (:file "json-select-flow")
                                   (:file "json-diff-flows")
+                                  (:file "yaml-flows")
+                                  (:file "toml-flows")
                                   (:file "table-option-flows")
                                   (:file "table-flows")
                                   (:file "table-read-flows")

@@ -106,6 +106,12 @@ The meaning and exit code of each error code are in
 | [`json get`](#json-get) | inspect | Get the value at a JSON pointer, its keys, length, or raw string. |
 | [`json select`](#json-select) | inspect | Filter, sort, and project the elements of a JSON array. |
 | [`json diff`](#json-diff) | inspect | List the add, remove, and replace operations between two JSON files. |
+| [`yaml get`](#yaml-get) | inspect | Get a value from a YAML document. |
+| [`yaml select`](#yaml-select) | inspect | Filter, sort, and project a YAML array. |
+| [`yaml diff`](#yaml-diff) | inspect | List value changes between two YAML files. |
+| [`toml get`](#toml-get) | inspect | Get a value from a TOML document. |
+| [`toml select`](#toml-select) | inspect | Filter, sort, and project a TOML array. |
+| [`toml diff`](#toml-diff) | inspect | List value changes between two TOML files. |
 | [`table read`](#table-read) | inspect | Read rows of a CSV, TSV, JSONL, JSON, whitespace, separator, or line table. |
 | [`table agg`](#table-agg) | inspect | Group table rows and count, sum, average, or take min, max, or distinct counts. |
 | [`archive list`](#archive-list) | inspect | List the members of a zip, tar, tar.gz, or gz archive. |
@@ -534,7 +540,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.unsupported-format`, `refu
 
 Filter, sort, and project the elements of a JSON array.
 
---where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. Ordering compares numbers with numbers and strings with strings.
+--where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -542,8 +548,8 @@ Filter, sort, and project the elements of a JSON array.
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
 | `--pick` | string, repeatable |  | Return {pointer: value} for these relative pointers instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by (null first, then booleans, numbers, strings). |
-| `--desc` | flag |  | Descending order. |
+| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
+| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
 | `--limit` | integer | `50` | Maximum items returned. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
@@ -579,6 +585,178 @@ Key order and whitespace are ignored; numbers compare by value. Array elements c
 | `truncated` | True when --limit cut ops (status partial, exit 3). |
 
 Errors: `input.not-found`, `input.unsupported-format`, `refusal.not-a-file`, `environment.io`.
+
+### `yaml get` {#yaml-get}
+
+Get a value from a YAML document.
+
+YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and the input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
+
+Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | YAML file. |
+| `pointer` (positional, required) | string |  | RFC 6901 pointer. |
+| `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
+| `--keys` | flag |  | Return the object's keys or the array's indexes. |
+| `--raw` | flag |  | Return text: a string value unescaped, anything else as JSON text. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
+
+| Output field | Description |
+|---|---|
+| `pointer` | The pointer asked for. |
+| `type` | object, array, string, number, boolean, or null. |
+| `length` | Elements, keys, or characters; null for other types. |
+| `value` | The value (default). |
+| `keys` | With --keys. |
+| `text` | With --raw. |
+| `value_preview` | The start of a value longer than --max-bytes. |
+| `truncated` | True when --max-bytes cut the value. |
+| `approx_tokens` | ceil(characters of the returned value / 4). |
+| `next_commands` | Narrower reads when truncated. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+
+### `yaml select` {#yaml-select}
+
+Filter, sort, and project a YAML array.
+
+YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and the input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
+
+--where <rel-pointer><op><json-value> repeats for AND; op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | YAML file. |
+| `pointer` (positional, required) | string |  | Pointer to the array. |
+| `--where` | string, repeatable |  | Condition on each element. |
+| `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
+| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
+| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
+| `--output` | enum: `items`, `count` | `items` | Sets mode. |
+| `--limit` | integer | `50` | Maximum items returned. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
+
+| Output field | Description |
+|---|---|
+| `mode` | items or count. |
+| `items` | [{pointer,value}] of the selected elements. |
+| `count` | Selected elements, in count mode. |
+| `total` | Selected elements, in items mode. |
+| `truncated` | True when --limit cut items (status partial, exit 3). |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+
+### `yaml diff` {#yaml-diff}
+
+List value changes between two YAML files.
+
+YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and each input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
+
+Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `a` (positional, required) | string |  | Old YAML file. |
+| `b` (positional, required) | string |  | New YAML file. |
+| `--limit` | integer | `100` | Maximum operations returned. |
+| `--tx` | string |  | Read both files from the tx's state. |
+
+| Output field | Description |
+|---|---|
+| `identical` | No differences. |
+| `ops` | [{op,pointer,old?,new?}], op add, remove, or replace. |
+| `total` | Number of operations. |
+| `truncated` | True when --limit cut ops (status partial, exit 3). |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.io`.
+
+### `toml get` {#toml-get}
+
+Get a value from a TOML document.
+
+TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
+
+Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | TOML file. |
+| `pointer` (positional, required) | string |  | RFC 6901 pointer. |
+| `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
+| `--keys` | flag |  | Return the object's keys or the array's indexes. |
+| `--raw` | flag |  | Return text: a string value unescaped, anything else as JSON text. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
+
+| Output field | Description |
+|---|---|
+| `pointer` | The pointer asked for. |
+| `type` | object, array, string, number, boolean, or null. |
+| `length` | Elements, keys, or characters; null for other types. |
+| `value` | The value (default). |
+| `keys` | With --keys. |
+| `text` | With --raw. |
+| `value_preview` | The start of a value longer than --max-bytes. |
+| `truncated` | True when --max-bytes cut the value. |
+| `approx_tokens` | ceil(characters of the returned value / 4). |
+| `next_commands` | Narrower reads when truncated. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+
+### `toml select` {#toml-select}
+
+Filter, sort, and project a TOML array.
+
+TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
+
+--where <rel-pointer><op><json-value> repeats for AND; op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | TOML file. |
+| `pointer` (positional, required) | string |  | Pointer to the array. |
+| `--where` | string, repeatable |  | Condition on each element. |
+| `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
+| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
+| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
+| `--output` | enum: `items`, `count` | `items` | Sets mode. |
+| `--limit` | integer | `50` | Maximum items returned. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
+
+| Output field | Description |
+|---|---|
+| `mode` | items or count. |
+| `items` | [{pointer,value}] of the selected elements. |
+| `count` | Selected elements, in count mode. |
+| `total` | Selected elements, in items mode. |
+| `truncated` | True when --limit cut items (status partial, exit 3). |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+
+### `toml diff` {#toml-diff}
+
+List value changes between two TOML files.
+
+TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
+
+Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `a` (positional, required) | string |  | Old TOML file. |
+| `b` (positional, required) | string |  | New TOML file. |
+| `--limit` | integer | `100` | Maximum operations returned. |
+| `--tx` | string |  | Read both files from the tx's state. |
+
+| Output field | Description |
+|---|---|
+| `identical` | No differences. |
+| `ops` | [{op,pointer,old?,new?}], op add, remove, or replace. |
+| `total` | Number of operations. |
+| `truncated` | True when --limit cut ops (status partial, exit 3). |
+
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.io`.
 
 ### `table read` {#table-read}
 

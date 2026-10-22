@@ -22,7 +22,7 @@
                                                                     (:file "cps-contract-test")))
                                               (:module "integration"
                                                        :pathname "integration/"
-                                                       :components ((:file "dispatch-test") (:file "dispatch-partial-test" :depends-on ("dispatch-test")) (:file "schema-test" :depends-on ("dispatch-test"))
+                                                       :components ((:file "dispatch-test") (:file "dispatch-format-repairs-test" :depends-on ("dispatch-test")) (:file "dispatch-partial-test" :depends-on ("dispatch-test")) (:file "schema-test" :depends-on ("dispatch-test"))
                                                                     (:file "dispatch-recovery-failure-test") (:file "dispatch-invocation-test")
                                                                     (:file "batch-test")
                                                                     (:file "batch-atomic-test") (:file "batch-failure-test")
@@ -48,6 +48,7 @@
                                                                     (:file "read-search-cases") (:file "search-find-cases")
                                                                     (:file "edit-cases") (:file "transform-file-cases")
                                                                     (:file "format-cases")
+                                                                    (:file "yaml-toml-read-cases")
                                                                     (:file "archive-failure-cases")
                                                                     (:file "org-cases")
                                                                     (:file "org-read-error-cases")

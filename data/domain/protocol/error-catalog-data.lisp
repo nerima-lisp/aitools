@@ -12,6 +12,7 @@
     (:code "input.unsupported-format" :exit-code 1)
     (:code "input.unsupported-language" :exit-code 1)
     (:code "input.syntax-error" :exit-code 1)
+    (:code "input.unsupported-value" :exit-code 1)
     (:code "selection.no-match" :exit-code 2)
     (:code "selection.ambiguous" :exit-code 2)
     (:code "selection.count-mismatch" :exit-code 2)

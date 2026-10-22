@@ -8,6 +8,7 @@
                 root
                 tx
                 lock-timeout
+                (format :json)
                 (max-bytes "16KiB")
                 keys
                 raw
@@ -29,21 +30,22 @@
              :conflicts conflicts
              :repairs repairs)))
    (aitools.kernel.domain:flow-call
-    (%max-bytes max-bytes)
+    (%max-bytes max-bytes (%format-group format))
     (:on-bytes (limit)
       (aitools.kernel.domain:flow-call
-       (%pointer-tokens pointer)
+       (%pointer-tokens pointer (%format-group format))
        (:on-tokens (tokens)
          (aitools.kernel.domain:flow-call
-          (%call-with-json-file
-           ports path
+          (%call-with-format-file
+           ports path format "get"
            :root root
            :tx tx
            :lock-timeout lock-timeout
            :record t)
           (:on-document (context target document)
             (aitools.kernel.domain:flow-call
-             (%resolve-or-fail context target document tokens)
+             (%resolve-or-fail context target document tokens
+                               (%format-group format))
              (:on-found (value)
                (if (and keys
                         (not (member (json-type-name value)
@@ -65,10 +67,11 @@
                       "Get the value itself."
                       (command-line
                        context
-                       (list "json" "get" path pointer)))))
+                       (list (%format-group format) "get" path pointer)))))
                    (multiple-value-bind (fields truncated)
                        (%json-get-fields
-                        context target pointer value keys raw limit)
+                        context target (%format-group format) pointer
+                        value keys raw limit)
                      (if truncated
                          (aitools.kernel.domain:flow-continue
                           :on-partial

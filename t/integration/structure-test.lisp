@@ -123,6 +123,8 @@ is in neither context list)."
      (ecase layer
        (:domain
         (append core-domains
+                ;; Parser APIs are pure and are used only by inspect's read adapters.
+                (and (string= context "inspect") '("YAML-KIT" "CL-TOML-KIT"))
                 '("CL-REGEX-KIT" "JSON-KIT"
                   "CL-CODEC-KIT" "CRYPTO-KIT" "CL-DATE-KIT" "DEFLATE-KIT")))
        (:application

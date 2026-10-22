@@ -47,6 +47,16 @@
    #:parse-json-document/k
    #:json-type-name
    #:json-equal
+   #:yaml-unsupported-value
+   #:yaml-unsupported-reason
+   #:yaml-unsupported-pointer
+   #:yaml-syntax-error
+   #:parse-yaml-document
+   #:toml-unsupported-value
+   #:toml-unsupported-reason
+   #:toml-unsupported-pointer
+   #:toml-syntax-error
+   #:parse-toml-document
    ;; lines.lisp
    #:octet-vector
    #:split-text-lines

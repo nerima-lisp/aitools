@@ -14,6 +14,7 @@
                          (cons "input.unsupported-format" 1)
                          (cons "input.unsupported-language" 1)
                          (cons "input.syntax-error" 1)
+                         (cons "input.unsupported-value" 1)
                          (cons "selection.no-match" 2)
                          (cons "selection.ambiguous" 2)
                          (cons "selection.count-mismatch" 2)

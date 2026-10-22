@@ -8,6 +8,7 @@
                    root
                    tx
                    lock-timeout
+                   (format :json)
                    where
                    pick
                    sort-by
@@ -49,23 +50,25 @@
            (repair
             "pointer-syntax"
             "Write members as /name or /a/b."
-            "aitools schema json select")))
+            (format nil "aitools schema ~A select"
+                    (%format-group format)))))
          (aitools.kernel.domain:flow-call
-          (%pointer-tokens pointer)
+          (%pointer-tokens pointer (%format-group format))
           (:on-tokens (tokens)
             (aitools.kernel.domain:flow-call
-             (%where-comparisons where)
+             (%where-comparisons where (%format-group format))
              (:on-comparisons (comparisons)
                (aitools.kernel.domain:flow-call
-                (%call-with-json-file
-                 ports path
+                (%call-with-format-file
+                 ports path format "select"
                  :root root
                  :tx tx
                  :lock-timeout lock-timeout
                  :record t)
                 (:on-document (context target document)
                   (aitools.kernel.domain:flow-call
-                   (%resolve-or-fail context target document tokens)
+                   (%resolve-or-fail context target document tokens
+                                     (%format-group format))
                    (:on-found (array)
                      (if (not (json-array-value-p array))
                          (aitools.kernel.domain:flow-continue
@@ -82,7 +85,8 @@
                             "Find the array to select from."
                             (command-line
                              context
-                             (list "json" "get" path pointer "--keys")))))
+                             (list (%format-group format)
+                                   "get" path pointer "--keys")))))
                          (let ((indexes nil)
                                (limit-message nil))
                            (aitools.kernel.domain:flow-call
@@ -112,11 +116,13 @@
                                  (repair
                                   "fix-pattern"
                                   "Simplify the regular expression."
-                                  "aitools schema json select")))
+                                  (format nil "aitools schema ~A select"
+                                          (%format-group format)))))
                                (multiple-value-bind (fields truncated)
                                    (%select-fields
                                     context target pointer array indexes pick
-                                    output limit :where where)
+                                    output limit :where where
+                                    :group (%format-group format))
                                  (if truncated
                                      (aitools.kernel.domain:flow-continue
                                       :on-partial
