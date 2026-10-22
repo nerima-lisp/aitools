@@ -1961,7 +1961,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Export an Org file as HTML, GFM, or ASCII text.
 
-Unsupported syntax fails the whole command without content. HTTP, HTTPS, and mailto links are supported; other link types return `input.unsupported-format`. Source-block code and attached `#+RESULTS` blocks are emitted when `:exports` is omitted or recognized, regardless of the selected mode. Unknown, repeated, or value-less `:exports` declarations fail with `input.unsupported-format`. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
+Unsupported syntax fails the whole command without content. HTTP, HTTPS, and mailto links are supported; other link types return `input.unsupported-format`. Source-block `:exports` modes are `code` (the default, source only), `results` (the next `#+RESULTS` block, after the source with only whitespace between), `both` (source and that block), and `none` (neither). Unknown, repeated, or value-less `:exports` declarations fail with `input.unsupported-format`. Errors include at least one repair; see [the error envelope](errors.md#the-error-envelope) for its fields and how to use the suggested command. Exporter syntax errors include a source location when provided.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|

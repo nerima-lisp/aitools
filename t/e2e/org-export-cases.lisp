@@ -113,4 +113,36 @@
                  (expect-org-fragments
                   content '("QUARTERLY REPORT" "Ada Lovelace" "2026-10-19"))))))
       (expect (file-octets ws "metadata.org") :to-equalp before))))
+(describe "aitools e2e org export modes"
+  (define-org-read-case ("org export applies all source :exports modes across backends" ws)
+    (dolist (fixture
+             (list (list "omitted" nil t nil)
+                   (list "code" "code" t nil)
+                   (list "results" "results" nil t)
+                   (list "both" "both" t t)
+                   (list "none" "none" nil nil)))
+      (destructuring-bind (label mode expected-code-p expected-results-p) fixture
+        (let* ((relative (format nil "~A.org" label))
+               (source
+                 (format nil
+                         (concatenate 'string
+                                      "#+BEGIN_SRC text~A~%AITOOLS-ORG-EXPORT-CODE-MARKER~%"
+                                      "#+END_SRC~%~%#+RESULTS:~%: AITOOLS-ORG-EXPORT-RESULT-MARKER~%")
+                         (if mode (format nil " :exports ~A" mode) ""))))
+          (put ws relative source)
+          (let ((before (file-octets ws relative)))
+            (dolist (backend (list "html" "gfm" "ascii"))
+              (let* ((envelope (org-ok ws (list "org" "export" relative
+                                                "--backend" backend)
+                                       "org.export"))
+                     (content (jget envelope "content")))
+                (expect (jget envelope "backend") :to-equal backend)
+                (expect (stringp content) :to-be t)
+                (expect (list label backend
+                              (not (null (search "AITOOLS-ORG-EXPORT-CODE-MARKER" content))))
+                        :to-equal (list label backend expected-code-p))
+                (expect (list label backend
+                              (not (null (search "AITOOLS-ORG-EXPORT-RESULT-MARKER" content))))
+                        :to-equal (list label backend expected-results-p))))
+            (expect (file-octets ws relative) :to-equalp before)))))))
 

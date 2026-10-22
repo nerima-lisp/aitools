@@ -80,8 +80,12 @@
                                 "Unsupported syntax fails the whole command without content. "
                                 "HTTP, HTTPS, and mailto links are supported; other link types return "
                                 "`input.unsupported-format`. "
-                                "Source-block code and attached `#+RESULTS` blocks are emitted when `:exports` "
-                                "is omitted or recognized, regardless of the selected mode. "
+                                "Source-block `:exports` modes are `code` (the default, source only), "
+                                (concatenate 'string
+                                             "`results` (the next `#+RESULTS` block, after the source "
+                                             "with only whitespace between), "
+                                             "`both` (source and that block), ")
+                                "and `none` (neither). "
                                 "Unknown, repeated, or value-less `:exports` declarations fail with "
                                 "`input.unsupported-format`. "
                                 "Errors include at least one repair; see "
