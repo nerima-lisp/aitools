@@ -111,6 +111,7 @@
                                               (:file "unit/search/commands-test")
                                               (:file "unit/search/allocation-child-protocol")
                                               (:file "unit/search/allocation-child-protocol-test")
+                                              (:file "perf/search-allocation-cache")
                                               (:file "perf/search-allocation-test")
                                               (:file "integration/search-host-test")
                                               (:file "unit/inspect/package")

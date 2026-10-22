@@ -70,7 +70,8 @@ widen the threshold."
              (mapc #'load
                    (list ,(namestring (merge-pathnames "t/support/package.lisp" source-directory))
                          ,(namestring (merge-pathnames "t/support/json-assertions.lisp" source-directory))
-                         ,(namestring (merge-pathnames "t/unit/search/package.lisp" source-directory))))
+                         ,(namestring (merge-pathnames "t/unit/search/package.lisp" source-directory))
+                         ,(namestring (merge-pathnames "t/perf/search-allocation-cache.lisp" source-directory))))
              (load (compile-file ,(namestring (merge-pathnames "t/unit/search/fakes.lisp" source-directory))
                                  :output-file (merge-pathnames "search-fakes.fasl"
                                                                (uiop:ensure-directory-pathname ,(namestring cache-directory)))))
@@ -114,21 +115,20 @@ widen the threshold."
 (defun %run-search-allocation-child ()
   (let* ((source-directory (asdf:system-source-directory "aitools"))
          (cache-directory
-           (uiop:ensure-directory-pathname
-            (merge-pathnames "aitools/search-allocation-fasl/" (uiop:xdg-cache-home))))
+          (%allocation-cache-directory))
          (process
-           (process-kit:spawn
-            sb-ext:*runtime-pathname*
-            (list "--core" (namestring sb-ext:*core-pathname*)
-                  "--noinform" "--non-interactive" "--no-sysinit" "--no-userinit"
-                  "--eval" "(require :asdf)"
-                  "--eval" (%allocation-form-text
-                             (%allocation-child-setup-form source-directory cache-directory))
-                  "--eval" (%allocation-form-text (%allocation-child-run-form)))
-            :search t :input :stream :output :stream :error :stream
-            :directory (uiop:getcwd)
-            :environment (%allocation-child-environment)
-            :external-format :utf-8)))
+          (process-kit:spawn
+           sb-ext:*runtime-pathname*
+           (list "--core" (namestring sb-ext:*core-pathname*)
+                 "--noinform" "--non-interactive" "--no-sysinit" "--no-userinit"
+                 "--eval" "(require :asdf)"
+                 "--eval" (%allocation-form-text
+                           (%allocation-child-setup-form source-directory cache-directory))
+                 "--eval" (%allocation-form-text (%allocation-child-run-form)))
+           :search t :input :stream :output :stream :error :stream
+           :directory (uiop:getcwd)
+           :environment (%allocation-child-environment)
+           :external-format :utf-8)))
     (multiple-value-bind (stdout stderr)
         (%run-allocation-child-protocol
          process
