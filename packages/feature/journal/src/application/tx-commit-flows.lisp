@@ -6,13 +6,11 @@
 
 (aitools.kernel.domain:define-flow
     (tx-commit-flow ports context tx-id &key ignore-stale-reads
-                    (max-diff-lines nil max-diff-lines-supplied-p)
+                    (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
                     on-ok on-partial on-error)
   "Write the whole tx through the store commit as one op, or report the
 write and read conflicts (exit 2) and write nothing."
   (declare (type function on-ok on-error) (ignore on-partial))
-  (unless max-diff-lines-supplied-p
-    (setf max-diff-lines aitools.store.domain:+default-max-diff-lines+))
   (let ((flag (and ignore-stale-reads "--ignore-stale-reads")))
     (aitools.kernel.domain:flow-call
         (%call-with-store ports context "tx.commit")

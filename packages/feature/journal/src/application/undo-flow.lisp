@@ -7,11 +7,9 @@
 
 (aitools.kernel.domain:define-flow
     (undo-flow ports context op-id &key dry-run
-               (max-diff-lines nil max-diff-lines-supplied-p)
+               (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
                on-ok on-partial on-error)
   (declare (type function on-ok on-error) (ignore on-partial))
-  (unless max-diff-lines-supplied-p
-    (setf max-diff-lines aitools.store.domain:+default-max-diff-lines+))
   (cond
     ((or (null op-id) (zerop (length op-id)))
      (aitools.kernel.domain:flow-continue
