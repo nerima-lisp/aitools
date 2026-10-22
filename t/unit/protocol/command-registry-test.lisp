@@ -78,7 +78,11 @@
        :schema (make-command-schema "read" "Test command.")))
     (signals error
       (aitools.protocol.application:make-command-declaration
-       "read" :command-builder #'identity :schema nil))))
+       "read" :command-builder #'identity :schema nil))
+    (signals error
+      (aitools.protocol.application:make-command-declaration
+       "" :command-builder #'identity
+       :schema (make-command-schema "" "Test command.")))))
 
 (describe "aitools.protocol.application command declaration registration"
   (it "builds a declaration once with the supplied ports"
