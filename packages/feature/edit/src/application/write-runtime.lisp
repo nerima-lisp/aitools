@@ -27,14 +27,16 @@
    (aitools.kernel.domain:flow-call
     (%resolve-targets host workspace-root targets temporary-root)
     (:on-resolved (resolved-paths area)
-                  (if (and tx (eq area :temporary))
-                      (aitools.kernel.domain:flow-continue :on-error
-                                                           "argument.invalid"
-                                                           (concatenate
-                                                            (quote string)
-                                                            "--tx cannot stage "
-                                                            "writes to the "
-                                                            "mktemp area"))
+                  (if (and (eq area :temporary)
+                         (or tx (string= command "rm")))
+                      (aitools.kernel.domain:flow-continue
+                       :on-error
+                       (if tx
+                           "argument.invalid"
+                           "refusal.outside-workspace")
+                       (if tx
+                           "--tx cannot stage writes to the mktemp area"
+                           "rm requires a workspace target"))
                     (let* ((store
                             (if (eq area :temporary)
                                 (funcall (edit-ports-open-store ports)
