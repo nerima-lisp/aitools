@@ -20,6 +20,12 @@
      (aitools.kernel.domain:content-hash
       (sb-ext:string-to-octets
        (with-output-to-string (manifest)
+         (format manifest "lisp ~S ~S~%platform ~S ~S ~S~%"
+                 (lisp-implementation-type)
+                 (lisp-implementation-version)
+                 (software-type)
+                 (software-version)
+                 (machine-type))
          (dolist (file (sort files (function string<) :key (function namestring)))
            (with-open-file (input file :direction :input
                                   :element-type (quote (unsigned-byte 8)))
