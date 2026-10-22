@@ -13,30 +13,36 @@
 (describe "TOML value mapping"
   (it "maps values and preserves source member order"
     (let* ((value (parse-toml-document
-                   (format nil "z = 1~%a = false~%[t]~%y = 3~%x = 4~%")))
+                   (format nil "z = 1~%a = false~%fraction = 1.5~%[t]~%y = 3~%x = 4~%")))
            (table (json-object-get value "t")))
-      (expect (mapcar #'car (json-object-pairs value)) :to-equal '("z" "a" "t"))
+      (expect (mapcar (function car) (json-object-pairs value))
+              :to-equal (list "z" "a" "fraction" "t"))
       (expect (json-object-get value "z") :to-be 1)
       (expect (json-false-value-p (json-object-get value "a")) :to-be t)
-      (expect (mapcar #'car (json-object-pairs table)) :to-equal '("y" "x"))
+      (expect (= (json-object-get value "fraction") 1.5) :to-be t)
+      (expect (mapcar (function car) (json-object-pairs table)) :to-equal (list "y" "x"))
       (expect (json-object-get table "x") :to-be 4)))
 
   (it "normalizes TOML datetime values into strings"
     (let ((value
             (parse-toml-document
              (format nil
-                     (concatenate 'string
-                                  "offset = 1979-05-27T07:32:00.123456789+00:00~%"
-                                  "local_datetime = 1979-05-27T07:32:00.123456789~%"
-                                  "local_date = 1979-05-27~%"
-                                  "local_time = 07:32:00.123456789123~%")))))
+                     "offset = 1979-05-27T07:32:00.123456789+00:00~%local_datetime = 1979-05-27T07:32:00.123456789~%local_date = 1979-05-27~%local_time = 07:32:00.123456789123~%"))))
       (expect (json-object-get value "offset")
               :to-equal "1979-05-27T07:32:00.123456789Z")
       (expect (json-object-get value "local_datetime")
               :to-equal "1979-05-27T07:32:00.123456789")
       (expect (json-object-get value "local_date") :to-equal "1979-05-27")
       (expect (json-object-get value "local_time")
-              :to-equal "07:32:00.123456789")))
+              :to-equal "07:32:00.123456789"))
+    (expect (aitools.inspect.domain::%toml-trim-fraction "1979-05-27T07:32:00.120000Z")
+            :to-equal "1979-05-27T07:32:00.12Z")
+    (expect (aitools.inspect.domain::%toml-trim-fraction "1979-05-27T07:32:00.000000Z")
+            :to-equal "1979-05-27T07:32:00Z")
+    (expect (aitools.inspect.domain::%toml-normalize-date-time "1979-05-27t07:32:00z")
+            :to-equal "1979-05-27T07:32:00Z")
+    (expect (aitools.inspect.domain::%toml-normalize-date-time "1979-05-27T07:32:00-00:00")
+            :to-equal "1979-05-27T07:32:00Z"))
 
   (it "rejects non-finite numbers and TOML integers outside the parser range"
     (%assert-toml-unsupported "x = inf" "non-finite-float" "/x")

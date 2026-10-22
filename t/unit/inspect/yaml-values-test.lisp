@@ -24,12 +24,11 @@
   (it "resolves explicit Core tags and expands non-cyclic aliases"
     (let ((value (parse-yaml-document
                   (format nil
-                          (concatenate 'string
-                                       "text: !!str true~%number: !!int \"42\"~%"
-                                       "copy: &source {value: 3}~%alias: *source~%")))))
+                          "text: !!str true~%number: !!int \"42\"~%copy: &source {value: 3}~%alias: *source~%fallback: ! text~%"))))
       (expect (json-object-get value "text") :to-equal "true")
       (expect (json-object-get value "number") :to-be 42)
-      (expect (json-object-get (json-object-get value "alias") "value") :to-be 3)))
+      (expect (json-object-get (json-object-get value "alias") "value") :to-be 3)
+      (expect (json-object-get value "fallback") :to-equal "text")))
 
   (it "accepts simple base strings"
     (let ((text (coerce "answer: 42" 'simple-base-string)))
