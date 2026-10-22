@@ -205,3 +205,16 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal (format nil "two~%"))))))
 
+(describe "aitools transaction dry-run refusals"
+  (it "does not stage an edit rejected by the count guard"
+    (with-edit-workspace ()
+      (put "a.txt" (format nil "a~%b~%"))
+      (let* ((tx (begin-tx))
+             (before (snapshot)))
+        (with-error (code message keys)
+            (run-in tx "edit" (list "a.txt") :match "^a$" :new "x"
+                    :expect-count "2" :dry-run t)
+          (expect code :to-equal "selection.count-mismatch")
+          (expect (json-field (first (getf keys :diagnostics)) "actual") :to-be 1))
+        (expect (commit-tx tx) :to-be :committed)
+        (expect-unchanged before)))))

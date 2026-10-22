@@ -173,3 +173,16 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (kind "tree") :to-be :absent)))))
 
+(describe "aitools rm errors in a transaction"
+  (it "suggests a find command for a missing target"
+    (with-edit-workspace ()
+      (put "tree/kept.txt" "kept")
+      (let ((tx (begin-tx)))
+        (let ((before (snapshot)))
+          (with-error (code message keys)
+              (run-in tx "rm" (list "tree/missing.txt"))
+            (expect code :to-equal "input.not-found")
+            (expect message :to-equal "tree/missing.txt does not exist")
+            (expect (repair-commands keys)
+                    :to-equal (list "aitools find tree/missing.txt")))
+          (expect-unchanged before))))))

@@ -1,4 +1,5 @@
 [
+  ../aitools-test-system-base.lisp
   ../aitools-test-system.lisp
   ../skills/aitools/SKILL.md
   ../packages/core/kernel/kernel.asd

@@ -124,3 +124,17 @@
                 :to-be :none)
         (expect (undo op-id) :to-be :committed)
         (expect (snapshot) :to-equal before)))))
+
+(describe "aitools rm refuses symlinked parent paths"
+  (it "leaves an outside file untouched when a parent link escapes the workspace"
+    (with-edit-workspace ()
+      (put "../outside/keep" "outside")
+      (put "tree/inside" "inside")
+      (sb-posix:symlink "../../outside" (disk "tree/escape"))
+      (let ((before (snapshot))
+            (outside (coerce (octets-of "../outside/keep") 'list)))
+        (with-error (code)
+            (run "rm" (list "tree/escape/keep"))
+          (expect code :to-equal "refusal.outside-workspace"))
+        (expect-unchanged before)
+        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside)))))
