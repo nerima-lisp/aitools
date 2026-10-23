@@ -8,13 +8,12 @@
 ;;;; this package, the only part of inspect they may reference.
 (in-package #:aitools.inspect.application)
 
-(defun %option-conflict-repair (command)
+(defun %option-conflict-repair (command &optional display-name)
   (repair "use-one-selector"
           "Choose exactly one selector for this call."
           (format nil
                   "aitools schema ~A"
-                  (if (eq command :move-lines)
-                      "move-lines"
+                  (or display-name
                       (string-downcase
                        (substitute #\Space #\- (symbol-name command) :count 1))))))
 
@@ -36,6 +35,7 @@
                            match
                            invert
                            extra-exclusive
+                           display-name
                            on-selector
                            on-none
                            on-invalid)
@@ -56,7 +56,7 @@ NIL means the flag is absent."
                when value
                  collect flag))
         (named (append (mapcar #'car given) extras))
-        (repairs (list (%option-conflict-repair command))))
+        (repairs (list (%option-conflict-repair command display-name))))
    (labels ((invalid (message)
               (aitools.kernel.domain:flow-continue :on-invalid message repairs)))
      (cond

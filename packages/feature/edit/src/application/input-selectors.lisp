@@ -23,6 +23,8 @@
 ON-ERROR (code message &key repairs)."
   (apply #'aitools.inspect.application:parse-selector-options/k
          command
+         :display-name
+         (command-display-name (string-downcase (symbol-name command)))
          :extra-exclusive
          extra-exclusive
          :on-selector

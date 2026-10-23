@@ -173,8 +173,8 @@
         (expect (text "src/b.txt") :to-equal (format nil "x~%")))))
   (it-each (("insert" (:before t :range "broken" :content "x"))
             ("transform" (:op ("sort") :range "broken"))
-            ("move-lines" (:range "broken" :to-position "end")))
-    "forwards the malformed range repair for ~A"
+            ("move-lines" (:range "broken" :match "x" :to-position "end")))
+    "forwards a selector repair for ~A"
     (command options)
     (with-edit-workspace ()
       (put "a.txt" (format nil "keep~%"))
