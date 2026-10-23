@@ -119,11 +119,11 @@
      :positionals ((:key :path :name "path"))
      :options ((:key :recursive :name "recursive" :kind :flag :description "Remove a directory tree; requires --expect-count except in dry-run.")
                (:key :max-entries :name "max-entries" :kind :value :default "1000" :description "Maximum deleted entries, including directories and symlinks.")
-               (:key :max-bytes :name "max-bytes" :kind :value :default "64MiB" :description "Maximum total regular-file bytes; not a memory limit."))
+               (:key :max-bytes :name "max-bytes" :kind :value :default "64MiB" :description "Maximum total deleted regular-file bytes; not a memory limit."))
      :include (:hash :count :write)
-     :mktemp-area-policy (:non-tx-refusal
-                          (:error-code "refusal.outside-workspace"
-                           :error-message "rm requires a workspace target"))
+     :mktemp-area :refuse
+     :mktemp-error-code "refusal.outside-workspace"
+     :mktemp-error-message "rm requires a workspace target"
      :output-fields ((:name "entries" :description "Number of deleted entries, including the target itself.")
                      (:name "bytes" :description "Total regular-file bytes selected for deletion.")))
     (:name "delete"

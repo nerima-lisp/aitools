@@ -24,80 +24,67 @@
            (or (aitools.workspace.application:resolve-real-path host tmp) tmp)))
         (targets (write-plan-targets write-plan))
         (command (write-plan-command write-plan))
-        (mktemp-area-policy (find-command-mktemp-area-policy command))
-        (refusal-policy
-         (getf mktemp-area-policy
-               (if tx :tx-refusal :non-tx-refusal))))
+        (command-spec (find-command-spec command)))
    (aitools.kernel.domain:flow-call
     (%resolve-targets host workspace-root targets temporary-root)
     (:on-resolved (resolved-paths area)
-                  (if (and (eq area :temporary) refusal-policy)
-                      (aitools.kernel.domain:flow-continue
-                       :on-error
-                       (getf refusal-policy :error-code)
-                       (getf refusal-policy :error-message))
-                    (let* ((store
-                            (if (eq area :temporary)
-                                (funcall (edit-ports-open-store ports)
-                                         temporary-root)
-                              workspace-store))
-                           (paths
-                            (if (eq area :temporary)
-                                (mapcar
-                                 (lambda (real)
-                                   (aitools.kernel.domain:path-relative-to
+      (cond
+        ((and tx (eq area :temporary))
+         (aitools.kernel.domain:flow-continue
+          :on-error
+          "argument.invalid"
+          "--tx cannot stage writes to the mktemp area"))
+        ((and (eq area :temporary)
+              (eq (getf command-spec :mktemp-area) :refuse))
+         (aitools.kernel.domain:flow-continue
+          :on-error
+          (getf command-spec :mktemp-error-code)
+          (getf command-spec :mktemp-error-message)))
+        (t
+         (let* ((store
+                 (if (eq area :temporary)
+                     (funcall (edit-ports-open-store ports) temporary-root)
+                     workspace-store))
+                (paths
+                 (if (eq area :temporary)
+                     (mapcar
+                      (lambda (real)
+                        (aitools.kernel.domain:path-relative-to temporary-root real))
+                      resolved-paths)
+                     resolved-paths))
+                (argv
+                 (options-argv command
+                               (funcall (write-plan-record-positionals write-plan) paths)
+                               (%record-options write-plan paths)))
+                (extra '()))
+           (aitools.kernel.domain:flow-call
+            (%run-write-operation/k ports
+                                    store
+                                    write-plan
+                                    workspace-root
+                                    workspace-store
+                                    hash-entries
+                                    paths
+                                    area
                                     temporary-root
-                                    real))
-                                 resolved-paths)
-                              resolved-paths))
-                           (argv
-                            (options-argv command
-                                          (funcall
-                                           (write-plan-record-positionals
-                                            write-plan)
-                                           paths)
-                                          (%record-options write-plan paths)))
-                           (extra '()))
-                      (aitools.kernel.domain:flow-call
-                       (%run-write-operation/k ports
-                                               store
-                                               write-plan
-                                               workspace-root
-                                               workspace-store
-                                               hash-entries
-                                               paths
-                                               area
-                                               temporary-root
-                                               command-line
-                                               expect-count
-                                               lock-timeout-ms
-                                               dry-run
-                                               tx
-                                               argv
-                                               extra)
-                       (:on-ok (result)
-                               (aitools.kernel.domain:flow-continue :on-ok
-                                                                    result))
-                       (:on-error (code message &key candidates diagnostics conflicts repairs path)
-           (aitools.kernel.domain:flow-continue :on-error
-                                                code
-                                                message
-                                                :candidates
-                                                candidates
-                                                :diagnostics
-                                                diagnostics
-                                                :conflicts
-                                                conflicts
-                                                :repairs
-                                                repairs
-                                                :path
-                                                path))
-))))
+                                    command-line
+                                    expect-count
+                                    lock-timeout-ms
+                                    dry-run
+                                    tx
+                                    argv
+                                    extra)
+            (:on-ok (result)
+              (aitools.kernel.domain:flow-continue :on-ok result))
+            (:on-error (code message &key candidates diagnostics conflicts repairs path)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message
+               :candidates candidates
+               :diagnostics diagnostics
+               :conflicts conflicts
+               :repairs repairs
+               :path path)))))))
     (:on-error (code message &key path)
-               (if path
-                   (aitools.kernel.domain:flow-continue :on-error
-                                                        code
-                                                        message
-                                                        :path
-                                                        path)
-                 (aitools.kernel.domain:flow-continue :on-error code message))))))
+      (if path
+          (aitools.kernel.domain:flow-continue :on-error code message :path path)
+          (aitools.kernel.domain:flow-continue :on-error code message))))))
