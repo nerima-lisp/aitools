@@ -215,6 +215,17 @@
                           (aitools.process.infrastructure::%internal-time-to-ms start-tick))))
       (expect (= elapsed-ms (/ (* 1000 delta-ticks) units)) :to-be t)
       (expect (< elapsed-ms 300) :to-be t)))
+  (it "retries a sleep when it returns before the requested interval"
+    (let ((times (list 0 1/2 1))
+          (requests nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote aitools.process.infrastructure::%monotonic-ms))
+            (lambda () (pop times)))
+           ((symbol-function (quote cl:sleep))
+            (lambda (seconds) (push seconds requests))))
+        (aitools.process.infrastructure::%sleep-ms 1))
+      (expect (reverse requests) :to-equal (list 1/1000 1/2000))
+      (expect times :to-equal nil)))
 
   (it "uses the host's SIGUSR numbers"
     (expect (aitools.process.domain:signal-number "USR1")
