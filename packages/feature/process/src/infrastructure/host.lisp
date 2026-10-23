@@ -228,4 +228,8 @@ as gone."
   (%internal-time-to-ms (get-internal-real-time)))
 
 (defun %sleep-ms (milliseconds)
-  (sleep (/ milliseconds 1000)))
+  (let ((start (%monotonic-ms)))
+    (sleep (/ milliseconds 1000))
+    (loop for remaining = (- milliseconds (- (%monotonic-ms) start))
+          while (> remaining 0)
+          do (sleep (/ (max remaining 1) 1000)))))
