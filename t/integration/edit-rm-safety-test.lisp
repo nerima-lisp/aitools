@@ -27,7 +27,7 @@
                   (let* ((io (aitools.store.infrastructure:make-posix-store-io))
                          (read-file (aitools.store.application:store-io-read-file io))
                          (test-io
-                           (aitools.store.application:copy-store-io
+                           (aitools.store.application::copy-store-io
                             io
                             :read-file
                             (lambda (path &key max-bytes)
