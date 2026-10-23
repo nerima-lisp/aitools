@@ -132,3 +132,4 @@
                   (expect calls :to-be 1)
                   (expect (aitools/cli::%trace-envelope-meta :ok) :to-be-falsy)
                   (expect aitools/cli::*trace-session* :to-be-falsy)))))
+

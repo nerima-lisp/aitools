@@ -139,6 +139,7 @@
                 :pathname "src/"
                 :components ((:file "package")
                              (:file "trace-context" :depends-on ("package"))
+                             (:file "trace-store-io" :depends-on ("trace-context"))
                              (:file "registry")
                              (:file "workspace-context")
                              (:file "context-registration")

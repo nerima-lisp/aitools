@@ -56,7 +56,7 @@
   outcome)
 (defun %trace-outcome-name (outcome)
   (string-downcase (symbol-name (%trace-check-outcome outcome))))
-(defun %call-with-trace-span (kind name thunk &key outcome-function)
+(defun %call-with-trace-span (kind name thunk &key outcome-function condition-outcome-function)
   (let ((session *trace-session*))
     (if (null session)
         (funcall thunk)
@@ -78,14 +78,20 @@
                (declare (ignore active-span))
                (handler-bind
                    ((error (lambda (condition)
-                             (declare (ignore condition))
-                             (setf outcome :error)
-                             (observability-kit:span-set-status span :error))))
+                             (setf outcome
+                                   (%trace-check-outcome
+                                    (if condition-outcome-function
+                                        (funcall condition-outcome-function condition)
+                                      :error)))
+                             (unless (or (member outcome '(:ok :partial) :test #'eq)
+                                         (observability-kit:span-ended-p span))
+                               (observability-kit:span-set-status span :error)))))
                  (let ((values (multiple-value-list (funcall thunk))))
                    (setf outcome
                          (%trace-check-outcome
                           (if outcome-function (funcall outcome-function values) :ok)))
-                   (unless (member outcome '(:ok :partial) :test #'eq)
+                   (unless (or (member outcome '(:ok :partial) :test #'eq)
+                               (observability-kit:span-ended-p span))
                      (observability-kit:span-set-status span :error))
                    (values-list values)))))
           (setf (gethash span-id (%trace-session-outcomes session)) outcome)
@@ -222,4 +228,3 @@
               (observability-kit:end-span root))
             (setf (%trace-session-meta session)
                   (%trace-project-session session)))))))
-

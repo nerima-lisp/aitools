@@ -106,4 +106,4 @@
    #:tx-rebase/k
    ;; tx-commit.lisp
    #:tx-diff/k
-   #:tx-commit/k))
+   #:tx-commit/k #:copy-store-io))

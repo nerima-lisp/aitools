@@ -16,7 +16,7 @@ published by infrastructure through a global."
   (list :state-directory-function #'current-state-directory
         :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
         :text-source (aitools.text.infrastructure:make-host-text-source)
-        :open-store #'aitools.store.infrastructure:make-posix-store
+        :open-store #'%open-invocation-store
         :with-span #'%call-with-port-span))
 
 (defun %call-with-port-span (kind name operation arguments &key outcome-function)

@@ -38,6 +38,7 @@
                                               (:file "unit/kernel/json-test")
                                               (:file "unit/kernel/json-model-resolve-test")
                                               (:file "unit/trace-context-test")
+                                              (:file "unit/trace-store-io-test" :depends-on ("unit/trace-context-test"))
                                               (:file "unit/protocol/package")
                                               (:file "unit/protocol/envelope-test")
                                               (:file "unit/protocol/error-catalog-test")
