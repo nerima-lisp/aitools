@@ -112,7 +112,7 @@
     };
 
     cl-observability-kit = {
-      url = "github:nerima-lisp/cl-observability-kit/v1.0.0";
+      url = "github:nerima-lisp/cl-observability-kit/v1.1.0";
       flake = false;
     };
 

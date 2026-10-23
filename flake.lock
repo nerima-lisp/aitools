@@ -195,16 +195,16 @@
     "cl-observability-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1786845981,
-        "narHash": "sha256-RXTnRtwddJr4SpKShRUE8R9gVUIwbPHhTpWyNOkGyt4=",
+        "lastModified": 1792597226,
+        "narHash": "sha256-mo1np14L0pCYdYX3Gl/RSSzGzqU0weEfQnokGoa2wZA=",
         "owner": "nerima-lisp",
         "repo": "cl-observability-kit",
-        "rev": "6c77d1eb71293474bb000184e9dad30034c791d2",
+        "rev": "c7036f43ac8b69457a2979c2cb2c6806452bd728",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v1.0.0",
+        "ref": "v1.1.0",
         "repo": "cl-observability-kit",
         "type": "github"
       }
