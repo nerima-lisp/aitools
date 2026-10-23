@@ -16,7 +16,15 @@ published by infrastructure through a global."
   (list :state-directory-function #'current-state-directory
         :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
         :text-source (aitools.text.infrastructure:make-host-text-source)
-        :open-store #'aitools.store.infrastructure:make-posix-store))
+        :open-store #'aitools.store.infrastructure:make-posix-store
+        :with-span #'%call-with-port-span))
+
+(defun %call-with-port-span (kind name operation arguments &key outcome-function)
+  (if *trace-session*
+      (%call-with-trace-span kind name
+                             (lambda () (apply operation arguments))
+                             :outcome-function outcome-function)
+      (apply operation arguments)))
 
 (defun register-all-context-commands (registry)
   "Register every feature context's commands on REGISTRY with its production

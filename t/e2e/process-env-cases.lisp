@@ -6,6 +6,76 @@
 (defun trimmed (text)
   (string-trim '(#\Newline #\Space) text))
 
+(defun expect-child-process-span (envelope name outcome)
+  (let* ((spans (jlist (jget envelope "meta" "trace" "spans")))
+         (command (find-if (lambda (span)
+                             (and (string= (jget span "kind") "command")
+                                  (null (jget span "parent_span_id"))))
+                           spans))
+         (child (find name spans :key (lambda (span) (jget span "name")) :test #'string=)))
+    (expect command :to-be-truthy)
+    (expect child :to-be-truthy)
+    (multiple-value-bind (parent present-p) (gethash "parent_span_id" command)
+      (expect present-p :to-be t)
+      (expect parent :to-be nil))
+    (expect (jget child "kind") :to-equal "child_process")
+    (expect (jget child "outcome") :to-equal outcome)
+    (expect (jget child "parent_span_id") :to-be (jget command "span_id"))))
+
+(describe "aitools child-process trace spans (e2e)"
+  (it "records process.run with outcomes and the command parent"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "trace specs require a binary with --trace"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (put ws "occupied.out" "occupied")
+       (let* ((success (aitools ws '("--trace" "run" "--" "sh" "-c" "printf child")
+                               :expect-trace t))
+              (stdin (aitools ws '("--trace" "run" "--stdin" "--" "cat")
+                              :stdin "stream input"
+                              :expect-trace t))
+              (timeout (aitools ws '("--trace" "run" "--stdin" "--timeout" "100ms" "--" "sleep" "2")
+                                :stdin ""
+                                :expect-trace t))
+              (unavailable (aitools ws '("--trace" "run" "--" "aitools-no-such-program-fr014")
+                                    :expect-trace t))
+              (error (aitools ws '("--trace" "run" "--stdout-to" "occupied.out" "--" "sh" "-c" "printf overwrite")
+                              :expect-trace t)))
+         (expect (aitools-exit-code success) :to-be 0)
+         (expect (jget (aitools-envelope success) "stdout" "head" 0) :to-equal "child")
+         (expect-child-process-span (aitools-envelope success) "process.run" "ok")
+         (expect (aitools-exit-code stdin) :to-be 0)
+         (expect (jget (aitools-envelope stdin) "stdout" "head" 0) :to-equal "stream input")
+         (expect-child-process-span (aitools-envelope stdin) "process.run" "ok")
+         (expect (aitools-exit-code timeout) :to-be 0)
+         (expect (jget (aitools-envelope timeout) "timed_out") :to-be t)
+         (expect-child-process-span (aitools-envelope timeout) "process.run" "timeout")
+         (expect-child-process-span (aitools-envelope unavailable) "process.run" "unavailable")
+         (expect-child-process-span (aitools-envelope error) "process.run" "error")))))
+
+  (it "records process.launch-detached and stops the started child"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "trace specs require a binary with --trace"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((started (aitools ws '("--trace" "bg" "start" "--" "sh" "-c" "sleep 30")
+                                 :expect-trace t))
+              (id (jget (aitools-envelope started) "id")))
+         (unwind-protect
+             (progn
+               (expect (aitools-exit-code started) :to-be 0)
+               (expect id :to-be-truthy)
+               (expect-child-process-span (aitools-envelope started)
+                                          "process.launch-detached" "ok"))
+           (when id
+             (let ((stopped (aitools ws (list "--trace" "bg" "stop" id "--grace" "1s")
+                                     :expect-trace t)))
+               (expect (aitools-exit-code stopped) :to-be 0)))))))))
+
 (define-row-case (38 "cmd | grep is run --grep" :foreign ("grep")) (ws)
   (expect (format nil "~{~A~%~}"
                   (mapcar (lambda (match) (jget match "text"))

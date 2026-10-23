@@ -203,15 +203,27 @@ tests."
    :user-name (lambda () (cl-boundary-kit:host-info-username host-info))
    :workspace-root workspace-root))
 
-(defun make-production-env-ports (&key state-directory-function &allow-other-keys)
+(defun make-production-env-ports (&key state-directory-function with-span &allow-other-keys)
   "The ENV-PORTS the binary uses. Construction does no I/O; every adapter
 reads the host only when a flow calls it. STATE-DIRECTORY-FUNCTION is part
 of the composition root's shared constructor protocol; env keeps no state."
   (declare (ignore state-directory-function))
-  (make-env-ports-from-boundaries
-   :clock (cl-boundary-kit:make-clock :now-fn #'%epoch-milliseconds)
-   :environment (cl-boundary-kit:make-environment)
-   :filesystem (cl-boundary-kit:make-filesystem
-                :read-file-fn #'%read-file-to-end
-                :path-exists-p-fn #'%regular-file-p)
-   :host-info (cl-boundary-kit:make-host-info)))
+  (labels ((span-outcome (values)
+             (case (first values)
+               (:timeout :timeout)
+               (:not-started :unavailable)
+               (otherwise :ok)))
+           (instrumented-run-program (program arguments timeout-seconds)
+             (if with-span
+                 (funcall with-span :child_process "env.system-query"
+                          #'%run-program (list program arguments timeout-seconds)
+                          :outcome-function #'span-outcome)
+                 (%run-program program arguments timeout-seconds))))
+    (make-env-ports-from-boundaries
+     :clock (cl-boundary-kit:make-clock :now-fn #'%epoch-milliseconds)
+     :environment (cl-boundary-kit:make-environment)
+     :filesystem (cl-boundary-kit:make-filesystem
+                  :read-file-fn #'%read-file-to-end
+                  :path-exists-p-fn #'%regular-file-p)
+     :host-info (cl-boundary-kit:make-host-info)
+     :run-program #'instrumented-run-program)))

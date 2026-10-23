@@ -1,5 +1,45 @@
 (in-package #:aitools.process.integration-test)
 
+(describe "aitools process trace port outcomes (integration)"
+  (it "preserves run values while mapping completion statuses"
+    (with-temporary-directory (directory)
+      (let* ((observed nil)
+             (ports
+               (aitools.process.infrastructure:make-production-process-ports
+                :with-span
+                (lambda (kind name operation arguments &key outcome-function)
+                  (let* ((values (multiple-value-list (apply operation arguments)))
+                         (outcome (funcall outcome-function values)))
+                    (push (list kind name outcome) observed)
+                    (values-list values)))))
+             (run-accessor 'aitools.process.application::process-ports-run-program))
+        (multiple-value-bind (status outcome)
+            (call-port ports run-accessor
+                       (list (program-on-path "sh") "-c" "printf child") 5000)
+          (expect status :to-be :exited)
+          (expect (aitools.process.domain:process-outcome-stdout outcome) :to-equal "child"))
+        (multiple-value-bind (status outcome)
+            (call-port ports run-accessor (list (program-on-path "sleep") "2") 20)
+          (expect status :to-be :timed-out)
+          (expect (aitools.process.domain:process-outcome-timed-out outcome) :to-be t))
+        (multiple-value-bind (status message program)
+            (call-port ports run-accessor (list "aitools-no-such-program-n3") 5000)
+          (expect status :to-be :unavailable)
+          (expect (starts-with-p "cannot start aitools-no-such-program-n3: " message) :to-be t)
+          (expect program :to-equal "aitools-no-such-program-n3"))
+        (let ((target (merge-pathnames "occupied.txt" directory)))
+          (with-open-file (stream target :direction :output :if-exists :supersede)
+            (write-string "existing" stream))
+          (expect (multiple-value-list
+                   (call-port ports run-accessor (list (program-on-path "sh") "-c" "printf no")
+                              5000 :stdout-path target))
+                  :to-equal '(:exists)))
+        (expect (reverse observed)
+                :to-equal '((:child_process "process.run" :ok)
+                            (:child_process "process.run" :timeout)
+                            (:child_process "process.run" :unavailable)
+                            (:child_process "process.run" :error)))))))
+
 (describe "aitools run (integration)"
   (it "keeps stdin at EOF unless explicitly requested"
     (let ((*standard-input* (make-string-input-stream "not inherited")))

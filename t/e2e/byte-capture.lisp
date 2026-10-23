@@ -1,0 +1,63 @@
+(in-package #:aitools.e2e.test)
+
+(defun byte-capture-root ()
+  (let ((configured (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+    (when (and configured (plusp (length configured)))
+      (let* ((directory (uiop:ensure-directory-pathname configured))
+             (root (progn (ensure-directories-exist directory) (truename directory)))
+             (root-name (native root)))
+        (when (and *scratch-root*
+                   (let ((scratch-name (native (truename *scratch-root*))))
+                     (and (<= (length scratch-name) (length root-name))
+                          (string= scratch-name root-name :end2 (length scratch-name)))))
+          (error "AITOOLS_E2E_BYTE_CAPTURE_DIR must be outside the harness scratch root"))
+        (when (and *byte-capture-directory*
+                   (not (equal (native *byte-capture-directory*) root-name)))
+          (error "AITOOLS_E2E_BYTE_CAPTURE_DIR changed during the test run"))
+        (unless *byte-capture-directory*
+          (with-open-file (stream (merge-pathnames "records.jsonl" root)
+                                  :direction :output :if-exists :error
+                                  :if-does-not-exist :create)
+            (declare (ignore stream)))
+          (setf *byte-capture-directory* root))
+        root))))
+
+(defun %byte-capture-record (case-id invocation record-number result)
+  (let* ((stdout-name (format nil "~8,'0D.stdout.bin" record-number))
+         (stderr-name (format nil "~8,'0D.stderr.bin" record-number))
+         (stdout-path (merge-pathnames stdout-name *byte-capture-directory*))
+         (stderr-path (merge-pathnames stderr-name *byte-capture-directory*))
+         (manifest (merge-pathnames "records.jsonl" *byte-capture-directory*))
+         (record (json-kit:alist->json-object
+                  (list (cons "case_id" case-id)
+                        (cons "invocation" invocation)
+                        (cons "exit_code" (result-exit-code result))
+                        (cons "stdout_file" stdout-name)
+                        (cons "stderr_file" stderr-name)
+                        (cons "stdout_length" (length (result-stdout result)))
+                        (cons "stderr_length" (length (result-stderr result)))))))
+    (when (or (probe-file stdout-path) (probe-file stderr-path))
+      (error "byte capture artifact already exists for record ~D" record-number))
+    (unless (integerp (result-exit-code result))
+      (error "byte capture requires an integer child exit code"))
+    (write-octets stdout-path (result-stdout result))
+    (write-octets stderr-path (result-stderr result))
+    (with-open-file (stream manifest :direction :output :if-exists :append
+                                      :if-does-not-exist :error
+                                      :external-format :utf-8)
+      (write-string (json-kit:stringify record) stream)
+      (terpri stream))))
+
+(defun capture-no-trace-output (case-id invocation result)
+  (sb-thread:with-mutex (*byte-capture-lock*)
+    (let ((root (byte-capture-root)))
+      (when root
+        (unless (and (stringp case-id) (plusp (length case-id))
+                     (integerp invocation) (plusp invocation))
+          (error "byte capture requires a stable spec ID and positive invocation number"))
+        (let ((identifier (list case-id invocation)))
+          (when (member identifier *byte-capture-identifiers* :test #'equal)
+            (error "duplicate byte capture identifier ~S" identifier))
+          (incf *byte-capture-counter*)
+          (%byte-capture-record case-id invocation *byte-capture-counter* result)
+          (push identifier *byte-capture-identifiers*))))))

@@ -107,7 +107,6 @@ with standard input reading STDIN (a string)."
           (expect (stringp (value results 1 "op_id")) :to-be t)
           (expect (value results 2 "result") :to-equal "2")))
       (expect (text "a.txt") :to-equal (format nil "two~%"))))
-
   (it "stops at the first failure, skips the rest, and exits with that element's code"
     (aitools.test.support:with-workspace
       (*root* state-home :chdir t)

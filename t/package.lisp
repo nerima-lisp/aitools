@@ -41,11 +41,7 @@ skipped or todo) fails the run: a load order mistake or a suite-wide skip
 must not read as a green run. Raise it when specs are added.")
 
 (defparameter *allowed-unrun-specs*
-  ;; (status text reason &optional env-var): a skipped or todo spec is
-  ;; allowed only when its reason or path contains TEXT, and, with ENV-VAR,
-  ;; only while ENV-VAR is unset (setting it asserts the dependency exists).
-  ;; Anything else not run fails the suite, including an e2e case skipped
-  ;; because the binary under test could not be obtained.
+  ;; Optional fields are an environment variable, its required state, and exact-reason matching.
   '((:skip "zip/unzip are not on PATH" "archive interop oracle needs the host tools")
     (:skip "tar is not on PATH" "archive interop oracle needs the host tools")
     (:skip "tar/gzip are not on PATH" "archive interop oracle needs the host tools")
@@ -54,9 +50,14 @@ must not read as a green run. Raise it when specs are added.")
     (:skip "skipped without the cl-process-kit-spawn trampoline"
      "bg needs the native spawn helper" "CL_PROCESS_KIT_SPAWN")
     (:skip "oracle unavailable"
-     "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip. A wholesale e2e skip still trips *minimum-executed-specs*.")))
+     "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip. A wholesale e2e skip still trips *minimum-executed-specs*.")
+    (:skip "trace specs require a binary with --trace"
+     "trace-positive e2e cases are skipped during no-trace byte captures"
+     "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason)))
 
 (defvar *progress-lock* (sb-thread:make-mutex :name "aitools test progress"))
+(defvar *current-spec-id* nil)
+(defvar *current-spec-no-trace-invocation* 0)
 
 (defun %report-progress (control &rest arguments)
   (sb-thread:with-mutex (*progress-lock*)
@@ -74,8 +75,10 @@ the reported path."
   (sb-int:encapsulate
    'cl-weave::call-test-case/k 'aitools-progress
    (lambda (next suite test continue)
-     (let ((name (cl-weave::path-string (cl-weave::test-path suite test)))
-           (start (get-internal-real-time)))
+     (let* ((name (cl-weave::path-string (cl-weave::test-path suite test)))
+            (*current-spec-id* name)
+            (*current-spec-no-trace-invocation* 0)
+            (start (get-internal-real-time)))
        (%report-progress "[start] ~A" name)
        (unwind-protect (funcall next suite test continue)
          (%report-progress "[end] ~A (~D ms)" name
@@ -92,11 +95,16 @@ the reported path."
         (reason (or (%event-field event "reason") ""))
         (path (%event-field event "pathString")))
     (find-if (lambda (entry)
-               (destructuring-bind (entry-status text why &optional env-var) entry
+               (destructuring-bind (entry-status text why &optional env-var env-mode match-mode) entry
                  (declare (ignore why))
                  (and (eq status entry-status)
-                      (or (search text reason) (search text path))
-                      (not (and env-var (uiop:getenv env-var))))))
+                      (if (eq match-mode :exact-reason)
+                          (string= text reason)
+                        (or (search text reason) (search text path)))
+                      (if (eq env-mode :set)
+                          (let ((value (and env-var (uiop:getenv env-var))))
+                            (and value (plusp (length value))))
+                        (not (and env-var (uiop:getenv env-var)))))))
              *allowed-unrun-specs*)))
 
 (defun %policy-problems (events)

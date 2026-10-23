@@ -8,6 +8,18 @@
   "Two commits of f, a staged and an unstaged change to f, and an untracked u."
   (shell workspace "printf 'l1\\nl2\\n' > f && git add f && git commit -qm first && printf 'l1\\nL2\\nl3\\n' > f && git commit -qam second && printf 'x\\n' > f && git add f && printf 'y\\n' > f && printf 'u\\n' > u"))
 
+(describe "aitools environment child-process trace span (e2e)"
+  (it "records env.system-query with the command parent"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "trace specs require a binary with --trace"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let ((result (aitools ws '("--trace" "sys" "tools" "sh") :expect-trace t)))
+         (expect (aitools-exit-code result) :to-be 0)
+         (expect-child-process-span (aitools-envelope result) "env.system-query" "ok"))))))
+
 (define-row-case (40 "git status --porcelain is git status" :foreign ("git") :git t) (ws)
   (make-history ws)
   (let* ((envelope (run-ok ws '("git" "status")))

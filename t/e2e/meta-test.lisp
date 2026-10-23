@@ -91,3 +91,11 @@ also an aitools command (find, diff, git, ...) must dispatch to it instead."
             (let ((*current-case* (list 0 name)))
               (aitools-binary)
               (call-with-workspace (lambda (ws) (expect-unknown-name-repairs ws name entry))))))))))
+
+(describe "aitools e2e meta: byte-capture invocation inventory"
+  (it "keeps no-trace invocation IDs unique when capture is enabled"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (expect *byte-capture-identifiers* :to-be-truthy)
+      (expect (length (remove-duplicates (copy-list *byte-capture-identifiers*) :test #'equal))
+              :to-be (length *byte-capture-identifiers*)))))

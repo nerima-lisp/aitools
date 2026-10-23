@@ -13,12 +13,13 @@
 (in-package #:aitools/cli)
 
 (defun %write-error (command-name code message stderr
-                     &key repairs candidates diagnostics conflicts recovered)
+                     &key repairs candidates diagnostics conflicts recovered (trace-p t))
   (let ((envelope (aitools.protocol.domain:make-error-envelope
                    (or (%display-name command-name) "aitools") code message
                    :repairs (or repairs (list (%generic-repair command-name)))
                    :candidates candidates :diagnostics diagnostics :conflicts conflicts
-                   :recovered recovered)))
+                   :recovered recovered
+                   :meta (when trace-p (%trace-envelope-meta :error)))))
     (aitools.protocol.infrastructure:write-envelope envelope stderr))
   (aitools.protocol.domain:error-code-exit-code code))
 
@@ -28,14 +29,14 @@
      (aitools.protocol.infrastructure:write-envelope
       (aitools.protocol.domain:make-ok-envelope
        (%display-name command-name) (aitools.protocol.application:command-result-fields result)
-       :recovered recovered)
+       :recovered recovered :meta (%trace-envelope-meta :ok))
       stdout)
      0)
     (:partial
      (aitools.protocol.infrastructure:write-envelope
       (aitools.protocol.domain:make-ok-envelope
        (%display-name command-name) (aitools.protocol.application:command-result-fields result)
-       :status "partial" :recovered recovered)
+       :status "partial" :recovered recovered :meta (%trace-envelope-meta :partial))
       stdout)
      3)
     (:error
@@ -100,8 +101,8 @@ past its commit point, so its message says recovery will complete it."
          (name (%full-command-name invocation)))
     ;; NAME is resolved before the protected form so an uncaught condition
     ;; from the handler names the failed command: the envelope
-    ;; and its `aitools schema <command>` repair identify the command instead
-    ;; of the generic "aitools"/"aitools schema" the top-level handler emits
+    ;; and its `aitools schema <command>` repair identify the failed command
+    ;; instead of the generic "aitools"/"aitools schema" the top-level handler emits
     ;; for a failure with no command in scope.
     (handler-case
         (if (null handler)
@@ -134,7 +135,8 @@ past its commit point, so its message says recovery will complete it."
         (%write-error name "refusal.too-large" (princ-to-string condition) stderr
                       :repairs (list (repair "narrow-output"
                                               "Ask for less: a smaller --max-lines or --limit, or a narrower selector."
-                                              (getf (%generic-repair name) :command)))))
+                                              (getf (%generic-repair name) :command)))
+                      :trace-p nil))
       (storage-condition (condition)
         (%write-error name "environment.unavailable"
                       (format nil "the command ran out of memory or stack: ~A" condition)
@@ -144,14 +146,18 @@ past its commit point, so its message says recovery will complete it."
 
 (defun dispatch (app registry argv &key (stdout *standard-output*) (stderr *error-output*))
   "Parse ARGV against APP, run the resolved command, write exactly one JSON
-envelope, and return the exit code. REGISTRY is the COMMAND-REGISTRY
-BUILD-APP returned alongside APP."
+  envelope, and return the exit code. REGISTRY is the COMMAND-REGISTRY
+  BUILD-APP returned alongside APP."
   (handler-case
       (let ((invocation (parse-argv app argv)))
         (ecase (invocation-action invocation)
           (:version (%write-version-envelope app stdout))
           (:help (%write-schema-envelope registry (%full-command-name invocation) stdout))
-          (:dispatch (%run-dispatched-command invocation stdout stderr))))
+          (:dispatch
+           (let ((name (%full-command-name invocation)))
+             (%call-with-command-trace
+              name (option-value invocation :trace)
+              (lambda () (%run-dispatched-command invocation stdout stderr)))))))
     (cli-unknown-command (condition)
       (let ((name (cli-unknown-command-name condition)))
         (%write-error name "argument.invalid"

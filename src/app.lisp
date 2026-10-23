@@ -28,7 +28,9 @@ specific command."
                       :global-options (list (make-option :name "root" :kind :value
                                                          :description "Workspace root; defaults to the git root, then the working directory.")
                                             (make-option :name "lock-timeout" :kind :value
-                                                         :description "How long a write waits for the workspace lock (<n>ms|s|m|h|d, default 10s)."))
+                                                         :description "How long a write waits for the workspace lock (<n>ms|s|m|h|d, default 10s).")
+                                            (make-option :name "trace" :kind :flag
+                                                         :description "Collect command and child-process timing metadata."))
                       :commands (finalize-app-commands registry))
             registry)))
 

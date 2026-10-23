@@ -84,7 +84,7 @@
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
-  :depends-on ("aitools" "cl-cli")
+  :depends-on ("aitools" "cl-cli" "cl-observability-kit")
   :pathname "."
   ;; Each feature context's presentation layer (its cl-cli command
   ;; definitions), in module order, ahead of the CLI's own src/ module.
@@ -138,6 +138,7 @@
                (:module "src"
                 :pathname "src/"
                 :components ((:file "package")
+                             (:file "trace-context" :depends-on ("package"))
                              (:file "registry")
                              (:file "workspace-context")
                              (:file "context-registration")

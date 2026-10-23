@@ -26,6 +26,11 @@ REASON) when it could not be built.")
 (defvar *current-case* nil
   "The (ROW NAME) of the case whose body is running.")
 
+(defvar *byte-capture-lock* (sb-thread:make-mutex :name "aitools e2e byte capture"))
+(defvar *byte-capture-directory* nil)
+(defvar *byte-capture-counter* 0)
+(defvar *byte-capture-identifiers* '())
+
 (defvar *oracle-log* '()
   "One (ROW NAME KIND DETAIL) entry per expected value a case obtained:
 KIND :SHELL with the script, or :FIXED with the missing tools.")
