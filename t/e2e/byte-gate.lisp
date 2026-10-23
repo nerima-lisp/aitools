@@ -10,7 +10,7 @@
   (and (stringp name)
        (= (length name) (+ 8 (length suffix)))
        (every (lambda (char) (char<= #\0 char #\9)) (subseq name 0 8))
-       (string= name suffix :start2 8)))
+       (string= suffix name :start2 8)))
 
 (defun byte-gate-read-blob (root name suffix expected-length)
   (unless (byte-gate-blob-name-p name suffix)
@@ -119,6 +119,71 @@
       (unless (eq (read stream nil :eof) :eof)
         (error "expected invocation inventory must contain one form"))
       (byte-gate-validate-ids inventory))))
+(defun byte-gate-read-inventory (pathname)
+  (with-open-file (stream pathname :direction :input :external-format :utf-8)
+    (let* ((*read-eval* nil)
+           (form (read stream nil :eof)))
+      (when (eq form :eof)
+        (error "byte-gate inventory is empty"))
+      (unless (eq (read stream nil :eof) :eof)
+        (error "byte-gate inventory must contain one form"))
+      (let ((form-length (handler-case (list-length form)
+                           (type-error () nil))))
+        (unless (and form-length (plusp form-length) (evenp form-length))
+          (error "byte-gate inventory must be a proper plist")))
+      (let ((seen-keys '()))
+        (loop for key in form by #'cddr
+              do (unless (and (keywordp key)
+                              (member key '(:baseline-revision :allowed-determinism-drop
+                                            :expected-invocations :nondeterministic-fields)
+                                      :test #'eq)
+                              (not (member key seen-keys :test #'eq)))
+                   (error "invalid or duplicate byte-gate inventory key"))
+                 (push key seen-keys)))
+      (let* ((revision (getf form :baseline-revision))
+             (allowance (getf form :allowed-determinism-drop))
+             (ids (byte-gate-validate-ids (getf form :expected-invocations)))
+             (entries (getf form :nondeterministic-fields))
+             (entry-count (handler-case (list-length entries)
+                            (type-error () nil)))
+             (seen-ids (make-hash-table :test #'equal))
+             (reason-ids '()))
+        (unless (and (stringp revision) (plusp (length revision)))
+          (error "byte-gate inventory has no baseline revision"))
+        (unless (and (realp allowance)
+                     (<= 0 allowance 1)
+                     (= allowance +byte-gate-allowed-determinism-drop+))
+          (error "byte-gate inventory allowance does not match the configured gate"))
+        (unless entry-count
+          (error "byte-gate nondeterministic field inventory must be a proper list"))
+        (dolist (entry entries)
+          (let ((length (handler-case (list-length entry)
+                          (type-error () nil))))
+            (unless (and length (= length 2))
+              (error "invalid byte-gate nondeterministic field record")))
+          (let* ((id (first entry))
+                 (fields (second entry))
+                 (field-count (handler-case (list-length fields)
+                                (type-error () nil))))
+            (byte-gate-validate-ids (list id))
+            (unless (member id ids :test #'equal)
+              (error "byte-gate reason references an unknown invocation ID"))
+            (when (gethash id seen-ids)
+              (error "duplicate byte-gate nondeterministic invocation ID"))
+            (unless (and field-count (plusp field-count)
+                         (every (lambda (field)
+                                  (and (stringp field) (plusp (length field))))
+                                fields)
+                         (= field-count (length (remove-duplicates fields :test #'string=))))
+              (error "byte-gate nondeterministic fields must be unique non-empty strings"))
+            (setf (gethash id seen-ids) fields)
+            (push id reason-ids)))
+        (list :baseline-revision revision
+              :allowed-determinism-drop allowance
+              :expected-ids ids
+              :nondeterministic-fields
+              (mapcar (lambda (id) (cons id (gethash id seen-ids)))
+                      (byte-gate-validate-ids (nreverse reason-ids))))))))
 
 (defun byte-gate-same-output-p (left right)
   (and (= (byte-gate-record-exit-code left) (byte-gate-record-exit-code right))
@@ -136,6 +201,7 @@
 (defun byte-gate-report-value (report)
   (json-kit:alist->json-object
    (list (cons "passed" (if (getf report :passed) t json-kit:+json-false+))
+         (cons "baseline_revision" (getf report :baseline-revision))
          (cons "expected_invocation_count" (getf report :expected-invocation-count))
          (cons "baseline_deterministic_count" (getf report :baseline-deterministic-count))
          (cons "baseline_invocation_count" (getf report :baseline-invocation-count))
@@ -147,13 +213,20 @@
          (cons "byte_mismatches" (getf report :byte-mismatches))
          (cons "failure_reasons" (getf report :failure-reasons)))))
 
-(defun byte-gate-nondeterministic-entries (ids deterministic reason)
+(defun byte-gate-nondeterministic-entries (ids deterministic
+                                           &key fields-by-id default-reason)
   (loop for id in ids
         unless (member id deterministic :test #'equal)
-          collect (json-kit:alist->json-object
-                   (list (cons "case_id" (first id))
-                         (cons "invocation" (second id))
-                         (cons "reason" reason)))))
+          collect (let* ((fields (cdr (assoc id fields-by-id :test #'equal)))
+                         (reason
+                           (if fields
+                               (format nil "JSON response fields differed between baseline runs: ~{~A~^, ~}"
+                                       fields)
+                             default-reason)))
+                    (json-kit:alist->json-object
+                     (list (cons "case_id" (first id))
+                           (cons "invocation" (second id))
+                           (cons "reason" reason))))))
 
 (defun byte-gate-mismatch-entries (mismatches)
   (mapcar (lambda (mismatch)
@@ -171,10 +244,20 @@
   pathname)
 
 (defun compare-e2e-byte-captures (baseline-first baseline-second candidate-first candidate-second
-                                  &key (expected-ids nil expected-ids-p) report-path)
+                                  &key (expected-ids nil expected-ids-p)
+                                    baseline-revision
+                                    (baseline-nondeterministic-fields nil fields-p)
+                                    report-path)
   (unless expected-ids-p
     (error "byte-gate comparison requires the fixed expected invocation inventory"))
+  (unless (and (stringp baseline-revision) (plusp (length baseline-revision)))
+    (error "byte-gate comparison requires the fixed baseline revision"))
+  (unless fields-p
+    (error "byte-gate comparison requires baseline nondeterministic field reasons"))
   (let* ((ids (byte-gate-validate-ids expected-ids))
+         (reason-count (handler-case (list-length baseline-nondeterministic-fields)
+                         (type-error () nil)))
+         (reason-ids (mapcar #'car baseline-nondeterministic-fields))
          (captures (let ((captures (list (byte-gate-read-capture baseline-first)
                                          (byte-gate-read-capture baseline-second)
                                          (byte-gate-read-capture candidate-first)
@@ -190,9 +273,19 @@
          (candidate-a (third captures))
          (candidate-b (fourth captures))
          (deterministic-baseline (byte-gate-deterministic-ids baseline-a baseline-b ids))
+         (baseline-nondeterministic-ids
+           (remove-if (lambda (id) (member id deterministic-baseline :test #'equal)) ids))
          (deterministic-candidate (byte-gate-deterministic-ids candidate-a candidate-b ids))
          (mismatches '())
          (failures '()))
+    (unless reason-count
+      (error "baseline nondeterministic field reasons must be a proper list"))
+    (unless (and (= reason-count (length (remove-duplicates reason-ids :test #'equal)))
+                 (every (lambda (id) (member id ids :test #'equal)) reason-ids)
+                 (= (length baseline-nondeterministic-ids) reason-count)
+                 (every (lambda (id) (member id reason-ids :test #'equal))
+                        baseline-nondeterministic-ids))
+      (error "baseline nondeterministic field reasons do not match the baseline captures"))
     (when (null deterministic-baseline)
       (push "baseline has no deterministic invocation" failures))
     (when (null deterministic-candidate)
@@ -211,6 +304,7 @@
         (push "candidate determinism rate fell beyond the configured allowance" failures))
       (let ((report
               (list :passed (null failures)
+                    :baseline-revision baseline-revision
                     :expected-invocation-count (length ids)
                     :baseline-deterministic-count (length deterministic-baseline)
                     :baseline-invocation-count (length ids)
@@ -221,11 +315,14 @@
                     :baseline-nondeterministic
                     (byte-gate-nondeterministic-entries
                      ids deterministic-baseline
-                     "stdout, stderr, or exit status differed across the baseline pair; reason not identified")
+                     :fields-by-id baseline-nondeterministic-fields
+                     :default-reason
+                     "baseline stdout, stderr, or exit status differed; reason not identified")
                     :candidate-nondeterministic
                     (byte-gate-nondeterministic-entries
                      ids deterministic-candidate
-                     "stdout, stderr, or exit status differed across the candidate pair; reason not identified")
+                     :default-reason
+                     "candidate stdout, stderr, or exit status differed; reason not identified")
                     :byte-mismatches (byte-gate-mismatch-entries (nreverse mismatches))
                     :failure-reasons (nreverse failures))))
         (when report-path
