@@ -13,8 +13,10 @@
           "Choose exactly one selector for this call."
           (format nil
                   "aitools schema ~A"
-                  (string-downcase
-                   (substitute #\Space #\- (symbol-name command) :count 1)))))
+                  (if (eq command :move-lines)
+                      "move-lines"
+                      (string-downcase
+                       (substitute #\Space #\- (symbol-name command) :count 1))))))
 
 (defparameter *selector-option-conflict-form*
   '(lambda (count)
