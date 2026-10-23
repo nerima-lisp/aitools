@@ -202,6 +202,15 @@
           (run "insert" '("a.txt") :at "end" :stdin t)
           (expect actual :to-equal code)))
       (expect (text "a.txt") :to-equal (format nil "a~%"))))
+  (it "reports environment.io when write cannot read standard input"
+    (with-edit-workspace ()
+      (let ((*stdin-outcome* :failure))
+        (let ((before (snapshot)))
+          (with-error (code)
+              (run "write" (list "out.bin") :stdin t)
+            (expect code :to-equal "environment.io"))
+          (expect (kind "out.bin") :to-be :absent)
+          (expect (snapshot) :to-equal before)))))
 
   (it-each (("text that is not UTF-8" "insert" ("a.txt") (:at "end" :stdin t) "input.not-utf8")
             ("a diff that is not UTF-8" "apply" () (:stdin t) "input.not-utf8")
@@ -216,4 +225,15 @@
       (let ((before (snapshot)))
         (with-error (actual) (apply #'run command positionals options)
           (expect actual :to-equal code))
+        (expect-unchanged before))))
+  (it "rejects an apply patch targeting a binary file without changing it"
+    (with-edit-workspace ()
+      (put "bad.bin" (octet-vector 97 0 98))
+      (setf *stdin*
+            (bytes (format nil "--- a/bad.bin~%+++ b/bad.bin~%@@ -1 +1 @@~%-a~%+b~%")))
+      (let ((before (snapshot)))
+        (with-error (code message)
+            (run "apply" nil :stdin t)
+          (expect code :to-equal "refusal.not-a-file")
+          (expect message :to-equal "bad.bin is binary; text edits refuse it"))
         (expect-unchanged before)))))

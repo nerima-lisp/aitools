@@ -11,6 +11,47 @@
       (expect (text "x/a.txt") :to-equal "a")
       (expect (text "x/d/b.txt") :to-equal "b")
       (expect (kind "xa.txt") :to-be :absent))))
+(describe "aitools rm byte limits"
+  (it "refuses an oversized view read without deleting the file"
+    (with-edit-workspace ()
+      (put "small.bin" "x")
+      (let* ((target (disk "small.bin"))
+             (read-count 0)
+             (read-limit nil)
+             (*ports*
+               (make-edit-ports
+                :workspace-host
+                (aitools.workspace.infrastructure:make-host-workspace-host)
+                :open-store
+                (lambda (root)
+                  (let* ((io (aitools.store.infrastructure:make-posix-store-io))
+                         (read-file (aitools.store.application:store-io-read-file io))
+                         (test-io
+                           (aitools.store.application:copy-store-io
+                            io
+                            :read-file
+                            (lambda (path &key max-bytes)
+                              (if (string= path target)
+                                  (progn
+                                    (incf read-count)
+                                    (setf read-limit max-bytes)
+                                    (octet-vector 0 1 2))
+                                  (funcall read-file path :max-bytes max-bytes))))))
+                    (aitools.store.application:make-store
+                     test-io root *home* :temporary (%temporary-area-p root))))
+                :text-source
+                (aitools.edit.application::edit-ports-text-source *ports*)
+                :read-stdin-octets
+                (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
+                :unix-now (function aitools.edit.infrastructure:unix-now))))
+        (with-error (code message)
+            (run "rm" (list "small.bin") :max-bytes "2")
+          (expect code :to-equal "refusal.too-large")
+          (expect message :to-equal "rm exceeds --max-bytes"))
+        (expect read-count :to-be 1)
+        (expect read-limit :to-be 2)
+        (expect (kind "small.bin") :to-be :file)
+        (expect (text "small.bin") :to-equal "x")))))
 
 (describe "aitools rm protected roots and recovery"
   (it "refuses the injected home directory without touching its children"
@@ -37,6 +78,61 @@
               (run "rm" '("fixture-home") :recursive t :expect-count "2")
             (expect code :to-equal "refusal.outside-workspace"))
           (expect-unchanged before)))))
+  (it "refuses recursive rm when a child directory becomes an outside symlink"
+    (with-edit-workspace ()
+      (put "tree/escape/keep" "safe")
+      (put "tree/ordinary/keep" "owned")
+      (put "../outside/keep" "outside")
+      (let* ((target (disk "tree/escape"))
+             (swapped nil)
+             (base-host (aitools.workspace.infrastructure:make-host-workspace-host))
+             (host
+               (aitools.workspace.application:make-workspace-host
+                :list-directory
+                (lambda (path)
+                  (aitools.workspace.application:host-list-directory base-host path))
+                :stat
+                (lambda (path)
+                  (when (and (string= path target) (not swapped))
+                    (sb-posix:rename target (disk "tree/escape-before-race"))
+                    (sb-posix:symlink (disk "../outside") target)
+                    (setf swapped t))
+                  (aitools.workspace.application:host-stat base-host path))
+                :read-link
+                (lambda (path)
+                  (aitools.workspace.application:host-read-link base-host path))
+                :read-octets
+                (lambda (path)
+                  (aitools.workspace.application:host-read-octets base-host path))
+                :getenv
+                (lambda (name)
+                  (aitools.workspace.application:host-getenv base-host name))
+                :home-directory
+                (lambda ()
+                  (aitools.workspace.application:host-home-directory base-host))
+                :current-directory
+                (lambda ()
+                  (aitools.workspace.application:host-current-directory base-host))))
+             (*ports*
+               (make-edit-ports
+                :workspace-host host
+                :open-store (function open-store)
+                :text-source
+                (aitools.edit.application::edit-ports-text-source *ports*)
+                :read-stdin-octets
+                (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
+                :unix-now (function aitools.edit.infrastructure:unix-now))))
+        (with-error (code message)
+            (run "rm" (list "tree") :recursive t :expect-count "5")
+          (expect swapped :to-be-truthy)
+          (expect code :to-equal "refusal.outside-workspace")
+          (expect (search "protected target" message) :to-be-truthy))
+        (expect (kind "tree") :to-be :directory)
+        (expect (kind "tree/escape") :to-be :symlink)
+        (expect (kind "tree/escape-before-race") :to-be :directory)
+        (expect (text "tree/escape-before-race/keep") :to-equal "safe")
+        (expect (text "tree/ordinary/keep") :to-equal "owned")
+        (expect (text "../outside/keep") :to-equal "outside"))))
 
   (it "refuses an ancestor containing a custom state home before deleting ordinary files"
     (with-edit-workspace ()

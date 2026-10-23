@@ -139,6 +139,26 @@
         (expect kind :to-be :ok)
         (expect (field fields "removed_lines") :to-be 1))
       (expect (text "a.txt") :to-equal (format nil "keep~%a~%b~%end~%"))))
+  (it "reports a match-count mismatch without changing the file"
+    (with-edit-workspace ()
+      (put "a.txt" (format nil "x~%x~%"))
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (run "transform" '("a.txt") :op '("sort") :match "^x$" :expect-count "1")
+          (expect code :to-equal "selection.count-mismatch")
+          (expect (json-field (first (getf keys :diagnostics)) "actual") :to-be 2))
+        (expect-unchanged before))))
+  (it "returns a similar definition when a symbol selector misses"
+    (with-edit-workspace ()
+      (put "a.lisp" (format nil "(defun present () 1)~%"))
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (run "transform" '("a.lisp") :op '("sort") :symbol "presnt"
+                 :expect-hash (list (hash "a.lisp")))
+          (expect code :to-equal "selection.no-match")
+          (expect message :to-equal "the selector matches nothing in a.lisp")
+          (expect (json-field (first (getf keys :candidates)) "name") :to-equal "present"))
+        (expect-unchanged before))))
 
   (it "applies whole-file ops, refusing them with a selector"
     (with-edit-workspace ()

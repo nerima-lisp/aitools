@@ -147,6 +147,7 @@
                                               (:file "integration/edit-text-ports-test")
                                               (:file "integration/edit-text-commands-test")
                                               (:file "integration/edit-text-commands-inputs-test")
+                                              (:file "integration/edit-text-command-input-ports-test")
                                               (:file "integration/edit-text-command-arguments-test")
                                               (:file "integration/edit-text-commands-paths-test")
                                               (:file "integration/edit-files-test")

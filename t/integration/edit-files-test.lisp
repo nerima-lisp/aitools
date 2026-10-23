@@ -136,8 +136,10 @@
       (let ((before (snapshot)))
         (with-error (code) (run "rm" '("tree") :recursive t :dry-run t :max-entries "2")
           (expect code :to-equal "refusal.too-large"))
-        (with-error (code) (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "5")
-          (expect code :to-equal "refusal.too-large"))
+        (with-error (code message)
+            (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "5")
+          (expect code :to-equal "refusal.too-large")
+          (expect message :to-equal "rm exceeds --max-bytes"))
         (expect-unchanged before)
         (expect (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "6" :max-entries "3") :to-be :ok))))
 
@@ -173,7 +175,7 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (kind "tree") :to-be :absent)))))
 
-(describe "aitools rm errors in a transaction"
+(describe "aitools transaction write errors"
   (it "suggests a find command for a missing target"
     (with-edit-workspace ()
       (put "tree/kept.txt" "kept")
@@ -185,4 +187,38 @@
             (expect message :to-equal "tree/missing.txt does not exist")
             (expect (repair-commands keys)
                     :to-equal (list "aitools find tree/missing.txt")))
-          (expect-unchanged before))))))
+          (expect-unchanged before)))))
+
+  (it "reports the destination repair when a staged move is refused"
+    (with-edit-workspace ()
+      (put "source.txt" "new")
+      (put "destination.txt" "old")
+      (let ((tx (begin-tx))
+            (before (snapshot)))
+        (with-error (code message keys)
+            (run-in tx "move" '("source.txt" "destination.txt"))
+          (expect code :to-equal "refusal.exists")
+          (expect (repair-commands keys)
+                  :to-equal '("aitools info destination.txt")))
+        (expect-unchanged before)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (text "source.txt") :to-equal "new")
+        (expect (text "destination.txt") :to-equal "old"))))
+
+  (it "forwards the destination repair from a transaction dry-run refusal"
+    (with-edit-workspace ()
+      (put "source.txt" "new")
+      (put "destination.txt" "old")
+      (let ((tx (begin-tx))
+            (before (snapshot)))
+        (with-error (code message keys)
+            (run-in tx "move" '("source.txt" "destination.txt") :dry-run t)
+          (expect code :to-equal "refusal.exists")
+          (expect (repair-commands keys)
+                  :to-equal '("aitools info destination.txt")))
+        (expect-unchanged before)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (text "source.txt") :to-equal "new")
+        (expect (text "destination.txt") :to-equal "old"))))
+
+)

@@ -51,6 +51,20 @@
       (put "in.txt" (format nil "b~%"))
       (expect (run "insert" '("a.txt") :at "end" :content-file "in.txt") :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "a~%b~%"))))
+  (it-each (("insert" ("missing.txt") (:at "end" :content "x"))
+            ("transform" ("missing.txt") (:op ("sort"))))
+    "returns a repair for a missing ~A target"
+    (command positionals options)
+    (with-edit-workspace ()
+      (put "kept.txt" "unchanged")
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (apply (function run) command positionals options)
+          (expect code :to-equal "input.not-found")
+          (expect message :to-equal "missing.txt does not exist")
+          (expect (repair-commands keys)
+                  :to-equal (list "aitools find missing.txt")))
+        (expect-unchanged before))))
   (it "refuses to insert into a binary target without changing it"
     (with-edit-workspace ()
       (put "bad.bin" (octet-vector 97 0 98))
@@ -144,7 +158,20 @@
       (expect (run "replace" '("w" "x") :newer "ref" :expect-count "1") :to-be :ok)
       (expect (text "new.lisp") :to-equal (format nil "x~%"))
       (expect (run "replace" '("v" "y") :lang "common-lisp" :expect-count "0") :to-be :ok)
-      (expect (text "old.txt") :to-equal (format nil "v~%")))))
+      (expect (text "old.txt") :to-equal (format nil "v~%"))))
+
+  (it "uses the missing scanned path for a replacement repair"
+    (with-edit-workspace ()
+      (sb-posix:mkdir (disk "src") #o755)
+      (put "src/a.txt" (format nil "v~%"))
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (run "replace" '("v" "w" "src/a.txt" "src/missing.txt") :expect-count "1")
+          (expect code :to-equal "input.not-found")
+          (expect message :to-equal "src/missing.txt does not exist")
+          (expect (repair-commands keys)
+                  :to-equal '("aitools find src/missing.txt")))
+        (expect-unchanged before))))
 
   (it "uses the injected edit clock for --newer durations"
     (with-edit-workspace ()
@@ -193,7 +220,7 @@
                 :to-equal '("big.txt"))
         (expect (json-field (first (field fields "skipped")) "reason") :to-equal "too-large")
         (expect (text "small.txt") :to-equal "w")
-        (expect (text "big.txt") :to-equal (make-string 2048 :initial-element #\v)))))
+        (expect (text "big.txt") :to-equal (make-string 2048 :initial-element #\v))))))
 
 (describe "aitools transform target errors"
   (it "returns file suggestions for a missing target"
@@ -208,12 +235,14 @@
                           (getf keys :candidates))
                   :to-equal (list "notes.txt")))
         (expect-unchanged before))))
-  (it "preserves the document when a line range matches nothing"
+  (it "preserves the document and suggests a nearby line when a range matches nothing"
     (with-edit-workspace ()
       (put "a.txt" (format nil "only line~%"))
       (let ((before (snapshot)))
-        (with-error (code message)
+        (with-error (code message keys)
             (run "transform" (list "a.txt") :op (list "sort") :range "2" :expect-hash (list (hash "a.txt")))
           (expect code :to-equal "selection.no-match")
-          (expect message :to-equal "the selector matches nothing in a.txt"))
+          (expect message :to-equal "the selector matches nothing in a.txt")
+          (expect (json-field (first (getf keys :candidates)) "line") :to-be 1)
+          (expect (json-field (first (getf keys :candidates)) "text") :to-equal "only line"))
         (expect-unchanged before)))))
