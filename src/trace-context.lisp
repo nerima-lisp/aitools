@@ -4,12 +4,13 @@
 (defstruct (%trace-session
             (:constructor %make-trace-session-record
                           (&key provider tracer root-span root-span-id records kinds outcomes
-                                registry counters meta)))
-           provider tracer root-span root-span-id records kinds outcomes registry counters meta)
+                                sequences registry counters meta)))
+           provider tracer root-span root-span-id records kinds outcomes sequences
+           registry counters meta)
 (defstruct (%projected-span
             (:constructor %make-projected-span
-                          (&key kit-id parent-kit-id kind name start-ns duration-ns outcome)))
-           kit-id parent-kit-id kind name start-ns duration-ns outcome)
+                          (&key kit-id parent-kit-id kind name start-ns duration-ns outcome sequence)))
+           kit-id parent-kit-id kind name start-ns duration-ns outcome sequence)
 (defun %make-trace-session (&key clock id-generator monotonic-units-per-second)
   (let* ((registry (observability-kit:make-metric-registry :scope-name "aitools.cli"))
          (span-count (observability-kit:define-counter
@@ -31,7 +32,8 @@
                                    (cons "io_count" io-count)
                                    (cons "duration_ns" duration-ns))
                    :kinds (make-hash-table :test #'equal)
-                   :outcomes (make-hash-table :test #'equal)))
+                   :outcomes (make-hash-table :test #'equal)
+                   :sequences (make-hash-table :test #'equal)))
          (processor
           (observability-kit:make-simple-span-processor
            (lambda (records)
@@ -65,9 +67,11 @@
                     (%trace-session-tracer session) name :kind :internal
                     :parent (if root-p nil :current)))
              (span-id (observability-kit:span-id span))
+             (sequence (hash-table-count (%trace-session-sequences session)))
              (outcome :error))
         (setf (gethash span-id (%trace-session-kinds session)) (%trace-kind-name kind)
-              (gethash span-id (%trace-session-outcomes session)) outcome)
+              (gethash span-id (%trace-session-outcomes session)) outcome
+              (gethash span-id (%trace-session-sequences session)) sequence)
         (when root-p
           (setf (%trace-session-root-span session) span
                 (%trace-session-root-span-id session) span-id))
@@ -120,25 +124,30 @@
 (defun %trace-project-record (session record root-start)
   (let ((span-id (observability-kit:span-record-span-id record)))
     (multiple-value-bind (kind kind-p) (gethash span-id (%trace-session-kinds session))
-      (multiple-value-bind (outcome outcome-p) (gethash span-id (%trace-session-outcomes session))
-        (unless (and kind-p outcome-p) (error "Trace metadata is missing for span ~S." span-id))
-        (%make-projected-span
-         :kit-id span-id
-         :parent-kit-id (observability-kit:span-record-parent-span-id record)
-         :kind kind
-         :name (observability-kit:span-record-name record)
-         :start-ns (%trace-nanoseconds
-                    (- (observability-kit:span-record-start-monotonic record) root-start)
-                    (observability-kit:span-record-monotonic-units-per-second record))
-         :duration-ns (%trace-nanoseconds
-                       (- (observability-kit:span-record-end-monotonic record)
-                          (observability-kit:span-record-start-monotonic record))
-                       (observability-kit:span-record-monotonic-units-per-second record))
-         :outcome outcome)))))
+      (multiple-value-bind (outcome outcome-p)
+          (gethash span-id (%trace-session-outcomes session))
+        (multiple-value-bind (sequence sequence-p)
+            (gethash span-id (%trace-session-sequences session))
+          (unless (and kind-p outcome-p sequence-p)
+            (error "Trace metadata is missing for span ~S." span-id))
+          (%make-projected-span
+           :kit-id span-id
+           :parent-kit-id (observability-kit:span-record-parent-span-id record)
+           :kind kind
+           :name (observability-kit:span-record-name record)
+           :start-ns (%trace-nanoseconds
+                      (- (observability-kit:span-record-start-monotonic record) root-start)
+                      (observability-kit:span-record-monotonic-units-per-second record))
+           :duration-ns (%trace-nanoseconds
+                         (- (observability-kit:span-record-end-monotonic record)
+                            (observability-kit:span-record-start-monotonic record))
+                         (observability-kit:span-record-monotonic-units-per-second record))
+           :outcome outcome
+           :sequence sequence))))))
 (defun %trace-projected-span< (left right)
   (or (< (%projected-span-start-ns left) (%projected-span-start-ns right))
       (and (= (%projected-span-start-ns left) (%projected-span-start-ns right))
-           (string< (%projected-span-kit-id left) (%projected-span-kit-id right)))))
+           (< (%projected-span-sequence left) (%projected-span-sequence right)))))
 (defun %trace-projected-parent-id (span id-map)
   (let ((parent-kit-id (%projected-span-parent-kit-id span)))
     (if (null parent-kit-id)

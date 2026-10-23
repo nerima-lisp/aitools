@@ -5,12 +5,16 @@
               (let* ((clock (cl-boundary-kit:make-fake-clock
                              :start 1700000000000
                              :monotonic-start 200))
-                     (id-sequence 0)
+                     (id-sequence #xffff)
                      (session
                       (aitools/cli::%make-trace-session
                        :clock clock
                        :id-generator (lambda (length)
-                                       (format nil "~v,'0X" length (incf id-sequence)))
+                                       (format nil "~v,'0X" length
+                                               (if (= length 32)
+                                                   1
+                                                 (prog1 id-sequence
+                                                   (decf id-sequence)))))
                        :monotonic-units-per-second 3))
                      (meta nil)
                      (child-values nil)
