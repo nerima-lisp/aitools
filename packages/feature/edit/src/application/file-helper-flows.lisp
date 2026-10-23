@@ -104,10 +104,7 @@ source is not a directory; anything else is refusal.exists."
                          absolute
                          (write-context-temporary-root context)
                          (eq kind :directory))
-            (:on-inside (real relative verdict)
-                        (declare (ignore real relative))
-                        (unless (eq verdict :inside)
-                          (setf failure (list "refusal.outside-workspace" "rm requires a workspace target"))))
+            (:on-inside (real relative verdict) (declare (ignore real relative verdict)))
             (:on-outside (verdict lexical real)
                          (declare (ignore lexical real))
                          (setf failure (list "refusal.outside-workspace"
@@ -127,11 +124,6 @@ source is not a directory; anything else is refusal.exists."
                                      :repairs repairs
                                      :path path))))
              )
-           (when (and (null failure)
-                      (not (member kind '(:absent :file :directory :symlink))))
-             (setf failure
-                   (list "refusal.not-a-file"
-                         "rm accepts only files, directories, and symlinks")))
            (when (null failure)
              (incf entries)
              (setf failure

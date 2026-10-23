@@ -168,13 +168,6 @@ their number, else FUNCTION runs on each contiguous run."
         (:on-rejected (code message &key (candidates nil candidates-p)
                                           (diagnostics nil diagnostics-p))
           (cond
-            ((and candidates-p diagnostics-p)
-             (aitools.kernel.domain:flow-continue
-               :on-rejected
-               code
-               message
-               :candidates candidates
-               :diagnostics diagnostics))
             (candidates-p
              (aitools.kernel.domain:flow-continue
                :on-rejected
