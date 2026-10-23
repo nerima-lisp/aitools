@@ -117,6 +117,24 @@
           (expect (plusp (length (aitools.test.support:envelope-value envelope "error" "repairs"))) :to-be t))
         (expect (coerce (aitools.test.support:read-bytes out) (quote list)) :to-equal (coerce (sb-ext:string-to-octets "keep") 'list)))))
 
+  (it "allows util decode --to to write below mktemp"
+    (aitools.test.support:with-workspace (root workspace-state)
+      (declare (ignore workspace-state))
+      (multiple-value-bind (tmp-code tmp-envelope tmp-stream)
+          (aitools.test.support:run-aitools root (list "mktemp" "--dir"))
+        (expect (list tmp-code tmp-stream) :to-equal (list 0 :stdout))
+        (let ((out (concatenate 'string
+                                (aitools.test.support:envelope-value tmp-envelope "path")
+                                "/decoded.bin")))
+          (multiple-value-bind (code envelope stream)
+              (aitools.test.support:run-aitools
+               root
+               (list "util" "decode" "base64" "--content" "AP8B/g==" "--to" out))
+            (expect (list code stream) :to-equal (list 0 :stdout))
+            (expect (aitools.test.support:envelope-value envelope "bytes") :to-be 4)
+            (expect (coerce (aitools.test.support:read-bytes out) (quote list))
+                    :to-equal (list 0 255 1 254)))))))
+
   (it "writes nothing with --dry-run and stages the file with --tx until commit"
     (aitools.test.support:with-workspace (root workspace-state)
       (declare (ignore workspace-state))
