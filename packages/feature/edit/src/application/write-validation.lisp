@@ -128,25 +128,24 @@
                               :path path))))))))
 (aitools.kernel.domain:define-flow
   (%plan-write-changes/k view requests extra &key on-planned on-rejected)
-  (aitools.store.domain:plan-changes/k
-    requests
-    :lookup-state
-    (lambda (path)
-      (aitools.store.application:view-path-state view path))
-    :lookup-content
-    (lambda (path)
-      (aitools.store.application:view-read-file view path))
-    :list-children
-    (lambda (path)
-      (mapcar
-        (lambda (entry)
-          (%child path (car entry)))
-        (aitools.store.application:view-directory-entries view path)))
-    :on-planned
-    (lambda (results)
+  (aitools.kernel.domain:flow-call
+    (aitools.store.domain:plan-changes/k
+      requests
+      :lookup-state
+      (lambda (path)
+        (aitools.store.application:view-path-state view path))
+      :lookup-content
+      (lambda (path)
+        (aitools.store.application:view-read-file view path))
+      :list-children
+      (lambda (path)
+        (mapcar
+          (lambda (entry)
+            (%child path (car entry)))
+          (aitools.store.application:view-directory-entries view path))))
+    (:on-planned (results)
       (aitools.kernel.domain:flow-continue :on-planned results extra))
-    :on-rejected
-    (lambda (code message &key candidates diagnostics conflicts repairs)
+    (:on-rejected (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
         :on-rejected
         code
@@ -175,56 +174,47 @@
                     on-planned
                     on-rejected
                     on-not-found)
-  (aitools.store.application:call-with-tx-view/k store
-                                                 tx-id
-                                                 :on-view
-                                                 (lambda (view)
-                                                   (aitools.kernel.domain:flow-call
-                                                     (%validate-write/k view
-                                                                        ports
-                                                                        write-plan
-                                                                        workspace-root
-                                                                        workspace-store
-                                                                        hash-entries
-                                                                        paths
-                                                                        area
-                                                                        temporary-root
-                                                                        command-line
-                                                                        expect-count
-                                                                        dry-run
-                                                                        tx)
-                                                     (:on-committed (requests extra)
-                                                                    (aitools.kernel.domain:flow-call
-                                                                     (%plan-write-changes/k view requests extra)
-                                                                     (:on-planned (planned-requests planned-extra)
-                                                                                  (aitools.kernel.domain:flow-continue
-                                                                                   :on-planned
-                                                                                   planned-requests
-                                                                                   planned-extra))
-                                                                     (:on-rejected
-                                                                      (code message
-                                                                            &key
-                                                                            candidates
-                                                                            diagnostics
-                                                                            conflicts
-                                                                            repairs)
-                                                                      (aitools.kernel.domain:flow-continue
-                                                                       :on-rejected
-                                                                       code
-                                                                       message
-                                                                       :candidates candidates
-                                                                       :diagnostics diagnostics
-                                                                       :conflicts conflicts
-                                                                       :repairs repairs))))
-                                                     (:on-rejected (code message &key candidates diagnostics conflicts repairs path)
-                                                      (aitools.kernel.domain:flow-continue
-                                                        :on-rejected code message
-                                                        :candidates candidates
-                                                        :diagnostics diagnostics
-                                                        :conflicts conflicts
-                                                        :repairs repairs
-                                                        :path path))))
-                                                 :on-not-found
-                                                 (lambda ()
-                                                   (aitools.kernel.domain:flow-continue
-                                                     :on-not-found))))
+  (aitools.kernel.domain:flow-call
+    (aitools.store.application:call-with-tx-view/k store tx-id)
+    (:on-view (view)
+      (aitools.kernel.domain:flow-call
+        (%validate-write/k view
+                           ports
+                           write-plan
+                           workspace-root
+                           workspace-store
+                           hash-entries
+                           paths
+                           area
+                           temporary-root
+                           command-line
+                           expect-count
+                           dry-run
+                           tx)
+        (:on-committed (requests extra)
+          (aitools.kernel.domain:flow-call
+            (%plan-write-changes/k view requests extra)
+            (:on-planned (planned-requests planned-extra)
+              (aitools.kernel.domain:flow-continue
+                :on-planned planned-requests planned-extra))
+            (:on-rejected (code message &key candidates diagnostics conflicts repairs)
+              (aitools.kernel.domain:flow-continue
+                :on-rejected
+                code
+                message
+                :candidates candidates
+                :diagnostics diagnostics
+                :conflicts conflicts
+                :repairs repairs))))
+        (:on-rejected (code message &key candidates diagnostics conflicts repairs path)
+          (aitools.kernel.domain:flow-continue
+            :on-rejected
+            code
+            message
+            :candidates candidates
+            :diagnostics diagnostics
+            :conflicts conflicts
+            :repairs repairs
+            :path path))))
+    (:on-not-found ()
+      (aitools.kernel.domain:flow-continue :on-not-found))))
