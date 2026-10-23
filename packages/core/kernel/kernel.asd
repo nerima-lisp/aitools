@@ -9,5 +9,5 @@
     :components ((:file "package") (:file "path") (:file "selector")
                  (:file "guard") (:file "duration") (:file "time") (:file "size")
                  (:file "digest-kit") (:file "token-estimate")
-                 (:file "unified-diff") (:file "unified-diff-patch")
-                 (:file "json") (:file "json-model") (:file "flow")))))
+                 (:file "unified-diff") (:file "unified-diff-patch" :depends-on ("flow"))
+                 (:file "json") (:file "json-model" :depends-on ("flow")) (:file "flow")))))

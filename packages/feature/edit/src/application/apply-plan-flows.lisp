@@ -90,31 +90,23 @@ marker when the last hunk reaches the end of the file, else DEFAULT."
                  (if (null source-path)
                      (let ((state (aitools.store.application:view-path-state (write-context-view context) target-path)))
                        (if (aitools.store.domain:entry-state-absent-p state)
-                           (aitools.kernel.domain:apply-hunks/k '()
-                                                                hunks
-                                                                :fuzz
-                                                                fuzz
-                                                                :reverse
-                                                                reverse
-                                                                :on-applied
-                                                                (lambda (lines final count)
-                                                                  (declare (ignore final))
-                                                                  (finish source-path
-                                                                          target-path
-                                                                          lines
-                                                                          (%patched-final-newline hunks reverse t)
-                                                                          count
-                                                                          +lf+
-                                                                          nil))
-                                                                :on-conflict
-                                                                (lambda (hunk-index hunk nearby)
-                                                                  (declare (ignore hunk nearby))
-                                                                  (reject "selection.no-match"
-                                                                          (format
-                                                                            nil
-                                                                            "hunk ~D does not apply to new file ~A"
-                                                                            (1+ hunk-index)
-                                                                            target-path))))
+                           (aitools.kernel.domain:flow-call
+                            (aitools.kernel.domain:apply-hunks/k '() hunks :fuzz fuzz :reverse reverse)
+                            (:on-applied (lines final count)
+                                         (declare (ignore final))
+                                         (finish source-path
+                                                 target-path
+                                                 lines
+                                                 (%patched-final-newline hunks reverse t)
+                                                 count
+                                                 +lf+
+                                                 nil))
+                            (:on-conflict (hunk-index hunk nearby)
+                                          (declare (ignore hunk nearby))
+                                          (reject "selection.no-match"
+                                                  (format nil "hunk ~D does not apply to new file ~A"
+                                                          (1+ hunk-index)
+                                                          target-path))))
                            (reject "refusal.exists"
                                    (format
                                      nil
@@ -135,57 +127,44 @@ marker when the last hunk reaches the end of the file, else DEFAULT."
                                              :repairs
                                              repairs)))
                        (:on-document (document)
-                         (aitools.kernel.domain:apply-hunks/k (coerce (text-document-lines document) 'list)
-                                                              hunks
-                                                              :fuzz
-                                                              fuzz
-                                                              :reverse
-                                                              reverse
-                                                              :on-applied
-                                                              (lambda (lines final count)
-                                                                (declare (ignore final))
-                                                                (let ((document-newline
-                                                                      (document-final-newline-p document)))
-                                                                  (finish source-path
-                                                                          target-path
-                                                                          lines
-                                                                          (%patched-final-newline hunks
-                                                                                                  reverse
-                                                                                                  document-newline)
-                                                                          count
-                                                                          (text-document-eol document)
-                                                                          (text-document-bom-p document))))
-                                                              :on-conflict
-                                                              (lambda (hunk-index hunk nearby)
-                                                                (flet ((conflict-record ()
-                                                                         (json-object
-                                                                          "path" source-path
-                                                                          "hunk" (1+ hunk-index)
-                                                                          "expected_start"
-                                                                          (aitools.kernel.domain:diff-hunk-old-start
-                                                                           hunk)
-                                                                          "expected"
-                                                                          (mapcar
-                                                                           #'aitools.kernel.domain:diff-line-text
-                                                                           (remove
-                                                                            (if reverse
-                                                                                :delete
-                                                                                :insert)
-                                                                            (aitools.kernel.domain:diff-hunk-lines
-                                                                             hunk)
-                                                                            :key
-                                                                            #'aitools.kernel.domain:diff-line-op))
-                                                                          "current" nearby)))
-                                                                  (reject "selection.no-match"
-                                                                          (format nil
-                                                                                  (concatenate 'string
-                                                                                               "hunk ~D of ~A does not "
-                                                                                               "apply within --fuzz ~D")
-                                                                                  (1+ hunk-index)
-                                                                                  source-path
-                                                                                  fuzz)
-                                                                          :candidates
-                                                                          (list (conflict-record)))))))
+                                     (aitools.kernel.domain:flow-call
+                                      (aitools.kernel.domain:apply-hunks/k
+                                       (coerce (text-document-lines document) 'list)
+                                       hunks
+                                       :fuzz fuzz
+                                       :reverse reverse)
+                                      (:on-applied (lines final count)
+                                                   (declare (ignore final))
+                                                   (let ((document-newline (document-final-newline-p document)))
+                                                     (finish source-path
+                                                             target-path
+                                                             lines
+                                                             (%patched-final-newline hunks reverse document-newline)
+                                                             count
+                                                             (text-document-eol document)
+                                                             (text-document-bom-p document))))
+                                      (:on-conflict (hunk-index hunk nearby)
+                                                    (flet ((conflict-record ()
+                                                                            (json-object
+                                                                             "path" source-path
+                                                                             "hunk" (1+ hunk-index)
+                                                                             "expected_start"
+                                                                             (aitools.kernel.domain:diff-hunk-old-start hunk)
+                                                                             "expected"
+                                                                             (mapcar #'aitools.kernel.domain:diff-line-text
+                                                                                     (remove (if reverse :delete :insert)
+                                                                                             (aitools.kernel.domain:diff-hunk-lines hunk)
+                                                                                             :key #'aitools.kernel.domain:diff-line-op))
+                                                                             "current" nearby)))
+                                                      (reject "selection.no-match"
+                                                              (format nil
+                                                                      (concatenate 'string
+                                                                                   "hunk ~D of ~A does not "
+                                                                                   "apply within --fuzz ~D")
+                                                                      (1+ hunk-index)
+                                                                      source-path
+                                                                      fuzz)
+                                                              :candidates (list (conflict-record)))))))
                        (:on-filtered ())))))
         (dolist (patch (mapcar #'cdr patches))
           (unless failure

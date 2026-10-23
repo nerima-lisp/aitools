@@ -156,8 +156,9 @@ returning the 0-based index or NIL."
                      (return-from %find-hunk-position candidate)))
               finally (return nil)))))
 
-(defun apply-hunks/k (lines hunks &key (fuzz 0) reverse on-applied on-conflict)
-  "Apply HUNKS (from one FILE-PATCH) to LINES (a list of line strings without
+(define-flow
+ (apply-hunks/k lines hunks &key (fuzz 0) reverse on-applied on-conflict)
+ "Apply HUNKS (from one FILE-PATCH) to LINES (a list of line strings without
 trailing newlines), searching within FUZZ lines of each hunk's recorded
 position. REVERSE applies the inverse patch (see REVERSE-HUNK).
 
@@ -166,29 +167,30 @@ hunk placed. Otherwise calls (FUNCALL ON-CONFLICT hunk-index hunk
 nearby-lines) for the first hunk that could not be placed and returns that
 call's value; nearby-lines is the current content around the hunk's expected
 position, for the caller to offer as SELECTION.NO-MATCH candidates."
-  (let ((hunks (if reverse (mapcar #'reverse-hunk hunks) hunks))
-        (result (coerce lines 'list))
-        (final-newline t))
-    (loop for hunk in hunks
-          for hunk-index from 0
-          do (let* ((vector-lines (coerce result 'simple-vector))
-                     (position (%find-hunk-position vector-lines hunk fuzz)))
-                (unless position
-                  (let* ((anchor (max 0 (1- (diff-hunk-old-start hunk))))
-                         (window-start (max 0 (- anchor fuzz 2)))
-                         (window-end (min (length vector-lines)
-                                          (+ anchor (length (%hunk-old-lines hunk)) fuzz 2))))
-                    (return-from apply-hunks/k
-                      (funcall on-conflict hunk-index hunk
-                              (coerce (subseq vector-lines window-start window-end) 'list)))))
-                (let* ((old-length (length (%hunk-old-lines hunk)))
-                       (new-lines (%hunk-new-lines hunk))
-                       (before (subseq result 0 position))
-                       (after (subseq result (+ position old-length))))
-                  (setf result (append before new-lines after))
-                  (let ((last-line (car (last (diff-hunk-lines hunk)))))
-                    (when (and last-line (diff-line-no-newline last-line)
-                              (member (diff-line-op last-line) '(:context :insert))
-                              (null after))
-                      (setf final-newline nil))))))
-    (funcall on-applied result final-newline (length hunks))))
+ (let ((hunks (if reverse (mapcar #'reverse-hunk hunks) hunks))
+       (result (coerce lines 'list))
+       (final-newline t))
+   (loop for hunk in hunks
+         for hunk-index from 0
+         do (let* ((vector-lines (coerce result 'simple-vector))
+                   (position (%find-hunk-position vector-lines hunk fuzz)))
+              (unless position
+                (let* ((anchor (max 0 (1- (diff-hunk-old-start hunk))))
+                       (window-start (max 0 (- anchor fuzz 2)))
+                       (window-end (min (length vector-lines)
+                                        (+ anchor (length (%hunk-old-lines hunk)) fuzz 2))))
+                  (return-from apply-hunks/k
+                    (flow-continue :on-conflict hunk-index hunk
+                                   (coerce (subseq vector-lines window-start window-end) 'list)))))
+              (let* ((old-length (length (%hunk-old-lines hunk)))
+                     (new-lines (%hunk-new-lines hunk))
+                     (before (subseq result 0 position))
+                     (after (subseq result (+ position old-length))))
+                (setf result (append before new-lines after))
+                (let ((last-line (car (last (diff-hunk-lines hunk)))))
+                  (when (and last-line
+                             (diff-line-no-newline last-line)
+                             (member (diff-line-op last-line) '(:context :insert))
+                             (null after))
+                    (setf final-newline nil))))))
+   (flow-continue :on-applied result final-newline (length hunks))))
