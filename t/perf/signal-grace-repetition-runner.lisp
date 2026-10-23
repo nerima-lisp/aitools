@@ -49,7 +49,7 @@
                  (equal expected-test-source-file test-source-file)
                  (plusp (length fasl-files)))
       (error "The loaded systems do not belong to the current source checkout."))
-    (unless (aitools.process.infrastructure:find-spawn-trampoline)
+    (unless (uiop:symbol-call :aitools.process.infrastructure :find-spawn-trampoline)
       (error "The signal integration test requires the process spawn helper."))
     (format t "SOURCE_VARIANT=~A REVISION=~A TRIAL=~D SOURCE_ROOT=~A SOURCE_ASD=~A RUNNER_SOURCE=~A FASL_CACHE=~A FASL_COUNT=~D~%"
             variant source-revision trial (namestring source) (namestring source-file)
@@ -74,12 +74,17 @@
   (let* ((observations (make-hash-table :test #'eq))
          (observer (lambda (phase &rest values)
                      (setf (gethash phase observations) values)))
-         (aitools.process.integration-test::*signal-grace-probe-observer* observer)
+         (observer-symbol
+          (or (find-symbol "*SIGNAL-GRACE-PROBE-OBSERVER*"
+                           "AITOOLS.PROCESS.INTEGRATION-TEST")
+              (error "The signal integration observer is unavailable.")))
          (json (make-string-output-stream))
-         (events (uiop:symbol-call :cl-weave :run nil
-                                   :name-filter
-                                   "rejects incomplete or mismatched pattern selection and sends KILL after grace"
-                                   :reporter :json :stream json))
+         (events
+          (progv (list observer-symbol) (list observer)
+            (uiop:symbol-call :cl-weave :run nil
+                              :name-filter
+                              "rejects incomplete or mismatched pattern selection and sends KILL after grace"
+                              :reporter :json :stream json)))
          (report (uiop:symbol-call :json-kit :parse (get-output-stream-string json)))
          (reported-events (gethash "events" report)))
     (unless (and (= (length events) 1)
