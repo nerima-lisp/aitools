@@ -7,30 +7,44 @@
 
 ;;; ------------------------------------------------------------------ scans
 
-(defun %scan-options/k (env options fail on-options)
-  "The common scan options as CALL-WITH-WORKSPACE-SCAN/K keywords."
-  (declare (type function fail on-options))
+(aitools.kernel.domain:define-flow
+  (%scan-options/k env options &key on-error on-options)
+  "Validate common scan options and pass the resulting keywords."
   (let ((host (command-env-host env)))
     (aitools.workspace.application:call-with-scan-options/k
-     host
-     :path-absolute (lambda (path) (aitools.workspace.application:user-path-absolute host path))
-     :current-time (lambda () (funcall (edit-ports-unix-now (command-env-ports env))))
-     :language-predicate #'aitools.text.domain:language-path-predicate
-     :language-names (aitools.text.domain:language-names)
-     :glob (getf options :glob)
-     :lang (getf options :lang)
-     :no-ignore (getf options :no-ignore)
-     :skip-larger-than (getf options :skip-larger-than)
-     :newer (getf options :newer)
-     :on-error
-     (lambda (kind value names)
-       (funcall fail (if (eq kind :unknown-language) "input.unsupported-language" "argument.invalid")
-                (case kind
-                  (:unknown-language (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value
-                                             names))
-                  (:invalid-size (format nil "--skip-larger-than ~S is not a size" value))
-                  (:invalid-newer (format nil "--newer ~S is neither a duration nor an existing path" value)))))
-     :on-options on-options)))
+      host
+      :path-absolute
+      (lambda (path)
+        (aitools.workspace.application:user-path-absolute host path))
+      :current-time
+      (lambda ()
+        (funcall (edit-ports-unix-now (command-env-ports env))))
+      :language-predicate
+      #'aitools.text.domain:language-path-predicate
+      :language-names
+      (aitools.text.domain:language-names)
+      :glob (getf options :glob)
+      :lang (getf options :lang)
+      :no-ignore (getf options :no-ignore)
+      :skip-larger-than (getf options :skip-larger-than)
+      :newer (getf options :newer)
+      :on-error
+      (lambda (kind value names)
+        (aitools.kernel.domain:flow-continue
+          :on-error
+          (if (eq kind :unknown-language)
+              "input.unsupported-language"
+              "argument.invalid")
+          (case kind
+            (:unknown-language
+             (format nil "unknown --lang ~S; known: ~{~A~^, ~}" value names))
+            (:invalid-size
+             (format nil "--skip-larger-than ~S is not a size" value))
+            (:invalid-newer
+             (format nil "--newer ~S is neither a duration nor an existing path" value)))))
+      :on-options
+      (lambda (keywords)
+        (aitools.kernel.domain:flow-continue :on-options keywords)))))
 
 (defun %tx-overlay (env tx)
   "A WORKSPACE-OVERLAY showing TX's staged state to the scan, or NIL
@@ -70,32 +84,47 @@ when the tx does not exist (the write itself then reports it)."
        (values t
                (aitools.store.application:view-read-file view relative)))))))
 
-(defun scan-files/k (env paths options fail on-files &key (kinds '(:file)) on-skip)
-  "Workspace-relative paths of the entries of KINDS below PATHS (the root
-when NIL), in path order, honouring the scan options; with --tx the scan
-sees the tx's staged files."
-  (declare (type function fail on-files))
-  (%scan-options/k env options fail
-                   (lambda (keywords)
-                     (when (getf options :tx)
-                       (setf keywords (list* :overlay (%tx-overlay env (getf options :tx)) keywords)))
-                     (let ((found '()))
-                       (apply #'aitools.workspace.application:call-with-workspace-scan/k
-                              (command-env-host env) (command-env-root env)
-                              :paths paths
-                              :emit (lambda (entry result)
-                                      (declare (ignore result))
-                                      (when (member (aitools.workspace.application:scan-entry-kind entry) kinds)
-                                        (push entry found))
-                                      nil)
-                              :on-skip (lambda (entry reason)
-                                         (when on-skip (funcall on-skip entry reason)))
-                              :on-complete (lambda (source stopped)
-                                             (declare (ignore source stopped))
-                                             (funcall on-files (nreverse found)))
-                              :on-error (lambda (reason path)
-                                          (if (eq reason :not-found)
-                                              (funcall fail "input.not-found" (format nil "~A does not exist" path) :path path)
-                                              (funcall fail "refusal.outside-workspace"
-                                                       (format nil "~A is outside the workspace" path) :path path)))
-                              keywords)))))
+(aitools.kernel.domain:define-flow
+  (scan-files/k env paths options &key (kinds (list :file)) skip-handler on-error on-files)
+  "Return workspace-relative entries of KINDS below PATHS in path order."
+  (aitools.kernel.domain:flow-call
+    (%scan-options/k env options)
+    (:on-error (code message)
+      (aitools.kernel.domain:flow-continue :on-error code message))
+    (:on-options (keywords)
+      (when (getf options :tx)
+        (setf keywords
+              (list* :overlay (%tx-overlay env (getf options :tx)) keywords)))
+      (let ((found (list)))
+        (apply #'aitools.workspace.application:call-with-workspace-scan/k
+               (command-env-host env)
+               (command-env-root env)
+               :paths paths
+               :emit
+               (lambda (entry result)
+                 (declare (ignore result))
+                 (when (member (aitools.workspace.application:scan-entry-kind entry) kinds)
+                   (push entry found))
+                 nil)
+               :on-skip
+               (lambda (entry reason)
+                 (when skip-handler
+                   (funcall skip-handler entry reason)))
+               :on-complete
+               (lambda (source stopped)
+                 (declare (ignore source stopped))
+                 (aitools.kernel.domain:flow-continue :on-files (nreverse found)))
+               :on-error
+               (lambda (reason path)
+                 (if (eq reason :not-found)
+                     (aitools.kernel.domain:flow-continue
+                       :on-error
+                       "input.not-found"
+                       (format nil "~A does not exist" path)
+                       :path path)
+                     (aitools.kernel.domain:flow-continue
+                       :on-error
+                       "refusal.outside-workspace"
+                       (format nil "~A is outside the workspace" path)
+                       :path path)))
+               keywords)))))
