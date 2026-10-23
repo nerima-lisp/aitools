@@ -31,7 +31,10 @@
                                                                 :reporter
                                                                 :json
                                                                 :stream
-                                                                json))))
+                                                                json
+                                                                :exclude-tags
+                                                                (when (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")
+                                                                  (list :trace-positive))))))
                          (report (get-output-stream-string json))
                          (parsed (uiop:symbol-call :json-kit :parse report))
                          (selected (gethash "events" parsed)))
@@ -46,17 +49,7 @@
                     (unless
                         (and (plusp (length selected))
                              (= (length selected) (gethash "passed" parsed))
-                             (or (zerop (gethash "skipped" parsed))
-                                 (and
-                                  (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")
-                                  (= (gethash "skipped" parsed)
-                                     (count-if
-                                      (lambda (event)
-                                        (and
-                                         (equal (gethash "status" event) "skip")
-                                         (equal (gethash "reason" event)
-                                                "trace specs require a binary with --trace")))
-                                      selected))))
+                             (zerop (gethash "skipped" parsed))
                              (zerop (gethash "todos" parsed))
                              (zerop (gethash "failed" parsed))
                              (zerop (gethash "errored" parsed))

@@ -24,6 +24,7 @@
 
 (describe "aitools child-process trace spans (e2e)"
   (it "records process.run with outcomes and the command parent"
+    (:tags (quote (:trace-positive)))
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "trace specs require a binary with --trace"))
@@ -56,6 +57,7 @@
          (expect-child-process-span (aitools-envelope error) "process.run" "error")))))
 
   (it "records process.launch-detached and stops the started child"
+    (:tags (quote (:trace-positive)))
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "trace specs require a binary with --trace"))

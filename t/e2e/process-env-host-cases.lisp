@@ -10,6 +10,7 @@
 
 (describe "aitools environment child-process trace span (e2e)"
   (it "records env.system-query with the command parent"
+    (:tags (quote (:trace-positive)))
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "trace specs require a binary with --trace"))

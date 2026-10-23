@@ -96,6 +96,7 @@
 
 (describe "aitools store IO trace spans (e2e)"
   (it "traces store reads, writes, and journal appends with fixed span names"
+    (:tags (quote (:trace-positive)))
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "trace specs require a binary with --trace"))
@@ -135,6 +136,7 @@
 
 (describe "aitools store transaction trace spans (e2e)"
   (it "traces tx stage, read, and commit through the same store IO names"
+    (:tags (quote (:trace-positive)))
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "trace specs require a binary with --trace"))
@@ -183,6 +185,7 @@
 
 (describe "aitools store recovery rewrite trace spans (e2e)"
           (it "traces the journal rewrite when startup recovery rolls forward an intent"
+              (:tags (quote (:trace-positive)))
               (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
                       (and directory (plusp (length directory))))
                 (cl-weave:skip "trace specs require a binary with --trace"))
