@@ -221,8 +221,11 @@ as gone."
 
 ;;; ---------------------------------------------------------------- clock
 
+(defun %internal-time-to-ms (ticks)
+  (/ (* 1000 ticks) internal-time-units-per-second))
+
 (defun %monotonic-ms ()
-  (values (floor (* 1000 (get-internal-real-time)) internal-time-units-per-second)))
+  (%internal-time-to-ms (get-internal-real-time)))
 
 (defun %sleep-ms (milliseconds)
   (sleep (/ milliseconds 1000)))
