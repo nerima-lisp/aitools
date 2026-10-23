@@ -129,7 +129,7 @@
         (expect code :to-equal "input.not-found")
         (expect (repair-commands keys) :to-equal '("aitools tx status")))))
   (it "reports a missing tx after replace scans the workspace"
-    (with-workspace ()
+    (with-edit-workspace ()
       (put "a.txt" (format nil "foo~%"))
       (with-error (code message keys)
           (run-in "no-such-tx" "replace" (list "foo" "bar") :expect-count "1")
