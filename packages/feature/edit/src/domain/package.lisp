@@ -128,4 +128,8 @@
    #:extract-step-mode
    #:extract-step-target
    #:plan-archive-extraction
+   #:parse-yaml-write-document
+   #:serialize-yaml-document
+   #:parse-toml-write-document
+   #:serialize-toml-document
    #:build-archive))

@@ -84,45 +84,60 @@ tokens (set/delete) or NIL (merge/patch/fmt)."
                    "Read the JSON value to choose a current pointer."
                    (get-cmd repair-pointer)))))))
 
-(defun %json-plan (transform &key indent-function sort-keys repair-pointer)
-  "A plan applying TRANSFORM (value -> value) to the target's JSON.
-INDENT-FUNCTION maps the detected indent to the one written. A pointer
-refusal from TRANSFORM (input.not-found, selection.no-match) is rejected with
-pointer-aware repairs (contract-F3)."
-  (lambda (context &key on-committed on-rejected)
-    (let ((path (context-path context)))
-            (aitools.kernel.domain:flow-call
-        (%read-json/k context path)
-        (:on-error (code message &key candidates diagnostics conflicts repairs ((:path ignored-path)))
-          (declare (ignore ignored-path))
-          (funcall on-rejected
-                   code
-                   message
-                   :candidates
-                   candidates
-                   :diagnostics
-                   diagnostics
-                   :conflicts
-                   conflicts
-                   :repairs
-                   repairs))
-        (:on-json (value document indent)
-          (handler-case (aitools.kernel.domain:flow-call
-                          (commit-document context
-                                           path
-                                           (%json-document document
-                                                           (funcall transform value)
-                                                           :indent
-                                                           (if indent-function
-                                                               (funcall indent-function indent)
-                                                               indent)
-                                                           :sort-keys
-                                                           sort-keys))
-                          (:on-committed (requests &optional extra)
-                            (funcall on-committed requests extra)))
-            (edit-refusal (condition)
-              (funcall on-rejected
-                       (edit-refusal-code condition)
-                       (edit-refusal-detail condition)
-                       :repairs
-                       (%json-repairs path (edit-refusal-code condition) repair-pointer)))))))))
+(defun %json-plan (transform &key indent-function sort-keys repair-pointer
+                             reader document-function repairs-function
+                             extra-function)
+  "Apply TRANSFORM through the shared JSON value model and write pipeline."
+  (lambda (context &key on-committed on-rejected
+         &aux (path (context-path context)))
+    (funcall
+     (or reader (function %read-json/k))
+     context
+     path
+     :on-error
+     (lambda (code message &key candidates diagnostics conflicts repairs
+                   ((:path ignored-path)))
+       (declare (ignore ignored-path))
+       (funcall on-rejected code
+                message
+                :candidates candidates
+                :diagnostics diagnostics
+                :conflicts conflicts
+                :repairs repairs))
+     :on-json
+     (lambda (value document metadata)
+       (handler-case
+           (aitools.kernel.domain:flow-call
+            (commit-document
+             context
+             path
+             (if document-function
+                 (funcall document-function
+                          document
+                          (funcall transform value)
+                          metadata)
+               (%json-document document
+                               (funcall transform value)
+                               :indent
+                               (if indent-function
+                                   (funcall indent-function metadata)
+                                 metadata)
+                               :sort-keys
+                               sort-keys))
+             :extra (when extra-function
+                      (funcall extra-function metadata)))
+            (:on-committed (requests &optional extra)
+                           (funcall on-committed requests extra)))
+         (edit-refusal (condition)
+                       (let ((code (edit-refusal-code condition)))
+                         (funcall on-rejected
+                                  code
+                                  (edit-refusal-detail condition)
+                                  :repairs
+                                  (if repairs-function
+                                      (funcall repairs-function
+                                               (write-context-command context)
+                                               path
+                                               code
+                                               repair-pointer)
+                                    (%json-repairs path code repair-pointer))))))))))

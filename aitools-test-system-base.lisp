@@ -158,6 +158,9 @@
                                               (:file "unit/edit/pipeline-edge-test")
                                               (:file "unit/edit/format-test")
                                               (:file "unit/edit/format-edge-test")
+                                              (:module "yaml-toml-write-tests" :pathname "unit/edit/" :serial t
+                                                :components ((:file "yaml-doc-test") (:file "toml-doc-test")
+                                                             (:file "yaml-flows-test") (:file "toml-flows-test")))
                                               (:file "integration/edit-text-test")
                                               (:file "integration/edit-text-pipeline-test")
                                               (:file "integration/edit-text-write-runtime-test")

@@ -43,7 +43,8 @@
    (:file "domain/store/action-names-data")
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
-   (:file "presentation/edit/command-schema-data")))
+   (:file "presentation/edit/command-schema-data")
+   (:file "presentation/edit/yaml-toml-command-schema-data")))
 
 (defsystem "aitools"
   :description "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends: JSON-only output, crash-safe writes, and a built-in undo history."
