@@ -187,6 +187,19 @@ else under $TMPDIR; removed afterwards."
       (expect (nth-value 0 (port "RUN-PROGRAM" sleep '("5") 1/5)) :to-be :timeout)
       (expect (multiple-value-list (port "RUN-PROGRAM" "/nonexistent/aitools-no-such-program" '() 1))
               :to-equal '(:not-started nil nil nil))))
+  (it "uses the default child-process adapter when none is supplied"
+    (let* ((ports
+            (aitools.env.infrastructure:make-env-ports-from-boundaries
+             :clock (cl-boundary-kit:make-fake-clock :start 0)
+             :environment (cl-boundary-kit:make-test-environment)
+             :filesystem (cl-boundary-kit:make-test-filesystem)
+             :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")))
+           (run-program (aitools.env.application::env-ports-run-program ports)))
+      (expect (multiple-value-list
+               (funcall run-program "/bin/sh"
+                        '("-c" "printf out; printf err >&2; exit 3")
+                        10))
+              :to-equal '(:exited 3 "out" "err"))))
 
   (it "answers NIL for the space of a path that does not exist"
     (expect (port "FILE-SYSTEM-SPACE" "/nonexistent/aitools-no-such-directory") :to-be nil)))
