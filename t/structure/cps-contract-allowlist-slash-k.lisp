@@ -1,28 +1,8 @@
 (in-package #:aitools.integration.cps-contract-test)
 
 (defparameter *legacy-cps-slash-k-allowlist*
-  '
-(:slash-k-defun
-     ("packages/core/kernel/src/domain/json-model.lisp" "JSON-MODEL-RESOLVE/K")
-     ("packages/core/kernel/src/domain/unified-diff-patch.lisp" "APPLY-HUNKS/K")
-     ("packages/core/store/src/application/lock.lisp" "%CALL-WITH-FILE-LOCK/K")
-     ("packages/core/store/src/application/lock.lisp" "CALL-WITH-TX-LOCK/K")
-     ("packages/core/store/src/application/lock.lisp" "CALL-WITH-WORKSPACE-LOCK/K")
-     ("packages/core/store/src/application/recovery.lisp" "RECOVER/K")
-     ("packages/core/store/src/application/tx-commit.lisp" "TX-COMMIT/K")
-     ("packages/core/store/src/application/tx-commit.lisp" "TX-DIFF/K")
-     ("packages/core/store/src/application/tx-stage.lisp" "TX-DROP/K")
-     ("packages/core/store/src/application/tx-stage.lisp" "TX-REBASE/K")
-     ("packages/core/store/src/application/tx-stage.lisp" "TX-STAGE/K")
-     ("packages/core/store/src/application/tx.lisp" "CALL-WITH-TX-VIEW/K")
-     ("packages/core/store/src/application/tx.lisp" "TX-ABORT/K")
-     ("packages/core/store/src/application/tx.lisp" "TX-BEGIN/K")
-     ("packages/core/store/src/application/tx.lisp" "TX-RECORD-READ/K")
-     ("packages/core/store/src/application/tx.lisp" "TX-STATUS/K")
-     ("packages/core/store/src/application/undo.lisp" "UNDO-OP/K")
-     ("packages/core/store/src/application/view.lisp" "%VIEW-PLAN/K")
-     ("packages/core/store/src/application/write-preparation.lisp" "CALL-WITH-PREPARED-INTENT/K")
-     ("packages/core/store/src/application/write-protocol.lisp" "%DISK-PLAN/K")
-     ("packages/core/store/src/application/write-protocol.lisp" "%PLAN-AND-COMMIT/K")
-     ("packages/core/store/src/application/write-protocol.lisp" "COMMIT-CHANGES/K")
-     ("packages/core/store/src/domain/plan.lisp" "PLAN-CHANGES/K")))
+  '(:slash-k-defun
+    ("packages/core/kernel/src/domain/json-model.lisp" "JSON-MODEL-RESOLVE/K")
+    ("packages/core/kernel/src/domain/unified-diff-patch.lisp" "APPLY-HUNKS/K")
+    ("packages/feature/edit/src/application/pipeline-store.lisp" "%DRY-RUN-IN-TX/K")
+    ("packages/feature/edit/src/application/pipeline-store.lisp" "RUN-WRITE-COMMAND/K")))
