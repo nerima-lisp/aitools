@@ -199,4 +199,22 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
          :on-ok (lambda (fields) (setf result fields))
          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
         (expect (first result) :to-equal "argument.invalid")
-        (expect (search "is not a directory" (second result)) :to-be-truthy)))))
+        (expect (search "is not a directory" (second result)) :to-be-truthy))))
+  (it "refuses a bad --root when another context drives the pipeline directly"
+    (with-edit-workspace ()
+      (let ((result nil))
+        (aitools.edit.application:run-write-command/k
+         *ports*
+         (aitools.edit.application:make-write-plan
+          :command "write"
+          :targets (list (aitools.edit.application:make-write-target "a.txt"))
+          :plan (lambda (context &key on-committed on-rejected)
+                  (declare (ignore context on-rejected))
+                  (funcall on-committed (list))))
+         :root (disk "missing")
+         :on-ok (lambda (fields) (setf result fields))
+         :on-error (lambda (code message &rest keys)
+                     (declare (ignore keys))
+                     (setf result (list code message))))
+        (expect (first result) :to-equal "input.not-found")
+        (expect (search "does not exist" (second result)) :to-be-truthy)))))
