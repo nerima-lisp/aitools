@@ -133,3 +133,86 @@
                   (expect (aitools/cli::%trace-envelope-meta :ok) :to-be-falsy)
                   (expect aitools/cli::*trace-session* :to-be-falsy)))))
 
+(describe "aitools CLI trace projection guards"
+  (it "rejects an outcome outside the trace contract"
+    (let ((message
+            (handler-case
+                (progn (aitools/cli::%trace-outcome-name :cancelled) "")
+              (error (condition) (princ-to-string condition)))))
+      (expect (search "Invalid trace outcome" message) :to-be-truthy)))
+
+  (it "rejects trace kinds outside the projection"
+    (expect (handler-case
+                (progn (aitools/cli::%trace-kind-name :unknown) nil)
+              (error () t))
+            :to-be t))
+
+  (it "rejects a span with no trace metadata mapping"
+    (let ((session (aitools/cli::%make-trace-session)))
+      (let ((aitools/cli::*trace-session* session))
+        (aitools/cli::%call-with-trace-span :command "read" (lambda () :ok)))
+      (let* ((record (first (aitools/cli::%trace-session-records session)))
+             (span-id (observability-kit:span-record-span-id record)))
+        (remhash span-id (aitools/cli::%trace-session-kinds session))
+        (let ((message
+                (handler-case
+                    (progn
+                      (aitools/cli::%trace-project-record
+                       session record (observability-kit:span-record-start-monotonic record))
+                      "")
+                  (error (condition) (princ-to-string condition)))))
+          (expect (search "Trace metadata is missing" message) :to-be-truthy)))))
+
+  (it "rejects a projected span with a missing parent"
+    (let ((span (aitools/cli::%make-projected-span
+                 :kit-id "child" :parent-kit-id "missing"))
+          (id-map (make-hash-table :test #'equal)))
+      (let ((message
+              (handler-case
+                  (progn (aitools/cli::%trace-projected-parent-id span id-map) "")
+                (error (condition) (princ-to-string condition)))))
+        (expect (search "Trace parent span" message) :to-be-truthy))))
+
+  (it "rejects a session with no completed root record"
+    (let ((session (aitools/cli::%make-trace-session)))
+      (setf (aitools/cli::%trace-session-root-span-id session) "missing")
+      (let ((message
+              (handler-case
+                  (progn (aitools/cli::%trace-project-session session) "")
+                (error (condition) (princ-to-string condition)))))
+        (expect (search "root trace span has no completed record" message)
+                :to-be-truthy))))
+
+  (it "rejects owner metadata before a root span exists"
+    (let ((session (aitools/cli::%make-trace-session)))
+      (let ((aitools/cli::*trace-session* session)
+            (aitools/cli::*trace-envelope-owner-p* t))
+        (let ((message
+                (handler-case
+                    (progn (aitools/cli::%trace-envelope-meta :ok) "")
+                  (error (condition) (princ-to-string condition)))))
+          (expect (search "owner trace session has no root span" message)
+                  :to-be-truthy)))))
+
+  (it "runs a span thunk directly when tracing is disabled"
+    (let ((aitools/cli::*trace-session* nil)
+          (calls 0))
+      (expect (multiple-value-list
+               (aitools/cli::%call-with-trace-span
+                :command "read"
+                (lambda () (incf calls) (values 0 :payload))))
+              :to-equal '(0 :payload))
+      (expect calls :to-be 1)))
+
+  (it "marks a normally returned error outcome on the span"
+    (let ((session (aitools/cli::%make-trace-session)))
+      (let ((aitools/cli::*trace-session* session))
+        (aitools/cli::%call-with-trace-span
+         :command "read" (lambda () :payload)
+         :outcome-function (lambda (values) (declare (ignore values)) :error)))
+      (let* ((record (first (aitools/cli::%trace-session-records session)))
+             (span-id (observability-kit:span-record-span-id record)))
+        (expect (observability-kit:span-record-status record) :to-be :error)
+        (expect (gethash span-id (aitools/cli::%trace-session-outcomes session))
+                :to-be :error)))))
+
