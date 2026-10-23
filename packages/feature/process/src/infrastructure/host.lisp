@@ -233,4 +233,4 @@ as gone."
     ;; Recheck because SLEEP can return before the requested interval elapses.
     (loop for remaining = (- milliseconds (- (%monotonic-ms) start))
           while (> remaining 0)
-          do (sleep (/ (max remaining 1) 1000)))))
+          do (sleep (/ remaining 1000)))))
