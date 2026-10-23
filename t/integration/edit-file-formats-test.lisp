@@ -1,4 +1,21 @@
 (in-package #:aitools.edit.test)
+(describe "aitools copy source kind refusals"
+  (it "refuses to copy a symlink staged in a transaction without changing its target"
+    (with-edit-workspace ()
+      (put "target.txt" "content")
+      (let* ((tx (begin-tx))
+             (before (snapshot)))
+        (expect (run-in tx "link" '("target.txt" "l")) :to-be :ok)
+        (with-error (code message)
+            (run-in tx "copy" '("l" "copied"))
+          (expect code :to-equal "refusal.not-a-file")
+          (expect message :to-equal "l is a symlink"))
+        (expect-unchanged before)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (kind "l") :to-be :symlink)
+        (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt")
+        (expect (kind "copied") :to-be :absent)
+        (expect (text "target.txt") :to-equal "content")))))
 
 (describe "aitools json writes"
   (it "keeps key order and the file's indentation, appends with /-, and refuses a missing parent"
@@ -119,4 +136,50 @@
       (put "keep.txt" "k")
       (multiple-value-bind (kind fields) (run "archive.create" '("a.tar" "."))
         (expect kind :to-be :ok)
-        (expect (field fields "entries") :to-be 1)))))
+        (expect (field fields "entries") :to-be 1))))
+  (it "records archive positionals through the direct write pipeline"
+    (with-edit-workspace ()
+      (put "src/a.txt" (format nil "alpha~%"))
+      (let ((result nil)
+            (host (aitools.edit.application::edit-ports-workspace-host *ports*)))
+        (aitools.workspace.application:call-with-resolved-root/k
+         host
+         :root *root*
+         :on-error (lambda (reason path)
+                     (declare (ignore reason path))
+                     (setf result (list :error)))
+         :on-resolved
+         (lambda (workspace-root)
+           (funcall
+            (gethash "archive.create" aitools.edit.application::*preparers*)
+            *ports*
+            (aitools.edit.application::make-command-env host workspace-root *ports*)
+            (list "a.tar" "src")
+            nil
+            :on-error (lambda (code message &rest keys)
+                        (declare (ignore message keys))
+                        (setf result (list :error code)))
+            :on-plan
+            (lambda (plan)
+              (expect
+               (funcall (aitools.edit.application::write-plan-record-positionals plan)
+                        (list "a.tar"))
+               :to-equal
+               (list "a.tar" "src"))
+              (aitools.edit.application:run-write-command/k
+               *ports* plan
+               :root *root*
+               :on-ok (lambda (fields)
+                        (setf result (list :ok fields)))
+               :on-error (lambda (code message &rest keys)
+                           (declare (ignore message keys))
+                           (setf result (list :error code))))))))
+        (expect (first result) :to-be :ok)
+        (let* ((fields (second result))
+               (op-id (field fields "op_id"))
+               (entry (aitools.store.application:find-journal-entry
+                       (open-store *root*) op-id)))
+          (expect (aitools.store.domain:journal-entry-argv entry) :to-equal (list "archive" "create" "a.tar" "src"))
+          (expect (undo op-id) :to-be :committed)
+          (expect (kind "a.tar") :to-be :absent)
+          (expect (text "src/a.txt") :to-equal (format nil "alpha~%")))))))

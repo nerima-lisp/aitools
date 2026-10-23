@@ -146,10 +146,9 @@
                                                (cons "format"
                                                      (aitools.text.domain:archive-format-name
                                                       format))
-                                               (cons "entries" (length members)))))))
-                             :record-options
-                             options
-                             :record-positionals
-                             (lambda (paths)
-                               (list* (first paths) sources)))))))))))))
+                                               (cons "entries" (length members))))))))
+                           :record-options options
+                           :record-positionals
+                           (lambda (paths)
+                             (list* (first paths) sources))))))))))))
 
