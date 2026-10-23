@@ -33,4 +33,9 @@
                                            :operators
                                            '(:comparison-operator))))
              (expect (length results) :to-be 1)
-             (cl-weave:assert-mutation-score results 1.0))))
+             (cl-weave:assert-mutation-score results 1.0)))
+          (it "uses the command-name fallback for schema repairs without a display name"
+              (expect (getf (aitools.inspect.application::%option-conflict-repair :archive-read)
+                            :command)
+                      :to-equal
+                      "aitools schema archive read")))
