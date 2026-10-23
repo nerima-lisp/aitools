@@ -14,3 +14,4 @@ t/unit/protocol/redaction-test.lisp:private-key:11
 3b40b371dfe745da81e14782679ab0ecce32cef1:t/unit/protocol/redaction-test.lisp:private-key:168
 3b40b371dfe745da81e14782679ab0ecce32cef1:t/unit/protocol/redaction-test.lisp:private-key:180
 3b40b371dfe745da81e14782679ab0ecce32cef1:t/unit/protocol/redaction-test.lisp:private-key:275
+3b40b371dfe745da81e14782679ab0ecce32cef1:t/unit/protocol/redaction-test.lisp:generic-api-key:234
