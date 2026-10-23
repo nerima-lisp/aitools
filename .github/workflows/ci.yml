@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   check:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref_name != 'p2/fx-signal-grace' }}
     runs-on: ubuntu-latest
     # A hung SBCL test would otherwise hold a runner for the full 6-hour
     # default. `nix flake check` finishes in a few minutes from a cold cache.
@@ -64,6 +65,7 @@ jobs:
         run: git diff --check
 
   check-darwin:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref_name != 'p2/fx-signal-grace' }}
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -105,3 +107,86 @@ jobs:
 
       - name: Check diff hygiene
         run: git diff --check
+
+  signal-grace-repetition:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'p2/fx-signal-grace' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 5ab1f7621dfd356f43213964b16bc1b223c8a640
+          path: baseline
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Install the same timing observer in the baseline source
+        run: |
+          mkdir -p baseline/t/perf
+          cp t/integration/process-test.lisp baseline/t/integration/process-test.lisp
+          cp t/integration/process-signal-test.lisp baseline/t/integration/process-signal-test.lisp
+          cp t/perf/signal-grace-repetition-runner.lisp baseline/t/perf/signal-grace-repetition-runner.lisp
+          cmp t/integration/process-test.lisp baseline/t/integration/process-test.lisp
+          cmp t/integration/process-signal-test.lisp baseline/t/integration/process-signal-test.lisp
+          cmp t/perf/signal-grace-repetition-runner.lisp baseline/t/perf/signal-grace-repetition-runner.lisp
+
+      - name: Run 50 alternating baseline and fixed pairs
+        env:
+          AITOOLS_SIGNAL_GRACE_BASELINE_SOURCE: 5ab1f7621dfd356f43213964b16bc1b223c8a640
+          AITOOLS_SIGNAL_GRACE_FIXED_SOURCE: ${{ github.sha }}
+        run: |
+          nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command bash -c '
+            set -euo pipefail
+            results_dir="${RUNNER_TEMP}/signal-grace-repetitions"
+            current_root="${GITHUB_WORKSPACE}"
+            baseline_root="${GITHUB_WORKSPACE}/baseline"
+            mkdir -p "$results_dir"
+            baseline_below=0
+            baseline_failures=0
+            fixed_below=0
+            fixed_failures=0
+            printf "PROTOCOL PAIRS=50 WARMUP_PAIRS=0 ORDER=baseline/current on odd pairs,current/baseline on even pairs FRESH_SBCL_PER_SAMPLE=yes FULL_GC_BEFORE_SAMPLE=yes\n"
+
+            run_one() {
+              local variant="$1"
+              local revision="$2"
+              local root="$3"
+              local trial="$4"
+              local output
+              output="$(cd "$root" && \
+                AITOOLS_SIGNAL_GRACE_VARIANT="$variant" \
+                AITOOLS_SIGNAL_GRACE_SOURCE="$revision" \
+                AITOOLS_SIGNAL_GRACE_TRIAL="$trial" \
+                sbcl --script t/perf/signal-grace-repetition-runner.lisp)"
+              printf "%s\n" "$output" | tee "$results_dir/$variant-$trial.log"
+              if [[ "$variant" == "baseline" ]]; then
+                if [[ "$output" == *"BELOW_300MS=yes"* ]]; then baseline_below=$((baseline_below + 1)); fi
+                if [[ "$output" == *"FAILED_ASSERTIONS=1"* ]]; then baseline_failures=$((baseline_failures + 1)); fi
+              else
+                if [[ "$output" == *"BELOW_300MS=yes"* ]]; then fixed_below=$((fixed_below + 1)); fi
+                if [[ "$output" == *"FAILED_ASSERTIONS=1"* ]]; then fixed_failures=$((fixed_failures + 1)); fi
+              fi
+            }
+
+            for trial in $(seq 1 50); do
+              if (( trial % 2 == 1 )); then
+                run_one baseline "$AITOOLS_SIGNAL_GRACE_BASELINE_SOURCE" "$baseline_root" "$trial"
+                run_one fixed "$AITOOLS_SIGNAL_GRACE_FIXED_SOURCE" "$current_root" "$trial"
+              else
+                run_one fixed "$AITOOLS_SIGNAL_GRACE_FIXED_SOURCE" "$current_root" "$trial"
+                run_one baseline "$AITOOLS_SIGNAL_GRACE_BASELINE_SOURCE" "$baseline_root" "$trial"
+              fi
+            done
+
+            printf "SUMMARY VARIANT=baseline SELECTED=50 BELOW_300MS=%d FAILED_ASSERTIONS=%d\n" "$baseline_below" "$baseline_failures"
+            printf "SUMMARY VARIANT=fixed SELECTED=50 BELOW_300MS=%d FAILED_ASSERTIONS=%d\n" "$fixed_below" "$fixed_failures"
+            if (( fixed_failures > 0 )); then exit 1; fi
+          '

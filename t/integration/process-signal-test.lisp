@@ -88,11 +88,15 @@ The process-info and signal-process ports remain the production ports."
                  (multiple-value-bind (code envelope)
                      (invoke (list "signal" "--pid" (princ-to-string pid)
                                    "--expect-command" token
-                                   "--grace" "300ms"))
+                                   "--grace" "300ms")
+                            :signal-grace-observer *signal-grace-probe-observer*)
                    (expect code :to-be 0)
                    (expect (value envelope "items" 0 "signal") :to-be 9))
-                 (expect (>= (- (get-internal-real-time) started)
-                             (* 0.3 internal-time-units-per-second)) :to-be t)))
+                 (let ((ended (get-internal-real-time)))
+                   (when *signal-grace-probe-observer*
+                     (funcall *signal-grace-probe-observer* :test-window started ended))
+                   (expect (>= (- ended started)
+                               (* 0.3 internal-time-units-per-second)) :to-be t))))
           (kill-group supervisor)
           (expect (wait-for-group-gone supervisor) :to-be t)))))
 
