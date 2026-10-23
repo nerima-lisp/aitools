@@ -8,7 +8,10 @@
 (in-package #:aitools.edit.application)
 
 (defun %expand-spec (spec)
-  (let ((options (copy-list (getf spec :options))))
+  (let* ((options (copy-list (getf spec :options)))
+         (mktemp-area-policy
+           (append (copy-tree (getf spec :mktemp-area-policy))
+                   (copy-tree +default-mktemp-area-policy+))))
     (dolist (group (getf spec :include))
       (dolist (option (cdr (assoc group aitools.data:*edit-option-groups*)))
         (unless
@@ -20,9 +23,17 @@
           (setf options (append options (list option))))))
     (list* :options
            options
+           :mktemp-area-policy
+           mktemp-area-policy
            (loop for (key value) on spec by #'cddr
-                 unless (eq key :options)
+                 unless (or (eq key :options)
+                            (eq key :mktemp-area-policy))
                    append (list key value)))))
+
+(defparameter +default-mktemp-area-policy+
+  '(:tx-refusal
+    (:error-code "argument.invalid"
+     :error-message "--tx cannot stage writes to the mktemp area")))
 
 (defparameter *edit-commands*
   (mapcar #'%expand-spec aitools.data:*edit-command-specs*)
@@ -38,6 +49,10 @@
           (getf spec :name))
         :test
         #'string=))
+
+(defun find-command-mktemp-area-policy (name)
+  (or (getf (find-command-spec name) :mktemp-area-policy)
+      +default-mktemp-area-policy+))
 
 (defun command-words (name)
   "The argv words naming dispatch NAME: \"json.set\" -> (\"json\" \"set\")."

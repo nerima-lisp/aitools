@@ -23,20 +23,19 @@
                  (aitools.store.application:store-state-directory workspace-store))))
            (or (aitools.workspace.application:resolve-real-path host tmp) tmp)))
         (targets (write-plan-targets write-plan))
-        (command (write-plan-command write-plan)))
+        (command (write-plan-command write-plan))
+        (mktemp-area-policy (find-command-mktemp-area-policy command))
+        (refusal-policy
+         (getf mktemp-area-policy
+               (if tx :tx-refusal :non-tx-refusal))))
    (aitools.kernel.domain:flow-call
     (%resolve-targets host workspace-root targets temporary-root)
     (:on-resolved (resolved-paths area)
-                  (if (and (eq area :temporary)
-                         (or tx (string= command "rm")))
+                  (if (and (eq area :temporary) refusal-policy)
                       (aitools.kernel.domain:flow-continue
                        :on-error
-                       (if tx
-                           "argument.invalid"
-                           "refusal.outside-workspace")
-                       (if tx
-                           "--tx cannot stage writes to the mktemp area"
-                           "rm requires a workspace target"))
+                       (getf refusal-policy :error-code)
+                       (getf refusal-policy :error-message))
                     (let* ((store
                             (if (eq area :temporary)
                                 (funcall (edit-ports-open-store ports)
