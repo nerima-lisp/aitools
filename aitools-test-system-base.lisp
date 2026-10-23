@@ -190,6 +190,7 @@
                                               (:file "unit/process/flows-bg-wait-control-test")
                                               (:file "unit/process/flows-bg-error-test")
                                               (:file "unit/process/signal-flow-test")
+                                              (:file "unit/process/host-clock-test")
                                               (:file "integration/process-test")
                                               (:file "integration/process-run-test")
                                               (:file "integration/process-bg-test")

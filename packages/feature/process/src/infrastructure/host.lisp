@@ -227,10 +227,16 @@ as gone."
 (defun %monotonic-ms ()
   (%internal-time-to-ms (get-internal-real-time)))
 
-(defun %sleep-ms (milliseconds)
-  (let ((start (%monotonic-ms)))
-    (sleep (/ milliseconds 1000))
-    ;; Recheck because SLEEP can return before the requested interval elapses.
-    (loop for remaining = (- milliseconds (- (%monotonic-ms) start))
+(defun %sleep-for-at-least-ms (milliseconds monotonic-ms sleep-ms)
+  (let ((start (funcall monotonic-ms)))
+    (funcall sleep-ms milliseconds)
+    ;; Recheck because sleep can return before the requested interval elapses.
+    (loop for remaining = (- milliseconds (- (funcall monotonic-ms) start))
           while (> remaining 0)
-          do (sleep (/ remaining 1000)))))
+          do (funcall sleep-ms remaining))))
+
+(defun %sleep-ms (milliseconds)
+  (%sleep-for-at-least-ms
+   milliseconds
+   (function %monotonic-ms)
+   (function (lambda (remaining) (sleep (/ remaining 1000))))))
