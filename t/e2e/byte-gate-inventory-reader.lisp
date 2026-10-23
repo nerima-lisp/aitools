@@ -68,10 +68,11 @@
           (dolist (entry entries)
             (let ((length (handler-case (list-length entry)
                             (type-error () nil))))
-              (unless (and length (= length 2))
-                (error "invalid byte-gate nondeterministic field record")))
+              (unless (and length (= length 3))
+                (error "invalid byte-gate nondeterministic record")))
             (let* ((id (first entry))
                    (fields (second entry))
+                   (reason (third entry))
                    (field-count (handler-case (list-length fields)
                                   (type-error () nil))))
               (byte-gate-validate-ids (list id))
@@ -84,14 +85,18 @@
                                     (and (stringp field) (plusp (length field))))
                                   fields)
                            (= field-count
-                              (length (remove-duplicates fields :test (function string=)))))
-                (error "byte-gate nondeterministic fields must be unique non-empty strings"))
-              (setf (gethash id seen-ids) fields)
+                              (length (remove-duplicates fields :test (function string=))))
+                           (stringp reason)
+                           (plusp (length reason)))
+                (error "byte-gate nondeterministic record needs unique fields and a source reason"))
+              (setf (gethash id seen-ids) (list fields reason))
               (push id reason-ids)))
           (list :baseline-revision revision
                 :allowed-determinism-drop allowance
                 :expected-ids ids
                 :nondeterministic-fields
-                (mapcar (lambda (id) (cons id (gethash id seen-ids)))
+                (mapcar (lambda (id)
+                          (let ((record (gethash id seen-ids)))
+                            (list id (first record) (second record))))
                         (byte-gate-validate-ids (nreverse reason-ids)))))))))
 

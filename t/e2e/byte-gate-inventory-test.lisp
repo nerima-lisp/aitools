@@ -1,12 +1,13 @@
 (in-package #:aitools.e2e.test)
 (describe "E2E byte-gate baseline inventory"
-  (it "reads the fixed revision and baseline nondeterministic fields"
+  (it "reads the fixed revision and source reasons"
     (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-inventory")
       (let* ((id-a (list "case-a" 1))
              (id-b (list "case-b" 2))
              (ids (list id-a id-b))
              (reason-fields (list "$.op_id" "$.mtime"))
-             (fields (list (list id-a reason-fields)))
+             (reason "The store operation ID uses the current clock and a random suffix; the file mtime comes from the run-created fixture.")
+             (fields (list (list id-a reason-fields reason)))
              (path (merge-pathnames "inventory.lisp" root))
              (ids-path (merge-pathnames "ids.jsonl" root))
              (fields-path (merge-pathnames "fields.jsonl" root))
@@ -26,16 +27,17 @@
         (with-open-file (stream fields-path :direction :output :if-exists :error
                                             :external-format :utf-8)
           (write-line (json-kit:stringify
-                       (vector (vector "case-a" 1) (vector "$.op_id" "$.mtime")))
+                       (vector (vector "case-a" 1)
+                               (vector "$.op_id" "$.mtime")
+                               reason))
                       stream))
         (let ((inventory (byte-gate-read-inventory path)))
           (expect (getf inventory :baseline-revision) :to-equal "fixture-revision")
           (expect (getf inventory :allowed-determinism-drop) :to-be 0.0)
           (expect (getf inventory :expected-ids) :to-equal ids)
-          (expect (getf inventory :nondeterministic-fields)
-                  :to-equal (list (cons id-a reason-fields)))))))
+          (expect (getf inventory :nondeterministic-fields) :to-equal fields)))))
 
-  (it "reports per-invocation reasons for nondeterministic baseline output"
+  (it "reports each source reason for baseline differences"
     (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (baseline-a (list (byte-gate-test-entry "case-a" #(1))
@@ -49,7 +51,8 @@
                                    (list "baseline-b" baseline-b)
                                    (list "candidate-a" candidate)
                                    (list "candidate-b" candidate))))
-             (reason-fields (list (cons '("case-a" 1) '("$.op_id"))))
+             (reason "The store builds operation IDs from the current UTC time and a random suffix.")
+             (reason-fields (list (list '("case-a" 1) '("$.op_id") reason)))
              (report
                (byte-gate-test-compare
                 captures expected-ids
@@ -59,9 +62,36 @@
         (expect (length (getf report :baseline-nondeterministic)) :to-be 1)
         (expect (gethash "reason"
                          (first (getf report :baseline-nondeterministic)))
-                :to-equal "JSON response fields differed between baseline runs: $.op_id"))))
+                :to-equal reason))))
 
-  (it "rejects baseline reasons that do not match the observed nondeterministic IDs"
+  (it "classifies source-declared runtime output even when baseline pairs match"
+    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+      (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
+             (baseline (list (byte-gate-test-entry "case-a" #(1))
+                             (byte-gate-test-entry "case-b" #(2))))
+             (candidate-a (list (byte-gate-test-entry "case-a" #(3))
+                                (byte-gate-test-entry "case-b" #(2))))
+             (candidate-b (list (byte-gate-test-entry "case-a" #(4))
+                                (byte-gate-test-entry "case-b" #(2))))
+             (captures (byte-gate-test-captures
+                        root (list (list "baseline-a" baseline)
+                                   (list "baseline-b" baseline)
+                                   (list "candidate-a" candidate-a)
+                                   (list "candidate-b" candidate-b))))
+             (reason "The run response always includes duration_ms, measured from child start to exit.")
+             (reason-fields (list (list '("case-a" 1) '("$.duration_ms") reason)))
+             (report (byte-gate-test-compare
+                      captures expected-ids
+                      :baseline-nondeterministic-fields reason-fields)))
+        (expect (getf report :passed) :to-be t)
+        (expect (getf report :baseline-deterministic-count) :to-be 1)
+        (expect (getf report :candidate-deterministic-count) :to-be 1)
+        (expect (gethash "reason" (first (getf report :baseline-nondeterministic)))
+                :to-equal reason)
+        (expect (gethash "reason" (first (getf report :candidate-nondeterministic)))
+                :to-equal reason))))
+
+  (it "rejects baseline differences without a source reason"
     (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
       (let* ((expected-ids '(("case-a" 1)))
              (first-run (list (byte-gate-test-entry "case-a" #(1))))
@@ -74,6 +104,6 @@
              (message (byte-gate-test-error-message
                        (lambda ()
                          (byte-gate-test-compare captures expected-ids)))))
-        (expect (search "reasons do not match the baseline captures" message)
+        (expect (search "do not cover all observed output differences" message)
                 :to-be-truthy)))))
 

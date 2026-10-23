@@ -15,20 +15,16 @@
                                                        (cons "candidate_nondeterministic" (getf report :candidate-nondeterministic))
                                                        (cons "byte_mismatches" (getf report :byte-mismatches))
                                                        (cons "failure_reasons" (getf report :failure-reasons)))))
-(defun byte-gate-nondeterministic-entries (ids deterministic
-                                                                                                                  &key fields-by-id default-reason)
-                                                                     (loop for id in ids
-                                                                           unless (member id deterministic :test #'equal)
-                                                                           collect (let* ((fields (cdr (assoc id fields-by-id :test #'equal)))
-                                                                                          (reason
-                                                                                           (if fields
-                                                                                               (format nil "JSON response fields differed between baseline runs: ~{~A~^, ~}"
-                                                                                                       fields)
-                                                                                             default-reason)))
-                                                                                     (json-kit:alist->json-object
-                                                                                      (list (cons "case_id" (first id))
-                                                                                            (cons "invocation" (second id))
-                                                                                            (cons "reason" reason))))))
+(defun byte-gate-nondeterministic-entries (ids
+                                                    &key reasons-by-id default-reason)
+  (loop for id in ids
+        collect
+        (let* ((entry (assoc id reasons-by-id :test (function equal)))
+               (reason (if entry (third entry) default-reason)))
+          (json-kit:alist->json-object
+           (list (cons "case_id" (first id))
+                 (cons "invocation" (second id))
+                 (cons "reason" reason))))))
 (defun byte-gate-mismatch-entries (mismatches)
                                                         (mapcar (lambda (mismatch)
                                                                   (json-kit:alist->json-object

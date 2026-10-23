@@ -7,11 +7,40 @@
   (remove-if-not (lambda (id)
                    (byte-gate-same-output-p (gethash id first) (gethash id second)))
                  ids))
-(defun compare-e2e-byte-captures (baseline-first baseline-second candidate-first candidate-second
-                                   &key (expected-ids nil expected-ids-p)
-                                        baseline-revision
-                                        (baseline-nondeterministic-fields nil fields-p)
-                                        report-path)
+(defun byte-gate-nondeterministic-entry-valid-p (entry ids)
+  (let ((entry-count (handler-case (list-length entry)
+                      (type-error () nil))))
+    (and entry-count
+         (= entry-count 3)
+         (let* ((id (first entry))
+                (fields (second entry))
+                (reason (third entry))
+                (field-count (handler-case (list-length fields)
+                               (type-error () nil))))
+           (and (consp id)
+                (stringp (first id))
+                (plusp (length (first id)))
+                (consp (rest id))
+                (integerp (second id))
+                (plusp (second id))
+                (null (cddr id))
+                (member id ids :test (function equal))
+                field-count
+                (plusp field-count)
+                (every (lambda (field)
+                         (and (stringp field) (plusp (length field))))
+                       fields)
+                (= field-count
+                   (length (remove-duplicates fields :test (function string=))))
+                (stringp reason)
+                (plusp (length reason)))))))
+
+(defun compare-e2e-byte-captures
+    (baseline-first baseline-second candidate-first candidate-second
+     &key (expected-ids nil expected-ids-p)
+       baseline-revision
+       (baseline-nondeterministic-fields nil fields-p)
+       report-path)
   (unless expected-ids-p
     (error "byte-gate comparison requires the fixed expected invocation inventory"))
   (unless (and (stringp baseline-revision)
@@ -22,7 +51,14 @@
   (let* ((ids (byte-gate-validate-ids expected-ids))
          (reason-count (handler-case (list-length baseline-nondeterministic-fields)
                          (type-error () nil)))
-         (reason-ids (mapcar (function car) baseline-nondeterministic-fields))
+         (reason-entries-valid-p
+           (and reason-count
+                (every (lambda (entry)
+                         (byte-gate-nondeterministic-entry-valid-p entry ids))
+                       baseline-nondeterministic-fields)))
+         (reason-ids (if reason-entries-valid-p
+                         (mapcar (function first) baseline-nondeterministic-fields)
+                         nil))
          (captures (let ((captures (list (byte-gate-read-capture baseline-first)
                                          (byte-gate-read-capture baseline-second)
                                          (byte-gate-read-capture candidate-first)
@@ -37,20 +73,27 @@
          (baseline-b (second captures))
          (candidate-a (third captures))
          (candidate-b (fourth captures))
-         (deterministic-baseline (byte-gate-deterministic-ids baseline-a baseline-b ids))
+         (deterministic-baseline
+           (remove-if (lambda (id) (member id reason-ids :test (function equal)))
+                      (byte-gate-deterministic-ids baseline-a baseline-b ids)))
          (baseline-nondeterministic-ids
            (remove-if (lambda (id) (member id deterministic-baseline :test (function equal))) ids))
-         (deterministic-candidate (byte-gate-deterministic-ids candidate-a candidate-b ids))
+         (deterministic-candidate
+           (remove-if (lambda (id) (member id reason-ids :test (function equal)))
+                      (byte-gate-deterministic-ids candidate-a candidate-b ids)))
+         (candidate-nondeterministic-ids
+           (remove-if (lambda (id) (member id deterministic-candidate :test (function equal))) ids))
          (mismatches (list))
          (failures (list)))
-    (unless reason-count
-      (error "baseline nondeterministic field reasons must be a proper list"))
+    (unless reason-entries-valid-p
+      (error "baseline nondeterministic entries must have valid invocation IDs, fields, and reasons"))
     (unless (and (= reason-count (length (remove-duplicates reason-ids :test (function equal))))
-                 (every (lambda (id) (member id ids :test (function equal))) reason-ids)
-                 (= (length baseline-nondeterministic-ids) reason-count)
+                 (every (lambda (id) (member id baseline-nondeterministic-fields
+                                              :key (function first) :test (function equal)))
+                        reason-ids)
                  (every (lambda (id) (member id reason-ids :test (function equal)))
                         baseline-nondeterministic-ids))
-      (error "baseline nondeterministic field reasons do not match the baseline captures"))
+      (error "baseline nondeterministic field reasons do not cover all observed output differences"))
     (when (null deterministic-baseline)
       (push "baseline has no deterministic invocation" failures))
     (when (null deterministic-candidate)
@@ -79,15 +122,14 @@
                     (princ-to-string +byte-gate-allowed-determinism-drop+)
                     :baseline-nondeterministic
                     (byte-gate-nondeterministic-entries
-                     ids deterministic-baseline
-                     :fields-by-id baseline-nondeterministic-fields
-                     :default-reason
-                     "baseline stdout, stderr, or exit status differed; reason not identified")
+                     baseline-nondeterministic-ids
+                     :reasons-by-id baseline-nondeterministic-fields)
                     :candidate-nondeterministic
                     (byte-gate-nondeterministic-entries
-                     ids deterministic-candidate
+                     candidate-nondeterministic-ids
+                     :reasons-by-id baseline-nondeterministic-fields
                      :default-reason
-                     "candidate stdout, stderr, or exit status differed; reason not identified")
+                     "candidate stdout, stderr, or exit status differed between runs; reason not identified")
                     :byte-mismatches (byte-gate-mismatch-entries (nreverse mismatches))
                     :failure-reasons (nreverse failures))))
         (when report-path
