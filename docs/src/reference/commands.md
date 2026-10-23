@@ -27,6 +27,7 @@ accepted before or after the command name.
 |---|---|
 | `--root <dir>` | Workspace root. Without it, aitools uses the enclosing git root, then the working directory. |
 | `--lock-timeout <duration>` | How long a write, or recovery before a command, waits for the workspace lock. Default `10s`. |
+| `--trace` | Adds command, child-process, and store IO spans under `meta.trace`. |
 | `--version` | Prints `{"schema_version":2,"status":"ok","command":"version","name":"aitools","version":...}`. |
 | `--help` | After a command name, prints that command's schema detail object. Without a command, prints the command list. |
 

@@ -166,8 +166,7 @@ was never changed and the operation's temporary files are removed).
 ## Metadata
 
 An envelope may include a `meta` object after its payload and `recovered`.
-Constructors accept metadata, but the current CLI does not collect trace data.
-When a caller supplies `meta.trace`, it has this shape:
+With `--trace`, the CLI adds `meta.trace` to the response:
 
 ```json
 {"meta":{"trace":{"spans":[{"span_id":0,"parent_span_id":null,"kind":"command","name":"read","start_ns":0,"duration_ns":1200,"outcome":"ok"}],"metrics":{"span_count":1,"command_count":1,"child_process_count":0,"io_count":0,"duration_ns":1200}}}}
@@ -181,7 +180,7 @@ span contains:
 | `span_id` | Non-negative integer, assigned from 0 within the response trace. |
 | `parent_span_id` | A span ID, or `null` for the root command span. |
 | `kind` | `command`, `child_process`, or `io`. |
-| `name` | The dispatch command name or a fixed operation name such as `process.run` or `store.read`. |
+| `name` | The dispatch command name or a fixed operation name such as `process.run` or `store.read-file`. |
 | `start_ns` | Non-negative integer monotonic offset from the root start. |
 | `duration_ns` | Non-negative integer monotonic duration. |
 | `outcome` | `ok`, `partial`, `error`, `timeout`, or `unavailable`. |
