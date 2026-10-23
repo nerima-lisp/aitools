@@ -1,7 +1,6 @@
 ;;;;
-;;;; Schema text for the read-only Org commands. AITOOLS.ORG.PRESENTATION
-;;;; builds each COMMAND-SCHEMA from this table; CLI option declarations are
-;;;; in packages/feature/org/src/presentation/commands.lisp.
+;;;; Base schema data for Org read commands. Extended schemas are appended by
+;;;; write-command-schema-data.lisp; CLI declarations live under the feature.
 (in-package #:aitools.data)
 
 (defparameter *org-command-schemas*

@@ -27,26 +27,35 @@ the protocol application layer."
            (schema nil :read-only t))
 
 (defun %validate-command-declaration-values (name group command-builder schema)
-  (unless (and (stringp name) (plusp (length name)))
-    (error "A command name must be a non-empty string, got ~S." name))
-  (unless (or (null group) (and (stringp group) (plusp (length group))))
-    (error "A command group must be NIL or a non-empty string, got ~S." group))
-  (unless (functionp command-builder)
-    (error "A command builder must be a function, got ~S." command-builder))
-  (unless (aitools.protocol.domain:command-schema-p schema)
-    (error "A command schema must be a COMMAND-SCHEMA, got ~S." schema))
-  (unless (string= name (aitools.protocol.domain:command-schema-name schema))
-    (error "Command name ~S does not match schema name ~S."
-           name (aitools.protocol.domain:command-schema-name schema)))
-  (when group
-    (let ((separator (position #\. name)))
-      (unless (and separator
-                   (= separator (length group))
-                   (string= group name :end2 separator)
-                   (< (1+ separator) (length name))
-                   (not (position #\. name :start (1+ separator))))
-        (error "Grouped command name ~S must have the form ~S.<name>." name group))))
-  (values name group command-builder schema))
+  (labels ((valid-dotted-path-p (path)
+             (and (stringp path)
+                  (plusp (length path))
+                  (not (char= #\. (char path 0)))
+                  (not (char= #\. (char path (1- (length path)))))
+                  (not (search ".." path))
+                  (notany (lambda (character)
+                            (find character '(#\Space #\Tab #\Newline #\Return)))
+                          path))))
+    (unless (and (stringp name) (plusp (length name)))
+      (error "A command name must be a non-empty string, got ~S." name))
+    (unless (or (null group) (and (stringp group) (plusp (length group))))
+      (error "A command group must be NIL or a non-empty string, got ~S." group))
+    (unless (functionp command-builder)
+      (error "A command builder must be a function, got ~S." command-builder))
+    (unless (aitools.protocol.domain:command-schema-p schema)
+      (error "A command schema must be a COMMAND-SCHEMA, got ~S." schema))
+    (unless (string= name (aitools.protocol.domain:command-schema-name schema))
+      (error "Command name ~S does not match schema name ~S."
+             name (aitools.protocol.domain:command-schema-name schema)))
+    (when group
+      (unless (and (valid-dotted-path-p group)
+                   (valid-dotted-path-p name)
+                   (let ((prefix (concatenate 'string group ".")))
+                     (and (< (length prefix) (length name))
+                          (string= prefix name :end2 (length prefix))
+                          (not (position #\. name :start (length prefix))))))
+        (error "Grouped command name ~S must have the form ~S.<command>." name group)))
+    (values name group command-builder schema)))
 
 (defun make-command-declaration (name &key group command-builder schema)
   (%validate-command-declaration-values name group command-builder schema)
@@ -121,24 +130,31 @@ the protocol application layer."
 (defstruct (command-registry (:constructor make-command-registry ())
                              (:copier nil))
   "TOP-LEVEL accumulates ungrouped commands' cli-command values.
-GROUP-COMMANDS maps a group name (\"json\", \"util\", ...) to the list of its
-subcommands' cli-command values. SCHEMAS maps a full dispatch name (\"read\",
-\"json.get\") to its AITOOLS.PROTOCOL.DOMAIN:COMMAND-SCHEMA."
+GROUP-COMMANDS maps each dot-separated group path, including implicit parent
+paths, to its direct subcommands' cli-command values. SCHEMAS maps a full
+dispatch name (\"read\", \"json.get\", or \"org.todo.set\") to its
+AITOOLS.PROTOCOL.DOMAIN:COMMAND-SCHEMA."
   (top-level nil :type list)
   (group-commands (make-hash-table :test 'equal) :type hash-table)
   (schemas (make-hash-table :test 'equal) :type hash-table)
   (schema-order nil :type list))
 
 (defun register-command (registry &key name group cli-command schema)
-  "Register one command. NAME is its full dispatch name: the bare command
-name (\"read\") when GROUP is NIL, or GROUP followed by a `.` and the
-subcommand name (\"json.get\") when GROUP is given. CLI-COMMAND is a cl-cli
-command named as the bare subcommand (\"get\", not \"json.get\") when GROUP is
-given; the composition root supplies the group wrapper. SCHEMA's own NAME
-should equal NAME."
+  "Register one command. NAME is the bare command when GROUP is NIL, or GROUP
+followed by a dot and one subcommand token. GROUP is a dot-separated path;
+the registry creates any missing parent paths for nested groups. CLI-COMMAND
+is named as the final token, and the composition root supplies the wrappers."
   (check-type name string)
   (if group
-      (push cli-command (gethash group (command-registry-group-commands registry)))
+      (let ((groups (command-registry-group-commands registry))
+            (start 0))
+        (loop for separator = (position #\. group :start start)
+              while separator
+              do (let ((prefix (subseq group 0 separator)))
+                   (unless (nth-value 1 (gethash prefix groups))
+                     (setf (gethash prefix groups) nil)))
+                 (setf start (1+ separator)))
+        (push cli-command (gethash group groups)))
       (push cli-command (command-registry-top-level registry)))
   (setf (gethash name (command-registry-schemas registry)) schema)
   (push name (command-registry-schema-order registry))

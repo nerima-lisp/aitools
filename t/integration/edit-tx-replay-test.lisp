@@ -65,7 +65,10 @@
   (it "records a command outside the table in its options' order"
     (expect (options-argv "decode.to" '("x") '(:force t :level "3" :dry-run t :absent nil))
             :to-equal '("decode" "to" "--force" "--level" "3" "x"))
-    (expect (options-argv "edit" '("") '(:old "a")) :to-equal '("edit" "--old" "a" "")))
+    (expect (options-argv "edit" '("") '(:old "a"))
+            :to-equal '("edit" "--old" "a" ""))
+    (expect (options-argv "org.todo.set" '("notes.org") '(:state "DONE"))
+            :to-equal '("org" "todo" "set" "--state" "DONE" "notes.org")))
 
   (it "replays a replace op on the moved base"
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "x = 1~%"))

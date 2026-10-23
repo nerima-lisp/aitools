@@ -32,15 +32,16 @@ so the repairs read in a stable order (`bg`, `git`, `tx` for `status`)."
         #'string<))
 
 (defun %group-repair-command (argv name group)
-  "ARGV rebuilt as a runnable `aitools ...` line with GROUP inserted before the
-command token NAME, so `--root R get /a f.json` becomes
-`aitools --root R json get /a f.json`. Drops argv0 and shell-quotes every
-word so an operand with spaces stays one argument."
+  "ARGV is rebuilt as a runnable `aitools ...` line by inserting each GROUP
+path token before NAME. For example, `--root R set /a` becomes
+`aitools --root R org todo set /a`. Drops argv0 and shell-quotes every word
+so operands containing spaces remain one argument."
   (let* ((tokens (rest argv))
+         (group-tokens (uiop:split-string group :separator "."))
          (pos (position name tokens :test #'string=))
          (rebuilt (if pos
-                      (append (subseq tokens 0 pos) (list group) (subseq tokens pos))
-                      (list* group tokens))))
+                      (append (subseq tokens 0 pos) group-tokens (subseq tokens pos))
+                      (append group-tokens tokens))))
     (format nil "aitools ~A" (aitools.protocol.domain:command-line rebuilt))))
 
 (defun %group-subcommand-repairs (registry argv name)
@@ -57,11 +58,6 @@ correspondence table."
                          (%group-repair-command argv name group))))
 
 (defun %unknown-name-repairs (name)
-  "The correspondence-table repairs for the unknown dispatch NAME, verbatim from
-the table. The repair is the canonical aitools command to use instead
-(`cat` -> `aitools read`) and does not carry NAME's operands: the
-correspondence data is a static hint, and the meta suite pins each repair to
-the table's exact command."
   (repairs-for-unknown-name name))
 
 (defun %command-group (registry command)
