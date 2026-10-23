@@ -63,7 +63,7 @@
         (expect (aitools.protocol.application:command-declaration-group declaration)
                 :to-equal "util"))))
 
-  (it "checks schema names and grouped command names at runtime"
+  (it "checks schema names and nested grouped names at runtime"
     (signals error
       (aitools.protocol.application:make-command-declaration
        "read" :command-builder #'identity
@@ -82,7 +82,35 @@
     (signals error
       (aitools.protocol.application:make-command-declaration
        "" :command-builder #'identity
-       :schema (make-command-schema "" "Test command.")))))
+       :schema (make-command-schema "" "Test command.")))
+    (signals error
+      (aitools.protocol.application:make-command-declaration
+       "org.todo.set" :group "org" :command-builder #'identity
+       :schema (make-command-schema "org.todo.set" "Test command.")))
+    (signals error
+      (aitools.protocol.application:make-command-declaration
+       "org..todo.set" :group "org..todo" :command-builder #'identity
+       :schema (make-command-schema "org..todo.set" "Test command.")))
+    (signals error
+      (aitools.protocol.application:make-command-declaration
+       "org.todo.set.extra" :group "org.todo" :command-builder #'identity
+       :schema (make-command-schema "org.todo.set.extra" "Test command.")))
+    (let ((registry (aitools.protocol.application:make-command-registry)))
+      (aitools.protocol.application:register-command-declarations
+       registry
+       (list
+        (%test-command-declaration
+         "org.todo.set"
+         (lambda (ports) (declare (ignore ports)) :set-command)
+         "org.todo"))
+       nil)
+      (let ((groups (aitools.protocol.application:command-registry-group-commands registry)))
+        (expect (nth-value 1 (gethash "org" groups)) :to-be t)
+        (expect (gethash "org" groups) :to-equal nil)
+        (expect (gethash "org.todo" groups) :to-equal '(:set-command)))
+      (expect (mapcar #'command-schema-name
+                      (aitools.protocol.application:all-command-schemas registry))
+              :to-equal '("org.todo.set")))))
 
 (describe "aitools.protocol.application command declaration registration"
   (it "builds a declaration once with the supplied ports"

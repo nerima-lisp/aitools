@@ -9,12 +9,33 @@
 (in-package #:aitools/cli)
 
 (defun finalize-app-commands (registry)
-  "The list of cl-cli command structs to pass as MAKE-APP's :COMMANDS: every
-ungrouped command, plus one MAKE-COMMAND per group wrapping that group's
-accumulated subcommands."
-  (append (reverse (command-registry-top-level registry))
-          (loop for group in (sort (loop for group being the hash-keys of (command-registry-group-commands registry)
-                                         collect group)
-                                   #'string<)
-                collect (make-command :name group
-                                      :subcommands (reverse (gethash group (command-registry-group-commands registry)))))))
+  "Build top-level cl-cli commands, recursively nesting every registered group
+path such as `json` or `org.todo`."
+  (let ((groups (command-registry-group-commands registry)))
+    (labels ((direct-child-groups (parent)
+               (let ((prefix (concatenate 'string parent ".")))
+                 (sort
+                  (loop for candidate being the hash-keys of groups
+                        when (and (> (length candidate) (length prefix))
+                                  (string= prefix candidate :end2 (length prefix))
+                                  (not (position #\. candidate :start (length prefix))))
+                          collect candidate)
+                  #'string<)))
+             (compose-group (path name)
+               (make-command
+                :name name
+                :subcommands
+                (append
+                 (reverse (gethash path groups))
+                 (mapcar (lambda (child)
+                           (compose-group
+                            child
+                            (car (last (uiop:split-string child :separator ".")))))
+                         (direct-child-groups path))))))
+      (append
+       (reverse (command-registry-top-level registry))
+       (loop for root in (sort (loop for group being the hash-keys of groups
+                                     when (not (position #\. group))
+                                       collect group)
+                               #'string<)
+             collect (compose-group root root))))))

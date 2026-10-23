@@ -12,23 +12,29 @@ process built, so %SCHEMA-HANDLER (a cl-cli handler, which only receives the
 INVOCATION) can still reach it.")
 
 (defun %dispatch-names (registry words)
-  "Turn schema's positional WORDS into dispatch names. A group word followed
-by another word names that group's subcommand, as the agent would type it
-(`schema json get read` -> \"json.get\", \"read\"); a dotted word is taken
-as already joined."
-  (let ((groups (command-registry-group-commands registry)))
-    (loop while words
-          collect (let ((word (pop words)))
-                    (if (and words (gethash word groups))
-                        (format nil "~A.~A" word (pop words))
-                        word)))))
+  "Turn schema's positional WORDS into dispatch names. Registered group tokens
+are consumed greedily, then one following token is joined as the command leaf
+(`schema org todo set` -> org.todo.set); a dotted word stays joined."
+  (let ((groups (command-registry-group-commands registry))
+        (remaining (copy-list words)))
+    (loop while remaining
+          collect
+          (let* ((word (pop remaining))
+                 (group word))
+            (loop while (and remaining
+                             (nth-value 1 (gethash group groups)))
+                  for child = (format nil "~A.~A" group (first remaining))
+                  while (nth-value 1 (gethash child groups))
+                  do (setf group child)
+                     (pop remaining))
+            (if (nth-value 1 (gethash group groups))
+                (if remaining
+                    (format nil "~A.~A" group (pop remaining))
+                    group)
+                word)))))
 
 (defun %group-schemas (registry group)
-  "Every registered COMMAND-SCHEMA whose dispatch name is GROUP.<subcommand>,
-in registration order, when GROUP is a registered group; NIL otherwise. Lets
-`schema <group>` list the group's subcommands, so the
-`aitools schema <group>` repair a bare group dispatch emits is itself runnable
-rather than failing with input.not-found."
+  "Every registered COMMAND-SCHEMA beneath GROUP, in registration order; NIL unless GROUP is registered. Thus `schema org` includes direct commands and nested paths such as `org.todo.set`."
   (when (nth-value 1 (gethash group (command-registry-group-commands registry)))
     (let ((prefix (concatenate 'string group ".")))
       (remove-if-not (lambda (schema)
@@ -45,9 +51,9 @@ name (`json.get`). `candidates` must read like render-command-summary's
 
 (defun %collect-requested-schemas (registry names)
   "(values FOUND MISSING) for the dispatch NAMES, both in request order: FOUND
-holds the COMMAND-SCHEMAs they resolve to (a group word expands to its
-subcommands' schemas), MISSING the names that name neither a command nor a
-group."
+holds the COMMAND-SCHEMAs they resolve to (a complete group path expands to
+its descendant command schemas), MISSING the names that name neither a command
+nor a group."
   (let (found missing)
     (dolist (name (%dispatch-names registry names)
                   (values (nreverse found) (nreverse missing)))
@@ -131,11 +137,11 @@ single name and an array only otherwise."
                 "schema" "List implemented commands, or show one command's full schema."
                 :description (concatenate 'string
                                           "With no arguments, list every implemented command as {name, summary}. "
-                                          "With command words (a group word "
-                                          "followed by its subcommand, e.g. `schema json get`), return "
+                                          "With command words (a group path followed by its "
+                                          "subcommand token, e.g. schema org todo set), return "
                                           "those commands' full detail. `--all` returns every command's detail.")
                 :args (list (list :name "commands" :type "string" :required nil :repeatable t
-                                  :description "Command names as typed, e.g. `read` or `json get`.")
+                                  :description "Command names as typed, such as read, json get, or org todo set.")
                             (list :name "--all" :type "flag" :required nil
                                   :description "Return every command's full detail."))
                 :output-fields (list (list :name "commands"

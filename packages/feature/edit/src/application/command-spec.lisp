@@ -36,10 +36,13 @@
 
 (defun command-words (name)
   "The argv words naming dispatch NAME: \"json.set\" -> (\"json\" \"set\")."
-  (let ((dot (position #\. name)))
-    (if dot
-        (list (subseq name 0 dot) (subseq name (1+ dot)))
-        (list name))))
+  (labels ((split-at (start)
+             (let ((dot (position #\. name :start start)))
+               (if dot
+                   (cons (subseq name start dot)
+                         (split-at (1+ dot)))
+                   (list (subseq name start))))))
+    (split-at 0)))
 
 (defun command-display-name (name)
   (format
