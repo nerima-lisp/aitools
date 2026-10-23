@@ -10,4 +10,4 @@
                  (:file "guard") (:file "duration") (:file "time") (:file "size")
                  (:file "digest-kit") (:file "token-estimate")
                  (:file "unified-diff") (:file "unified-diff-patch" :depends-on ("flow"))
-                 (:file "json") (:file "json-model" :depends-on ("flow")) (:file "flow")))))
+                 (:file "json") (:file "json-model" :depends-on ("flow")) (:file "flow") (:file "json-model-resolve" :depends-on ("json-model" "flow"))))))
