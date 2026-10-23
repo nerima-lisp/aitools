@@ -208,7 +208,7 @@
       (expect (search "requires the fixed expected invocation inventory"
                       missing-inventory-message)
               :to-be-truthy)
-      (expect (search "fixed C04 revision" wrong-revision-message)
+      (expect (search "configured baseline revision" wrong-revision-message)
               :to-be-truthy)))
 
   (it "reads a fixed invocation inventory fixture"

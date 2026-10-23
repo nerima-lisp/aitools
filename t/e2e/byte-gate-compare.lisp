@@ -45,7 +45,7 @@
     (error "byte-gate comparison requires the fixed expected invocation inventory"))
   (unless (and (stringp baseline-revision)
                (string= baseline-revision +byte-gate-baseline-revision+))
-    (error "byte-gate baseline revision does not match the fixed C04 revision"))
+    (error "byte-gate baseline revision does not match the configured baseline revision"))
   (unless fields-p
     (error "byte-gate comparison requires baseline nondeterministic field reasons"))
   (let* ((ids (byte-gate-validate-ids expected-ids))

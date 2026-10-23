@@ -1,1 +1,1 @@
-(:baseline-revision "5ab1f7621dfd356f43213964b16bc1b223c8a640" :allowed-determinism-drop 0.0 :expected-invocation-file "byte-gate-expected.jsonl" :nondeterministic-field-file "byte-gate-nondeterministic.jsonl")
+(:baseline-revision "902ac2b6265262e8efe388e3646280a24905af8f" :allowed-determinism-drop 0.0 :expected-invocation-file "byte-gate-expected.jsonl" :nondeterministic-field-file "byte-gate-nondeterministic.jsonl")

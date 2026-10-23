@@ -2,7 +2,7 @@
 (in-package #:aitools.e2e.test)
 
 (defparameter +byte-gate-allowed-determinism-drop+ 0.0)
-(defparameter +byte-gate-baseline-revision+ "5ab1f7621dfd356f43213964b16bc1b223c8a640")
+(defparameter +byte-gate-baseline-revision+ "902ac2b6265262e8efe388e3646280a24905af8f")
 
 (defstruct byte-gate-record
   key case-id invocation exit-code stdout stderr)
