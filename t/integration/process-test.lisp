@@ -5,87 +5,26 @@
 (in-package #:aitools.process.integration-test)
 (defparameter *dummy-token* "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
   "A GitHub-token-shaped dummy value in a format redaction detects, not a real secret.")
-(defvar *signal-grace-probe-observer* nil)
 
-(defun invoke (argv &key state-directory cwd signal-grace-observer)
+(defun invoke (argv &key state-directory cwd)
   "Dispatch `aitools ARGV` against the process commands with production
 ports. CWD, when given, wires in a production workspace host whose working
 directory is CWD. Returns (VALUES EXIT-CODE ENVELOPE), ENVELOPE parsed from
 whichever stream the command wrote."
-  (labels ((observe (phase &rest values)
-             (when signal-grace-observer
-               (apply signal-grace-observer phase
-                      (if values values
-                          (list (get-internal-real-time))))))
-           (make-ports-with-observers ()
-             (if (null signal-grace-observer)
-                 (aitools.process.infrastructure:make-production-process-ports
-                  :state-directory-function (and state-directory (lambda () state-directory))
-                  :workspace-host (and cwd (aitools.workspace.infrastructure:make-host-workspace-host
-                                            :current-directory
-                                            (lambda () (string-right-trim "/" (namestring cwd))))))
-                 (let* ((signal-symbol 'aitools.process.infrastructure::%signal-process)
-                        (clock-symbol 'aitools.process.infrastructure::%monotonic-ms)
-                        (wait-symbol 'aitools.process.application::%wait-for-exit)
-                        (original-signal (symbol-function signal-symbol))
-                        (original-clock (symbol-function clock-symbol))
-                        (original-wait (symbol-function wait-symbol))
-                        (term-completed nil)
-                        (wait-clock-recorded nil))
-                   (cl-weave:with-mocked-functions
-                       (((symbol-function signal-symbol)
-                         (lambda (&rest arguments)
-                           (let ((signal (second arguments)))
-                             (when (member signal '(15 9))
-                               (observe (if (= signal 15) :term-sent :kill-sent)
-                                        (get-internal-real-time)))
-                             (prog1 (apply original-signal arguments)
-                               (cond
-                                 ((eql signal 15)
-                                  (setf term-completed (get-internal-real-time))
-                                  (setf wait-clock-recorded nil)
-                                  (observe :term-completed term-completed))
-                                 ((and (eql signal 9) term-completed)
-                                  (observe :kill-completed)))))))
-                        ((symbol-function clock-symbol)
-                         (lambda (&rest arguments)
-                           (let ((result (apply original-clock arguments)))
-                             (when (and term-completed (not wait-clock-recorded))
-                               (setf wait-clock-recorded t)
-                               (observe :wait-first-clock-return))
-                             result)))
-                        ((symbol-function wait-symbol)
-                         (lambda (&rest arguments)
-                           (let ((decision (apply original-wait arguments)))
-                             (observe :wait-for-exit-decision decision)
-                             decision))))
-                     (aitools.process.infrastructure:make-production-process-ports
-                      :state-directory-function (and state-directory (lambda () state-directory))
-                      :workspace-host (and cwd (aitools.workspace.infrastructure:make-host-workspace-host
-                                                :current-directory
-                                                (lambda () (string-right-trim "/" (namestring cwd)))))))))))
-    (let ((invoke-start (get-internal-real-time)))
-      (observe :invoke-start invoke-start)
-      (let ((registry (aitools.protocol.application:make-command-registry)))
-        (observe :registry-created)
-        (aitools.process.presentation:register-process-commands registry (make-ports-with-observers))
-        (observe :ports-registered)
-        (let ((commands (aitools/cli:finalize-app-commands registry)))
-          (observe :commands-finalized)
-          (let* ((app (cl-cli:make-app :name "aitools" :commands commands))
-                 (stdout (make-string-output-stream))
-                 (stderr (make-string-output-stream)))
-            (observe :app-created)
-            (observe :dispatch-start)
-            (let* ((code (aitools/cli:dispatch app registry (cons "aitools" argv)
-                                               :stdout stdout :stderr stderr))
-                   (dispatch-returned (get-internal-real-time))
-                   (text (let ((out (get-output-stream-string stdout)))
-                           (if (plusp (length out)) out (get-output-stream-string stderr)))))
-              (observe :dispatch-returned dispatch-returned)
-              (observe :output-extracted)
-              (values code (prog1 (json-kit:parse text)
-                             (observe :json-parsed))))))))))
+  (let ((registry (aitools.protocol.application:make-command-registry)))
+    (aitools.process.presentation:register-process-commands
+     registry
+     (aitools.process.infrastructure:make-production-process-ports
+      :state-directory-function (and state-directory (lambda () state-directory))
+      :workspace-host (and cwd (aitools.workspace.infrastructure:make-host-workspace-host
+                                :current-directory (lambda () (string-right-trim "/" (namestring cwd)))))))
+    (let* ((app (cl-cli:make-app :name "aitools" :commands (aitools/cli:finalize-app-commands registry)))
+           (stdout (make-string-output-stream))
+           (stderr (make-string-output-stream))
+           (code (aitools/cli:dispatch app registry (cons "aitools" argv) :stdout stdout :stderr stderr))
+           (text (let ((out (get-output-stream-string stdout)))
+                   (if (plusp (length out)) out (get-output-stream-string stderr)))))
+      (values code (json-kit:parse text)))))
 
 (defun value (envelope &rest path)
   "Follow PATH (strings for object keys, integers for array indexes)."
