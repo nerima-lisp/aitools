@@ -107,3 +107,31 @@
         (expect (probe-file (merge-pathnames "journal/ops.jsonl"
                                              (uiop:ensure-directory-pathname state)))
                 :to-be-truthy)))))
+(describe "aitools dispatch: trace output size limit"
+          (it "omits trace metadata when a traced envelope exceeds the JSON output limit"
+              (aitools.test.support:with-workspace
+               (*root* state-home)
+               (declare (ignore state-home))
+               (let* ((huge (make-string (+ 16777216 10) :initial-element #\a))
+                      (app (cl-cli:make-app
+                            :name "aitools"
+                            :require-command t
+                            :global-options (list (cl-cli:make-option :name "root" :kind :value)
+                                                  (cl-cli:make-option :name "lock-timeout" :kind :value)
+                                                  (cl-cli:make-option :name "trace" :kind :flag))
+                            :commands (list (cl-cli:make-command
+                                             :name "flood"
+                                             :handler
+                                             (lambda (invocation)
+                                               (declare (ignore invocation))
+                                               (aitools.protocol.application:call-with-command-result/k
+                                                (lambda (&key on-ok on-partial on-error)
+                                                  (declare (ignore on-partial on-error))
+                                                  (funcall on-ok (list (cons "text" huge))))))))))
+                      (multiple-value-bind (code envelope stream)
+                          (dispatch-envelope app (aitools.protocol.application:make-command-registry)
+                                             (list "--root" *root* "--trace" "flood"))
+                        (expect (list code stream) :to-equal (list 1 :stderr))
+                        (expect (value envelope "error" "code") :to-equal "refusal.too-large")
+                        (expect (value envelope "meta") :to-be nil)))))
+              ))
