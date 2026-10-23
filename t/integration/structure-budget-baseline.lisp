@@ -5,13 +5,7 @@
 
 (defparameter *line-budget-ratchet*
   '(("packages/core/kernel/src/domain/json-model.lisp" 376)
-    ("packages/core/kernel/src/domain/unified-diff.lisp" 294)
-    ("packages/core/store/src/domain/tx-model.lisp" 262)
-    ("t/integration/store-recovery-test.lisp" 434)
-    ("t/integration/store-security-test.lisp" 635)
-    ("t/integration/store-tx-test.lisp" 610)
-    ("t/integration/store-write-protocol-test.lisp" 268)
-    ("t/unit/store/domain-test.lisp" 414)))
+    ("packages/core/kernel/src/domain/unified-diff.lisp" 294)))
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
@@ -28,7 +22,5 @@
 (defparameter *literal-table-ratchet*
   '())
 
-(defparameter *complex-function-ratchet*
-  '(("packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT" 5)
-    ))
+(defparameter *complex-function-ratchet* '())
 
