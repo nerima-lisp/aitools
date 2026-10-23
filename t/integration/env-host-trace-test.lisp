@@ -27,4 +27,15 @@
               :to-equal '((:child_process "env.system-query" :ok)
                           (:child_process "env.system-query" :timeout)
                           (:child_process "env.system-query" :unavailable)))))
+  (it "runs environment process commands without a span callback"
+    (let* ((host (host-ports))
+           (sh (aitools.env.application:find-executable host "sh"))
+           (ports (aitools.env.infrastructure:make-production-env-ports))
+           (run-program (aitools.env.application::env-ports-run-program ports)))
+      (unless sh (cl-weave:skip "sh is not on PATH"))
+      (expect (multiple-value-list
+               (funcall run-program sh
+                        (list "-c" "printf out; printf err >&2; exit 3")
+                        10))
+              :to-equal (list :exited 3 "out" "err"))))
 )
