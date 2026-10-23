@@ -12,9 +12,11 @@
 ports. CWD, when given, wires in a production workspace host whose working
 directory is CWD. Returns (VALUES EXIT-CODE ENVELOPE), ENVELOPE parsed from
 whichever stream the command wrote."
-  (labels ((observe (phase &optional timestamp)
+  (labels ((observe (phase &rest values)
              (when signal-grace-observer
-               (funcall signal-grace-observer phase (or timestamp (get-internal-real-time)))))
+               (apply signal-grace-observer phase
+                      (if values values
+                          (list (get-internal-real-time))))))
            (make-ports-with-observers ()
              (if (null signal-grace-observer)
                  (aitools.process.infrastructure:make-production-process-ports
@@ -24,14 +26,19 @@ whichever stream the command wrote."
                                             (lambda () (string-right-trim "/" (namestring cwd))))))
                  (let* ((signal-symbol 'aitools.process.infrastructure::%signal-process)
                         (clock-symbol 'aitools.process.infrastructure::%monotonic-ms)
+                        (wait-symbol 'aitools.process.application::%wait-for-exit)
                         (original-signal (symbol-function signal-symbol))
                         (original-clock (symbol-function clock-symbol))
+                        (original-wait (symbol-function wait-symbol))
                         (term-completed nil)
                         (wait-clock-recorded nil))
                    (cl-weave:with-mocked-functions
                        (((symbol-function signal-symbol)
                          (lambda (&rest arguments)
                            (let ((signal (second arguments)))
+                             (when (member signal '(15 9))
+                               (observe (if (= signal 15) :term-sent :kill-sent)
+                                        (get-internal-real-time)))
                              (prog1 (apply original-signal arguments)
                                (cond
                                  ((eql signal 15)
@@ -46,7 +53,12 @@ whichever stream the command wrote."
                              (when (and term-completed (not wait-clock-recorded))
                                (setf wait-clock-recorded t)
                                (observe :wait-first-clock-return))
-                             result))))
+                             result)))
+                        ((symbol-function wait-symbol)
+                         (lambda (&rest arguments)
+                           (let ((decision (apply original-wait arguments)))
+                             (observe :wait-for-exit-decision decision)
+                             decision))))
                      (aitools.process.infrastructure:make-production-process-ports
                       :state-directory-function (and state-directory (lambda () state-directory))
                       :workspace-host (and cwd (aitools.workspace.infrastructure:make-host-workspace-host
