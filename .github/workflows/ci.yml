@@ -128,6 +128,12 @@ jobs:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Build the process spawn helper
+        run: |
+          delivered="$(nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= build .#default --no-link --print-out-paths --quiet)"
+          test -x "$delivered/bin/cl-process-kit-spawn"
+          printf 'CL_PROCESS_KIT_SPAWN=%s/bin/cl-process-kit-spawn\n' "$delivered" >> "$GITHUB_ENV"
+
       - name: Install the same timing observer in the baseline source
         run: |
           mkdir -p baseline/t/perf

@@ -49,6 +49,8 @@
                  (equal expected-test-source-file test-source-file)
                  (plusp (length fasl-files)))
       (error "The loaded systems do not belong to the current source checkout."))
+    (unless (aitools.process.infrastructure:find-spawn-trampoline)
+      (error "The signal integration test requires the process spawn helper."))
     (format t "SOURCE_VARIANT=~A REVISION=~A TRIAL=~D SOURCE_ROOT=~A SOURCE_ASD=~A RUNNER_SOURCE=~A FASL_CACHE=~A FASL_COUNT=~D~%"
             variant source-revision trial (namestring source) (namestring source-file)
             (namestring runner-source) (namestring fasl-cache) (length fasl-files))))
