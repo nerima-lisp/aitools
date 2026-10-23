@@ -230,7 +230,7 @@ as gone."
 (defun %sleep-ms (milliseconds)
   (let ((start (%monotonic-ms)))
     (sleep (/ milliseconds 1000))
-    ;; SLEEP can return before the interval elapses on this clock.
+    ;; Recheck because SLEEP can return before the requested interval elapses.
     (loop for remaining = (- milliseconds (- (%monotonic-ms) start))
           while (> remaining 0)
           do (sleep (/ (max remaining 1) 1000)))))

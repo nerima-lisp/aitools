@@ -206,14 +206,15 @@
       (expect (funcall sent) :to-equal '((2101 . 15) (2101 . 9)))
       (expect (>= (funcall clock) 300) :to-be t)))
   (it "preserves submillisecond precision when converting internal time"
-      (let* ((units internal-time-units-per-second)
-             (start (1- units))
-             (delta (1- (floor (* 3/10 units))))
-             (end (+ start delta))
-             (elapsed (- (aitools.process.infrastructure::%internal-time-to-ms end)
-                         (aitools.process.infrastructure::%internal-time-to-ms start))))
-        (expect (= elapsed (/ (* 1000 delta) units)) :to-be t)
-        (expect (< elapsed 300) :to-be t)))
+    ;; Starting before a second boundary makes flooring both timestamps turn a sub-300ms interval into 300ms.
+    (let* ((units internal-time-units-per-second)
+           (start-tick (1- units))
+           (delta-ticks (1- (floor (* 3/10 units))))
+           (end-tick (+ start-tick delta-ticks))
+           (elapsed-ms (- (aitools.process.infrastructure::%internal-time-to-ms end-tick)
+                          (aitools.process.infrastructure::%internal-time-to-ms start-tick))))
+      (expect (= elapsed-ms (/ (* 1000 delta-ticks) units)) :to-be t)
+      (expect (< elapsed-ms 300) :to-be t)))
 
   (it "uses the host's SIGUSR numbers"
     (expect (aitools.process.domain:signal-number "USR1")
