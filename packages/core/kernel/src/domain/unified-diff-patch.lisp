@@ -169,7 +169,8 @@ call's value; nearby-lines is the current content around the hunk's expected
 position, for the caller to offer as SELECTION.NO-MATCH candidates."
  (let ((hunks (if reverse (mapcar #'reverse-hunk hunks) hunks))
        (result (coerce lines 'list))
-       (final-newline t))
+       (final-newline t)
+       (conflict nil))
    (loop for hunk in hunks
          for hunk-index from 0
          do (let* ((vector-lines (coerce result 'simple-vector))
@@ -178,10 +179,14 @@ position, for the caller to offer as SELECTION.NO-MATCH candidates."
                 (let* ((anchor (max 0 (1- (diff-hunk-old-start hunk))))
                        (window-start (max 0 (- anchor fuzz 2)))
                        (window-end (min (length vector-lines)
-                                        (+ anchor (length (%hunk-old-lines hunk)) fuzz 2))))
-                  (return-from apply-hunks/k
-                    (flow-continue :on-conflict hunk-index hunk
-                                   (coerce (subseq vector-lines window-start window-end) 'list)))))
+                                        (+ anchor
+                                           (length (%hunk-old-lines hunk))
+                                           fuzz 2))))
+                  (setf conflict
+                        (list hunk-index hunk
+                              (coerce (subseq vector-lines window-start window-end)
+                                      'list)))
+                  (return)))
               (let* ((old-length (length (%hunk-old-lines hunk)))
                      (new-lines (%hunk-new-lines hunk))
                      (before (subseq result 0 position))
@@ -193,4 +198,9 @@ position, for the caller to offer as SELECTION.NO-MATCH candidates."
                              (member (diff-line-op last-line) '(:context :insert))
                              (null after))
                     (setf final-newline nil))))))
-   (flow-continue :on-applied result final-newline (length hunks))))
+   (if conflict
+       (flow-continue :on-conflict
+                      (first conflict)
+                      (second conflict)
+                      (third conflict))
+       (flow-continue :on-applied result final-newline (length hunks)))))

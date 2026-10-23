@@ -308,15 +308,22 @@
 (define-flow
  (json-model-resolve/k model document tokens &key on-found on-missing)
  (declare (type function on-found on-missing))
- (let ((value document))
+ (let ((value document)
+       (missing nil))
    (loop for token in tokens
          for depth from 0
-         do (multiple-value-bind (child present) (json-model-child model value token)
+         do (multiple-value-bind (child present)
+                (json-model-child model value token)
               (unless present
-                (return-from json-model-resolve/k
-                  (flow-continue :on-missing (subseq tokens 0 depth) value token)))
+                (setf missing (list (subseq tokens 0 depth) value token))
+                (return))
               (setf value child)))
-   (flow-continue :on-found value)))
+   (if missing
+       (flow-continue :on-missing
+                      (first missing)
+                      (second missing)
+                      (third missing))
+       (flow-continue :on-found value))))
 
 (defun json-model-child-names (model value)
   (cond
