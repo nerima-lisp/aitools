@@ -99,3 +99,105 @@
                    (expect (aitools.org.domain:org-failure-kind failure)
                            :to-be :argument))))))
 )
+
+(describe "Org adapter uncovered validation paths"
+  (it "rejects invalid agenda end dates, local context, and repeat modes"
+    (with-edit-workspace ()
+      (let ((ports (make-org-write-flow-ports)))
+        (put "agenda-options.org" (format nil "* TODO Work~%"))
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-agenda/k) ports
+                              :path "agenda-options.org" :root *root*
+                              :from "2026-10-19" :through "2026-02-30"
+                              :at "2026-10-19T09:00:00" :tz "UTC")
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-agenda/k) ports
+                              :path "agenda-options.org" :root *root*
+                              :from "2026-10-19" :through "2026-10-19"
+                              :at "2026-10-19T09:00:00+00:00" :tz "UTC")
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-agenda/k) ports
+                              :path "agenda-options.org" :root *root*
+                              :from "2026-10-19" :through "2026-10-19"
+                              :future-repeats "sometimes"
+                              :at "2026-10-19T09:00:00" :tz "UTC")
+         :to-equal "argument.invalid"))))
+  (it "rejects invalid clock report endpoints and clocking out without a clock"
+    (with-edit-workspace ()
+      (let ((ports (make-org-write-flow-ports)))
+        (put "clock-options.org" (format nil "* TODO Work~%"))
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-clock-report/k) ports
+                              :path "clock-options.org" :root *root* :match "/TODO"
+                              :from "bad" :through "2026-10-19T10:00:00"
+                              :at "2026-10-19T09:00:00" :tz "UTC")
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-clock-report/k) ports
+                              :path "clock-options.org" :root *root* :match "/TODO"
+                              :from "2026-10-19T09:00:00" :through "bad"
+                              :at "2026-10-19T09:00:00" :tz "UTC")
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-clock-out/k) ports
+                              :path "clock-options.org" :root *root* :match "/TODO"
+                              :at "2026-10-19T10:00:00" :tz "UTC")
+         :to-equal "selection.no-match"))))
+  (it "rejects invalid Org table selections and numeric values"
+    (with-edit-workspace ()
+      (let ((ports (make-org-write-flow-ports)))
+        (put "table-options.org"
+             (format nil "| Name | Count |~%|------+-------|~%| apple | 1 |~%| pear | nope |~%"))
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-table-align/k) ports
+                              :path "table-options.org" :table 0 :root *root*)
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-table-align/k) ports
+                              :path "table-options.org" :table 2 :root *root*)
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-table-sort/k) ports
+                              :path "table-options.org" :table 1 :column 2
+                              :type "numeric" :order "ascending" :start 1 :end 2
+                              :root *root*)
+         :to-equal "argument.invalid"))))
+  (it "rejects invalid planning kinds, ambiguous headings, and duplicate markers"
+    (with-edit-workspace ()
+      (let ((ports (make-org-write-flow-ports)))
+        (put "planning-options.org"
+             (format nil "#+TODO: TODO | DONE~%* TODO First~%* TODO Second~%"))
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-planning-set/k) ports
+                              :path "planning-options.org" :match "/TODO" :kind "scheduled"
+                              :timestamp "<2026-10-20>" :at "2026-10-19T09:00:00"
+                              :tz "UTC" :root *root*)
+         :to-equal "selection.ambiguous")
+        (put "duplicate-planning.org"
+             (format nil "* TODO Release~%   SCHEDULED: <2026-10-20> SCHEDULED: <2026-10-22>~%"))
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-planning-set/k) ports
+                              :path "duplicate-planning.org" :match "/TODO"
+                              :kind "invalid" :timestamp "<2026-10-21>"
+                              :at "2026-10-19T09:00:00" :tz "UTC" :root *root*)
+         :to-equal "argument.invalid")
+        (expect
+         (org-flow-error-code (function aitools.org.application:org-planning-set/k) ports
+                              :path "duplicate-planning.org" :match "/TODO"
+                              :kind "scheduled" :timestamp "<2026-10-21>"
+                              :at "2026-10-19T09:00:00" :tz "UTC" :root *root*)
+         :to-equal "selection.ambiguous"))))
+  (it "preserves table bytes when the serialized output exceeds the kit limit"
+    (with-edit-workspace ()
+      (put "limited-table.org" (format nil "| A | 1 |~%"))
+      (let ((before (text "limited-table.org")))
+        (let ((aitools.org.infrastructure::*org-kit-limits*
+                (org-kit:make-limits :max-output-length 1)))
+          (let ((ports (make-org-write-flow-ports)))
+            (expect
+             (org-flow-error-code (function aitools.org.application:org-table-align/k) ports
+                                  :path "limited-table.org" :table 1 :root *root*)
+             :to-equal "refusal.too-large")
+            (expect (text "limited-table.org") :to-equal before)))))))
