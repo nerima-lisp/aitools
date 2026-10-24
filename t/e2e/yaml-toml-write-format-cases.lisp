@@ -40,6 +40,40 @@
              (when (string= format "yaml")
                (expect (jget value "body") :to-equal (format nil "alpha~%βeta~%")))))))))
 
+  (it "puts TOML child tables before arrays of tables and remains idempotent"
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((input
+                (format nil "~{~A~%~}"
+                        '("[beta]"
+                          "value = 2"
+                          "[[beta.rows]]"
+                          "name = \"row\""
+                          "[beta.zeta]"
+                          "value = 3"
+                          "[[beta.items]]"
+                          "name = \"item\""
+                          "[beta.alpha]"
+                          "value = 1")))
+              (input-bytes (octets input)))
+         (put ws "mixed.toml" input)
+         (let* ((first (run-ok ws '("toml" "fmt" "mixed.toml")))
+                (first-bytes (file-octets ws "mixed.toml"))
+                (formatted (utf8 first-bytes))
+                (second (run-ok ws '("toml" "fmt" "mixed.toml"))))
+           (format-warning-array-empty first)
+           (format-warning-array-empty second)
+           (expect-canonical-format-bytes first-bytes)
+           (expect (equalp input-bytes first-bytes) :to-be nil)
+           (expect (< (search "[beta]" formatted)
+                      (search "[beta.zeta]" formatted)
+                      (search "[beta.alpha]" formatted)
+                      (search "[[beta.rows]]" formatted)
+                      (search "[[beta.items]]" formatted))
+                   :to-be t)
+           (expect (file-octets ws "mixed.toml") :to-equalp first-bytes))))))
+
   (it "undo restores YAML BOM and TOML CRLF and non-ASCII comment bytes exactly"
     (aitools-binary)
     (call-with-workspace
