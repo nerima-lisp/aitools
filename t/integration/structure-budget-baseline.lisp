@@ -22,8 +22,8 @@
   '())
 
 (defparameter *complex-function-ratchet* '())
-(defparameter *complex-function-f0-baseline*
-  '(;; F0 revision 1b20c3abdea1d95a049cdb0481afcfd72072b2a4; entries exceeded depth 4 under the current control-depth measurement.
+(defparameter *complex-function-baseline*
+  '(;; Baseline revision 1b20c3abdea1d95a049cdb0481afcfd72072b2a4; entries exceeded depth 4 under the current control-depth measurement.
     ("AITOOLS.STORE.APPLICATION" "%RECOVER-INTENT" 5 "packages/core/store/src/application/recovery.lisp:27"
      (("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT")
       ("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%RECOVER-COMPLETE-INTENT")

@@ -44,13 +44,13 @@
                     (and (string= (second left) (second right))
                          (string< (third left) (third right))))))))))
 
-(defun complex-function-f0-violations (root)
+(defun complex-function-baseline-violations (root)
   (let ((inventory (complex-function-complete-inventory root))
         (violations '()))
-    (unless (and (listp *complex-function-f0-baseline*)
-                 *complex-function-f0-baseline*)
-      (push "F0 complex-function baseline is empty" violations))
-    (dolist (entry *complex-function-f0-baseline*)
+    (unless (and (listp *complex-function-baseline*)
+                 *complex-function-baseline*)
+      (push "complex-function baseline is empty" violations))
+    (dolist (entry *complex-function-baseline*)
       (if (and (listp entry)
                (= (length entry) 5)
                (stringp (first entry))
@@ -82,18 +82,18 @@
                                         (fourth actual)
                                         *complex-function-depth-limit*)
                                 violations))
-                        (push (format nil "~A:~A from F0 ~A has missing current successor ~A:~A"
+                        (push (format nil "~A:~A from baseline at ~A has missing current successor ~A:~A"
                                       package name location
                                       (first target) (third target))
                               violations)))
-                  (push (format nil "~A:~A from F0 ~A has invalid successor mapping ~S"
+                  (push (format nil "~A:~A from baseline at ~A has invalid successor mapping ~S"
                                 package name location target)
                         violations))))
-          (push (format nil "invalid F0 complex-function entry ~S" entry)
+          (push (format nil "invalid complex-function baseline entry ~S" entry)
                 violations)))
     (sort violations (function string<))))
 
-(defun %complex-f0-budget-fixture-violations (depth package name target-name)
+(defun %complex-function-baseline-fixture-violations (depth package name target-name)
   (aitools.test.support:call-with-workspace
    (lambda (root state)
      (declare (ignore state))
@@ -109,31 +109,31 @@
          (format output
                  "(in-package #:aitools.integration.structure-test)~%(defun fixture () ~A)~%"
                  form))
-       (let ((*complex-function-f0-baseline*
+       (let ((*complex-function-baseline*
                (list
-                (list package name 5 "f0-fixture.lisp:1"
+                (list package name 5 "complex-function-baseline.lisp:1"
                       (list
                        (list package "src/composition.lisp" target-name))))))
-         (complex-function-f0-violations root-pathname))))
-   :prefix "aitools-complex-f0-budget"))
+         (complex-function-baseline-violations root-pathname))))
+   :prefix "aitools-complex-function-baseline"))
 
-(describe "aitools F0 complex-function gate"
-  (it "pins all 19 F0 definitions"
-    (expect *complex-function-f0-baseline* :to-be-truthy)
-    (expect (length *complex-function-f0-baseline*) :to-equal 19))
+(describe "aitools complex-function baseline gate"
+  (it "pins the 19-entry complex-function baseline"
+    (expect *complex-function-baseline* :to-be-truthy)
+    (expect (length *complex-function-baseline*) :to-equal 19))
   (it "requires every mapped current function to exist and stay within the depth limit"
-    (expect (complex-function-f0-violations (repository-root)) :to-equal nil))
+    (expect (complex-function-baseline-violations (repository-root)) :to-equal nil))
   (it "rejects a missing current successor"
     (expect
      (some (lambda (violation)
              (search "missing current successor" violation))
-           (%complex-f0-budget-fixture-violations
-            0 "AITOOLS.INTEGRATION.STRUCTURE-TEST" "F0-FIXTURE" "MISSING-FIXTURE"))
+           (%complex-function-baseline-fixture-violations
+            0 "AITOOLS.INTEGRATION.STRUCTURE-TEST" "COMPLEX-FUNCTION-FIXTURE" "MISSING-FIXTURE"))
      :to-be-truthy))
   (it "rejects mapped current functions deeper than four"
     (expect
      (some (lambda (violation)
              (search "current depth 5 (limit 4)" violation))
-           (%complex-f0-budget-fixture-violations
-            5 "AITOOLS.INTEGRATION.STRUCTURE-TEST" "F0-FIXTURE" "FIXTURE"))
+           (%complex-function-baseline-fixture-violations
+            5 "AITOOLS.INTEGRATION.STRUCTURE-TEST" "COMPLEX-FUNCTION-FIXTURE" "FIXTURE"))
      :to-be-truthy)))

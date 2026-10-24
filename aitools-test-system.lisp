@@ -55,7 +55,7 @@
                                                                     (:file "structure-budget-lines-test")
                                                                     (:file "structure-budget-literals-test")
                                                                     (:file "structure-budget-complexity-test")
-                                                                    (:file "structure-budget-f0-complexity-test"
+                                                                    (:file "structure-budget-complex-function-test"
                                                                            :depends-on ("structure-budget-complexity-test"))
                                                                     (:file "structure-budget-complexity-fixture-test"
                                                                            :depends-on ("structure-budget-complexity-test"))))

@@ -33,7 +33,7 @@
        (error (condition) (princ-to-string condition))))))
 
 (describe "Run policy and coverage artifact validation"
-  (it "rejects an executed-spec count below the sourced F0 minimum"
+  (it "rejects an executed-spec count below the recorded minimum"
     (multiple-value-bind (problems executed)
         (%policy-problems (%passed-test-events 3148))
       (expect *minimum-executed-specs* :to-equal 3149)
