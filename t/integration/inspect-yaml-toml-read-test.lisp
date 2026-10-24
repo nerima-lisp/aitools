@@ -50,8 +50,8 @@
             (expect errors :to-contain "input.syntax-error")
             (expect fields :to-contain
                     (cond ((search " get" name) "value")
-                          ((search " select" name) "items")
-                          (t "ops")))
+                          ((search " select" name) "items") ((search " diff" name) "ops")
+                          (t "changes")))
             (when (member (subseq name 5) '("set" "delete" "merge" "patch" "fmt")
                           :test #'string=)
               (expect fields :to-contain "warnings"))))))))
