@@ -20,8 +20,7 @@
                                              (list touch-path (uiop:native-namestring marker))
                                              5000 :stdout-path target))))
                 :to-be t)
-        (expect (probe-file marker) :to-be nil)))
-    :prefix "aitools-process"))
+        (expect (probe-file marker) :to-be nil))) :prefix "aitools-process"))
   (it "removes the target it created when the program cannot start"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((target (merge-pathnames "out.txt" directory)))
@@ -31,8 +30,7 @@
           (expect status :to-be :unavailable)
           (expect (starts-with-p "cannot start aitools-no-such-program: " message) :to-be t)
           (expect program :to-equal "aitools-no-such-program")
-          (expect (probe-file target) :to-be nil))))
-    :prefix "aitools-process")))
+          (expect (probe-file target) :to-be nil)))) :prefix "aitools-process")))
 
 ;;; ------------------------------------------------------------- launcher
 
@@ -70,8 +68,7 @@ that expected otherwise never leaks it."
          (lambda ()
            (expect (aitools.process.infrastructure:find-spawn-trampoline)
                    :to-equal (uiop:native-namestring helper)))
-         :override (uiop:native-namestring helper))))
-    :prefix "aitools-process"))
+         :override (uiop:native-namestring helper)))) :prefix "aitools-process"))
 
   (it "falls back to the helper beside the running executable when the override is not executable"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -83,8 +80,7 @@ that expected otherwise never leaks it."
            (make-executable sibling "")
            (expect (aitools.process.infrastructure:find-spawn-trampoline)
                    :to-equal (uiop:native-namestring sibling)))
-         :override (uiop:native-namestring plain))))
-    :prefix "aitools-process"))
+         :override (uiop:native-namestring plain)))) :prefix "aitools-process"))
 
   (it "searches only absolute PATH entries, skipping a directory named like the helper"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -103,8 +99,7 @@ that expected otherwise never leaks it."
           (call-with-launcher-environment
            directory
            (lambda () (expect (aitools.process.infrastructure:find-spawn-trampoline) :to-be nil))
-           :path (format nil "relative:~A" (uiop:native-namestring shadow))))))
-    :prefix "aitools-process"))
+           :path (format nil "relative:~A" (uiop:native-namestring shadow)))))) :prefix "aitools-process"))
 
   (it "reports a missing helper as unavailable, naming the helper"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -117,8 +112,7 @@ that expected otherwise never leaks it."
                        (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
              (expect kind :to-be :unavailable)
              (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
-             (expect program :to-equal "cl-process-kit-spawn"))))))
-    :prefix "aitools-process"))
+             (expect program :to-equal "cl-process-kit-spawn")))))) :prefix "aitools-process"))
 
   (it "reports a program path that is not executable as unavailable"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -132,8 +126,7 @@ that expected otherwise never leaks it."
                    :to-equal (list :unavailable
                                    (format nil "cannot start ~A: not an executable file or not found on PATH" script)
                                    script)))
-         :override (uiop:native-namestring helper))))
-    :prefix "aitools-process"))
+         :override (uiop:native-namestring helper)))) :prefix "aitools-process"))
 
   (it "reports a helper that cannot be executed as unavailable for the program"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -149,8 +142,7 @@ that expected otherwise never leaks it."
              (expect kind :to-be :unavailable)
              (expect (starts-with-p (format nil "cannot start ~A: " sleep-path) message) :to-be t)
              (expect program :to-equal sleep-path)))
-         :override (uiop:native-namestring garbage))))
-    :prefix "aitools-process"))
+         :override (uiop:native-namestring garbage)))) :prefix "aitools-process"))
 
   (it "refuses a bg log that was swapped for a symlink, starting nothing"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -170,8 +162,7 @@ that expected otherwise never leaks it."
                                              log (merge-pathnames "bg-1.exit" directory)))))
                    :to-be t))
          :override (uiop:native-namestring garbage))
-        (expect (probe-file target) :to-be nil)))
-    :prefix "aitools-process")))
+        (expect (probe-file target) :to-be nil))) :prefix "aitools-process")))
 
 (defun call-without-sigchld-reaping (function)
   "Call FUNCTION with SBCL's SIGCHLD handler replaced by the default action, so
@@ -228,8 +219,7 @@ keeping the group alive), so a spec that signals the group waits for this."
                              do (sleep 0.02))
                        :to-be t)
                (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be nil))
-          (when pid (kill-group pid)))))
-    :prefix "aitools-process"))
+          (when pid (kill-group pid))))) :prefix "aitools-process"))
 
   (it "reaps the supervisor it launched, so its zombie never keeps the group alive"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
@@ -251,5 +241,4 @@ keeping the group alive), so a spec that signals the group waits for this."
                                 return t
                               do (sleep 0.02))
                         :to-be t)))
-          (when pid (kill-group pid)))))
-    :prefix "aitools-process")))
+          (when pid (kill-group pid))))) :prefix "aitools-process")))
