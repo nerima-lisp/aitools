@@ -53,13 +53,13 @@
                        ("multiple-value-bind-alias"
                         "(multiple-value-bind (saved) (values callback) (funcall saved value))")
                        ("multiple-value-bind-local-values-function"
-                       "(flet ((values (ignored) (declare (ignore ignored)) :ordinary))
-                         (multiple-value-bind (saved) (values callback) (funcall saved value)))"
-                       nil)
+                        "(flet ((values (ignored) (declare (ignore ignored)) :ordinary))
+                          (multiple-value-bind (saved) (values callback) (funcall saved value)))"
+                        nil)
                        ("multiple-value-bind-local-values-macro"
-                       "(macrolet ((values (&rest forms) :ordinary))
-                         (multiple-value-bind (saved) (values callback) (funcall saved value)))"
-                       nil)
+                        "(macrolet ((values (&rest forms) :ordinary))
+                          (multiple-value-bind (saved) (values callback) (funcall saved value)))"
+                        nil)
                        ("handler-case" "(handler-case value (error (condition) (funcall callback condition)))")
                        ("flow-call" "(flow-call value (:on-ok (result) (funcall callback result)))")
                        ("block" "(block terminal-block (funcall callback value))")
