@@ -57,4 +57,3 @@
     "org.property.delete"
     (:group "org.property" :command-builder #'%property-delete-command
      :schema (%schema "org.property.delete")))))
-

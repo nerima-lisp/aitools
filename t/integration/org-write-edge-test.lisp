@@ -55,7 +55,7 @@
                                             :to-equalp
                                             before))))))
 
-(describe "Org write flow UTF-8 rejection"
+(describe "Org write flow input rejection"
           (it "rejects malformed UTF-8 before changing the source bytes"
               (with-edit-workspace ()
                                    (let* ((ports (make-org-write-flow-ports))
@@ -91,7 +91,25 @@
                                       "input.not-utf8")
                                      (expect (octets-of "invalid.org")
                                              :to-equalp
-                                             original)))))
+                                             original))))
+          (it "rejects NUL bytes before editing and preserves source bytes"
+              (with-edit-workspace ()
+                (let* ((ports (make-org-write-flow-ports))
+                       (original (octet-vector 42 32 84 79 68 79 32 0 10)))
+                  (put "nul.org" original)
+                  (expect
+                   (org-flow-error-code
+                    (function
+                     aitools.org.application:org-todo-set/k)
+                    ports
+                    :path "nul.org"
+                    :root *root*
+                    :match "/TODO"
+                    :state "DONE"
+                    :at "2026-10-19T09:00:00"
+                    :tz "UTC")
+                   :to-equal "input.unsupported-format")
+                  (expect (octets-of "nul.org") :to-equalp original)))))
 
 (describe "Org table sort arguments"
           (it

@@ -45,7 +45,13 @@
       (t
        (let ((octets (aitools.store.application:view-read-file view path)))
          (if octets
-             (%org-apply-write-edit ports path octets operation options command)
+             (if (find 0 octets)
+                 (%org-reject-write-failure
+                  (aitools.org.domain:make-org-failure
+                   :kind :unsupported
+                   :message "Org input contains a NUL byte")
+                  command path)
+                 (%org-apply-write-edit ports path octets operation options command))
              (list :rejected "input.not-found" "Org file does not exist"
                    nil nil path)))))))
 (defun %org-write-plan (ports path command operation options)

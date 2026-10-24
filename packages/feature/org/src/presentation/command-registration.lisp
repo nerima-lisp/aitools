@@ -23,4 +23,3 @@
     (aitools.protocol.application:register-command-declarations
      registry declarations ports))
   registry)
-

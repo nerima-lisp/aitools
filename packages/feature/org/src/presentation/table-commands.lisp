@@ -67,4 +67,3 @@
     "org.table.recalculate"
     (:group "org.table" :command-builder #'%table-recalculate-command
      :schema (%schema "org.table.recalculate")))))
-

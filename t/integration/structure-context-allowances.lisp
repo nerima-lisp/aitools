@@ -112,4 +112,3 @@
     ("org" (:infrastructure) "ORG-KIT" "TRANSITION-RESULT-PREVIOUS-STATE" "report the previous TODO state")
     ("org" (:infrastructure) "ORG-KIT" "WRITE-ORG" "serialize Org documents as exact octets")
 )))
-
