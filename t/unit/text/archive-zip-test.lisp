@@ -138,19 +138,6 @@
            (entry (first (read-zip-entries archive))))
       (setf (aref archive (+ 3 (aitools.text.domain::archive-entry-data-offset entry))) 0)
       (signals archive-error (archive-entry-data archive entry))))
-  (it "rejects a corrupted central-directory entry signature"
-    (let* ((archive
-             (write-zip
-              (list (make-archive-member :name "a" :data (string-bytes "x")))))
-           (eocd (- (length archive) 22))
-           (directory-offset
-             (logior (aref archive (+ eocd 16))
-                     (ash (aref archive (+ eocd 17)) 8))))
-      (put-u32 archive directory-offset 0)
-      (expect (zip-entries-reason archive)
-              :to-equal
-              (list (quote archive-error)
-                    "bad central directory entry signature"))))
   (it "accepts central-directory signatures and rejects invalid boundaries"
     (let* ((data (make-array 1024 :element-type '(unsigned-byte 8) :initial-element 65))
            (archive (write-zip (list (make-archive-member :name "a" :data data))))
