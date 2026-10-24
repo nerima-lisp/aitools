@@ -75,8 +75,14 @@ afterwards. The temporary tree is removed on exit."
 
 (defun call-with-scratch-directory (function)
   "Call FUNCTION with the real path (symlinks resolved, no trailing `/`) of a fresh private directory, removing it afterwards."
-  (call-with-temporary-directory
-   (lambda (directory)
-     (funcall function
-              (string-right-trim "/" (sb-ext:native-namestring directory))))
-   :prefix "aitools-it"))
+  (let* ((base (%temporary-directory "aitools-it"))
+         (directory (sb-ext:parse-native-namestring (format nil "~A/" base)))
+         (real (string-right-trim "/" (sb-ext:native-namestring directory))))
+    (unwind-protect
+         (funcall function real)
+      (when (search "/aitools-it-" real)
+        (uiop:run-program (list "rm" "-rf" real)
+                          :directory "/"
+                          :output :string
+                          :error-output :string
+                          :ignore-error-status t)))))
