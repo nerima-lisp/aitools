@@ -1,7 +1,7 @@
 ;;;; data/presentation/inspect/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for `read`, `info`, `check`, and `diff`
-;;;; (docs/src/reference/commands.md). AITOOLS.INSPECT.PRESENTATION builds each
+;;;; (docs/src/reference/commands/inspect.md). AITOOLS.INSPECT.PRESENTATION builds each
 ;;;; COMMAND-SCHEMA from these entries; the cl-cli options live beside the
 ;;;; handlers. The `json`, `table`, `archive`, and `snapshot` entries are in
 ;;;; the sibling data files of this directory.

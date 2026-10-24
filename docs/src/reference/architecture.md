@@ -14,7 +14,7 @@ that spans every context. The layout follows nshell's architecture.
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
 | feature/search | domain, application, infrastructure, presentation | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
 | feature/inspect | domain, application, infrastructure, presentation | `read`, `info`, `check`, `diff`, `json get/select/diff`, `yaml get/select/diff`, `toml get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
-| feature/edit | domain, application, infrastructure, presentation | Every write command, `edit` through `archive create` in the [command index](commands.md#command-index) |
+| feature/edit | domain, application, infrastructure, presentation | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
 | feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
 | feature/vcs | domain, application, infrastructure, presentation | The read-only `git` group |
@@ -219,7 +219,7 @@ The journal keeps the newest 20 operations per path
 The workspace and per-transaction locks use exclusive `flock(2)` on lock files.
 Store application supplies a retry policy with delays that grow from 5 ms to
 100 ms, bounded by `--lock-timeout`, which defaults to `10s` (see
-[global options](commands.md#global-options) and
+[global options](commands/index.md#global-options) and
 `packages/core/store/src/application/lock.lisp`).
 The OS releases a lock when its process exits.
 

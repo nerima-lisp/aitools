@@ -1,7 +1,7 @@
 ;;;; packages/feature/inspect/src/application/package.lisp
 ;;;;
 ;;;; The inspect context's command flows and public APIs for Edit and VCS.
-;;;; Selector rules are in docs/src/reference/commands.md; API contracts are
+;;;; Selector rules are in docs/src/reference/commands/index.md; API contracts are
 ;;;; in docs/src/project/inspect-api.md.
 (in-package #:cl-user)
 

@@ -1,7 +1,7 @@
 ;;;; packages/feature/vcs/src/domain/package.lisp
 ;;;;
 ;;;; Pure parsing and shaping for the read-only `git` group
-;;;; (docs/src/reference/commands.md). cl-vcs-kit parses only porcelain-v2 status and numstat; the log,
+;;;; (docs/src/reference/commands/vcs.md). cl-vcs-kit parses only porcelain-v2 status and numstat; the log,
 ;;;; blame, and patch formats it returns as raw text are parsed here, the
 ;;;; hunks into the kernel's DIFF-HUNK values (see diff.lisp).
 (in-package #:cl-user)

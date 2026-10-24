@@ -26,7 +26,7 @@ Uses outside the stated subset need external execution.
 | `diff cmp comm` | `diff`: supported text and line-set comparisons; check ordering, duplicate handling, binary input, and exit codes. |
 | `cp mv` | `copy`, `move`: workspace-scoped; check symlink treatment and existing destinations. Move does not merge existing directories. |
 | `rm rmdir` | `rm`, `delete`: journaled, guarded deletion. Recursive execution requires `--expect-count`, including the target root, and enforces protected paths and size limits. Inspect `--recursive --dry-run` first to obtain the count without deletion. Undo refuses an inaccessible mode `000` tree rather than temporarily broadening permissions. |
-| `mkdir chmod ln touch mktemp` | `mkdir`, `chmod`, `link`, `touch`, [`mktemp`](../reference/commands.md#mktemp): parent creation, supported permission modes, symlinks rather than hardlinks, and temporary entries in the workspace's state `tmp/` area (not journaled). Each `mktemp` invocation attempts to remove entries whose modification time is more than seven days old, including directory contents. |
+| `mkdir chmod ln touch mktemp` | `mkdir`, `chmod`, `link`, `touch`, [`mktemp`](../reference/commands/edit.md#mktemp): parent creation, supported permission modes, symlinks rather than hardlinks, and temporary entries in the workspace's state `tmp/` area (not journaled). Each `mktemp` invocation attempts to remove entries whose modification time is more than seven days old, including directory contents. |
 | `apply_patch patch` | `apply`: unified diff only, not Codex apply_patch syntax or every patch option. |
 | `tar zip unzip gzip gunzip zcat` | `archive list`, `archive read`, `archive extract`, `archive create`: supported formats and operations, not arbitrary compression, streaming, or metadata preservation. |
 | `base64 wc` | `util encode`, `util decode`, `util tokens`: different input/output contracts; line counting includes an unterminated final line, unlike `wc -l`. |
@@ -42,7 +42,7 @@ Uses outside the stated subset need external execution.
 | `lsof` | `sys ports`: TCP listeners and available owners, not all open files, UDP, or established connections. |
 | `git` | `git status`, `git log`, `git diff`, `git blame`, `git show`: supported read-only queries, not Git writes. |
 | `date` | `time now`, `time convert`, `time diff`. |
-| `sleep` | [`wait --duration`](../reference/commands.md#wait): JSON output; `--duration` sets the requested delay, while `--timeout` limits the wait (default 60 seconds). Set a timeout longer than the duration for longer delays. |
+| `sleep` | [`wait --duration`](../reference/commands/process.md#wait): JSON output; `--duration` sets the requested delay, while `--timeout` limits the wait (default 60 seconds). Set a timeout longer than the duration for longer delays. |
 | `kill` | `bg stop`: managed job IDs only, not arbitrary PIDs or signals. |
 
 ## External argv
@@ -62,7 +62,7 @@ rustc sbcl security sh shellcheck sips sqlite3 ssh sudo swift sysctl
 tee terraform time timeout tmux treefmt tsc wget xargs yq zsh
 ```
 
-[`run`](../reference/commands.md#run) passes arguments after `--` as argv
+[`run`](../reference/commands/process.md#run) passes arguments after `--` as argv
 without interpreting shell syntax. It is neither a sandbox nor journaled
 execution. The default stdin is `/dev/null`; explicit stdin,
 child environment overrides, and child working directory have their own

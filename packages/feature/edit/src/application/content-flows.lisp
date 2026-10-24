@@ -1,7 +1,7 @@
 ;;;; packages/feature/edit/src/application/content-flows.lisp
 ;;;;
 ;;;; `write` and `split` handle whole-file bytes, which the
-;;;; UTF-8 text-edit rule in docs/src/reference/commands.md exempts.
+;;;; UTF-8 text-edit rule in docs/src/reference/commands/edit.md exempts.
 (in-package #:aitools.edit.application)
 
 (defun %concatenate-octets (parts separator)

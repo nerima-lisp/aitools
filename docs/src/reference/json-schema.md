@@ -8,7 +8,7 @@ fields by name. Repeating a command can produce different values because
 of time, randomness, or changes to observed state.
 
 The shapes of individual commands' fields are in
-[Commands](commands.md). This page covers the fields that are shared.
+[Commands](commands/index.md). This page covers the fields that are shared.
 
 ## Success envelope
 

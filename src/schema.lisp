@@ -3,7 +3,7 @@
 ;;;; `schema [command...] [--all]`. Composition-root, not a feature
 ;;;; context's command, because it reads every context's registered
 ;;;; COMMAND-SCHEMA (`batch` and `schema` live in the composition root; see
-;;;; docs/src/reference/commands.md).
+;;;; docs/src/reference/commands/index.md).
 (in-package #:aitools/cli)
 
 (defvar %schema-registry% nil

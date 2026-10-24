@@ -34,10 +34,10 @@ aitools is written in Common Lisp for SBCL and built with Nix.
   commands.
 - [Using aitools from an agent](guide/agents.md): the call loop, guards,
   transactions, and the shell-command correspondence table.
-- [Commands](reference/commands.md): every command's arguments and output.
+- [Commands](reference/commands/index.md): every command's arguments and output.
 - [Architecture](reference/architecture.md): contexts, layers, ports, and the
   CPS audit.
 
 These pages are the specification of aitools's behavior.
-[Commands](reference/commands.md#not-provided) lists the options and
+[Commands](reference/commands/index.md#not-provided) lists the options and
 commands that are not provided.

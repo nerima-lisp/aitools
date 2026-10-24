@@ -1,7 +1,7 @@
 ;;;; t/unit/inspect/selection-test.lisp
 ;;;;
 ;;;; The public selector API (the selector rules in
-;;;; docs/src/reference/commands.md, "Conventions shared by many commands") and the
+;;;; docs/src/reference/commands/index.md, "Conventions shared by many commands") and the
 ;;;; pieces under it: option parsing under the one-selector rule, each
 ;;;; selector's range, :SYMBOL extents per language, and the Lisp scanner's
 ;;;; dialect rules.

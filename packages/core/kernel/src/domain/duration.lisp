@@ -1,6 +1,6 @@
 ;;;; packages/core/kernel/src/domain/duration.lisp
 ;;;;
-;;;; Durations (docs/src/reference/commands.md): `<number>ms|s|m|h|d`. Negative durations are rejected
+;;;; Durations (docs/src/reference/commands/index.md): `<number>ms|s|m|h|d`. Negative durations are rejected
 ;;;; by construction -- a leading `-` can never parse as the numeric prefix
 ;;;; below: a value starting with `-` cannot be told apart from a flag, so
 ;;;; negative values are not accepted, and a negative duration is expressed

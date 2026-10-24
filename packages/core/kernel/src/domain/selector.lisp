@@ -1,6 +1,6 @@
 ;;;; packages/core/kernel/src/domain/selector.lisp
 ;;;;
-;;;; The five selectors (docs/src/reference/commands.md, Conventions shared
+;;;; The five selectors (docs/src/reference/commands/index.md, Conventions shared
 ;;;; by many commands), as one value type plus the data
 ;;;; table every command's presentation layer consults to enforce "which
 ;;;; selectors does this command accept" and "is a multiple match an error or

@@ -1,6 +1,6 @@
 ;;;; packages/core/kernel/src/domain/size.lisp
 ;;;;
-;;;; Sizes (docs/src/reference/commands.md): a bare `<number>` is bytes; `KiB`/`MiB`/`GiB` are the
+;;;; Sizes (docs/src/reference/commands/index.md): a bare `<number>` is bytes; `KiB`/`MiB`/`GiB` are the
 ;;;; binary (1024-based) units. Fractional inputs (`1.5MiB`) are floored to a
 ;;;; whole byte count, since a size is always used as an integer boundary
 ;;;; (`--max-bytes`, `--skip-larger-than`).

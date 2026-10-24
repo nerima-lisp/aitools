@@ -3,7 +3,7 @@
 ;;;; RUN-WRITE-COMMAND/K: the path every workspace-changing command takes
 ;;;; (guards, input, output, redaction refusal, the workspace boundary,
 ;;;; the store commit, and tx staging; see
-;;;; docs/src/reference/commands.md and transactions.md). A command
+;;;; docs/src/reference/commands/index.md and transactions.md). A command
 ;;;; describes its write as a WRITE-PLAN (write-plan.lisp: targets, inputs,
 ;;;; guards, and a PLAN function that turns the current state into change
 ;;;; requests); this file resolves the root, refuses redacted input and

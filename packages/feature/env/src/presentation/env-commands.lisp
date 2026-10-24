@@ -1,7 +1,7 @@
 ;;;; packages/feature/env/src/presentation/env-commands.lisp
 ;;;;
 ;;;; cl-cli definitions and schemas for the `sys` and `time` groups
-;;;; (docs/src/reference/commands.md). Handlers turn the parsed invocation into a flow call;
+;;;; (docs/src/reference/commands/env.md). Handlers turn the parsed invocation into a flow call;
 ;;;; the flow's continuation decides the envelope. The `schema` text
 ;;;; (summaries, descriptions, args, output fields, error codes) is data:
 ;;;; AITOOLS.DATA:*ENV-COMMAND-SCHEMAS*.

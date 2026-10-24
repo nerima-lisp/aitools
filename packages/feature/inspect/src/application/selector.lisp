@@ -1,6 +1,6 @@
 ;;;; packages/feature/inspect/src/application/selector.lisp
 ;;;;
-;;;; The public selector boundary (selector rules: docs/src/reference/commands.md,
+;;;; The public selector boundary (selector rules: docs/src/reference/commands/index.md,
 ;;;; "Conventions shared by many commands"): turning
 ;;;; parsed options into one kernel SELECTOR under the "one selector per
 ;;;; call" rule, and resolving it against a file's lines. `read` and

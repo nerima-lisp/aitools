@@ -1,7 +1,7 @@
 ;;;; packages/feature/journal/src/domain/package.lisp
 ;;;;
 ;;;; Pure rendering for `history`, `undo` and the `tx` group: journal entries
-;;;; and tx states as the JSON shapes of docs/src/reference/commands.md and
+;;;; and tx states as the JSON shapes of docs/src/reference/commands/journal.md and
 ;;;; docs/src/reference/transactions.md, the
 ;;;; command lines placed in `repairs[].command` and `next_commands`, and the
 ;;;; commit-conflict repairs. The store context owns every record read here.

@@ -3,7 +3,7 @@
 ;;;; `table agg`: declarative grouping and aggregation, the
 ;;;; replacement for `awk '{s+=$2}'` and `sort | uniq -c`. Numeric
 ;;;; aggregates (sum, avg, min, max) apply to numeric columns only
-;;;; (docs/src/reference/commands.md#table-agg); NON-NUMERIC-CELLS names the rows that break that.
+;;;; (docs/src/reference/commands/inspect.md#table-agg); NON-NUMERIC-CELLS names the rows that break that.
 (in-package #:aitools.inspect.domain)
 
 (defstruct (table-group (:constructor %make-table-group (key)) (:copier nil))

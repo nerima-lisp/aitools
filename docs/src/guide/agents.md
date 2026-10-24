@@ -19,7 +19,7 @@ aitools schema json get         # a group command, as typed
 `schema` without arguments returns only names and summaries, so it stays
 short. The detail object lists each argument's type and default, each output
 field, and the error codes the command declares. The
-[Commands](../reference/commands.md) page shows the same data.
+[command reference](../reference/commands/index.md) and its context pages show the same data.
 
 ## Branch on the exit code first
 
