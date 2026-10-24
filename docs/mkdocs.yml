@@ -49,7 +49,17 @@ nav:
       - State inspection: guide/state-inspection.md
       - Migrating session commands: guide/session-migration.md
   - Reference:
-      - Commands: reference/commands.md
+      - Commands:
+          - Overview: reference/commands/index.md
+          - Search: reference/commands/search.md
+          - Inspect: reference/commands/inspect.md
+          - Edit: reference/commands/edit.md
+          - Journal: reference/commands/journal.md
+          - Process: reference/commands/process.md
+          - VCS: reference/commands/vcs.md
+          - Org: reference/commands/org.md
+          - Environment: reference/commands/env.md
+          - Utilities: reference/commands/util.md
       - JSON output: reference/json-schema.md
       - Errors and exit codes: reference/errors.md
       - Transactions: reference/transactions.md
