@@ -77,6 +77,19 @@
         (declare (ignore message keys))
         (expect status :to-be :error)
         (expect code :to-equal "argument.invalid"))))
+  (it "formats an empty TOML document with a final LF"
+    (with-edit-workspace ()
+      (put "empty.toml" "")
+      (multiple-value-bind (status fields)
+          (run "toml.fmt" (list "empty.toml"))
+        (expect status :to-be :ok)
+        (expect-toml-comment-warning fields 0)
+        (expect (text "empty.toml") :to-equal (format nil "~%")))
+      (multiple-value-bind (status fields)
+          (run "toml.fmt" (list "empty.toml"))
+        (expect status :to-be :ok)
+        (expect-toml-comment-warning fields 0)
+        (expect (changes fields) :to-equal (list)))))
 
   (it "allows null merge deletion and rejects invalid source documents"
     (with-edit-workspace ()

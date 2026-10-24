@@ -88,6 +88,9 @@
                (declare (ignore format value))
                "document"))))
       (expect (doc-string document) :to-equal (format nil "document~%"))))
+  (it "rejects unsupported serializer formats"
+    (signals error
+      (aitools.edit.infrastructure::serialize-document "other" nil)))
 
   (it "rejects invalid source documents and carries format repairs"
     (with-edit-workspace ()

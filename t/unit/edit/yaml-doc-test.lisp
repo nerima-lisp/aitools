@@ -19,4 +19,8 @@
   (it "rejects unrepresentable JSON numbers"
     (let ((overflow (yaml-write-value-refusal
                      (parse-json-text "{\"value\":1e9999}"))))
-      (expect (edit-refusal-code overflow) :to-equal "argument.invalid"))))
+      (expect (edit-refusal-code overflow) :to-equal "argument.invalid")))
+  (it "rejects malformed JSON number tokens"
+    (let ((refusal
+            (yaml-write-value-refusal (make-json-num "1 trailing"))))
+      (expect (edit-refusal-code refusal) :to-equal "argument.invalid"))))
