@@ -2,7 +2,8 @@
 
 (defsystem "aitools/core/text"
            :description "Text, line, encoding, and archive support."
-           :depends-on ("aitools/data" "aitools/core/kernel" "cl-codec-kit" "cl-boundary-kit" "cl-deflate-kit")
+           :depends-on ("aitools/data" "aitools/core/kernel" "cl-codec-kit"
+              "cl-boundary-kit" "cl-deflate-kit" "cl-date-kit")
            :pathname "src/"
            :components
            ((:module "domain"

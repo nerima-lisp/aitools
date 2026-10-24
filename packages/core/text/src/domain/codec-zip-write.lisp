@@ -1,14 +1,21 @@
 (in-package #:aitools.text.domain)
 
 (defun %unix-to-dos-time (unix)
-  "(VALUES TIME DATE), clamped to MS-DOS's 1980-2107 range."
-  (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time
-       (aitools.kernel.domain:unix-seconds-to-universal-time (max unix 315532800)) 0)
-    (if (> year 2107)
-        (values #xBF7D #xFF9F)
-        (values (logior (ash hour 11) (ash minute 5) (floor second 2))
-                (logior (ash (- year 1980) 9) (ash month 5) day)))))
+  "Clamped to the MS-DOS 1980-2107 range."
+  (let* ((date-time
+           (cl-date-kit:local-date-time-of-epoch-second
+            unix 0 cl-date-kit:zone-offset-utc))
+         (year (cl-date-kit:local-date-time-year date-time)))
+    (cond
+      ((< year 1980) (values 0 #x21))
+      ((> year 2107) (values #xBF7D #xFF9F))
+      (t
+       (values (logior (ash (cl-date-kit:local-date-time-hour date-time) 11)
+                       (ash (cl-date-kit:local-date-time-minute date-time) 5)
+                       (floor (cl-date-kit:local-date-time-second date-time) 2))
+               (logior (ash (- year 1980) 9)
+                       (ash (cl-date-kit:local-date-time-month date-time) 5)
+                       (cl-date-kit:local-date-time-day date-time)))))))
 ;;; ------------------------------------------------------------ writing
 
 (defun %byte-sink ()
