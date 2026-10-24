@@ -152,6 +152,7 @@
                                               (:file "integration/journal-tx-failure-test")
                                               (:file "integration/journal-cli-test")
                                               (:file "unit/edit/package")
+                                              (:file "integration/org-write-flow-test")
                                               (:file "unit/edit/domain-test")
                                               (:file "unit/edit/command-spec-test")
                                               (:file "unit/edit/domain-edge-test")
