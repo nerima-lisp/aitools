@@ -55,6 +55,8 @@
                                                                     (:file "structure-budget-lines-test")
                                                                     (:file "structure-budget-literals-test")
                                                                     (:file "structure-budget-complexity-test")
+                                                                    (:file "structure-budget-f0-complexity-test"
+                                                                           :depends-on ("structure-budget-complexity-test"))
                                                                     (:file "structure-budget-complexity-fixture-test"
                                                                            :depends-on ("structure-budget-complexity-test"))))
                                               ;; Keep the correspondence meta-test last so its cases see earlier rows.
