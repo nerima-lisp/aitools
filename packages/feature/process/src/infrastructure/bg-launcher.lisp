@@ -109,10 +109,10 @@ when it contains a slash, else searched in $PATH. NIL when not executable."
        (multiple-value-bind (handle launch-error)
            (handler-case
                (values
-                (with-bg-log (log log-path)
+                (call-with-bg-log log-path (lambda (log)
                   ;; The bg log is acquired as a resource: reopened for append
-                  ;; under O_NOFOLLOW and closed on any exit (WITH-BG-LOG).
-                  (%spawn-supervisor trampoline argv program log exit-path))
+                  ;; under O_NOFOLLOW and closed on any exit (CALL-WITH-BG-LOG).
+                  (%spawn-supervisor trampoline argv program log exit-path)))
                 nil)
              (process-kit:process-launch-error (condition)
                (values nil condition))

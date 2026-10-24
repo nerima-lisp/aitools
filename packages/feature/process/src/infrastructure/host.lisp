@@ -75,11 +75,6 @@ symlink swapped in at the path is refused rather than written through."
     (unwind-protect (funcall function log)
       (close log))))
 
-(defmacro with-bg-log ((stream path) &body body)
-  "Bind STREAM to the bg log at PATH, opened for append as a private resource
-closed on any exit from BODY (the CALL-WITH-BG-LOG sugar)."
-  `(call-with-bg-log ,path (lambda (,stream) ,@body)))
-
 (defun %create-file-exclusive (path text)
   "Create PATH as a new 0600 regular file and write TEXT. Returns T, or NIL
 when PATH already exists (a regular file or a symlink alike): O_CREAT|O_EXCL
