@@ -101,7 +101,7 @@
            (walk (form visible &optional expansion-stack)
              (cond
                ((symbolp form)
-                (let ((binding (assoc form visible)))
+                (let ((binding (find-if (lambda (entry) (and (consp entry) (eq (car entry) form))) visible)))
                   (cond
                     ((and binding (consp (cdr binding)) (eq (second binding) :symbol-macro))
                      (unless (member form expansion-stack :test #'eq)
