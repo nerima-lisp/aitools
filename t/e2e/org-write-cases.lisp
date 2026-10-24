@@ -52,7 +52,7 @@
                          '("org" "property" "set" "byte.org" "--match" "/TODO"
                            "--name" "OWNER" "--value" "高橋"))
                         "org.property.set"))
-           (expected (org-replace-first +org-byte-fixture+ "佐藤\tqa" "高橋\tqa")))
+           (expected (org-replace-first +org-byte-fixture+ (format nil "佐藤~Cqa" #\Tab) "高橋")))
       (expect (jget set "property") :to-equal "OWNER")
       (expect (jget set "changed") :to-be t)
       (expect (file-octets ws "byte.org") :to-equalp (octets expected)))
@@ -62,7 +62,7 @@
                             '("org" "property" "delete" "byte.org" "--match" "/TODO"
                               "--name" "OWNER"))
                            "org.property.delete"))
-           (owner-line (concatenate 'string ":OWNER: 佐藤\tqa" (string #\Newline)))
+           (owner-line (format nil ":OWNER: 佐藤~Cqa~%" #\Tab))
            (expected (org-replace-first +org-byte-fixture+ owner-line "")))
       (expect (jget delete "property") :to-equal "OWNER")
       (expect (jget delete "changed") :to-be t)

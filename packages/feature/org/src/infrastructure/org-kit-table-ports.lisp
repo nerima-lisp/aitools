@@ -113,7 +113,7 @@
                                      end)
   (handler-case (let* ((result
                         (case operation
-                          (:table-align (org-kit:table-align engine table))
+                          (:table-align (org-kit:table-align engine table :numeric-alignment-p t))
                           (:table-sort
                            (org-kit:table-sort-rows engine
                                                     table
