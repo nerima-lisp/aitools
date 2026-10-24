@@ -32,7 +32,7 @@
                           "Convert the value to the supported subset, then retry."))))
 
 (describe "YAML and TOML schemas"
-  (it "lists get, select, and diff with read errors and matching output fields"
+  (it "lists read and write commands with errors and output fields"
     (dolist (format '("yaml" "toml"))
       (multiple-value-bind (code envelope)
           (run-aitools "schema" format)
@@ -40,9 +40,10 @@
         (let* ((commands (coerce (value-at envelope "commands") 'list))
                (names (sort (mapcar (lambda (command) (value-at command "name")) commands)
                             #'string<)))
-          (expect names :to-equal (list (format nil "~A diff" format)
-                                        (format nil "~A get" format)
-                                        (format nil "~A select" format)))
+          (expect names :to-equal
+                  (mapcar (lambda (subcommand)
+                            (format nil "~A ~A" format subcommand))
+                          '("delete" "diff" "fmt" "get" "merge" "patch" "select" "set")))
           (dolist (command commands)
             (let ((errors (coerce (value-at command "error_codes") 'list))
                   (fields (mapcar (lambda (field) (value-at field "name"))
@@ -53,7 +54,12 @@
               (expect fields
                       :to-contain (cond ((search " get" (value-at command "name")) "value")
                                         ((search " select" (value-at command "name")) "items")
-                                        (t "ops")))))))))
+                                        (t "ops")))
+              (when (member (value-at command "name")
+                            '("yaml set" "yaml delete" "yaml merge" "yaml patch" "yaml fmt"
+                              "toml set" "toml delete" "toml merge" "toml patch" "toml fmt")
+                            :test #'string=)
+                (expect fields :to-contain "warnings"))))))))
 
 (describe "YAML and TOML read commands through dispatch"
   (it "maps values, filters, diffs, and leaves source bytes unchanged"
