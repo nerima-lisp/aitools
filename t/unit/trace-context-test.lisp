@@ -218,5 +218,15 @@
              (span-id (observability-kit:span-record-span-id record)))
         (expect (observability-kit:span-record-status record) :to-be :error)
         (expect (gethash span-id (aitools/cli::%trace-session-outcomes session))
-                :to-be :error)))))
+                :to-be :error))))
+  (it "returns cached trace metadata to the owner"
+    (let ((session (aitools/cli::%make-trace-session))
+          (first-meta nil)
+          (second-meta nil))
+      (let ((aitools/cli::*trace-session* session)
+            (aitools/cli::*trace-envelope-owner-p* t))
+        (aitools/cli::%call-with-trace-span :command "read" (lambda () :ok))
+        (setf first-meta (aitools/cli::%trace-envelope-meta :ok)
+              second-meta (aitools/cli::%trace-envelope-meta :ok)))
+      (expect (eq first-meta second-meta) :to-be t))))
 
