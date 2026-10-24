@@ -7,8 +7,8 @@
 ;;;; Registers this checkout on ASDF's source registry, inherits the caller's
 ;;;; configuration for sibling dependencies (cl-cli, cl-weave, and every kit
 ;;;; -- set CL_SOURCE_REGISTRY to the nerima-lisp checkout root so ASDF can
-;;;; find them), and runs the test system. Mirrors cl-cowsay's run-tests.lisp:
-;;;; the exit goes through a HANDLER-CASE around ASDF:TEST-SYSTEM so a
+;;;; find them), and runs the test system. The exit goes through a
+;;;; HANDLER-CASE around ASDF:TEST-SYSTEM so a
 ;;;; failing suite is a named one-line diagnostic and a deliberate exit
 ;;;; rather than an escaping backtrace, and the zero exit means only "TEST-OP
 ;;;; signalled nothing" -- read the "successful completion" line for whether

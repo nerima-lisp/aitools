@@ -4,8 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # cl-nix-forge v0.6.0 added Darwin support for building the executable
-    # with asdf:program-op, so aitools can use the same delivery path there.
+    # cl-nix-forge supports asdf:program-op on Darwin, so aitools can use the
+    # same delivery path on both platforms.
     cl-nix-forge = {
       url = "github:nerima-lisp/cl-nix-forge/v0.6.1";
       inputs.nixpkgs.follows = "nixpkgs";

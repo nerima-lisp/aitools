@@ -73,11 +73,9 @@ when it contains a slash, else searched in $PATH. NIL when not executable."
       (%search-path name)))
 
 (defun %spawn-supervisor (trampoline argv program log exit-path)
-  ;; cl-process-kit v3.3.1 (flake.nix; PR #7) made :SESSION spawns reliable on
-  ;; Darwin: the trampoline retries setsid on EPERM until the just-vacated
-  ;; process group disappears, and SPAWN-NATIVE checks the child's group only
-  ;; after exec is confirmed. The launch-retry loop v3.2.0 needed for those
-  ;; two races is gone; a genuine failure surfaces to %LAUNCH-DETACHED.
+  ;; SPAWN-NATIVE retries transient Darwin setsid EPERM failures and checks
+  ;; the child process group after exec succeeds. Launch once here so an
+  ;; unrecoverable failure reaches %LAUNCH-DETACHED.
   (let ((process-kit:*native-spawn-program* trampoline))
     (process-kit:spawn-native "/bin/sh"
                               (list* "-c" +supervisor-script+
