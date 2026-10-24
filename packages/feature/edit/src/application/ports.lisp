@@ -15,7 +15,8 @@
                          open-store
                          text-source
                          read-stdin-octets
-                         unix-now))
+                         unix-now
+                         serialize-document))
      (:copier nil))
   "WORKSPACE-HOST supplies workspace filesystem and environment functions.
 Directory listing returns entries and a readable flag. STAT, READ-LINK,
@@ -27,12 +28,14 @@ READ-STDIN-OCTETS (limit) reads at most limit plus one octet to detect
 overflow. It returns :OCTETS with the bytes, :TOO-LARGE with NIL when input
 exceeds limit, or :FAILURE with an error message. Called only for --stdin.
 UNIX-NOW () returns Unix seconds used for touch default time and mktemp age
-cutoff."
+cutoff. SERIALIZE-DOCUMENT (FORMAT VALUE) returns text for a validated YAML or
+TOML value."
   (workspace-host nil :read-only t)
   (open-store nil :type (or null function) :read-only t)
   (text-source nil :read-only t)
   (read-stdin-octets nil :type (or null function) :read-only t)
-  (unix-now nil :type (or null function) :read-only t))
+  (unix-now nil :type (or null function) :read-only t)
+  (serialize-document nil :type (or null function) :read-only t))
 
 (defun make-write-edit-ports (&key workspace-host open-store)
   "EDIT-PORTS for write plans that already carry their input bytes. This path

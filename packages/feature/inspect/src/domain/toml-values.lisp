@@ -87,3 +87,40 @@
       (%toml-to-json (cl-toml-kit:parse text) nil)
     (cl-toml-kit:toml-parse-error ()
       (error 'toml-syntax-error))))
+
+(defun %toml-write-check-value (value tokens)
+  (cond
+    ((cl-date-kit:offset-date-time-p value)
+     (%toml-unsupported "offset-date-time" tokens))
+    ((cl-date-kit:local-date-time-p value)
+     (%toml-unsupported "local-date-time" tokens))
+    ((cl-date-kit:local-date-p value)
+     (%toml-unsupported "local-date" tokens))
+    ((cl-date-kit:local-time-p value)
+     (%toml-unsupported "local-time" tokens))
+    ((floatp value)
+     (unless (handler-case
+                 (and (= value value)
+                      (<= (- most-positive-double-float)
+                          value
+                          most-positive-double-float))
+               (floating-point-invalid-operation () nil))
+       (%toml-unsupported "non-finite-float" tokens)))
+    ((hash-table-p value)
+     (maphash (lambda (key item)
+                (%toml-write-check-value item (append tokens (list key))))
+              value))
+    ((and (vectorp value) (not (stringp value)))
+     (loop for item across value
+           for index from 0
+           do (%toml-write-check-value
+               item (append tokens (list (princ-to-string index))))))))
+
+(defun parse-toml-write-document (text)
+  (handler-case
+      (let ((native (cl-toml-kit:parse text)))
+        (%toml-write-check-value native nil)
+        (values (%toml-to-json native nil)
+                (length (cl-toml-kit:toml-comment-spans text))))
+    (cl-toml-kit:toml-parse-error ()
+      (error 'toml-syntax-error))))

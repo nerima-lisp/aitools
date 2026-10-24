@@ -245,3 +245,5 @@ element-wise. The read side (`json get`/`diff`) uses the same rule."
 (defun json-string-literal (string)
   "STRING written as a JSON string."
   (json-kit:stringify string))
+
+(defun json-value-kind (value) (nth-value 0 (%classify-json value)))

@@ -1,9 +1,8 @@
 ;;;; packages/feature/inspect/src/application/package.lisp
 ;;;;
-;;;; The inspect context's flows (one per command, each calling exactly one
-;;;; of the command-result continuations) and its public selector boundary
-;;;; for the edit and vcs contexts (selector.lisp; the selector rules are in
-;;;; docs/src/reference/commands.md, "Conventions shared by many commands").
+;;;; The inspect context's command flows and public APIs for Edit and VCS.
+;;;; Selector rules are in docs/src/reference/commands.md; API contracts are
+;;;; in docs/src/project/inspect-api.md.
 (in-package #:cl-user)
 
 (defpackage #:aitools.inspect.application
@@ -92,4 +91,6 @@
    #:snapshot-create-flow
    #:snapshot-diff-flow
    ;; === end snapshot flows ===
-   ))
+   ;; === YAML/TOML write preflight API ===
+   #:parse-yaml-write-document/k
+   #:parse-toml-write-document/k))

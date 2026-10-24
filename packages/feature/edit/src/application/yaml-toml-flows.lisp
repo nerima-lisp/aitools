@@ -16,20 +16,19 @@
         :conflicts conflicts
         :repairs repairs))
     (:on-document (document)
-      (handler-case
-          (multiple-value-bind (value comment-count)
-              (funcall (if (string= format "yaml")
-                           #'parse-yaml-write-document
-                           #'parse-toml-write-document)
-                       (document-logical-text document))
-            (aitools.kernel.domain:flow-continue
-              :on-json value document comment-count))
-        (edit-refusal (condition)
-          (let ((code (edit-refusal-code condition)))
-            (aitools.kernel.domain:flow-continue
-              :on-error code
-              (edit-refusal-detail condition)
-              :repairs (%format-repairs command path code nil))))))
+      (aitools.kernel.domain:flow-call
+        (if (string= format "yaml")
+            (aitools.inspect.application:parse-yaml-write-document/k
+             (document-logical-text document))
+            (aitools.inspect.application:parse-toml-write-document/k
+             (document-logical-text document)))
+        (:on-value (json-text comment-count)
+          (aitools.kernel.domain:flow-continue
+            :on-json (parse-json-text json-text) document comment-count))
+        (:on-error (code message)
+          (aitools.kernel.domain:flow-continue
+            :on-error code message
+            :repairs (%format-repairs command path code nil)))))
     (:on-filtered ())))
 
 (defun %format-repairs (command path code pointer)
@@ -63,17 +62,17 @@
                         (append (command-words command) (list path))
                         path)))))
 
-(defun %format-document (format document value comment-count)
+(defun %format-document (format document value comment-count serializer)
   (declare (ignore document comment-count))
-  (let* ((serialized
-           (funcall (if (string= format "yaml")
-                        #'serialize-yaml-document
-                        #'serialize-toml-document)
-                    value))
+  (funcall (if (string= format "yaml")
+               (function validate-yaml-write-value)
+               (function validate-toml-write-value))
+           value)
+  (let* ((serialized (funcall serializer format value))
          (text (if (and (plusp (length serialized))
                         (char= (char serialized (1- (length serialized))) #\Newline))
                     serialized
-                    (concatenate 'string serialized (string #\Newline))))
+                    (concatenate (quote string) serialized (string #\Newline))))
          (result (make-text-document text :bom-p nil :eol +lf+)))
     (document-with-final-newline (document-with-eol result +lf+) t)))
 
@@ -90,7 +89,7 @@
              #()))))
 
 (defun %format-plan (format command path transform options
-                            &key repair-pointer record-options record-positionals inputs)
+                            &key serializer repair-pointer record-options record-positionals inputs)
   (make-write-plan
    :command command
    :targets (list (make-write-target path))
@@ -105,7 +104,7 @@
                                                :on-json on-json))
                      :document-function (lambda (document value comment-count)
                                           (%format-document format document value
-                                                            comment-count))
+                                                            comment-count serializer))
                      :repairs-function (function %format-repairs)
                      :extra-function (function %format-warning-fields))
    :record-options (or record-options options)

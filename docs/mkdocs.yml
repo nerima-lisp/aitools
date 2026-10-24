@@ -57,3 +57,4 @@ nav:
       - Benchmarks: reference/benchmarks.md
   - Project:
       - Development: project/development.md
+      - Inspect APIs: project/inspect-api.md

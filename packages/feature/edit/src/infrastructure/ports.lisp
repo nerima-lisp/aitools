@@ -48,13 +48,47 @@ bytes so the limit bounds the read itself."
   (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
 
 (defun make-production-edit-ports (&key workspace-host open-store text-source &allow-other-keys)
-  (aitools.edit.application:make-edit-ports :workspace-host
-                                            workspace-host
-                                            :open-store
-                                            open-store
-                                            :text-source
-                                            text-source
-                                            :read-stdin-octets
-                                            #'read-stdin-octets
-                                            :unix-now
-                                            #'unix-now))
+  (aitools.edit.application:make-edit-ports
+   :workspace-host workspace-host
+   :open-store open-store
+   :text-source text-source
+   :read-stdin-octets (function read-stdin-octets)
+   :unix-now (function unix-now)
+   :serialize-document (function serialize-document)))
+
+(defun %yaml-native-value (value)
+  (case (aitools.edit.domain:json-value-kind value)
+    (:object
+     (yaml-kit:make-yaml-mapping
+      (mapcar (lambda (member)
+                (cons (car member)
+                      (%yaml-native-value (cdr member))))
+              (aitools.edit.domain:json-obj-members value))))
+    (:array
+     (map (quote simple-vector) (function %yaml-native-value) value))
+    (:number (aitools.edit.domain:edit-json-number value))
+    (:null yaml-kit:+yaml-null+)
+    (:false yaml-kit:+yaml-false+)
+    (otherwise value)))
+
+(defun %toml-native-value (value)
+  (case (aitools.edit.domain:json-value-kind value)
+    (:object
+     (let ((table (make-hash-table :test (function equal))))
+       (dolist (member (aitools.edit.domain:json-obj-members value) table)
+         (setf (gethash (car member) table)
+               (%toml-native-value (cdr member))))))
+    (:array
+     (map (quote simple-vector) (function %toml-native-value) value))
+    (:number (aitools.edit.domain:edit-json-number value))
+    (:false cl-toml-kit:+toml-false+)
+    (:null (error "validated TOML value contains null"))
+    (otherwise value)))
+
+(defun serialize-document (format value)
+  (cond
+    ((string= format "yaml")
+     (yaml-kit:emit (%yaml-native-value value)))
+    ((string= format "toml")
+     (cl-toml-kit:encode (%toml-native-value value)))
+    (t (error "unsupported YAML/TOML format: ~S" format))))

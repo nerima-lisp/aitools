@@ -52,11 +52,13 @@
    #:yaml-unsupported-pointer
    #:yaml-syntax-error
    #:parse-yaml-document
+   #:parse-yaml-write-document
    #:toml-unsupported-value
    #:toml-unsupported-reason
    #:toml-unsupported-pointer
    #:toml-syntax-error
    #:parse-toml-document
+   #:parse-toml-write-document
    ;; lines.lisp
    #:octet-vector
    #:split-text-lines

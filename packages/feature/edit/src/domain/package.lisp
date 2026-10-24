@@ -83,6 +83,7 @@
    #:parse-json-text
    #:parse-json-text/k
    #:json-string-literal
+   #:json-value-kind
    #:serialize-json
    #:detect-json-indent
    #:parse-json-pointer
@@ -128,8 +129,9 @@
    #:extract-step-mode
    #:extract-step-target
    #:plan-archive-extraction
-   #:parse-yaml-write-document
-   #:serialize-yaml-document
-   #:parse-toml-write-document
-   #:serialize-toml-document
-   #:build-archive))
+   #:build-archive
+   ;; yaml-doc.lisp
+   #:edit-json-number
+   #:validate-yaml-write-value
+   ;; toml-doc.lisp
+   #:validate-toml-write-value))

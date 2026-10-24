@@ -18,6 +18,7 @@
                         (lambda (document)
                           (json-add document tokens value :array-mode :replace))
                         options
+                        :serializer (edit-ports-serialize-document ports)
                         :repair-pointer tokens
                         :record-options saved-options
                         :record-positionals
@@ -72,7 +73,7 @@
                  (format nil "VALUE ~S is not JSON; a string needs JSON quotes"
                          text))))))))))
 
-(aitools.kernel.domain:define-flow (%format-delete/k format command positionals options &key on-plan on-error)
+(aitools.kernel.domain:define-flow (%format-delete/k format command ports positionals options &key on-plan on-error)
   (if (/= (length positionals) 2)
       (aitools.kernel.domain:flow-continue
         :on-error "argument.invalid"
@@ -89,6 +90,7 @@
               (%format-plan format command (first positionals)
                             (lambda (document) (json-remove document tokens))
                             options
+                            :serializer (edit-ports-serialize-document ports)
                             :repair-pointer tokens
                             :record-positionals
                             (lambda (paths)
@@ -119,11 +121,12 @@
            (%format-plan format command (first positionals)
                          (funcall transform-for patch)
                          options
+                         :serializer (edit-ports-serialize-document ports)
                          :record-options (inline-stdin-options options text)
                          :record-positionals (lambda (paths) (list (first paths)))
                          :inputs (list text))))))))
 
-(aitools.kernel.domain:define-flow (%format-fmt/k format command positionals options &key on-plan on-error)
+(aitools.kernel.domain:define-flow (%format-fmt/k format command ports positionals options &key on-plan on-error)
   (if (/= (length positionals) 1)
       (aitools.kernel.domain:flow-continue
         :on-error "argument.invalid"
@@ -132,7 +135,8 @@
       (aitools.kernel.domain:flow-continue
         :on-plan
         (%format-plan format command (first positionals) (function identity)
-                      options))))
+                      options
+                      :serializer (edit-ports-serialize-document ports)))))
 
 (aitools.kernel.domain:define-flow
   (%format-command/k format verb ports positionals options &key on-plan on-error)
@@ -147,7 +151,7 @@
            (aitools.kernel.domain:flow-continue :on-error code message))))
       ((string= verb "delete")
        (aitools.kernel.domain:flow-call
-         (%format-delete/k format command positionals options)
+         (%format-delete/k format command ports positionals options)
          (:on-plan (plan)
            (aitools.kernel.domain:flow-continue :on-plan plan))
          (:on-error (code message)
@@ -174,7 +178,7 @@
            (aitools.kernel.domain:flow-continue :on-error code message))))
       (t
        (aitools.kernel.domain:flow-call
-         (%format-fmt/k format command positionals options)
+         (%format-fmt/k format command ports positionals options)
          (:on-plan (plan)
            (aitools.kernel.domain:flow-continue :on-plan plan))
          (:on-error (code message)

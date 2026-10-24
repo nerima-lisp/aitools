@@ -99,3 +99,76 @@
           (%yaml-to-json (first documents) nil)))
     (yaml-kit:yaml-kit-error ()
       (error 'yaml-syntax-error))))
+
+(defun %yaml-write-finite-float-p (value)
+  (handler-case
+      (and (= value value)
+           (<= (- most-positive-double-float) value most-positive-double-float))
+    (floating-point-invalid-operation () nil)))
+
+(defun %yaml-write-explicit-tag (node tokens)
+  (let ((tag (yaml-kit:node-tag node)))
+    (when (and tag (not (string= tag "?")))
+      (%yaml-unsupported "explicit-tag" tokens))))
+
+(defun %yaml-write-anchor (node tokens)
+  (when (yaml-kit:node-anchor node)
+    (%yaml-unsupported "anchor-or-alias" tokens)))
+
+(defun %yaml-write-key-value (node tokens)
+  (%yaml-write-explicit-tag node tokens)
+  (%yaml-write-anchor node tokens)
+  (unless (yaml-kit:scalar-node-p node)
+    (%yaml-unsupported "non-string-key" tokens))
+  (let ((value (yaml-kit::construct node
+                                    :schema :core
+                                    :mapping-type :yaml-mapping
+                                    :sequence-type :vector)))
+    (unless (stringp value)
+      (%yaml-unsupported "non-string-key" tokens))
+    value))
+
+(defun %yaml-write-check-node (node tokens visited)
+  (unless (gethash node visited)
+    (setf (gethash node visited) t)
+    (%yaml-write-explicit-tag node tokens)
+    (%yaml-write-anchor node tokens)
+    (cond
+      ((yaml-kit:scalar-node-p node)
+       (let ((value (yaml-kit::construct node
+                                         :schema :core
+                                         :mapping-type :yaml-mapping
+                                         :sequence-type :vector)))
+         (when (and (floatp value)
+                    (not (%yaml-write-finite-float-p value)))
+           (%yaml-unsupported "non-finite-float" tokens))))
+      ((yaml-kit:sequence-node-p node)
+       (loop for child in (yaml-kit:sequence-node-items node)
+             for index from 0
+             do (%yaml-write-check-node
+                 child
+                 (append tokens (list (princ-to-string index)))
+                 visited)))
+      ((yaml-kit:mapping-node-p node)
+       (let ((seen (make-hash-table :test (function equal))))
+         (dolist (pair (yaml-kit:mapping-node-pairs node))
+           (let ((key (%yaml-write-key-value (car pair) tokens)))
+             (when (gethash key seen)
+               (%yaml-unsupported "duplicate-key" tokens))
+             (setf (gethash key seen) t)
+             (%yaml-write-check-node
+              (cdr pair)
+              (append tokens (list key))
+              visited))))))))
+
+(defun parse-yaml-write-document (text)
+  (handler-case
+      (let ((nodes (yaml-kit:compose-all text)))
+        (unless (= (length nodes) 1)
+          (%yaml-unsupported "document-count" nil))
+        (%yaml-write-check-node
+         (first nodes) nil (make-hash-table :test (function eq)))
+        (values (parse-yaml-document text)
+                (length (yaml-kit:comment-spans text))))
+    (yaml-kit:yaml-kit-error ()
+      (error 'yaml-syntax-error))))
