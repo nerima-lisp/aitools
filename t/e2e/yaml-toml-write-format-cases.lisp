@@ -1,0 +1,64 @@
+(in-package #:aitools.e2e.test)
+
+(defun crlf-octets (text)
+  (octets (with-output-to-string (out)
+            (loop for char across text
+                  do (when (char= char #\Newline) (write-char #\Return out))
+                     (write-char char out)))))
+
+(defun expect-canonical-format-bytes (bytes)
+  (expect (> (length bytes) 3) :to-be t)
+  (expect (equalp (subseq bytes 0 3) #(239 187 191)) :to-be nil)
+  (expect (position 13 bytes) :to-be nil)
+  (expect (aref bytes (1- (length bytes))) :to-be 10)
+  (expect (equalp (octets (utf8 bytes)) bytes) :to-be t))
+
+(defun format-warning-array-empty (envelope)
+  (let ((warnings (jget envelope "warnings")))
+    (expect (and (vectorp warnings) (zerop (length warnings))) :to-be t)))
+
+(describe "YAML and TOML format bytes"
+  (it "is idempotent and emits UTF-8 without BOM using LF and a final newline"
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (put ws "canonical.yaml"
+            "body: |\n  alpha\n  βeta\nempty: {}")
+       (put ws "canonical.toml"
+            "[zeta]\nvalue = 1\n[alpha]\nvalue = \"雪\"\n[empty]")
+       (dolist (format '("yaml" "toml"))
+         (let* ((path (format nil "canonical.~A" format))
+                (first (run-ok ws (list format "fmt" path)))
+                (first-bytes (file-octets ws path))
+                (second (run-ok ws (list format "fmt" path))))
+           (format-warning-array-empty first)
+           (format-warning-array-empty second)
+           (expect-canonical-format-bytes first-bytes)
+           (expect (file-octets ws path) :to-equalp first-bytes)
+           (let ((value (jget (run-ok ws (list format "get" path "")) "value")))
+             (expect (hash-table-p (jget value "empty")) :to-be t)
+             (when (string= format "yaml")
+               (expect (jget value "body") :to-equal (format nil "alpha~%βeta~%")))))))))
+
+  (it "undo restores YAML BOM and TOML CRLF and non-ASCII comment bytes exactly"
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((yaml-body (crlf-octets "key: old\n# original comment\n"))
+              (yaml-before (concatenate '(vector (unsigned-byte 8)) #(239 187 191) yaml-body))
+              (toml-before (crlf-octets "key = \"old\"\n# 元のコメント\n")))
+         (put ws "undo.yaml" yaml-before)
+         (put ws "undo.toml" toml-before)
+         (dolist (case `(("yaml" "undo.yaml" ,yaml-before)
+                         ("toml" "undo.toml" ,toml-before)))
+           (let* ((format (first case))
+                  (path (second case))
+                  (before (third case))
+                  (write (run-ok ws (list format "set" path "/key" "\"new\"")))
+                  (op-id (jget write "op_id")))
+             (expect (stringp op-id) :to-be t)
+             (expect-format-warnings write 1)
+             (expect (not (equalp (file-octets ws path) before)) :to-be t)
+             (let ((undo (run-ok ws (list "undo" op-id))))
+               (expect (jget undo "undoes") :to-equal op-id))
+             (expect (file-octets ws path) :to-equalp before))))))))
