@@ -50,7 +50,10 @@
              for variable = (%parameter-variable binding)
              for initializer = (and (consp binding) (second binding))
              for roots = (and initializer (funcall designator-variable-p initializer active))
-             do (setf active (remove variable active :key #'car :test #'eq))
+             do (setf active (remove variable active
+                                    :key (lambda (entry)
+                                           (if (consp entry) (car entry) entry))
+                                    :test (function eq)))
                 (dolist (root roots) (push (cons variable root) active))
              finally (return active)))
       (t
