@@ -13,6 +13,7 @@
 (describe "aitools.text.domain encoding guess"
   (it "takes ASCII and valid UTF-8 as utf-8"
     (expect (guess-encoding (string-bytes "plain ascii")) :to-be :utf-8)
+    (expect (guess-encoding (octets #xEF #xBB #xBF 97)) :to-be :utf-8)
     (expect (guess-encoding (string-bytes *japanese-sample*)) :to-be :utf-8))
 
   (it "recognizes Shift_JIS and EUC-JP Japanese text"
