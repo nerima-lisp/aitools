@@ -37,11 +37,13 @@
                   (zerop (sb-posix:access candidate sb-posix:x-ok)))
           return candidate))
 
-(defun run-command (directory program arguments &key environment search-path (input nil))
+(defun run-command (directory program arguments
+                    &key environment search-path (input nil) merge-error-output-p)
   "Run PROGRAM with ARGUMENTS in DIRECTORY, resolving it on SEARCH-PATH.
 SEARCH-PATH defaults to PATH; ENVIRONMENT is added to the inherited environment.
-Returns (VALUES exit-code stdout-octets stderr-string); signals when PROGRAM
-is not found on SEARCH-PATH."
+When MERGE-ERROR-OUTPUT-P is true, stderr is directed to stdout and the returned
+stderr string is empty. Returns (VALUES exit-code stdout-octets stderr-string);
+signals when PROGRAM is not found on SEARCH-PATH."
   (let* ((path
           (or (program-path
                program
@@ -60,7 +62,7 @@ is not found on SEARCH-PATH."
                                         :environment env
                                         :input input
                                         :output :stream
-                                        :error stderr
+                                        :error (if merge-error-output-p :output stderr)
                                         :wait nil))
            (out (sb-ext:process-output process)))
       (loop for byte = (read-byte out nil nil)
@@ -68,7 +70,7 @@ is not found on SEARCH-PATH."
       (sb-ext:process-wait process)
       (values (sb-ext:process-exit-code process)
               (coerce stdout '(simple-array (unsigned-byte 8) (*)))
-              (get-output-stream-string stderr)))))
+              (if merge-error-output-p "" (get-output-stream-string stderr))))))
 
 (defun make-directories (path)
   "mkdir -p for the native PATH."

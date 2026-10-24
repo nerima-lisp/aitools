@@ -15,7 +15,8 @@
          "sbcl"
          (list "--noinform" "--no-sysinit" "--no-userinit" "--script"
                "t/integration/fixtures/runner-failure-report.lisp")
-         :search-path (%runner-search-path))
+         :search-path (%runner-search-path)
+         :merge-error-output-p t)
       (values status
               (sb-ext:octets-to-string stdout :external-format :utf-8)
               stderr)))
@@ -27,7 +28,8 @@
          (list "--noinform" "--no-sysinit" "--no-userinit" "--load"
                "run-host-tests.lisp")
          :search-path (%runner-search-path)
-         :environment (list (cons "AITOOLS_HOST_CACHE_DIR" "/dev/null")))
+         :environment (list (cons "AITOOLS_HOST_CACHE_DIR" "/dev/null"))
+         :merge-error-output-p t)
       (values status
               (sb-ext:octets-to-string stdout :external-format :utf-8)
               stderr))))
