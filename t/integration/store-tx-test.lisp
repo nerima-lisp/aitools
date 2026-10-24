@@ -63,8 +63,7 @@ append TEXT to PATH as the view shows it."
 
 (describe "aitools.store tx overlay"
   (it "stages writes without touching the working tree and reads them back through the tx"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (put-file store "gone.txt" "g")
       (let ((tx (begin store "demo")))
         (expect (valid-tx-id-p tx) :to-be-truthy)
@@ -90,11 +89,10 @@ append TEXT to PATH as the view shows it."
           (expect (mapcar #'tx-op-record-tx-op (tx-status-ops status)) :to-equal '(1 2))
           (expect (mapcar #'tx-path-path (tx-status-paths status)) :to-equal '("a.txt" "dir" "dir/new.txt" "gone.txt"))
           (expect (tx-status-drift status) :to-equal '()))
-        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))))
+        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))) :io nil))
 
   (it "diffs base to staged with both contents"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (stage store tx (list (write-file-request "b.txt" (bytes "b"))))
@@ -103,29 +101,26 @@ append TEXT to PATH as the view shows it."
                               (expect (actions results) :to-equal '(("a.txt" :modified) ("b.txt" :created)))
                               (expect (octets-string (change-result-before-content (first results))) :to-equal "a")
                               (expect (octets-string (change-result-after-content (first results))) :to-equal "a+1"))
-                   :on-not-found (lambda () (expect :not-found :to-be nil))))))
+                   :on-not-found (lambda () (expect :not-found :to-be nil))))) :io nil))
 
   (it "answers not-found for an unknown or malformed tx id"
-    (with-temp-store (store)
-      (expect (stage-append store (format-tx-id 3964000000 "00000000") "a" "x") :to-be :not-found)
+    (call-with-temp-store (lambda (store) (expect (stage-append store (format-tx-id 3964000000 "00000000") "a" "x") :to-be :not-found)
       (expect (stage-append store "../../x" "a" "x") :to-be :not-found)
-      (expect (status-of store "tx-nope") :to-be :not-found))))
+      (expect (status-of store "tx-nope") :to-be :not-found)) :io nil)))
 
 (describe "aitools.store tx commit"
   (it "preserves an explicit directory mode from the tx overlay"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (expect (stage store tx (list (mkdir-request "private" :mode #o700)
                                       (write-file-request "private/file" (bytes "data"))))
                 :to-be 1)
         (expect (disk-text store "private") :to-be :absent)
         (expect (commit-tx store tx) :to-be :committed)
         (expect (disk-mode store "private") :to-be #o700)
-        (expect (disk-text store "private/file") :to-equal "data"))))
+        (expect (disk-text store "private/file") :to-equal "data"))) :io nil))
 
   (it "applies the whole tx as one journal op, removes the tx, and undoes as a unit"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (put-file store "gone.txt" "g")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
@@ -143,11 +138,10 @@ append TEXT to PATH as the view shows it."
           (expect (undo store op-id) :to-be :committed)
           (expect (disk-text store "a.txt") :to-equal "a")
           (expect (disk-text store "gone.txt") :to-equal "g")
-          (expect (disk-text store "dir") :to-be :absent)))))
+          (expect (disk-text store "dir") :to-be :absent)))) :io nil))
 
   (it "refuses a write-set conflict with kind write and writes nothing"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (put-file store "b.txt" "b")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+tx")
@@ -162,11 +156,10 @@ append TEXT to PATH as the view shows it."
                   :to-equal '(("a.txt" :write))))
         (expect (disk-text store "a.txt") :to-equal "external")
         (expect (disk-text store "b.txt") :to-equal "b")
-        (expect (read-journal store) :to-equal '()))))
+        (expect (read-journal store) :to-equal '()))) :io nil))
 
   (it "refuses a stale read with kind read, until re-read or ignored"
-    (with-temp-store (store)
-      (put-file store "config.txt" "v1")
+    (call-with-temp-store (lambda (store) (put-file store "config.txt" "v1")
       (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (flet ((record-read ()
@@ -184,40 +177,37 @@ append TEXT to PATH as the view shows it."
             (expect (mapcar #'conflict-kind (getf keys :conflicts)) :to-equal '(:read)))
           (expect (record-read) :to-be :recorded)
           (expect (commit-tx store tx) :to-be :committed)
-          (expect (disk-text store "a.txt") :to-equal "a+tx")))))
+          (expect (disk-text store "a.txt") :to-equal "a+tx")))) :io nil))
 
   (it "commits over a stale read with --ignore-stale-reads"
-    (with-temp-store (store)
-      (put-file store "config.txt" "v1")
+    (call-with-temp-store (lambda (store) (put-file store "config.txt" "v1")
       (let ((tx (begin store)))
         (tx-record-read/k store tx "config.txt" :on-recorded #'identity
                                                 :on-not-found (lambda ()) :on-busy (lambda ()))
         (stage store tx (list (write-file-request "out.txt" (bytes "o"))))
         (put-file store "config.txt" "v2")
         (expect (commit-tx store tx) :to-be :rejected)
-        (expect (commit-tx store tx :ignore-stale-reads t) :to-be :committed))))
+        (expect (commit-tx store tx :ignore-stale-reads t) :to-be :committed))) :io nil))
 
   (it "rolls forward a commit interrupted after its commit point and removes the tx"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (stage store tx (list (write-file-request "b.txt" (bytes "b"))))
-        (with-fault-at (:after-apply-step :nth 1) (commit-tx store tx))
+        (call-with-fault-at :after-apply-step (lambda () (commit-tx store tx)) :nth 1)
         (expect (mapcar #'cdr (nth-value 1 (recover store))) :to-equal '("rolled-forward"))
         (expect (disk-text store "a.txt") :to-equal "a+1")
         (expect (disk-text store "b.txt") :to-equal "b")
         (expect (status-of store tx) :to-be :not-found)
-        (expect (length (read-journal store)) :to-be 1))))
+        (expect (length (read-journal store)) :to-be 1))) :io nil))
 
   (it "keeps the tx intact when a commit is interrupted before its commit point"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
-        (with-fault-at (:after-prepare) (commit-tx store tx))
+        (call-with-fault-at :after-prepare (lambda () (commit-tx store tx)))
         (expect (mapcar #'cdr (nth-value 1 (recover store))) :to-equal '("discarded"))
         (expect (disk-text store "a.txt") :to-equal "a")
         (expect (commit-tx store tx) :to-be :committed)
-        (expect (disk-text store "a.txt") :to-equal "a+1")))))
+        (expect (disk-text store "a.txt") :to-equal "a+1"))) :io nil)))
 

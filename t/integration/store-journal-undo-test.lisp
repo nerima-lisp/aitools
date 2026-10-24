@@ -4,8 +4,7 @@
 
 (describe "aitools.store journal and undo"
   (it "records argv, time, and every change's before/after"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((op-id
              (nth-value
               1
@@ -23,11 +22,10 @@
                        (entry-state-hash
                         (change-result-before
                          (first (journal-entry-changes entry))))))
-           :to-equal "a")))))
+           :to-equal "a")))) :io nil))
 
   (it "restores bytes, mode, and existence for every action, as a new op with undoes"
-    (with-temp-store (store)
-      (put-file store "edit.txt" "old")
+    (call-with-temp-store (lambda (store) (put-file store "edit.txt" "old")
       (put-file store "gone.txt" "bye" :mode #o600)
       (put-file store "mv.txt" "moving")
       (put-file store "exec.sh" "#!/bin/sh")
@@ -50,11 +48,10 @@
         (expect (disk-text store "moved.txt") :to-be :absent)
         (expect (disk-text store "over.txt") :to-equal "overwritten")
         (expect (disk-mode store "exec.sh") :to-be #o644)
-        (expect (disk-text store "link") :to-be :absent))))
+        (expect (disk-text store "link") :to-be :absent))) :io nil))
 
   (it "refuses with refusal.target-changed and conflicts when a path changed later"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (put-file store "b.txt" "b")
       (let ((op-id (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "a2"))
                                                     (write-file-request "b.txt" (bytes "b2")))))))
@@ -65,22 +62,20 @@
           (expect code :to-equal "refusal.target-changed")
           (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("b.txt")))
         (expect (disk-text store "a.txt") :to-equal "a2")
-        (expect (disk-text store "b.txt") :to-equal "someone else"))))
+        (expect (disk-text store "b.txt") :to-equal "someone else"))) :io nil))
 
   (it "refuses to remove a created directory that has gained a file"
-    (with-temp-store (store)
-      (let ((op-id (nth-value 1 (commit store (list (write-file-request "d/f.txt" (bytes "x")))))))
+    (call-with-temp-store (lambda (store) (let ((op-id (nth-value 1 (commit store (list (write-file-request "d/f.txt" (bytes "x")))))))
         (put-file store "d/other.txt" "mine")
         (multiple-value-bind (status code message keys) (undo store op-id)
           (declare (ignore message))
           (expect status :to-be :rejected)
           (expect code :to-equal "refusal.target-changed")
           (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("d/other.txt")))
-        (expect (disk-text store "d/f.txt") :to-equal "x"))))
+        (expect (disk-text store "d/f.txt") :to-equal "x"))) :io nil))
 
   (it "redoes through undo of the undo, including an overwriting move"
-    (with-temp-store (store)
-      (put-file store "src.txt" "S")
+    (call-with-temp-store (lambda (store) (put-file store "src.txt" "S")
       (put-file store "dst.txt" "D")
       (put-file store "a.txt" "1")
       (let* ((op (nth-value 1 (commit store (list (move-request "src.txt" "dst.txt")
@@ -90,16 +85,14 @@
                 :to-equal '("S" "D" "1"))
         (expect (undo store undo-op) :to-be :committed)
         (expect (list (disk-text store "src.txt") (disk-text store "dst.txt") (disk-text store "a.txt"))
-                :to-equal '(:absent "S" "2")))))
+                :to-equal '(:absent "S" "2")))) :io nil))
 
   (it "answers input.not-found for an unknown or malformed op id"
-    (with-temp-store (store)
-      (expect (nth-value 1 (undo store (format-op-id 3964000000 "00000000"))) :to-equal "input.not-found")
-      (expect (nth-value 1 (undo store "../../etc/passwd")) :to-equal "input.not-found")))
+    (call-with-temp-store (lambda (store) (expect (nth-value 1 (undo store (format-op-id 3964000000 "00000000"))) :to-equal "input.not-found")
+      (expect (nth-value 1 (undo store "../../etc/passwd")) :to-equal "input.not-found")) :io nil))
 
   (it "deletes the oldest generation on the 21st write and collects its blob"
-    (with-temp-store (store)
-      (put-file store "a.txt" "v0")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "v0")
       (let ((first-op (nth-value 1 (commit store (list (write-file-request "a.txt" (bytes "v1")))))))
         (loop for n from 2 to 20
               do (commit store (list (write-file-request "a.txt" (bytes (format nil "v~D" n))))))
@@ -116,4 +109,4 @@
                   :to-be-falsy)
           (expect (member (aitools.kernel.domain:content-hash (bytes "v1"))
                           (funcall (store-io-list-directory (store-io-port store)) blobs) :test #'string=)
-                  :to-be-truthy))))))
+                  :to-be-truthy)))) :io nil)))

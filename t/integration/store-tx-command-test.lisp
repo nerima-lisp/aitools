@@ -24,8 +24,7 @@ the composition root; the envelope is parsed from stdout, else stderr."
 (defun call-with-cli-store (function)
   "Call FUNCTION with (ROOT STORE) for a fresh workspace, XDG_STATE_HOME
 redirected to a scratch directory so the CLI opens its own store there."
-  (with-temp-store (scratch)
-    (let* ((root (store-root scratch))
+  (call-with-temp-store (lambda (scratch) (let* ((root (store-root scratch))
            (xdg (concatenate 'string root "/../xdg"))
            (previous (sb-posix:getenv "XDG_STATE_HOME")))
       (sb-posix:mkdir xdg #o700)
@@ -34,7 +33,7 @@ redirected to a scratch directory so the CLI opens its own store there."
                   (funcall function root (aitools.store.infrastructure:make-posix-store root)))
         (if previous
             (sb-posix:setenv "XDG_STATE_HOME" previous 1)
-            (sb-posix:unsetenv "XDG_STATE_HOME"))))))
+            (sb-posix:unsetenv "XDG_STATE_HOME"))))) :io nil))
 
 (describe "aitools chmod --tx through dispatch"
   (it "stages the mode, leaves the disk alone until tx commit, then changes only the mode"
@@ -98,8 +97,7 @@ redirected to a scratch directory so the CLI opens its own store there."
       "answers ~A"
       (label case expected)
     (declare (ignore label))
-    (with-temp-store (store)
-      (put-file store "d/f.txt" "f")
+    (call-with-temp-store (lambda (store) (put-file store "d/f.txt" "f")
       (let ((tx (begin store)))
         (expect (stage-outcome store tx
                                (ecase case
@@ -110,28 +108,25 @@ redirected to a scratch directory so the CLI opens its own store there."
                                              (declare (ignore view commit))
                                              (funcall reject "refusal.custom" "no")))))
                 :to-equal expected)
-        (expect (tx-status-ops (status-of store tx)) :to-equal '()))))
+        (expect (tx-status-ops (status-of store tx)) :to-equal '()))) :io nil))
 
   (it "signals when VALIDATE calls neither continuation"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (expect (handler-case (stage-outcome store tx (lambda (view commit reject)
                                                         (declare (ignore view commit reject))))
                   (error (condition) (princ-to-string condition)))
-                :to-equal "tx-stage/k: VALIDATE returned without calling COMMIT or REJECT"))))
+                :to-equal "tx-stage/k: VALIDATE returned without calling COMMIT or REJECT"))) :io nil))
 
   (it "refuses to record a read of a path that is not workspace-relative"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (expect (handler-case (tx-record-read/k store tx "../x" :on-recorded #'identity
                                                                 :on-not-found (lambda ()) :on-busy (lambda ()))
                   (error (condition) (princ-to-string condition)))
-                :to-equal "tx-record-read/k: \"../x\" is not a workspace-relative path")))))
+                :to-equal "tx-record-read/k: \"../x\" is not a workspace-relative path"))) :io nil)))
 
 (describe "aitools.store tx diff and commit of every staged kind"
   (it "names each change's action and commits them all"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a" :mode #o644)
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a" :mode #o644)
       (put-file store "gone.txt" "g")
       (put-file store "m.txt" "m")
       (sb-posix:mkdir (disk-path store "d") #o755)
@@ -148,20 +143,18 @@ redirected to a scratch directory so the CLI opens its own store there."
         (expect (list (disk-mode store "a.txt") (disk-mode store "d")) :to-equal '(#o600 #o700))
         (expect (disk-text store "gone.txt") :to-be :absent)
         (expect (sb-posix:readlink (disk-path store "ln")) :to-equal "a.txt")
-        (expect (sb-posix:stat-mtime (sb-posix:lstat (disk-path store "m.txt"))) :to-be 1577934245))))
+        (expect (sb-posix:stat-mtime (sb-posix:lstat (disk-path store "m.txt"))) :to-be 1577934245))) :io nil))
 
   (it "lists only real transactions, skipping other names under the tx root"
-    (with-temp-store (store)
-      (let ((tx (begin store))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store))
             (root (tx-root-directory (store-state-directory store))))
         (sb-posix:mkdir (join-path root "junk") #o700)
         (sb-posix:mkdir (join-path root (format-tx-id 3964000000 "00000000")) #o700)
-        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx))))))
+        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))) :io nil)))
 
 (describe "aitools.store tx rebase and drop edge cases"
   (it "restages an op on an undrifted path and replays the drifted one"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (put-file store "b.txt" "b")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1" :replayable nil)
@@ -172,11 +165,10 @@ redirected to a scratch directory so the CLI opens its own store there."
         (expect (tx-view-text store tx "b.txt") :to-equal "external+2")
         (expect (mapcar #'tx-op-record-replayable (tx-status-ops (status-of store tx))) :to-equal '(nil t))
         (expect (commit-tx store tx) :to-be :committed)
-        (expect (list (disk-text store "a.txt") (disk-text store "b.txt")) :to-equal '("a+1" "external+2")))))
+        (expect (list (disk-text store "a.txt") (disk-text store "b.txt")) :to-equal '("a+1" "external+2")))) :io nil))
 
   (it "reports a conflict when the replay rejects, leaving the tx as it was"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (put-file store "a.txt" "external")
@@ -188,27 +180,25 @@ redirected to a scratch directory so the CLI opens its own store there."
                                            (declare (ignore record view reject))
                                            (funcall commit (list (move-request "a.txt" "a.txt")))))
                 :to-equal '(:conflict (("a.txt" :write))))
-        (expect (tx-view-text store tx "a.txt") :to-equal "a+1"))))
+        (expect (tx-view-text store tx "a.txt") :to-equal "a+1"))) :io nil))
 
   (it "signals when REPLAY calls neither continuation"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (put-file store "a.txt" "external")
         (expect (handler-case (rebase-outcome store tx (lambda (record view commit reject)
                                                          (declare (ignore record view commit reject))))
                   (error (condition) (princ-to-string condition)))
-                :to-equal "tx-rebase/k: REPLAY returned without calling COMMIT or REJECT"))))
+                :to-equal "tx-rebase/k: REPLAY returned without calling COMMIT or REJECT"))) :io nil))
 
   (it-each ((0) ("1") (2))
       "answers not-found for tx drop of op ~S"
       (tx-op)
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (expect (tx-drop/k store tx tx-op :on-dropped #'identity :on-not-found (lambda () :not-found)
                                           :on-busy (lambda () :busy))
                 :to-be :not-found)
-        (expect (tx-view-text store tx "a.txt") :to-equal "a+1")))))
+        (expect (tx-view-text store tx "a.txt") :to-equal "a+1"))) :io nil)))

@@ -5,8 +5,7 @@
   (it "re-applies content-based ops onto the changed file so the tx commits"
     (call-with-append-replayer
      (lambda ()
-       (with-temp-store (store)
-         (put-file store "a.txt" "a")
+       (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
          (let ((tx (begin store)))
            (stage-append store tx "a.txt" "+1")
            (put-file store "a.txt" "external")
@@ -16,20 +15,18 @@
            (expect (list (tx-text store tx "a.txt") (disk-text store "a.txt"))
                    :to-equal '("external+1" "external"))
            (expect (run #'tx-commit-flow store tx) :to-be :ok)
-           (expect (disk-text store "a.txt") :to-equal "external+1"))))))
+           (expect (disk-text store "a.txt") :to-equal "external+1"))) :io nil))))
 
   (it "reports nothing rebased when nothing drifted"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (stage-append store tx "a.txt" "x")
-        (expect (field (nth-value 1 (run #'tx-rebase-flow store tx)) "rebased") :to-equal '()))))
+        (expect (field (nth-value 1 (run #'tx-rebase-flow store tx)) "rebased") :to-equal '()))) :io nil))
 
   (it "conflicts with exit 2 and leaves the tx unchanged for a position-based op or a command without a replayer"
     (dolist (case '(:not-replayable :no-replayer))
       (call-with-append-replayer
        (lambda ()
-         (with-temp-store (store)
-           (put-file store "a.txt" "a")
+         (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
            (let ((tx (begin store)))
              (stage-append store tx "a.txt" "+1" :replayable (eq case :no-replayer))
              (when (eq case :no-replayer)
@@ -46,7 +43,7 @@
                          :to-be-truthy)))
              (expect (list (tx-text store tx "a.txt") (disk-text store "a.txt"))
                      :to-equal '("a+1" "external"))
-             (expect (field (nth-value 1 (run #'tx-status-flow store tx)) "drift") :to-equal '("a.txt"))))))))
+             (expect (field (nth-value 1 (run #'tx-status-flow store tx)) "drift") :to-equal '("a.txt")))) :io nil)))))
   (it "reports a registered replayer refusal as a rebase conflict and leaves the tx unchanged"
     (let ((replayed nil))
       (cl-weave:with-mocked-functions
@@ -57,8 +54,7 @@
               (funcall reject "refusal.target-changed" "append no longer applies"))))
         (call-with-append-replayer
          (lambda ()
-           (with-temp-store (store)
-             (put-file store "a.txt" "a")
+           (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
              (let ((tx (begin store)))
                (stage-append store tx "a.txt" "+1")
                (put-file store "a.txt" "external")
@@ -75,12 +71,11 @@
                    (expect (some (lambda (command) (search (format nil "tx abort ~A" tx) command)) commands)
                            :to-be-truthy)))
                (expect (list (tx-text store tx "a.txt") (disk-text store "a.txt"))
-                       :to-equal (list "a+1" "external"))))))))))
+                       :to-equal (list "a+1" "external")))) :io nil)))))))
 
 (describe "aitools.journal tx drop and abort"
   (it "drops the given op and every later one, back to the state before it"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (stage-append store tx "a.txt" "1")
         (stage-append store tx "a.txt" "2")
         (stage-append store tx "b.txt" "3")
@@ -89,11 +84,10 @@
           (expect fields :to-equal (list (cons "tx" tx) (cons "dropped" '(2 3)))))
         (expect (tx-text store tx "a.txt") :to-equal "1")
         (expect (tx-text store tx "b.txt") :to-be :absent)
-        (expect (length (field (nth-value 1 (run #'tx-status-flow store tx)) "ops")) :to-be 1))))
+        (expect (length (field (nth-value 1 (run #'tx-status-flow store tx)) "ops")) :to-be 1))) :io nil))
 
   (it "rejects invalid, oversized, and missing tx_op numbers"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (stage-append store tx "a.txt" "1")
         (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "x")) :code)
                 :to-equal "argument.invalid")
@@ -102,11 +96,10 @@
         (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "1234567890")) :code)
                 :to-equal "argument.invalid")
         (expect (getf (nth-value 1 (run #'tx-drop-flow store tx "5")) :code)
-                :to-equal "input.not-found"))))
+                :to-equal "input.not-found"))) :io nil))
 
   (it "aborts without touching the working tree and leaves no tx behind"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (stage-append store tx "new.txt" "n")
@@ -118,12 +111,11 @@
         (expect (tx-text store tx "a.txt") :to-be :no-tx)
         (expect (funcall (aitools.store.application:store-io-list-directory (aitools.store.application:store-io-port store))
                          (aitools.store.domain:tx-root-directory (aitools.store.application:store-state-directory store)))
-                :to-equal '())))))
+                :to-equal '()))) :io nil)))
 
 (describe "aitools.journal tx concurrency"
   (it "serialises two processes staging into one tx, so ops stay numbered and intact"
-    (with-temp-store (store)
-      (let* ((tx (begin store))
+    (call-with-temp-store (lambda (store) (let* ((tx (begin store))
              (pids (loop for n below 2
                          collect (let ((n n))
                                    (call-in-child-process
@@ -134,4 +126,4 @@
         (multiple-value-bind (kind fields) (run #'tx-status-flow store tx)
           (expect kind :to-be :ok)
           (expect (mapcar (lambda (op) (member-value op "tx_op")) (field fields "ops")) :to-equal '(1 2 3 4 5 6 7 8)))
-        (expect (length (tx-text store tx "log.txt")) :to-be 8)))))
+        (expect (length (tx-text store tx "log.txt")) :to-be 8))) :io nil)))

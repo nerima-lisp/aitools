@@ -38,7 +38,7 @@ record, and return the path the recovery repair must name."
      ;; the workspace root.
      (write-file (concatenate 'string (state-directory) "/journal/ops.jsonl") (format nil "not json~%")
                  :if-exists :append)
-     (expect (with-fault-at (:after-apply) (run-aitools "edit" (disk "a.txt") "--old" "two" "--new" "three"))
+     (expect (call-with-fault-at :after-apply (lambda () (run-aitools "edit" (disk "a.txt") "--old" "two" "--new" "three")))
              :to-be-truthy)
      *root*)))
 
@@ -48,7 +48,7 @@ record, and return the path the recovery repair must name."
       (*root* state-home)
       (declare (ignore state-home))
       (put "a.txt" (format nil "one~%"))
-      (expect (with-fault-at (:after-apply) (run-aitools "edit" (disk "a.txt") "--old" "one" "--new" "two"))
+      (expect (call-with-fault-at :after-apply (lambda () (run-aitools "edit" (disk "a.txt") "--old" "one" "--new" "two")))
               :to-be-truthy)
       (expect (length (intent-record-names)) :to-be 1)
       (let* ((name (first (intent-record-names)))

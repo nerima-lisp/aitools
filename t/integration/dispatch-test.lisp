@@ -15,7 +15,7 @@
   (:use #:cl)
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave #:it #:it-each #:expect #:fail)
-  (:import-from #:aitools.store.test-support #:with-fault-at #:call-in-child-process #:kill-child))
+  (:import-from #:aitools.store.test-support #:call-with-fault-at #:call-in-child-process #:kill-child))
 
 (in-package #:aitools.integration.dispatch-test)
 
@@ -79,7 +79,7 @@ quoting, and return its exit code."
   "Leave an unfinished write-protocol op behind: an edit that dies after its temp
 file is prepared and before the commit point, which recovery discards."
   (put "a.txt" (format nil "one~%"))
-  (expect (with-fault-at (:after-prepare) (run-aitools "edit" (disk "a.txt") "--old" "one" "--new" "two"))
+  (expect (call-with-fault-at :after-prepare (lambda () (run-aitools "edit" (disk "a.txt") "--old" "one" "--new" "two")))
           :to-be-truthy))
 
 (defun faulting-app ()

@@ -24,8 +24,7 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
 
 (describe "aitools.journal history"
   (it "lists ops newest first with command, paths and time"
-    (with-temp-store (store)
-      (let ((first (write-op store "a.txt" "1"))
+    (call-with-temp-store (lambda (store) (let ((first (write-op store "a.txt" "1"))
             (second (write-op store "b.txt" "2")))
         (multiple-value-bind (kind fields) (run #'history-flow store)
           (expect kind :to-be :ok)
@@ -37,31 +36,28 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
             (expect (member-value item "command") :to-equal "aitools write b.txt")
             (expect (member-value item "paths") :to-equal '("b.txt")))
           (expect (field fields "total") :to-be 2)
-          (expect (field fields "truncated") :to-be json-kit:+json-false+)))))
+          (expect (field fields "truncated") :to-be json-kit:+json-false+)))) :io nil))
 
   (it "filters by a path or a directory above it"
-    (with-temp-store (store)
-      (let ((in-dir (write-op store "dir/a.txt" "1")))
+    (call-with-temp-store (lambda (store) (let ((in-dir (write-op store "dir/a.txt" "1")))
         (write-op store "other.txt" "2")
         (dolist (path (list "dir/a.txt" "dir" (disk-path store "dir")))
           (multiple-value-bind (kind fields) (run #'history-flow store :path path)
             (expect kind :to-be :ok)
             (expect (mapcar (lambda (item) (member-value item "op_id")) (field fields "items"))
-                    :to-equal (list in-dir)))))))
+                    :to-equal (list in-dir)))))) :io nil))
 
   (it "is partial past --limit and names the command listing everything"
-    (with-temp-store (store)
-      (dotimes (i 3) (write-op store "a.txt" (princ-to-string i)))
+    (call-with-temp-store (lambda (store) (dotimes (i 3) (write-op store "a.txt" (princ-to-string i)))
       (multiple-value-bind (kind fields) (run #'history-flow store :limit 2)
         (expect kind :to-be :partial)
         (expect (length (field fields "items")) :to-be 2)
         (expect (field fields "total") :to-be 3)
         (expect (field fields "truncated") :to-be t)
         (expect (field fields "next_commands")
-                :to-equal (list (format nil "aitools --root ~A history --limit 3" (aitools.store.application:store-root store)))))))
+                :to-equal (list (format nil "aitools --root ~A history --limit 3" (aitools.store.application:store-root store)))))) :io nil))
   (it "uses the default history limit and suggests listing every operation"
-    (with-temp-store (store)
-      (dotimes (i 51)
+    (call-with-temp-store (lambda (store) (dotimes (i 51)
         (write-op store (format nil "entry-~D.txt" i) (princ-to-string i)))
       (multiple-value-bind (kind fields) (run (function history-flow) store)
         (expect kind :to-be :partial)
@@ -71,22 +67,20 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         (expect (field fields "next_commands")
                 :to-equal
                 (list (format nil "aitools --root ~A history --limit 51"
-                              (aitools.store.application:store-root store)))))))
+                              (aitools.store.application:store-root store)))))) :io nil))
 
   (it "refuses a path outside the workspace"
-    (with-temp-store (store)
-      (multiple-value-bind (kind error) (run #'history-flow store :path "/")
+    (call-with-temp-store (lambda (store) (multiple-value-bind (kind error) (run #'history-flow store :path "/")
         (expect kind :to-be :error)
         (expect (getf error :code) :to-equal "argument.invalid")
-        (expect (repair-commands error) :not :to-equal '())))))
+        (expect (repair-commands error) :not :to-equal '()))) :io nil)))
 
 (defun undo (store op-id &rest keys)
   (apply #'run #'undo-flow store op-id keys))
 
 (describe "aitools.journal undo"
   (it "restores bytes and mode and reports changes with op_id and undoes"
-    (with-temp-store (store)
-      (put-file store "a.txt" (format nil "one~%two~%") :mode #o600)
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" (format nil "one~%two~%") :mode #o600)
       (let ((op (commit-write store (list (aitools.store.domain:write-file-request "a.txt" (bytes "new") :mode #o755)))))
         (multiple-value-bind (kind fields) (undo store op)
           (expect kind :to-be :ok)
@@ -98,11 +92,10 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
             (expect (member-value change "action") :to-equal "modified")
             (expect (member-value change "diff") :to-equal (format nil "@@ -1,1 +1,2 @@~%-new~%\\ No newline at end of file~%+one~%+two~%"))))
         (expect (disk-text store "a.txt") :to-equal (format nil "one~%two~%"))
-        (expect (disk-mode store "a.txt") :to-be #o600))))
+        (expect (disk-mode store "a.txt") :to-be #o600))) :io nil))
 
   (it "restores existence: a created file is removed, a deleted one comes back with its bytes and mode"
-    (with-temp-store (store)
-      (put-file store "old.bin" (coerce #(0 1 2 255) 'aitools.store.domain:octets) :mode #o640)
+    (call-with-temp-store (lambda (store) (put-file store "old.bin" (coerce #(0 1 2 255) 'aitools.store.domain:octets) :mode #o640)
       (let ((op (commit-write store (list (aitools.store.domain:write-file-request "new/n.txt" (bytes "n"))
                                           (aitools.store.domain:delete-request "old.bin")))))
         (multiple-value-bind (kind fields) (undo store op)
@@ -115,11 +108,10 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         (expect (disk-text store "new") :to-be :absent)
         (expect (aitools.store.domain:entry-state-hash (disk-state store "old.bin"))
                 :to-equal (aitools.kernel.domain:content-hash (coerce #(0 1 2 255) 'aitools.store.domain:octets)))
-        (expect (disk-mode store "old.bin") :to-be #o640))))
+        (expect (disk-mode store "old.bin") :to-be #o640))) :io nil))
 
   (it "moves a moved file back"
-    (with-temp-store (store)
-      (put-file store "from.txt" "x")
+    (call-with-temp-store (lambda (store) (put-file store "from.txt" "x")
       (let ((op (commit-write store (list (aitools.store.domain:move-request "from.txt" "to.txt")))))
         (multiple-value-bind (kind fields) (undo store op)
           (expect kind :to-be :ok)
@@ -127,11 +119,10 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
             (expect (member-value change "action") :to-equal "moved")
             (expect (member-value change "from") :to-equal "to.txt")))
         (expect (disk-text store "from.txt") :to-equal "x")
-        (expect (disk-text store "to.txt") :to-be :absent))))
+        (expect (disk-text store "to.txt") :to-be :absent))) :io nil))
 
   (it "redoes when the undo itself is undone"
-    (with-temp-store (store)
-      (put-file store "a.txt" "before")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "before")
       (let* ((op (write-op store "a.txt" "after"))
              (undo-op (field (nth-value 1 (undo store op)) "op_id")))
         (expect (disk-text store "a.txt") :to-equal "before")
@@ -142,11 +133,10 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         ;; history marks both undo entries
         (let ((items (field (nth-value 1 (run #'history-flow store)) "items")))
           (expect (mapcar (lambda (item) (member-value item "undoes" nil)) items)
-                  :to-equal (list undo-op op nil))))))
+                  :to-equal (list undo-op op nil))))) :io nil))
 
   (it "refuses with exit-2 conflicts when a path changed since, writing nothing"
-    (with-temp-store (store)
-      (let ((op (commit-write store (list (aitools.store.domain:write-file-request "a.txt" (bytes "1"))
+    (call-with-temp-store (lambda (store) (let ((op (commit-write store (list (aitools.store.domain:write-file-request "a.txt" (bytes "1"))
                                           (aitools.store.domain:write-file-request "b.txt" (bytes "1"))))))
         (put-file store "b.txt" "someone else")
         (multiple-value-bind (kind error) (undo store op)
@@ -159,11 +149,10 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
                                         (cons "current" (aitools.kernel.domain:content-hash (bytes "someone else"))))))
           (expect (some (lambda (command) (search "history b.txt" command)) (repair-commands error)) :to-be-truthy))
         (expect (disk-text store "a.txt") :to-equal "1")
-        (expect (disk-text store "b.txt") :to-equal "someone else"))))
+        (expect (disk-text store "b.txt") :to-equal "someone else"))) :io nil))
 
   (it "requires the op_id and repairs with aitools history"
-    (with-temp-store (store)
-      (multiple-value-bind (kind error) (undo store nil)
+    (call-with-temp-store (lambda (store) (multiple-value-bind (kind error) (undo store nil)
         (expect kind :to-be :error)
         (expect (getf error :code) :to-equal "argument.invalid")
         (expect (repair-commands error)
@@ -172,41 +161,37 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         (multiple-value-bind (kind error) (undo store op-id)
           (expect kind :to-be :error)
           (expect (getf error :code) :to-equal "input.not-found")
-          (expect (search "history" (first (repair-commands error))) :to-be-truthy)))))
+          (expect (search "history" (first (repair-commands error))) :to-be-truthy)))) :io nil))
 
   (it "changes nothing with --dry-run and has no op_id"
-    (with-temp-store (store)
-      (put-file store "a.txt" "before")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "before")
       (let ((op (write-op store "a.txt" "after")))
         (multiple-value-bind (kind fields) (undo store op :dry-run t)
           (expect kind :to-be :ok)
           (expect (mapcar #'car fields) :to-equal '("changes" "dry_run" "undoes"))
           (expect (member-value (first (field fields "changes")) "action") :to-equal "modified"))
         (expect (disk-text store "a.txt") :to-equal "after")
-        (expect (field (nth-value 1 (run #'history-flow store)) "total") :to-be 1))))
+        (expect (field (nth-value 1 (run #'history-flow store)) "total") :to-be 1))) :io nil))
 
   (it "cuts long diffs, stays exit 0, and points at aitools diff --op"
-    (with-temp-store (store)
-      (let ((op (write-op store "big.txt" (format nil "~{~D~%~}" (loop for i below 50 collect i)))))
+    (call-with-temp-store (lambda (store) (let ((op (write-op store "big.txt" (format nil "~{~D~%~}" (loop for i below 50 collect i)))))
         (multiple-value-bind (kind fields) (undo store op :max-diff-lines 5)
           (expect kind :to-be :ok)
           (expect (member-value (first (field fields "changes")) "diff_truncated") :to-be t)
           (expect (mapcar #'car fields) :to-equal '("changes" "op_id" "undoes" "next_commands"))
           (expect (field fields "next_commands")
-                  :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))))
+                  :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))) :io nil))
   (it "uses the default undo diff limit and points at the full diff"
-    (with-temp-store (store)
-      (let* ((content (format nil "~{line-~D~%~}" (loop for i below 210 collect i)))
+    (call-with-temp-store (lambda (store) (let* ((content (format nil "~{line-~D~%~}" (loop for i below 210 collect i)))
              (op (write-op store "big.txt" content)))
         (multiple-value-bind (kind fields) (undo store op)
           (expect kind :to-be :ok)
           (expect (member-value (first (field fields "changes")) "diff_truncated") :to-be t)
           (expect (field fields "next_commands")
-                  :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))))
+                  :to-equal (list (format nil "aitools diff --op ~A" (field fields "op_id"))))))) :io nil))
 
   (it "answers environment.busy with the same command as the repair"
-    (with-temp-store (store)
-      (let* ((op (write-op store "a.txt" "1"))
+    (call-with-temp-store (lambda (store) (let* ((op (write-op store "a.txt" "1"))
              (pid (hold-lock-in-child store 3)))
         (unwind-protect
              (let ((result (aitools.protocol.application:call-with-command-result/k
@@ -219,4 +204,4 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
                          :to-equal (list (format nil "aitools --root ~A --lock-timeout 100ms undo ~A"
                                                  (aitools.store.application:store-root store) op)))))
           (kill-child pid))
-        (expect (disk-text store "a.txt") :to-equal "1")))))
+        (expect (disk-text store "a.txt") :to-equal "1"))) :io nil)))

@@ -4,8 +4,7 @@
 
 (describe "aitools.store commit-changes/k"
   (it "applies explicit directory modes after writing descendants and preserves omitted modes"
-    (with-temp-store (store)
-      (unwind-protect
+    (call-with-temp-store (lambda (store) (unwind-protect
            (progn
              (expect (commit store (list (mkdir-request "private" :mode #o500)
                                          (mkdir-request "private/nested" :mode #o750)
@@ -17,11 +16,10 @@
              (expect (commit store (list (mkdir-request "private"))) :to-be :committed)
              (expect (disk-mode store "private") :to-be #o500))
         (when (probe-file (disk-path store "private"))
-          (sb-posix:chmod (disk-path store "private") #o700)))))
+          (sb-posix:chmod (disk-path store "private") #o700)))) :io nil))
 
   (it "restores nested deleted directory modes and content through undo"
-    (with-temp-store (store)
-      (put-file store "private/nested/file" "data" :mode #o600)
+    (call-with-temp-store (lambda (store) (put-file store "private/nested/file" "data" :mode #o600)
       (sb-posix:chmod (disk-path store "private") #o700)
       (sb-posix:chmod (disk-path store "private/nested") #o750)
       (multiple-value-bind (status op-id)
@@ -34,11 +32,10 @@
         (expect (disk-mode store "private") :to-be #o700)
         (expect (disk-mode store "private/nested") :to-be #o750)
         (expect (disk-mode store "private/nested/file") :to-be #o600)
-        (expect (disk-text store "private/nested/file") :to-equal "data"))))
+        (expect (disk-text store "private/nested/file") :to-equal "data"))) :io nil))
 
   (it "applies every action and reports before/after states and bytes"
-    (with-temp-store (store)
-      (put-file store "edit.txt" "old")
+    (call-with-temp-store (lambda (store) (put-file store "edit.txt" "old")
       (put-file store "gone.txt" "bye")
       (put-file store "mv.txt" "moving")
       (put-file store "exec.sh" "#!/bin/sh")
@@ -71,30 +68,27 @@
       (expect (entry-state-target (workspace-state store "link")) :to-equal "edit.txt")
       (expect (temp-files store) :to-equal '())
       (expect (intent-files store) :to-equal '())
-      (expect (length (read-journal store)) :to-be 1)))
+      (expect (length (read-journal store)) :to-be 1)) :io nil))
 
   (it "writes nothing and returns no op id for --dry-run"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (multiple-value-bind (status op-id results) (commit store (list (write-file-request "a.txt" (bytes "b"))) :dry-run t)
         (expect status :to-be :committed)
         (expect op-id :to-be nil)
         (expect (actions results) :to-equal '(("a.txt" :modified))))
       (expect (disk-text store "a.txt") :to-equal "a")
-      (expect (read-journal store) :to-equal '())))
+      (expect (read-journal store) :to-equal '())) :io nil))
 
   (it "returns no op and no journal entry when nothing changes"
-    (with-temp-store (store)
-      (put-file store "d/x" "x")
+    (call-with-temp-store (lambda (store) (put-file store "d/x" "x")
       (multiple-value-bind (status op-id results) (commit store (list (mkdir-request "d")))
         (expect status :to-be :committed)
         (expect op-id :to-be nil)
         (expect results :to-equal '()))
-      (expect (read-journal store) :to-equal '())))
+      (expect (read-journal store) :to-equal '())) :io nil))
 
   (it "preserves :path and supplied optional rejection fields and writes nothing"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (multiple-value-bind (status code message fields)
           (commit-changes/k store (list "edit")
                             (lambda (commit reject)
@@ -127,11 +121,10 @@
                       :conflicts (list nil nil)
                       :repairs (list t (list "repair"))
                       :path (list t "a.txt"))))
-      (expect (disk-text store "a.txt") :to-equal "a")))
+      (expect (disk-text store "a.txt") :to-equal "a")) :io nil))
 
   (it "rejects an I/O failure before the commit point as environment.io and leaves nothing"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let* ((base-io (store-io-port store))
              (io (aitools.store.application::copy-store-io base-io))
              (broken (make-store io (store-root store)
@@ -151,14 +144,13 @@
                   :to-equal "environment.io")))
       (expect (disk-text store "a.txt") :to-equal "a")
       (expect (temp-files store) :to-equal '())
-      (expect (intent-files store) :to-equal '())))
+      (expect (intent-files store) :to-equal '())) :io nil))
 
   (it "validates after the lock is held (TOCTOU)"
     ;; A fake adapter that rewrites the target at the moment the lock is
     ;; granted, i.e. just before validation would run. Validation must see
     ;; the rewritten content; a validate-then-lock implementation sees "v1".
-    (with-temp-store (plain)
-      (put-file plain "a.txt" "v1")
+    (call-with-temp-store (lambda (plain) (put-file plain "a.txt" "v1")
       (let* ((base-io (store-io-port plain))
              (io (aitools.store.application::copy-store-io base-io))
              (accessor-name 'aitools.store.application:store-io-try-lock)
@@ -186,13 +178,12 @@
                             :on-rejected (lambda (&rest args) (declare (ignore args)))
                             :on-busy (lambda ()))
           (expect seen :to-equal "v2")
-          (expect (disk-text plain "a.txt") :to-equal "v3")))))
+          (expect (disk-text plain "a.txt") :to-equal "v3")))) :io nil))
 
   (it "replaces a symlink itself rather than writing through it"
-    (with-temp-store (store)
-      (put-file store "real.txt" "r")
+    (call-with-temp-store (lambda (store) (put-file store "real.txt" "r")
       (commit store (list (symlink-request "l" "real.txt")))
       (commit store (list (write-file-request "l" (bytes "replaced"))))
       (expect (entry-state-kind (workspace-state store "l")) :to-be :file)
-      (expect (disk-text store "real.txt") :to-equal "r"))))
+      (expect (disk-text store "real.txt") :to-equal "r")) :io nil)))
 

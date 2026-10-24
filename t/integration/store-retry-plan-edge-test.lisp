@@ -23,8 +23,7 @@
 
 (describe "aitools.store lock resilience"
   (it "runs a nested workspace lock without acquiring the flock twice"
-    (with-temp-store (plain)
-      (let* ((base-io (store-io-port plain))
+    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
              (real-try-lock (symbol-function 'store-io-try-lock))
              (attempts 0)
              (io (aitools.store.application::copy-store-io base-io))
@@ -41,7 +40,7 @@
            (with-workspace-lock (store 1000)
              (with-workspace-lock (store 1000) :nested))
            :to-be :nested)
-          (expect attempts :to-be 1)))))
+          (expect attempts :to-be 1)))) :io nil))
   (it "matches the pre-kit lock retry schedule"
     (dolist (case '((0 1 nil)
                     (1 2 (1))
@@ -57,8 +56,7 @@
             (legacy-lock-schedule timeout-ms)
           (expect legacy-attempts :to-be expected-attempts)
           (expect legacy-delays :to-equal expected-delays)
-          (with-temp-store (plain)
-            (let* ((base-io (store-io-port plain))
+          (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
                    (real-try-lock (symbol-function 'store-io-try-lock))
                    (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
                    (real-sleep (symbol-function 'store-io-sleep))
@@ -93,13 +91,12 @@
                    :acquired)
                  :to-be :busy)
                 (expect attempts :to-be legacy-attempts)
-                (expect (nreverse delays) :to-equal legacy-delays))))))
+                (expect (nreverse delays) :to-equal legacy-delays)))) :io nil)))
     (expect
      (aitools.store.application::%lock-retry-attempt-limit 1000000000)
      :to-be 10000005)))
   (it "accepts acquisition on the deadline attempt"
-    (with-temp-store (plain)
-      (let* ((base-io (store-io-port plain))
+    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
              (real-try-lock (symbol-function 'store-io-try-lock))
              (real-unlock (symbol-function 'store-io-unlock))
              (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
@@ -142,10 +139,9 @@
            :to-be :acquired)
           (expect attempts :to-be 6)
           (expect (nreverse delays) :to-equal '(5 10 20 40 30))
-          (expect unlocked :to-equal '(:lock-handle))))))
+          (expect unlocked :to-equal '(:lock-handle))))) :io nil))
   (it "stops retrying after an overslept backoff"
-    (with-temp-store (plain)
-      (let* ((base-io (store-io-port plain))
+    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
              (real-try-lock (symbol-function 'store-io-try-lock))
              (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
              (real-sleep (symbol-function 'store-io-sleep))
@@ -181,7 +177,7 @@
            :to-be :busy)
           (expect attempts :to-be 2)
           (expect (nreverse delays) :to-equal '(5))
-          (expect clock-ms :to-be 205))))))
+          (expect clock-ms :to-be 205)))) :io nil)))
 
 (describe "aitools.store planner boundary cases"
   (it

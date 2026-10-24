@@ -38,8 +38,7 @@ condition a failing rename or fsync raises, at the first POINT."
   (it-each ((:after-validate) (:after-prepare))
       "rejects tx commit with environment.io and writes nothing when the store fails at ~S"
       (point)
-    (with-temp-store (store)
-      (let ((tx (open-tx-with-append store)))
+    (call-with-temp-store (lambda (store) (let ((tx (open-tx-with-append store)))
         (multiple-value-bind (kind error)
             (call-with-io-fault-at point (lambda () (run #'tx-commit-flow store tx)))
           (expect kind :to-be :error)
@@ -48,24 +47,22 @@ condition a failing rename or fsync raises, at the first POINT."
           (expect (getf error :diagnostics) :to-be nil)
           (expect (repair-commands error) :to-equal '("aitools schema tx commit")))
         (expect (disk-text store "a.txt") :to-equal "a")
-        (expect (tx-text store tx "a.txt") :to-equal "a+1"))))
+        (expect (tx-text store tx "a.txt") :to-equal "a+1"))) :io nil))
 
   (it "rejects undo with environment.io and an undo schema repair when the store fails before the commit point"
-    (with-temp-store (store)
-      (put-file store "a.txt" "before")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "before")
       (let ((op (write-op store "a.txt" "after")))
         (multiple-value-bind (kind error)
             (call-with-io-fault-at :after-prepare (lambda () (undo store op)))
           (expect kind :to-be :error)
           (expect (getf error :code) :to-equal "environment.io")
           (expect (repair-commands error) :to-equal '("aitools schema undo")))
-        (expect (disk-text store "a.txt") :to-equal "after"))))
+        (expect (disk-text store "a.txt") :to-equal "after"))) :io nil))
 
   (it-each ((:tx-commit) (:undo))
       "reports a failure after the commit point of ~S as environment.io naming the op, and recovery rolls it forward"
       (operation)
-    (with-temp-store (store)
-      (multiple-value-bind (thunk expected-text)
+    (call-with-temp-store (lambda (store) (multiple-value-bind (thunk expected-text)
           (ecase operation
             (:tx-commit (let ((tx (open-tx-with-append store)))
                           (values (lambda () (run #'tx-commit-flow store tx)) "a+1")))
@@ -95,7 +92,7 @@ condition a failing rename or fsync raises, at the first POINT."
                     :to-equal (list (cons op-id "rolled-forward")))
             (expect (member-value (first (field (nth-value 1 (run #'history-flow store)) "items")) "op_id")
                     :to-equal op-id)
-            (expect (disk-text store "a.txt") :to-equal expected-text))))))
+            (expect (disk-text store "a.txt") :to-equal expected-text))))) :io nil))
 
   (it-each (("store-io-error" aitools.store.application:store-io-error
                          (:operation "open" :path "state" :detail "disk gone") nil)
@@ -105,8 +102,7 @@ condition a failing rename or fsync raises, at the first POINT."
     "reports a ~A escaping the store as environment.io"
     (label condition-type initargs committed)
   (declare (ignore label))
-  (with-temp-store (store)
-    (let* ((ports (make-journal-ports
+  (call-with-temp-store (lambda (store) (let* ((ports (make-journal-ports
                    :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
                                     :current-directory (constantly (aitools.store.application:store-root store))
                                     :getenv (constantly nil))
@@ -139,7 +135,7 @@ condition a failing rename or fsync raises, at the first POINT."
                 (progn
                   (expect (getf error :diagnostics) :to-be nil)
                   (expect (repair-commands error)
-                          :to-equal (list (format nil "aitools schema ~A" words)))))))))))
+                          :to-equal (list (format nil "aitools schema ~A" words)))))))))) :io nil))
 
   (it-each ((tx-begin-flow "tx begin" ())
             (tx-status-flow "tx status" (nil))
@@ -147,14 +143,13 @@ condition a failing rename or fsync raises, at the first POINT."
             (history-flow "history" ()))
       "refuses an unresolvable --root for ~S with argument.invalid and the ~A schema as the repair"
       (flow words arguments)
-    (with-temp-store (store)
-      (let ((missing (concatenate 'string (aitools.store.application:store-root store) "/no/such/dir")))
+    (call-with-temp-store (lambda (store) (let ((missing (concatenate 'string (aitools.store.application:store-root store) "/no/such/dir")))
         (multiple-value-bind (kind error)
             (apply #'run-with (ports-for store) (make-journal-context :root missing) flow arguments)
           (expect kind :to-be :error)
           (expect (getf error :code) :to-equal "argument.invalid")
           (expect (search (format nil "workspace root ~A" missing) (getf error :message)) :to-be 0)
-          (expect (repair-commands error) :to-equal (list (format nil "aitools schema ~A" words))))))))
+          (expect (repair-commands error) :to-equal (list (format nil "aitools schema ~A" words)))))) :io nil)))
 
 (describe "aitools.journal tx lock contention (environment.busy)"
   (it-each ((tx-begin-flow "tx begin --name demo")
@@ -164,8 +159,7 @@ condition a failing rename or fsync raises, at the first POINT."
             (tx-abort-flow "tx abort ~A"))
       "answers ~S with environment.busy and `~A` as the retry"
       (flow words)
-    (with-temp-store (store)
-      (let* ((tx (open-tx-with-append store))
+    (call-with-temp-store (lambda (store) (let* ((tx (open-tx-with-append store))
              (arguments (ecase flow
                           (tx-begin-flow (list :name "demo"))
                           (tx-drop-flow (list tx "1"))
@@ -181,11 +175,11 @@ condition a failing rename or fsync raises, at the first POINT."
                                                (aitools.store.application:store-root store) words (list tx)))))
           (kill-child pid))
         (expect (tx-text store tx "a.txt") :to-equal "a+1")
-        (expect (disk-text store "a.txt") :to-equal "a")))))
+        (expect (disk-text store "a.txt") :to-equal "a"))) :io nil)))
 
 (describe "aitools.journal repairs without global options"
   (it "names the plain command when the workspace came from the working directory"
-    (with-temp-store (store)
+    (call-with-temp-store (lambda (store)
       ;; Without --root the workspace is found from the working directory,
       ;; whichever .git lies above it; the store is STORE either way.
       (multiple-value-bind (kind error)
@@ -197,4 +191,4 @@ condition a failing rename or fsync raises, at the first POINT."
                     (make-journal-context) #'tx-status-flow "tx-20260101T000000Z-00000000")
         (expect kind :to-be :error)
         (expect (getf error :code) :to-equal "input.not-found")
-        (expect (repair-commands error) :to-equal '("aitools tx status"))))))
+        (expect (repair-commands error) :to-equal '("aitools tx status")))) :io nil)))

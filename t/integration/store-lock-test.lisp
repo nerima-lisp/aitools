@@ -23,8 +23,7 @@ lock is held."
 
 (describe "aitools.store workspace lock"
   (it "answers busy when the lock is not released within --lock-timeout"
-    (with-temp-store (store)
-      (let ((pid (hold-lock-in-child store 3)))
+    (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 3)))
         (expect (commit-changes/k store '("write")
                                   (lambda (commit reject)
                                     (declare (ignore reject))
@@ -35,10 +34,9 @@ lock is held."
                                   :on-busy (lambda () :busy))
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
-        (kill-child pid))))
+        (kill-child pid))) :io nil))
   (it "accepts a lock acquired after the deadline"
-    (with-temp-store (plain)
-      (let* ((base-io (store-io-port plain))
+    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
              (real-try-lock (symbol-function 'store-io-try-lock))
              (real-unlock (symbol-function 'store-io-unlock))
              (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
@@ -93,11 +91,10 @@ lock is held."
                      (funcall (funcall real-unlock base-io) again))))
             (when (and acquired-handle
                        (not (member acquired-handle unlocked-handles :test (function eql))))
-              (funcall (funcall real-unlock base-io) acquired-handle)))))))
+              (funcall (funcall real-unlock base-io) acquired-handle)))))) :io nil))
 
   (it "waits for the holder and then writes"
-    (with-temp-store (store)
-      (let* ((pid (hold-lock-in-child store 0.5))
+    (call-with-temp-store (lambda (store) (let* ((pid (hold-lock-in-child store 0.5))
              (start (get-internal-real-time))
              (outcome (commit-changes/k store '("write")
                                         (lambda (commit reject)
@@ -111,17 +108,15 @@ lock is held."
         (expect outcome :to-be :committed)
         (expect waited :to-be-greater-than 0.1)
         (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))
-        (expect (disk-text store "x") :to-equal "x"))))
+        (expect (disk-text store "x") :to-equal "x"))) :io nil))
 
   (it "is released by the OS when the holder is killed"
-    (with-temp-store (store)
-      (let ((pid (hold-lock-in-child store 60)))
+    (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 60)))
         (expect (multiple-value-list (kill-child pid)) :to-equal (list :signalled sb-posix:sigkill))
-        (expect (with-workspace-lock (store 2000 :on-timeout :busy) :acquired) :to-be :acquired))))
+        (expect (with-workspace-lock (store 2000 :on-timeout :busy) :acquired) :to-be :acquired))) :io nil))
 
   (it "serialises two processes' writes to the journal"
-    (with-temp-store (store)
-      (let ((pids (loop for n from 0 below 2
+    (call-with-temp-store (lambda (store) (let ((pids (loop for n from 0 below 2
                         collect (let ((n n))
                                   (call-in-child-process
                                    (lambda ()
@@ -130,20 +125,18 @@ lock is held."
                                                                                       (bytes "x")))))))))))
         (dolist (pid pids)
           (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))))
-      (expect (length (read-journal store)) :to-be 10))))
+      (expect (length (read-journal store)) :to-be 10)) :io nil)))
 
 (describe "aitools.store tx lock and the flock primitive"
   (it "runs WITH-TX-LOCK's body, or its not-found form for an unknown tx"
-    (with-temp-store (store)
-      (let ((tx (begin store)))
+    (call-with-temp-store (lambda (store) (let ((tx (begin store)))
         (expect (with-tx-lock (store tx 1000 :on-timeout :busy :on-not-found :missing) :held) :to-be :held)
         (expect (with-tx-lock (store (format-tx-id 3964000000 "00000000") 1000 :on-timeout :busy :on-not-found :missing)
                   :held)
-                :to-be :missing))))
+                :to-be :missing))) :io nil))
 
   (it "answers busy for a tx whose lock another process holds"
-    (with-temp-store (store)
-      (let* ((tx (begin store))
+    (call-with-temp-store (lambda (store) (let* ((tx (begin store))
              (pid (call-in-child-process
                    (lambda ()
                      (with-tx-lock (store tx 1000)
@@ -151,11 +144,10 @@ lock is held."
                        (sleep 3))))))
         (wait-until-exists store "locked")
         (expect (with-tx-lock (store tx 100 :on-timeout :busy :on-not-found :missing) :held) :to-be :busy)
-        (kill-child pid))))
+        (kill-child pid))) :io nil))
 
   (it "takes an exclusive flock once per open file description"
-    (with-temp-store (store)
-      (let* ((io (store-io-port store))
+    (call-with-temp-store (lambda (store) (let* ((io (store-io-port store))
              (path (disk-path store "lockfile"))
              (first (funcall (store-io-try-lock io) path :create t)))
         (expect (integerp first) :to-be t)
@@ -166,10 +158,9 @@ lock is held."
           (funcall (store-io-unlock io) again))
         (expect (handler-case (funcall (store-io-try-lock io) (disk-path store "absent-lock"))
                   (store-io-error (condition) (store-io-error-operation condition)))
-                :to-equal "open")))))
+                :to-equal "open"))) :io nil)))
 
 (describe "aitools.store zero-timeout lock acquisition"
   (it "attempts acquisition immediately"
-    (with-temp-store (store)
-      (expect (with-workspace-lock (store 0 :on-timeout :busy) :acquired)
-              :to-be :acquired))))
+    (call-with-temp-store (lambda (store) (expect (with-workspace-lock (store 0 :on-timeout :busy) :acquired)
+              :to-be :acquired)) :io nil)))

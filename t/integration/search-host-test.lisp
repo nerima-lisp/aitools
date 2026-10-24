@@ -56,8 +56,7 @@
                     :to-equal (rendered kind fields)))))))
 
   (it "reads through a tx: staged edits, additions, deletions, and the tx's .gitignore"
-    (aitools.store.test-support:with-temp-store (store)
-      (let* ((root (%real-root (aitools.store.application:store-root store)))
+    (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
              (ports (%host-ports root :open-store (constantly store))))
         (%write-file (format nil "~A/.git/HEAD" root) (format nil "ref: refs/heads/main~%"))
         (%write-file (format nil "~A/a.txt" root) "old hit")
@@ -93,7 +92,7 @@
           (multiple-value-bind (kind fields) (run-flow #'find/k ports :type :file :tx "tx-missing")
             (declare (ignore kind))
             (expect (getf fields :code) :to-equal "input.not-found"))
-          (expect (probe-file (sb-ext:parse-native-namestring (format nil "~A/new/added.txt" root))) :to-be nil)))))
+          (expect (probe-file (sb-ext:parse-native-namestring (format nil "~A/new/added.txt" root))) :to-be nil)))) :io nil))
 
   (it "never starts a process: the search context names no process or git kit"
     (let ((sources (directory (merge-pathnames (make-pathname :directory '(:relative "packages" "feature" "search" "src" :wild-inferiors)
@@ -105,8 +104,7 @@
           (dolist (needle '("process-kit:" "vcs-kit:" "run-program" "run-git"))
             (expect (search needle text :test #'char-equal) :to-be nil))))))
   (it "reads from disk when a tx has no staged paths"
-    (aitools.store.test-support:with-temp-store (store)
-      (let* ((root (%real-root (aitools.store.application:store-root store)))
+    (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
              (ports (%host-ports root :open-store (constantly store))))
         (%write-file (format nil "~A/a.txt" root) "disk hit")
         (let ((tx (aitools.store.application:tx-begin/k
@@ -120,7 +118,7 @@
             (expect kind :to-be :ok)
             (expect (%block-paths fields) :to-equal '("a.txt"))
             (expect (jfield (first (field fields "blocks")) "lines")
-                    :to-equal '("disk hit"))))))))
+                    :to-equal '("disk hit")))))) :io nil)))
 
 (defun %begin-staged-tx (store requests)
   "A new tx of STORE with REQUESTS staged in it; its id."
@@ -141,8 +139,7 @@
 
 (describe "aitools.search read-through of a tx on the real filesystem"
   (it "carries --tx into every flow's next command and reads staged, deleted, and binary paths from the tx"
-    (aitools.store.test-support:with-temp-store (store)
-      (let* ((root (%real-root (aitools.store.application:store-root store)))
+    (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
              (ports (%host-ports root :open-store (constantly store))))
         (%write-file (format nil "~A/.git/HEAD" root) (format nil "ref: refs/heads/main~%"))
         (%write-file (format nil "~A/a.lisp" root) "(defun old ())")
@@ -183,7 +180,7 @@
             (expect (getf fields :code) :to-equal "input.not-found"))
           (multiple-value-bind (kind fields) (run-flow #'find/k ports :path "fresh" :tx tx)
             (expect kind :to-be :ok)
-            (expect (mapcar (lambda (item) (jfield item "path")) (field fields "items")) :to-equal '("fresh/c.py"))))))))
+            (expect (mapcar (lambda (item) (jfield item "path")) (field fields "items")) :to-equal '("fresh/c.py")))))) :io nil)))
 
 (defun %production-stdin (limit)
   "The outcome of the production search READ-STDIN-OCTETS port with LIMIT."

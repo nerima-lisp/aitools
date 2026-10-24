@@ -29,8 +29,7 @@ whether it went to :STDOUT or :STDERR."
 (defun call-with-cli-workspace (function)
   "Call FUNCTION with (ROOT STORE): a fresh workspace and the store the
 production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
-  (with-temp-store (scratch)
-    (let* ((root (aitools.store.application:store-root scratch))
+  (call-with-temp-store (lambda (scratch) (let* ((root (aitools.store.application:store-root scratch))
            (xdg (concatenate 'string root "/../xdg"))
            (previous (sb-posix:getenv "XDG_STATE_HOME")))
       (sb-posix:mkdir xdg #o700)
@@ -40,15 +39,11 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
              (funcall function root (aitools.store.infrastructure:make-posix-store root)))
         (if previous
             (sb-posix:setenv "XDG_STATE_HOME" previous 1)
-            (sb-posix:unsetenv "XDG_STATE_HOME"))))))
-
-(defmacro with-cli-workspace ((root store) &body body)
-  `(call-with-cli-workspace (lambda (,root ,store) ,@body)))
+            (sb-posix:unsetenv "XDG_STATE_HOME"))))) :io nil))
 
 (describe "aitools journal commands through dispatch"
   (it "undoes an op with exit 0, then refuses the same undo with exit 2 and conflicts"
-    (with-cli-workspace (root store)
-      (put-file store "a.txt" "before")
+    (call-with-cli-workspace (lambda (root store) (put-file store "a.txt" "before")
       (let ((op (write-op store "a.txt" "after")))
         (multiple-value-bind (code envelope stream) (run-aitools "--root" root "history")
           (expect (list code stream) :to-equal '(0 :stdout))
@@ -62,30 +57,27 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
         (multiple-value-bind (code envelope stream) (run-aitools "--root" root "undo" op)
           (expect (list code stream) :to-equal '(2 :stderr))
           (expect (envelope-value envelope "error" "code") :to-equal "refusal.target-changed")
-          (expect (length (envelope-value envelope "error" "conflicts")) :to-be 1)))))
+          (expect (length (envelope-value envelope "error" "conflicts")) :to-be 1))))))
 
   (it "answers a bare undo with argument.invalid and aitools history as the repair"
-    (with-cli-workspace (root store)
-      (declare (ignore store))
+    (call-with-cli-workspace (lambda (root store) (declare (ignore store))
       (multiple-value-bind (code envelope) (run-aitools "--root" root "undo")
         (expect code :to-be 1)
         (expect (envelope-value envelope "error" "code") :to-equal "argument.invalid")
         (expect (envelope-value (aref (envelope-value envelope "error" "repairs") 0) "command")
-                :to-equal (format nil "aitools --root ~A history" root)))))
+                :to-equal (format nil "aitools --root ~A history" root))))))
   (it "returns default history truncation through dispatch as partial"
-    (with-cli-workspace (root store)
-      (dotimes (i 51)
+    (call-with-cli-workspace (lambda (root store) (dotimes (i 51)
         (write-op store (format nil "entry-~D.txt" i) (princ-to-string i)))
       (multiple-value-bind (code envelope stream) (run-aitools "--root" root "history")
         (expect (list code stream) :to-equal (list 3 :stdout))
         (expect (envelope-value envelope "status") :to-equal "partial")
         (expect (length (envelope-value envelope "items")) :to-be 50)
         (expect (envelope-value envelope "total") :to-be 51)
-        (expect (envelope-value envelope "truncated") :to-be t))))
+        (expect (envelope-value envelope "truncated") :to-be t)))))
 
   (it "runs a tx from begin to commit"
-    (with-cli-workspace (root store)
-      (put-file store "a.txt" "a")
+    (call-with-cli-workspace (lambda (root store) (put-file store "a.txt" "a")
       (let ((tx (envelope-value (nth-value 1 (run-aitools "--root" root "tx" "begin" "--name" "t")) "tx")))
         (expect (aitools.store.domain:valid-tx-id-p tx) :to-be-truthy)
         (stage-append store tx "a.txt" "+1")
@@ -99,12 +91,11 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
           (expect code :to-be 0)
           (expect (aitools.store.domain:valid-op-id-p (envelope-value envelope "op_id")) :to-be-truthy))
         (expect (disk-text store "a.txt") :to-equal "a+1")
-        (expect (run-aitools "--root" root "tx" "abort" tx) :to-be 1)))))
+        (expect (run-aitools "--root" root "tx" "abort" tx) :to-be 1))))))
 
 (describe "aitools journal store failures through dispatch"
   (it "serialises a post-commit tx commit failure as environment.io with the op_id diagnostic, then recovers it"
-    (with-cli-workspace (root store)
-      (put-file store "a.txt" "a")
+    (call-with-cli-workspace (lambda (root store) (put-file store "a.txt" "a")
       (let ((tx (envelope-value (nth-value 1 (run-aitools "--root" root "tx" "begin")) "tx")))
         (stage-append store tx "a.txt" "+1")
         (multiple-value-bind (code envelope stream)
@@ -122,13 +113,12 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
             (multiple-value-bind (code envelope) (run-aitools "--root" root "history")
               (expect code :to-be 0)
               (expect (envelope-value (aref (envelope-value envelope "items") 0) "op_id") :to-equal op-id))
-            (expect (disk-text store "a.txt") :to-equal "a+1"))))))
+            (expect (disk-text store "a.txt") :to-equal "a+1")))))))
 
   (it "drops and rebases a tx through dispatch"
     (call-with-append-replayer
      (lambda ()
-       (with-cli-workspace (root store)
-         (put-file store "a.txt" "a")
+       (call-with-cli-workspace (lambda (root store) (put-file store "a.txt" "a")
          (let ((tx (envelope-value (nth-value 1 (run-aitools "--root" root "tx" "begin")) "tx")))
            (stage-append store tx "a.txt" "+1")
            (stage-append store tx "a.txt" "+2")
@@ -139,12 +129,11 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
            (multiple-value-bind (code envelope) (run-aitools "--root" root "tx" "rebase" tx)
              (expect code :to-be 0)
              (expect envelope :to-match-envelope (list "rebased" #("a.txt"))))
-           (expect (tx-text store tx "a.txt") :to-equal "external+1")))))))
+           (expect (tx-text store tx "a.txt") :to-equal "external+1"))))))))
 
 (describe "aitools journal flags through dispatch"
   (it "passes undo --dry-run and tx commit --ignore-stale-reads to the flows"
-    (with-cli-workspace (root store)
-      (put-file store "a.txt" "before")
+    (call-with-cli-workspace (lambda (root store) (put-file store "a.txt" "before")
       (let ((op (write-op store "a.txt" "after")))
         (multiple-value-bind (code envelope) (run-aitools "--root" root "undo" op "--dry-run")
           (expect code :to-be 0)
@@ -157,4 +146,4 @@ production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
         (put-file store "r.txt" "r2")
         (expect (run-aitools "--root" root "tx" "commit" tx) :to-be 2)
         (expect (run-aitools "--root" root "tx" "commit" tx "--ignore-stale-reads") :to-be 0)
-        (expect (disk-text store "w.txt") :to-equal "w")))))
+        (expect (disk-text store "w.txt") :to-equal "w"))))))

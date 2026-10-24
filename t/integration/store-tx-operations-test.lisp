@@ -2,8 +2,7 @@
 
 (describe "aitools.store tx rebase and drop"
   (it "replays content-based ops onto the new base so the tx commits"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+tx")
         (put-file store "a.txt" "external")
@@ -14,10 +13,9 @@
                 :to-equal '("a.txt"))
         (expect (tx-view-text store tx "a.txt") :to-equal "external+tx")
         (expect (commit-tx store tx) :to-be :committed)
-        (expect (disk-text store "a.txt") :to-equal "external+tx"))))
+        (expect (disk-text store "a.txt") :to-equal "external+tx"))) :io nil))
   (it "stops a replayer after its commit callback"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store))
             (continued nil))
         (stage-append store tx "a.txt" "+tx")
@@ -33,11 +31,10 @@
                               :on-busy (lambda () :busy))
                   :to-equal (list "a.txt"))
           (expect continued :to-be nil)
-          (expect (tx-view-text store tx "a.txt") :to-equal "rebased"))))
+          (expect (tx-view-text store tx "a.txt") :to-equal "rebased"))) :io nil))
 
   (it "refuses to rebase a position-based op and leaves the tx unchanged"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+tx" :replayable nil)
         (put-file store "a.txt" "external")
@@ -48,11 +45,10 @@
           (expect (first outcome) :to-be :conflict)
           (expect (mapcar #'conflict-path (second outcome)) :to-equal '("a.txt")))
         (expect (tx-view-text store tx "a.txt") :to-equal "a+tx")
-        (expect (tx-status-drift (status-of store tx)) :to-equal '("a.txt")))))
+        (expect (tx-status-drift (status-of store tx)) :to-equal '("a.txt")))) :io nil))
 
   (it "drops the named op and every later one, restoring the earlier state"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+1")
         (stage-append store tx "a.txt" "+2")
@@ -67,12 +63,11 @@
                                       :on-busy (lambda () :busy))
                 :to-be :not-found)
         (expect (stage-append store tx "a.txt" "+3") :to-be 2)
-        (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3")))))
+        (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3"))) :io nil)))
 
 (describe "aitools.store tx abort and interruption"
   (it "removes the tx and its blobs without touching the working tree"
-    (with-temp-store (store)
-      (put-file store "a.txt" "a")
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
         (stage-append store tx "a.txt" "+unique-content")
         (expect (member (aitools.kernel.domain:content-hash (bytes "a+unique-content")) (blob-names store)
@@ -84,23 +79,21 @@
         (expect (status-of store tx) :to-be :not-found)
         (expect (tx-list store) :to-equal '())
         (expect (blob-names store) :to-equal '())
-        (expect (disk-text store "a.txt") :to-equal "a"))))
+        (expect (disk-text store "a.txt") :to-equal "a"))) :io nil))
 
   (it "stays at the previous op's state when a tx op is interrupted"
     (dolist (point '(:tx-after-blobs :tx-after-ops))
-      (with-temp-store (store)
-        (put-file store "a.txt" "a")
+      (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
         (let ((tx (begin store)))
           (stage-append store tx "a.txt" "+1")
-          (expect (with-fault-at (point) (stage-append store tx "a.txt" "+2")) :to-be-truthy)
+          (expect (call-with-fault-at point (lambda () (stage-append store tx "a.txt" "+2"))) :to-be-truthy)
           (expect (tx-view-text store tx "a.txt") :to-equal "a+1")
           (expect (mapcar #'tx-op-record-tx-op (tx-status-ops (status-of store tx))) :to-equal '(1))
           (expect (stage-append store tx "a.txt" "+3") :to-be 2)
-          (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3")))))
+          (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3"))) :io nil)))
 
   (it "serialises two processes writing into one tx"
-    (with-temp-store (store)
-      (put-file store "log.txt" "")
+    (call-with-temp-store (lambda (store) (put-file store "log.txt" "")
       (let* ((tx (begin store))
              (pids (loop for n from 0 below 2
                          collect (let ((n n))
@@ -114,7 +107,7 @@
           (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0)))
         (expect (mapcar #'tx-op-record-tx-op (tx-status-ops (status-of store tx)))
                 :to-equal '(1 2 3 4 5 6 7 8 9 10))
-        (expect (length (tx-view-text store tx "log.txt")) :to-be 10)))))
+        (expect (length (tx-view-text store tx "log.txt")) :to-be 10))) :io nil)))
 
 (defun replay-chmod (record view commit reject)
   "Re-run a recorded (\"chmod\" path mode) op against VIEW."
@@ -143,8 +136,7 @@
 
 (describe "aitools.store mode-only changes inside a tx"
   (it "stages a chmod keeping the content hash, and commits and undoes it as one op"
-    (with-temp-store (store)
-      (put-file store "cfg.txt" "secret" :mode #o644)
+    (call-with-temp-store (lambda (store) (put-file store "cfg.txt" "secret" :mode #o644)
       (let ((tx (begin store))
             (hash (aitools.kernel.domain:content-hash (bytes "secret"))))
         (expect (stage-chmod store tx "cfg.txt" #o600) :to-equal '(1 (("cfg.txt" :mode-changed))))
@@ -159,11 +151,10 @@
           (expect (status-of store tx) :to-be :not-found)
           (expect (undo store op-id) :to-be :committed)
           (expect (disk-mode store "cfg.txt") :to-be #o644)
-          (expect (disk-text store "cfg.txt") :to-equal "secret")))))
+          (expect (disk-text store "cfg.txt") :to-equal "secret")))) :io nil))
 
   (it "stages a chmod on content the tx already rewrote"
-    (with-temp-store (store)
-      (put-file store "cfg.txt" "old" :mode #o644)
+    (call-with-temp-store (lambda (store) (put-file store "cfg.txt" "old" :mode #o644)
       (let ((tx (begin store)))
         (stage store tx (list (write-file-request "cfg.txt" (bytes "new"))))
         (expect (stage-chmod store tx "cfg.txt" #o600) :to-equal '(2 (("cfg.txt" :mode-changed))))
@@ -171,11 +162,10 @@
                 :to-equal (list :file (aitools.kernel.domain:content-hash (bytes "new")) #o600))
         (expect (commit-tx store tx) :to-be :committed)
         (expect (disk-text store "cfg.txt") :to-equal "new")
-        (expect (disk-mode store "cfg.txt") :to-be #o600))))
+        (expect (disk-mode store "cfg.txt") :to-be #o600))) :io nil))
 
   (it "drops a staged chmod back to the disk mode"
-    (with-temp-store (store)
-      (put-file store "cfg.txt" "secret" :mode #o644)
+    (call-with-temp-store (lambda (store) (put-file store "cfg.txt" "secret" :mode #o644)
       (let ((tx (begin store)))
         (stage-chmod store tx "cfg.txt" #o600)
         (expect (tx-drop/k store tx 1 :on-dropped #'identity :on-not-found (lambda () :not-found)
@@ -184,11 +174,10 @@
         (expect (tx-view-state store tx "cfg.txt")
                 :to-equal (list :file (aitools.kernel.domain:content-hash (bytes "secret")) #o644))
         (expect (commit-tx store tx) :to-be :committed)
-        (expect (disk-mode store "cfg.txt") :to-be #o644))))
+        (expect (disk-mode store "cfg.txt") :to-be #o644))) :io nil))
 
   (it "replays a staged chmod onto drifted content at rebase"
-    (with-temp-store (store)
-      (put-file store "cfg.txt" "v1" :mode #o644)
+    (call-with-temp-store (lambda (store) (put-file store "cfg.txt" "v1" :mode #o644)
       (let ((tx (begin store)))
         (stage-chmod store tx "cfg.txt" #o600)
         (put-file store "cfg.txt" "v2" :mode #o644)
@@ -201,5 +190,5 @@
                 :to-equal (list :file (aitools.kernel.domain:content-hash (bytes "v2")) #o600))
         (expect (commit-tx store tx) :to-be :committed)
         (expect (disk-text store "cfg.txt") :to-equal "v2")
-        (expect (disk-mode store "cfg.txt") :to-be #o600)))))
+        (expect (disk-mode store "cfg.txt") :to-be #o600))) :io nil)))
 

@@ -23,23 +23,21 @@ content before it; returns that blob's name."
 
 (describe "aitools.store garbage collection"
   (it "deletes stray temps and unreferenced blobs, keeping referenced blobs and foreign names"
-    (with-temp-store (store)
-      (let ((kept (referenced-store store))
+    (call-with-temp-store (lambda (store) (let ((kept (referenced-store store))
             (tx-root (tx-root-directory (store-state-directory store))))
         (plant-blob-files store ".stale.tmp" "notes" *stray-hash*)
         (sb-posix:mkdir (join-path tx-root ".tx-x.deleting") #o700)
         (sb-posix:mkdir (join-path tx-root "junk") #o700)
         (collect-garbage store)
         (expect (blob-listing store) :to-equal (sort (list kept "notes") #'string<))
-        (expect (funcall (store-io-list-directory (store-io-port store)) tx-root) :to-equal '("junk")))))
+        (expect (funcall (store-io-list-directory (store-io-port store)) tx-root) :to-equal '("junk")))) :io nil))
 
   (it-each (("an unreadable tx index" :tx-index)
             ("an unreadable journal line" :journal))
       "collects nothing when ~A leaves the references unknown"
       (label case)
     (declare (ignore label))
-    (with-temp-store (store)
-      (referenced-store store)
+    (call-with-temp-store (lambda (store) (referenced-store store)
       (plant-blob-files store *stray-hash*)
       (ecase case
         (:tx-index
@@ -56,11 +54,10 @@ content before it; returns that blob's name."
       (when (eq case :journal)
         ;; A write still succeeds; its own collection also keeps the blob.
         (expect (commit store (list (write-file-request "b.txt" (bytes "b")))) :to-be :committed)
-        (expect (member *stray-hash* (blob-listing store) :test #'string=) :to-be-truthy))))
+        (expect (member *stray-hash* (blob-listing store) :test #'string=) :to-be-truthy))) :io nil))
 
   (it "compacts the journal once it holds twice the retained entries"
-    (with-temp-store (store)
-      (flet ((journal-lines ()
+    (call-with-temp-store (lambda (store) (flet ((journal-lines ()
                (count #\Newline (octets-string (funcall (store-io-read-file (store-io-port store))
                                                         (journal-file-path (store-state-directory store)))))))
         (loop for n from 1 to 40
@@ -68,11 +65,10 @@ content before it; returns that blob's name."
         (expect (journal-lines) :to-be 40)
         (commit store (list (write-file-request "a.txt" (bytes "41"))))
         (expect (journal-lines) :to-be 20)
-        (expect (length (read-journal store)) :to-be 20))))
+        (expect (length (read-journal store)) :to-be 20))) :io nil))
 
   (it "tolerates a removal that fails because the entry already vanished, and reports any other"
-    (with-temp-store (store)
-      (referenced-store store)
+    (call-with-temp-store (lambda (store) (referenced-store store)
       (let* ((io (aitools.store.application::copy-store-io (store-io-port store)))
              (original-unlink #'store-io-unlink)
              (failing-store (make-store io (store-root store) (state-home-of store))))
@@ -102,6 +98,6 @@ content before it; returns that blob's name."
     (expect (store-io-error-detail condition) :to-equal "denied")
     (expect (store-io-error-path condition)
             :to-equal (join-path (blobs-directory (store-state-directory store))
-                                 ".stuck.tmp")))))))
+                                 ".stuck.tmp")))))) :io nil))
 )
 

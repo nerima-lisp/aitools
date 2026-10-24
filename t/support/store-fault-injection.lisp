@@ -21,9 +21,7 @@
   (:export
    #:injected-fault
    #:call-with-fault-at
-   #:with-fault-at
    #:call-with-temp-store
-   #:with-temp-store
    #:call-in-child-process
    #:wait-for-child
    #:kill-child))
@@ -52,9 +50,6 @@ Returns (values fired-p thunk-value)."
             (setf value (funcall thunk))))
         (values (>= seen nth) value)))))
 
-(defmacro with-fault-at ((point &rest options) &body body)
-  `(call-with-fault-at ,point (lambda () ,@body) ,@options))
-
 (defun %make-temp-directory ()
   (let ((path (sb-posix:mkdtemp (format nil "~A/aitools-store-XXXXXX"
                                         (string-right-trim "/" (or (sb-posix:getenv "TMPDIR") "/tmp"))))))
@@ -76,9 +71,6 @@ state home, both removed afterwards. IO defaults to the production adapter."
       (uiop:delete-directory-tree (sb-ext:parse-native-namestring (concatenate 'string base "/"))
                                   :validate (lambda (path) (search "aitools-store-" (namestring path)))
                                   :if-does-not-exist :ignore))))
-
-(defmacro with-temp-store ((store &key io) &body body)
-  `(call-with-temp-store (lambda (,store) ,@body) :io ,io))
 
 (defun call-in-child-process (thunk)
   "Fork; the child runs THUNK and exits 0, or 1 when THUNK signals. Returns
