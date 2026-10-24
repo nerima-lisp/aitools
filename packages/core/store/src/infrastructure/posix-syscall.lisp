@@ -102,5 +102,3 @@ PATH itself."
                  (funcall function fd (car (last components))))
             (sb-posix:close fd))))))
 
-(defmacro %with-parent (((dirfd name) root path) &body body)
-  `(%call-with-parent ,root ,path (lambda (,dirfd ,name) ,@body)))

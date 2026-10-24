@@ -86,17 +86,19 @@ open file description holds it."
   "renameat(2) FROM onto TO. A failure reports TO as the path: FROM is almost
 always the store's own temp file, already discarded by the time a repair
 names the path, while TO is what blocks the rename. The detail names FROM."
-  (%with-parent ((from-dirfd from-name) root from)
-    (%with-parent ((to-dirfd to-name) root to)
-      (let ((result (sb-alien:alien-funcall
-                     (sb-alien:extern-alien "renameat" (function sb-alien:int sb-alien:int sb-alien:c-string
-                                                                 sb-alien:int sb-alien:c-string))
-                     from-dirfd from-name to-dirfd to-name)))
-        (when (minusp result)
-          (let ((errno (sb-alien:get-errno)))
-            (error 'store-io-error :operation "rename" :path to :errno errno
-                                   :detail (format nil "~A (renaming ~A)" (sb-int:strerror errno) from))))
-        result))))
+  (%call-with-parent root from
+                     (lambda (from-dirfd from-name)
+                       (%call-with-parent root to
+                                          (lambda (to-dirfd to-name)
+                                            (let ((result (sb-alien:alien-funcall
+                                                           (sb-alien:extern-alien "renameat" (function sb-alien:int sb-alien:int sb-alien:c-string
+                                                                                                       sb-alien:int sb-alien:c-string))
+                                                           from-dirfd from-name to-dirfd to-name)))
+                                              (when (minusp result)
+                                                (let ((errno (sb-alien:get-errno)))
+                                                  (error 'store-io-error :operation "rename" :path to :errno errno
+                                                         :detail (format nil "~A (renaming ~A)" (sb-int:strerror errno) from))))
+                                              result))))))
 
 (defun make-posix-store-io (&key root
                                  (clock (cl-boundary-kit:make-clock))
@@ -114,28 +116,32 @@ waits between lock attempts."
      :append-file #'%append-file
      :rename (lambda (from to) (%rename root from to))
      :unlink (lambda (path)
-               (%with-parent ((dirfd name) root path)
-                 (%alien-call ("unlink" path) "unlinkat"
-                              (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int)
-                              dirfd name 0)))
+               (%call-with-parent root path
+                                  (lambda (dirfd name)
+                                    (%alien-call ("unlink" path) "unlinkat"
+                                                 (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int)
+                                                 dirfd name 0))))
      :rmdir (lambda (path)
-              (%with-parent ((dirfd name) root path)
-                (%alien-call ("rmdir" path) "unlinkat"
-                             (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int)
-                             dirfd name +at-removedir+)))
+              (%call-with-parent root path
+                                 (lambda (dirfd name)
+                                   (%alien-call ("rmdir" path) "unlinkat"
+                                                (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int)
+                                                dirfd name +at-removedir+))))
      :mkdir (lambda (path &key (mode #o777))
-              (%with-parent ((dirfd name) root path)
-                (%alien-call ("mkdir" path) "mkdirat"
-                             (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:unsigned-int)
-                             dirfd name mode)))
+              (%call-with-parent root path
+                                 (lambda (dirfd name)
+                                   (%alien-call ("mkdir" path) "mkdirat"
+                                                (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:unsigned-int)
+                                                dirfd name mode))))
      :chmod (lambda (path mode) (%chmod root path mode))
      :chmod-directory-identity (lambda (path mode identity) (%chmod-directory-identity root path mode identity))
      :sync-directory (lambda (path) (%sync-directory root path))
      :symlink (lambda (target path)
-                (%with-parent ((dirfd name) root path)
-                  (%alien-call ("symlink" path) "symlinkat"
-                               (function sb-alien:int sb-alien:c-string sb-alien:int sb-alien:c-string)
-                               target dirfd name)))
+                (%call-with-parent root path
+                                   (lambda (dirfd name)
+                                     (%alien-call ("symlink" path) "symlinkat"
+                                                  (function sb-alien:int sb-alien:c-string sb-alien:int sb-alien:c-string)
+                                                  target dirfd name))))
      :set-mtime (lambda (path unix-seconds) (%set-mtime root path unix-seconds))
      :list-directory #'%list-directory
      :try-lock #'%try-lock

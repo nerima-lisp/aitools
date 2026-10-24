@@ -65,22 +65,23 @@
 
 (defun %create-file (root path octets &key mode sync)
   (let* ((mode (or mode #o600))
-         (fd (%with-parent ((dirfd name) root path)
-               ;; The mode is given to open itself, so the file is never more
-               ;; permissive than MODE, even for a moment.
-               (%alien-call ("create" path) "openat"
-                            (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int
-                                      &optional sb-alien:unsigned-int)
-                            dirfd name
-                            (logior sb-posix:o-wronly sb-posix:o-creat sb-posix:o-excl sb-posix:o-nofollow
-                                    +o-cloexec+)
-                            mode))))
+         (fd (%call-with-parent root path
+                                (lambda (dirfd name)
+                                  ;; The mode is given to open itself, so the file is never more
+                                  ;; permissive than MODE, even for a moment.
+                                  (%alien-call ("create" path) "openat"
+                                               (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int
+                                                         &optional sb-alien:unsigned-int)
+                                               dirfd name
+                                               (logior sb-posix:o-wronly sb-posix:o-creat sb-posix:o-excl sb-posix:o-nofollow
+                                                       +o-cloexec+)
+                                               mode)))))
     ;; open applies the umask; a requested mode (a file `chmod` set) must
     ;; hold exactly.
     (handler-case (sb-posix:fchmod fd mode)
       (sb-posix:syscall-error (condition)
-        (sb-posix:close fd)
-        (%io-error "fchmod" path condition)))
+                              (sb-posix:close fd)
+                              (%io-error "fchmod" path condition)))
     (%write-and-close path fd octets sync)))
 
 (defun %append-file (path octets &key sync)
@@ -123,39 +124,42 @@ hard link of a regular file, including one outside the workspace."
 permissions deny opening it, ON-NAME (dirfd name stat) after checking it by
 lstat. Either way PATH is checked by %REFUSE-SHARED-INODE first."
   (declare (type function on-fd on-name))
-  (%with-parent ((dirfd name) root path)
-    (let ((fd (%open-in-place dirfd name path)))
-      (if fd
-          (unwind-protect
-               (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
-                 (%refuse-shared-inode operation path (sb-posix:stat-mode stat) (sb-posix:stat-nlink stat)
-                                       :require-file require-file)
-                 (funcall on-fd fd stat))
-            (sb-posix:close fd))
-          (let ((stat (%syscall ("lstat" path) (sb-posix:lstat path))))
-            (%refuse-shared-inode operation path (sb-posix:stat-mode stat) (sb-posix:stat-nlink stat)
-                                  :require-file require-file)
-            (funcall on-name dirfd name stat))))))
+  (%call-with-parent root path
+                     (lambda (dirfd name)
+                       (let ((fd (%open-in-place dirfd name path)))
+                         (if fd
+                             (unwind-protect
+                                 (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
+                                   (%refuse-shared-inode operation path (sb-posix:stat-mode stat) (sb-posix:stat-nlink stat)
+                                                         :require-file require-file)
+                                   (funcall on-fd fd stat))
+                               (sb-posix:close fd))
+                           (let ((stat (%syscall ("lstat" path) (sb-posix:lstat path))))
+                             (%refuse-shared-inode operation path (sb-posix:stat-mode stat) (sb-posix:stat-nlink stat)
+                                                   :require-file require-file)
+                             (funcall on-name dirfd name stat)))))))
 
 (defun %chmod-directory-identity (root path mode identity)
   ;; No permission-denied pathname fallback: only the verified descriptor
   ;; may be changed, even if its name is replaced after opening it.
-  (%with-parent ((dirfd name) root path)
-    (let ((fd (%open-directory-at dirfd name path)))
-      (unwind-protect
-           (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
-             (unless (equal identity (format nil "~D:~D" (sb-posix:stat-dev stat) (sb-posix:stat-ino stat)))
-               (error 'store-io-error :operation "chmod" :path path :detail "directory identity changed"))
-             (%syscall ("chmod" path) (sb-posix:fchmod fd mode))
-             (aitools.store.application::fault-point :after-directory-chmod path)
-             (%syscall ("fsync" path) (sb-posix:fsync fd)))
-        (sb-posix:close fd)))))
+  (%call-with-parent root path
+                     (lambda (dirfd name)
+                       (let ((fd (%open-directory-at dirfd name path)))
+                         (unwind-protect
+                             (let ((stat (%syscall ("fstat" path) (sb-posix:fstat fd))))
+                               (unless (equal identity (format nil "~D:~D" (sb-posix:stat-dev stat) (sb-posix:stat-ino stat)))
+                                 (error 'store-io-error :operation "chmod" :path path :detail "directory identity changed"))
+                               (%syscall ("chmod" path) (sb-posix:fchmod fd mode))
+                               (aitools.store.application::fault-point :after-directory-chmod path)
+                               (%syscall ("fsync" path) (sb-posix:fsync fd)))
+                           (sb-posix:close fd))))))
 
 (defun %sync-directory (root path)
-  (%with-parent ((dirfd name) root path)
-    (let ((fd (%open-directory-at dirfd name path)))
-      (unwind-protect (%syscall ("fsync" path) (sb-posix:fsync fd))
-        (sb-posix:close fd)))))
+  (%call-with-parent root path
+                     (lambda (dirfd name)
+                       (let ((fd (%open-directory-at dirfd name path)))
+                         (unwind-protect (%syscall ("fsync" path) (sb-posix:fsync fd))
+                           (sb-posix:close fd))))))
 
 (defun %chmod (root path mode)
   (%call-in-place root path "chmod" nil
