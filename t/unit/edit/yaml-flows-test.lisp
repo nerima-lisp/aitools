@@ -231,4 +231,20 @@
               (run "yaml.fmt" (list "doc.yaml") :dry-run t)
             (declare (ignore message keys))
             (expect status :to-be :error)
-            (expect code :to-equal "environment.io")))))))
+            (expect code :to-equal "environment.io"))))))
+  (it "does not treat downstream byte-limit errors as oversized input"
+    (with-edit-workspace ()
+      (put "doc.yaml" (format nil "keep: 1~%"))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'aitools.inspect.application:parse-yaml-write-document/k)
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              (error 'aitools.store.application:store-byte-limit-error
+                     :operation "write"
+                     :path "doc.yaml"
+                     :detail "downstream failure"))))
+        (multiple-value-bind (status code message keys)
+            (run "yaml.fmt" (list "doc.yaml") :dry-run t)
+          (declare (ignore message keys))
+          (expect status :to-be :error)
+          (expect code :to-equal "environment.io"))))))

@@ -42,18 +42,22 @@ refusal.too-large when MAX-BYTES is exceeded."
          (state (aitools.store.application:view-path-kind view path)))
     (case (aitools.store.domain:entry-state-kind state)
       (:file
-       (handler-case
-           (aitools.kernel.domain:flow-continue
-            :on-octets
-            (coerce (aitools.store.application:view-read-file
-                     view path :max-bytes max-bytes)
-                    'octets)
-            (aitools.store.domain:entry-state-mode state))
-         (aitools.store.application:store-byte-limit-error ()
-           (aitools.kernel.domain:flow-continue
-            :on-error "refusal.too-large"
-            (format nil "~A exceeds the ~D-byte document limit"
-                    path max-bytes)))))
+       (multiple-value-bind (octets too-large-p)
+           (handler-case
+               (values (aitools.store.application:view-read-file
+                        view path :max-bytes max-bytes)
+                       nil)
+             (aitools.store.application:store-byte-limit-error ()
+               (values nil t)))
+         (if too-large-p
+             (aitools.kernel.domain:flow-continue
+              :on-error "refusal.too-large"
+              (format nil "~A exceeds the ~D-byte document limit"
+                      path max-bytes))
+             (aitools.kernel.domain:flow-continue
+              :on-octets
+              (coerce octets 'octets)
+              (aitools.store.domain:entry-state-mode state)))))
       (:absent
        (aitools.kernel.domain:flow-continue
         :on-error "input.not-found" (format nil "~A does not exist" path)
