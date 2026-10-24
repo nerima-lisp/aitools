@@ -4,8 +4,9 @@ This page records only measurements that were taken, with the conditions
 they were taken under. The repository has no CI timing benchmark suite; the
 test suite includes one allocation check, described under
 [Allocation](#allocation), and the manual adapter comparison below. No
-sb-sprof profile of the commands has been recorded, and the cost of writing
-journal metadata before a single-file write has not been measured.
+`sb-sprof` profile was taken for the startup, search, or adapter runs described
+here. The journal overhead for a one-file `edit` operation has not been
+measured.
 
 ## Startup
 
@@ -17,19 +18,18 @@ The recorded baseline on aarch64-darwin, measured with hyperfine
 | `sbcl --non-interactive --eval '(sb-ext:exit)'` (SBCL 2.6.0) | 26.7 ms |
 | `rg --version` | 7.5 ms |
 
-`aitools --version` startup has not been measured on an idle host. The one
-figure that exists was taken during the search comparison below, under heavy
-host load, so it is not reproducible; re-measure with hyperfine on an idle
+`aitools --version` startup has not been measured on an idle host. The only
+recorded `aitools --version` figure came from the search comparison below, under
+heavy host load, so it is not reproducible; re-measure with hyperfine on an idle
 host before quoting a number.
 
 ## `search` compared with ripgrep
 
-No reproducible comparison exists yet. The figures the search implementation
-run reported were taken on aarch64-darwin under a host load average of 115 to
-153 on 16 CPUs, with other Nix builds running, so the wall times are noisy
-and are not recorded here. The exact hyperfine command lines were not
-recorded either. Match counts were identical to ripgrep's for all five
-patterns tested.
+No reproducible comparison exists yet. A search implementation run reported
+wall times on aarch64-darwin under a host load average of 115 to 153 on 16 CPUs,
+with other Nix builds running, so the times are noisy and are not recorded
+here. The exact hyperfine commands and five tested patterns were not recorded.
+Match counts were identical to ripgrep's for all five tested patterns.
 
 To produce a comparison, run `aitools search` and `rg` under hyperfine on an
 idle host over the same corpus (the earlier run used 1000 files, 39 MB,
@@ -90,7 +90,7 @@ of CI.
 
 ### Digest and DEFLATE results
 
-Runs 3 and 4 are the valid measurements; Runs 1 and 2 failed during harness setup before timing (a package-reader error and a component lookup error) and were excluded. Both valid runs used the same Darwin ARM64 / Apple M4 Max host and SBCL 2.6.8, and each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
+Runs 3 and 4 are the valid measurements; Runs 1 and 2 failed during harness setup before timing and were excluded. Both valid runs used the same Darwin ARM64 / Apple M4 Max host and SBCL 2.6.8, and each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
 
 | Workload | Payload | Run 3 medians | Run 3 paired change / current wins | Run 4 medians | Run 4 paired change / current wins |
 |---|---:|---:|---:|---:|---:|
@@ -98,7 +98,7 @@ Runs 3 and 4 are the valid measurements; Runs 1 and 2 failed during harness setu
 | deflate | 2 MiB input | 329.201 / 133.789 | +55.57% / 15 of 15 | 343.728 / 178.765 | +57.53% / 15 of 15 |
 | inflate | 2 MiB decoded | 607.944 / 309.260 | +54.28% / 15 of 15 | 124.594 / 68.149 | +48.31% / 15 of 15 |
 
-The deflate and inflate comparisons favored the current adapters in all 30 measured pairs for each workload. SHA-256 did not reproduce a direction: its paired median moved by 5.74 percentage points between runs and its faster-pair count changed from 8 of 15 to 3 of 15. These measurements do not establish that the current SHA-256 adapter is no slower. The run-to-run paired-median spread was 1.96 points for deflate and 5.97 points for inflate; no confidence interval was calculated. The arm medians also moved substantially, especially for inflate, so treat these as workload-specific advisory measurements rather than a general performance claim or a timing gate.
+SHA-256 did not reproduce a direction: its paired median moved by 5.74 percentage points between runs and its faster-pair count changed from 8 of 15 to 3 of 15. These measurements do not establish that the current SHA-256 adapter is no slower. The run-to-run paired-median spread was 1.96 points for deflate and 5.97 points for inflate; no confidence interval was calculated. The arm medians also moved substantially, especially for inflate, so treat these as workload-specific advisory measurements rather than a general performance claim or a timing gate.
 
 ## Known dependency issues
 
