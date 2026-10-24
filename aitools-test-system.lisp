@@ -42,7 +42,8 @@
                                                                     (:file "store-structure-contract-test")
                                                                     (:file "coverage-baseline-reader")
                                                                     (:file "coverage-baseline-test")
-                                                                    (:file "structure-timeout-test")
+                                                                    (:file "u11-sec7-gates")
+                                                                    (:file "u11-sec7-gates-test" :depends-on ("u11-sec7-gates"))
                                                                     (:file "structure-budget-baseline")
                                                                     (:file "structure-budget-reader")
                                                                     (:file "structure-budget-lines-test")
@@ -92,3 +93,30 @@
                                       :aitools/test :%call-with-test-runner-reporting
                                       (lambda () (uiop:symbol-call :aitools/test :run-tests)))
                                (error "aitools self test suite failed."))))
+(defsystem "aitools/test/u11-sec7-gates"
+  :description "Focused section 7 gate tests."
+  :depends-on ("aitools" "cl-weave")
+  :pathname "."
+  :components ((:module "t"
+                        :pathname "t/"
+                        :components ((:file "package")
+                                     (:module "integration"
+                                              :pathname "integration/"
+                                              :components ((:file "u11-sec7-gates")
+                                                           (:file "u11-sec7-gates-test"
+                                                                  :depends-on ("u11-sec7-gates")))))))
+  :perform (test-op (op system)
+    (declare (ignore op system))
+    (let* ((json (make-string-output-stream))
+           (events (uiop:symbol-call :cl-weave :run
+                                     nil :reporter :json :stream json))
+           (parsed (uiop:symbol-call :json-kit :parse
+                                     (get-output-stream-string json)))
+           (selected (gethash "events" parsed)))
+      (uiop:symbol-call :cl-weave :explain! events)
+      (unless (and (uiop:symbol-call :cl-weave :results-status events)
+                   selected
+                   (plusp (length selected)))
+        (error "U-11 focused gate specs failed or none were selected."))
+      (format t "~&U-11 focused gate target: ~D specs selected~%"
+              (length selected)))))

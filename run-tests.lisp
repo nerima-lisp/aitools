@@ -147,8 +147,16 @@
                (report (get-output-stream-string json))
                (parsed (uiop:symbol-call :json-kit :parse report))
                (events (coerce (gethash "events" parsed) 'list)))
-          (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
-                (cons :json events))
+          (progn
+            (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
+                  (cons :json events))
+            (multiple-value-bind (problems executed)
+                (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events)
+              (dolist (problem problems)
+                (format t "~&aitools coverage: ~A~%" problem))
+              (unless (null problems)
+                (error "aitools coverage test policy failed"))
+              (format t "~&aitools coverage suite: ~D specs run~%" executed)))
           (let* ((statistics (coverage-statistics-for selected :aggregate aggregate-baseline))
                  (measured (measure-context-coverage root groups))
                  (aggregate (coverage-measurement-record
@@ -158,9 +166,9 @@
                                       (first entry) (second entry) (third entry)
                                       (fourth entry)))
                                    measured)))
-            (unless (and (probe-file (merge-pathnames "coverage.json" root))
-                         (probe-file (merge-pathnames "coverage/cover-index.html" root)))
-              (error "aitools coverage report artifact is missing"))
+            (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
+                              (merge-pathnames "coverage.json" root)
+                              (merge-pathnames "coverage/cover-index.html" root))
             (write-context-measurements root aggregate contexts exclusions)
             (assert-coverage-baseline statistics aggregate-baseline :aggregate)
             (dolist (entry measured)
@@ -181,7 +189,7 @@
                 (dolist (entry exclusions)
                   (format t "  ~A via ~A: ~A~%"
                           (getf entry :path) (getf entry :rule) (getf entry :reason)))
-                (format t "  none~%"))
+              (format t "  none~%"))
             (progn
               (dolist (entry measured)
                 (let ((stats (third entry)))
