@@ -59,9 +59,9 @@ byte, so an empty match never splits a character."
           finally (return end))))
 
 (defun strip-bom (octets)
-  "OCTETS without a leading UTF-8 BOM. The BOM is not part of the text, so it stays out of `^`, and
-cl-regex-kit's anchors look at the whole buffer rather than at :START, so
-the only way to hide it is a buffer that does not contain it."
+  "OCTETS without a leading UTF-8 BOM. The BOM is not part of the text, so it
+stays out of `^`. cl-regex-kit evaluates `^` against the whole input, not
+`:START`, so strip the BOM before matching."
   (declare (type octets octets))
   (if (plusp (utf8-bom-length octets)) (subseq octets 3) octets))
 
