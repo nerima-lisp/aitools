@@ -4,7 +4,7 @@
   "Clamped to the MS-DOS 1980-2107 range."
   (let* ((date-time
            (cl-date-kit:local-date-time-of-epoch-second
-            unix 0 cl-date-kit:zone-offset-utc))
+            unix 0 (cl-date-kit:zone-offset-utc)))
          (year (cl-date-kit:local-date-time-year date-time)))
     (cond
       ((< year 1980) (values 0 #x21))

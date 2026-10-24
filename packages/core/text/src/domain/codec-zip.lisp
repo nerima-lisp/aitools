@@ -19,7 +19,7 @@
      (cl-date-kit:local-date-time-plus-days
       (cl-date-kit:local-date-time-of year month 1 hour minute second)
       (1- day))
-     cl-date-kit:zone-offset-utc)))
+     (cl-date-kit:zone-offset-utc))))
 
 (defun %zip-signature-p (octets offset signature)
   (and (<= 0 offset) (<= (+ offset 4) (length octets))
