@@ -1,0 +1,20 @@
+(in-package #:aitools.org.infrastructure)
+
+(defun write-org-octets (engine)
+  (handler-case (values (org-kit:write-org engine :output-type :octets :limits *org-kit-limits*) nil)
+    (org-kit:org-resource-limit-error ()
+      (values nil (%failure :too-large "Org output exceeded a resource limit")))
+    (org-kit:org-kit-error ()
+      (values nil (%failure :internal "Org output failed")))))
+
+(defun edit-org-document (engine operation options)
+  (case operation
+    (:todo-set (%org-todo-edit engine options))
+    (:property-set (%org-property-edit engine options nil))
+    (:property-delete (%org-property-edit engine options t))
+    (:planning-set (%org-planning-edit engine options nil))
+    (:planning-delete (%org-planning-edit engine options t))
+    (:clock-in (%org-clock-edit engine options :in))
+    (:clock-out (%org-clock-edit engine options :out))
+    ((:table-align :table-sort :table-recalculate) (edit-org-table-document engine operation options))
+    (otherwise (values nil nil (%failure :internal "Unknown Org edit operation")))))

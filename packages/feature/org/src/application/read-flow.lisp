@@ -4,16 +4,7 @@
   (list (repair "show-command" detail
                 (format nil "aitools schema ~A" command))))
 
-(defun %failure-code (failure)
-  (case (aitools.org.domain:org-failure-kind failure)
-    (:invalid-utf8 "input.not-utf8")
-    ((:syntax :query-syntax) "input.syntax-error")
-    ((:unsupported :internal-link) "input.unsupported-format")
-    (:too-large "refusal.too-large")
-    ((:argument :invalid-time) "argument.invalid")
-    (:not-found "input.not-found")
-    (:io "environment.io")
-    (otherwise "internal.unexpected")))
+(defun %failure-code (failure) (case (aitools.org.domain:org-failure-kind failure) (:invalid-utf8 "input.not-utf8") ((:syntax :query-syntax) "input.syntax-error") ((:unsupported :internal-link) "input.unsupported-format") (:too-large "refusal.too-large") ((:argument :invalid-time) "argument.invalid") (:selection-no-match "selection.no-match") (:selection-ambiguous "selection.ambiguous") (:not-found "input.not-found") (:io "environment.io") (otherwise "internal.unexpected")))
 
 (defun %failure-diagnostics (failure)
   (let ((message (aitools.org.domain:org-failure-message failure))
