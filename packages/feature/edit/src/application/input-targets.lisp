@@ -32,7 +32,7 @@
 
 (aitools.kernel.domain:define-flow
     (read-file-octets/k context path &key max-bytes on-error on-octets)
-  "PATH's bytes in the write's view: ON-OCTETS (octets mode), or ON-ERROR
+  "PATH's bytes in the write's view: ON-OCTETS (octets and mode), or ON-ERROR
 with input.not-found (including candidates), refusal.not-a-file, or
 refusal.too-large when MAX-BYTES is exceeded."
   (let* ((view (write-context-view context))
