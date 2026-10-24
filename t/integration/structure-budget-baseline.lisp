@@ -4,8 +4,7 @@
   250)
 
 (defparameter *line-budget-ratchet*
-  '(("packages/core/kernel/src/domain/json-model.lisp" 363)
-    ("packages/core/kernel/src/domain/unified-diff.lisp" 294)))
+  '())
 
 (defparameter *line-budget-generated-exemptions*
   '(("data/domain/text/cp932-data.lisp"
