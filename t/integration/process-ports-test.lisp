@@ -1,8 +1,9 @@
 ;;;; These tests exercise production PROCESS-PORTS adapters one port at a time
 ;;;; on the real filesystem, signals, and sockets. They check failures exposed
-;;;; to flows as PROCESS-PORT-ERROR. Package and directory helpers are in
-;;;; t/support/process-test-support.lisp; run-program and launcher tests are
-;;;; in t/integration/process-ports-launch-test.lisp and use port helpers here.
+;;;; to flows as PROCESS-PORT-ERROR. Package setup is in
+;;;; t/support/process-test-support.lisp; shared directory helpers are in
+;;;; t/support/workspace.lisp. Run-program and launcher tests are in
+;;;; t/integration/process-ports-launch-test.lisp and use port helpers here.
 (in-package #:aitools.process.integration-test)
 
 (defun production-ports (&optional state-directory)

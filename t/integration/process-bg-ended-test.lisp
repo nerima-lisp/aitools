@@ -2,8 +2,8 @@
 
 ;;;; Saved files exercise log rendering after the process has ended.
 ;;;; `invoke`, `value`, and `lines` are in t/integration/process-test.lisp;
-;;;; the package and temporary-directory helpers are in
-;;;; t/support/process-test-support.lisp.
+;;;; Package setup is in t/support/process-test-support.lisp; shared
+;;;; temporary-directory helpers are in t/support/workspace.lisp.
 
 (describe "aitools bg logs of an ended process (integration)"
   (it "keeps ANSI escapes only under --no-strip-ansi"

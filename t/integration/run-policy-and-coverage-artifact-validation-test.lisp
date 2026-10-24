@@ -7,12 +7,14 @@
                   event)))
 
 (defun %with-coverage-artifacts (coverage-text html-text function)
-  (aitools.test.support:with-temporary-directory (directory :prefix "aitools-coverage-artifacts")
-    (let ((coverage-path (merge-pathnames "coverage" directory))
-          (html-path (merge-pathnames "index.html" directory)))
-      (aitools.test.support:write-text (namestring coverage-path) coverage-text)
-      (aitools.test.support:write-text (namestring html-path) html-text)
-      (funcall function coverage-path html-path))))
+  (aitools.test.support:call-with-temporary-directory
+   (lambda (directory)
+     (let ((coverage-path (merge-pathnames "coverage" directory))
+           (html-path (merge-pathnames "index.html" directory)))
+       (aitools.test.support:write-text (namestring coverage-path) coverage-text)
+       (aitools.test.support:write-text (namestring html-path) html-text)
+       (funcall function coverage-path html-path)))
+   :prefix "aitools-coverage-artifacts"))
 
 (defun %valid-coverage-sidecar-text ()
   (with-output-to-string (stream)

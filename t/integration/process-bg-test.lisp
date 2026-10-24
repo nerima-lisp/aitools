@@ -1,9 +1,10 @@
 ;;;; These tests exercise `bg` through real cl-cli dispatch with production
 ;;;; ports and child processes. The first describe group requires process-kit's
 ;;;; native spawn trampoline and is skipped when unavailable; the no-state-
-;;;; directory case below runs without it. `invoke`, `value`, and
-;;;; `program-on-path` are in t/integration/process-test.lisp; the package and
-;;;; directory helpers are in t/support/process-test-support.lisp.
+;;;; directory case below runs without it. Helpers `invoke`, `value`, and
+;;;; `program-on-path` are in t/integration/process-test.lisp.
+;;;; Package setup is in t/support/process-test-support.lisp; directory
+;;;; helpers are in t/support/workspace.lisp.
 (in-package #:aitools.process.integration-test)
 
 (defun state-directory (root)

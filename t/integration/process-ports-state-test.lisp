@@ -3,9 +3,10 @@
 ;;;;
 ;;;; These tests exercise production PROCESS-PORTS adapters on the real
 ;;;; filesystem, signals, and sockets, including failures surfaced as
-;;;; PROCESS-PORT-ERROR. Package and directory helpers are in
-;;;; t/support/process-test-support.lisp. `invoke` and `call-with-listener` are
-;;;; in t/integration/process-test.lisp; shared port helpers are in
+;;;; PROCESS-PORT-ERROR. Package setup is in
+;;;; t/support/process-test-support.lisp; directory helpers are in
+;;;; t/support/workspace.lisp. `invoke` and `call-with-listener` are in
+;;;; t/integration/process-test.lisp; shared port helpers are in
 ;;;; t/integration/process-ports-test.lisp.
 
 (defun call-with-mode (path mode function)

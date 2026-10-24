@@ -1,7 +1,8 @@
 ;;;; `run` and `wait`, driven through the real cl-cli
 ;;;; dispatch with production ports and real child processes (sh, sleep,
-;;;; printf) in temporary directories. The package and shared temporary
-;;;; directory/workspace helpers live in t/support/process-test-support.lisp.
+;;;; printf) in temporary directories. Package setup is in
+;;;; t/support/process-test-support.lisp; shared temporary-directory and
+;;;; workspace helpers are in t/support/workspace.lisp.
 (in-package #:aitools.process.integration-test)
 (defparameter *dummy-token* "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
   "A GitHub-token-shaped dummy value in a format redaction detects, not a real secret.")
