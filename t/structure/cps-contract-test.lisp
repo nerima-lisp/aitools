@@ -11,6 +11,7 @@
       (progn
         (expect (count :slash-k-defun actual :key #'third) :to-equal 0)
         (expect (count :on-key-defun actual :key #'third) :to-equal 0)
+        (expect (count :positional-continuation-defun actual :key #'third) :to-equal 0)
         ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
@@ -26,9 +27,8 @@
       (expect stale :to-equal nil)))
 
   (it "passes named continuation flows and quoted data"
-    (expect
-     (%fixture-violations
-      "(define-flow (callee value &key on-ok on-error)
+    (let ((source
+           "(define-flow (callee value &key on-ok on-error)
   (if value
       (flow-continue :on-ok value)
       (flow-continue :on-error :missing)))
@@ -39,32 +39,36 @@
      (flow-continue :on-ok result))
    (:on-error (reason)
      (flow-continue :on-error reason))))
+(define-flow (mapped-function items &key on-ok)
+  (flow-continue :on-ok (mapcar #'identity items)))
+(define-flow (mapped-lambda items &key on-ok)
+  (flow-continue :on-ok (mapcar (lambda (item) item) items)))
+(defun map-with-function (function items)
+  (mapcar function items))
+(defun map-with-on-map (on-map items)
+  (mapcar on-map items))
+(defun boolean-on-error (on-error)
+  (if on-error :enabled :disabled))
 '(defun quoted/k (&key on-later)
   (return-from quoted/k nil))
 (define-flow (quoted-flow &key on-ok)
   '(return-from quoted-flow nil)
   '(apply on-ok nil)
-  (flow-continue :on-ok))")
-     :to-equal nil)
-    (expect
-     (%fixture-violations
-      (concatenate 'string
-                   "(define-flow (dotted-flow &key on-ok) "
-                   "(destructuring-bind (key . value) (cons :key :value) "
-                   "(flow-continue :on-ok value)))"))
-     :to-equal nil))
+  (flow-continue :on-ok))"))
+      (expect (%fixture-violations source) :to-equal nil)
+      (expect (%fixture-positional-continuation-inventory source) :to-equal nil)
+      (expect
+       (%fixture-violations
+        (concatenate 'string
+                     "(define-flow (dotted-flow &key on-ok) "
+                     "(destructuring-bind (key . value) (cons :key :value) "
+                     "(flow-continue :on-ok value)))"))
+       :to-equal nil)))
 
   (it "handles dotted destructuring in flow bodies"
     (expect (%fixture-violations
              "(define-flow (dotted-flow blocks &key on-ok) (loop for (start . end) in blocks collect (cons start end)))")
             :to-equal nil))
-
-  (it "rejects new legacy continuation definitions"
-    (expect (%fixture-violations
-             "(defun new/k (value) value) (defun new-helper (&key on-ok) (funcall on-ok)) (defun (setf new-setter/k) (value object) (setf object value))")
-            :to-equal (list (list "fixture.lisp" "NEW/K" :slash-k-defun)
-                            (list "fixture.lisp" "NEW-HELPER" :on-key-defun)
-                            (list "fixture.lisp" "NEW-SETTER/K" :slash-k-defun))))
 
   (it "accepts the command-result boundary adapter in its declared package"
     (expect (%fixture-violations
@@ -174,4 +178,38 @@
   (ports env positionals options &key on-plan on-error)
   (return-from prepare-bad-return/k nil))")
      :to-equal
-     (list (list "fixture.lisp" "PREPARE-BAD-RETURN/K" :return-from)))))
+     (list (list "fixture.lisp" "PREPARE-BAD-RETURN/K" :return-from))))
+  (it "detects forwarding through a FLOW-CALL target"
+    (let* ((inventory
+             (%fixture-positional-continuation-inventory
+              "(define-flow (terminal-target callback value &key on-result)
+  (funcall callback value))
+(define-flow (forward-through-flow-target callback value &key on-result)
+  (flow-call (terminal-target callback value)
+    (:on-result (result) (flow-continue :on-result result))))
+(define-flow (caller value &key on-ok)
+  (flow-call
+   (forward-through-flow-target
+    (lambda (item) (flow-continue :on-ok item)) value)
+   (:on-result (result) (flow-continue :on-ok result))))"))
+           (forwarder
+             (find "FORWARD-THROUGH-FLOW-TARGET" inventory
+                   :key (function (lambda (record) (getf record :symbol)))
+                   :test (function string=))))
+      (expect
+       (equal (mapcar (function (lambda (record) (getf record :symbol))) inventory)
+              (list "FORWARD-THROUGH-FLOW-TARGET" "TERMINAL-TARGET"))
+       :to-equal t)
+      (expect
+       (equal (getf (first (getf forwarder :invocations)) :via)
+              (list "TERMINAL-TARGET"))
+       :to-equal t)
+      (expect
+       (equal
+        (mapcar (function (lambda (site)
+                            (list (getf site :call-form)
+                                  (getf site :enclosing-symbol)
+                                  (getf site :argument-shape))))
+                (getf forwarder :callsites))
+        (list (list :direct "CALLER" (list :lambda))))
+       :to-equal t))))

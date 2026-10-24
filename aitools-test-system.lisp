@@ -9,10 +9,14 @@
                                  :components ((:module "structure" :pathname "structure/" :serial t
                                                        :components ((:file "cps-contract-reader")
                                                                     (:file "cps-contract-analysis")
+                                                                    (:file "cps-contract-analysis-positional")
+                                                                    (:file "cps-contract-analysis-positional-flow")
                                                                     (:file "cps-contract-analysis-source")
+                                                                    (:file "cps-contract-analysis-positional-inventory")
                                                                     (:file "cps-contract-allowlist-slash-k")
                                                                     (:file "cps-contract-allowlist-on-key")
-                                                                    (:file "cps-contract-test")))
+                                                                    (:file "cps-contract-test")
+                                                                    (:file "cps-contract-positional-test")))
                                               (:module "integration"
                                                        :pathname "integration/"
                                                        :components ((:file "dispatch-test")

@@ -213,7 +213,12 @@
         append (mapcar (lambda (entry) (append entry (list kind))) entries)))
 
 (defun %fixture-violations (text &optional (relative-path "fixture.lisp"))
-  (%source-violations text relative-path))
+  (append (%source-violations text relative-path)
+          (mapcar (lambda (record)
+                    (list (getf record :definition-path)
+                          (getf record :symbol)
+                          :positional-continuation-defun))
+                  (%fixture-positional-continuation-inventory text relative-path))))
 
 (defun repository-root ()
   (asdf:system-source-directory "aitools"))
