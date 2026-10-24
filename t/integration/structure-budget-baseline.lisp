@@ -22,4 +22,105 @@
   '())
 
 (defparameter *complex-function-ratchet* '())
+(defparameter *complex-function-f0-baseline*
+  '(;; F0 revision 1b20c3abdea1d95a049cdb0481afcfd72072b2a4; entries exceeded depth 4 under the current control-depth measurement.
+    ("AITOOLS.STORE.APPLICATION" "%RECOVER-INTENT" 5 "packages/core/store/src/application/recovery.lisp:27"
+     (("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%RECOVER-INTENT")
+      ("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%RECOVER-COMPLETE-INTENT")
+      ("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%DISCARD-INCOMPLETE-STEP")
+      ("AITOOLS.STORE.APPLICATION" "packages/core/store/src/application/recovery.lisp" "%DISCARD-INCOMPLETE-INTENT")))
+    ("AITOOLS.WORKSPACE.APPLICATION" "RESOLVE-REAL-PATH" 5 "packages/core/workspace/src/application/real-path.lisp:24"
+     (("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/real-path.lisp" "RESOLVE-REAL-PATH")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/real-path.lisp" "%MEMOIZE-UNRESOLVABLE-REAL-PATH")))
+    ("AITOOLS.WORKSPACE.APPLICATION" "CALL-WITH-WORKSPACE-SCAN/K" 5 "packages/core/workspace/src/application/scan.lisp:175"
+     (("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan.lisp" "CALL-WITH-WORKSPACE-SCAN/K")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-START-ENTRIES")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%RUN-SCAN")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-RUN-STARTS")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-WALK-ENTRY")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-WALK-DIRECTORY")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-OFFER")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-FLUSH")
+      ("AITOOLS.WORKSPACE.APPLICATION" "packages/core/workspace/src/application/scan-walk.lisp" "%SCAN-DELIVER")))
+    ("AITOOLS.WORKSPACE.DOMAIN" "IGNORE-LIST-VERDICT" 5 "packages/core/workspace/src/domain/gitignore.lisp:106"
+     (("AITOOLS.WORKSPACE.DOMAIN" "packages/core/workspace/src/domain/gitignore.lisp" "IGNORE-LIST-VERDICT")))
+    ("AITOOLS.WORKSPACE.DOMAIN" "%DOWILD" 7 "packages/core/workspace/src/domain/wildmatch.lisp:42"
+     (("AITOOLS.WORKSPACE.DOMAIN" "packages/core/workspace/src/domain/wildmatch.lisp" "%DOWILD")))
+    ("AITOOLS.WORKSPACE.INFRASTRUCTURE" "READ-REGULAR-FILE-OCTETS" 5 "packages/core/workspace/src/infrastructure/host.lisp:48"
+     (("AITOOLS.WORKSPACE.INFRASTRUCTURE" "packages/core/workspace/src/infrastructure/host.lisp" "READ-REGULAR-FILE-OCTETS")))
+    ("AITOOLS.EDIT.APPLICATION" "PARSE-RECORDED-ARGV" 5 "packages/feature/edit/src/application/command-spec.lisp:65"
+     (("AITOOLS.EDIT.APPLICATION" "packages/feature/edit/src/application/command-spec.lisp" "PARSE-RECORDED-ARGV")
+      ("AITOOLS.EDIT.APPLICATION" "packages/feature/edit/src/application/command-spec.lisp" "%PARSE-RECORDED-OPTION")))
+    ("AITOOLS.EDIT.APPLICATION" "MKTEMP-FLOW" 5 "packages/feature/edit/src/application/mktemp.lisp:35"
+     (("AITOOLS.EDIT.APPLICATION" "packages/feature/edit/src/application/mktemp.lisp" "MKTEMP-FLOW")
+      ("AITOOLS.EDIT.APPLICATION" "packages/feature/edit/src/application/mktemp.lisp" "%MKTEMP-RESULT")))
+    ("AITOOLS.EDIT.DOMAIN" "PARSE-MTIME" 6 "packages/feature/edit/src/domain/regex.lisp:151"
+     (("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/mtime.lisp" "PARSE-MTIME")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/mtime.lisp" "%MTIME-ZONE-OFFSET-SECONDS")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/mtime.lisp" "%PARSE-ISO-MTIME-MATCH")))
+    ("AITOOLS.EDIT.DOMAIN" "REPLACE-DOCUMENT" 5 "packages/feature/edit/src/domain/regex.lisp:105"
+     (("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/regex.lisp" "REPLACE-DOCUMENT")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/regex.lisp" "%REPLACE-DOCUMENT-MULTILINE")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/regex.lisp" "%REPLACE-DOCUMENT-LINES")))
+    ("AITOOLS.EDIT.DOMAIN" "%SCAN-RECORDS" 5 "packages/feature/edit/src/domain/table.lisp:9"
+     (("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/table.lisp" "%SCAN-RECORDS")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/table.lisp" "%QUOTED-FIELD-END")
+      ("AITOOLS.EDIT.DOMAIN" "packages/feature/edit/src/domain/table.lisp" "%FIELD-END")))
+    ("AITOOLS.ENV.APPLICATION" "%LINUX-SOCKET-OWNERS" 5 "packages/feature/env/src/application/sys-flows.lisp:340"
+     (("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/sys-port-flows.lisp" "%LINUX-SOCKET-OWNERS")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/sys-port-flows.lisp" "%LINUX-SOCKET-INODE")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/sys-port-flows.lisp" "%RECORD-LINUX-SOCKET-OWNER")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/sys-port-flows.lisp" "%LINUX-PID-SOCKET-OWNERS")))
+    ("AITOOLS.ENV.APPLICATION" "RESOLVE-ZONE/K" 5 "packages/feature/env/src/application/time-flows.lisp:24"
+     (("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/time-zone-flows.lisp" "RESOLVE-ZONE/K")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/time-zone-flows.lisp" "%PARSE-ZONE-OCTETS")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/time-zone-flows.lisp" "%DECODE-ZONE-FILE")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/time-zone-flows.lisp" "%ZONE-IN-DIRECTORY")
+      ("AITOOLS.ENV.APPLICATION" "packages/feature/env/src/application/time-zone-flows.lisp" "%FIND-ZONE-INFO")))
+    ("AITOOLS.INSPECT.DOMAIN" "SCAN-LISP-DELIMITERS" 5 "packages/feature/inspect/src/domain/lisp-scan.lisp:36"
+     (("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "SCAN-LISP-DELIMITERS")
+      ("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "%BEGIN-LISP-SCAN")
+      ("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "%SCAN-CODE-CHARACTER")
+      ("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "%SCAN-QUOTED-CHARACTER")
+      ("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "%SCAN-BLOCK-COMMENT-CHARACTER")
+      ("AITOOLS.INSPECT.DOMAIN" "packages/feature/inspect/src/domain/lisp-scan.lisp" "%SCAN-LISP-STATE-CHARACTER")))
+    ("AITOOLS.PROCESS.APPLICATION" "SIGNAL-COMMAND/K" 5 "packages/feature/process/src/application/signal-flow.lisp:42"
+     (("AITOOLS.PROCESS.APPLICATION" "packages/feature/process/src/application/signal-flow.lisp" "SIGNAL-COMMAND/K")
+      ("AITOOLS.PROCESS.APPLICATION" "packages/feature/process/src/application/signal-flow.lisp" "%SIGNAL-TARGET-SIGNAL")
+      ("AITOOLS.PROCESS.APPLICATION" "packages/feature/process/src/application/signal-flow.lisp" "%SIGNAL-TARGET-RESULT")))
+    ("AITOOLS.PROCESS.INFRASTRUCTURE" "%DARWIN-ARGV" 6 "packages/feature/process/src/infrastructure/signal-host.lisp:27"
+     (("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host.lisp" "%DARWIN-ARGV")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-PARSE-ARGV")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-ARGV-FIELDS")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-ARGV-LAYOUT")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-SKIP-ARGV-PADDING")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-QUERY-ARGV-BYTES")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-QUERY-ARGV-SIZE")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%JOIN-ARGV")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%NUL-FIELD")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LE")))
+    ("AITOOLS.PROCESS.INFRASTRUCTURE" "%HOST-PROCESS-INFO" 5 "packages/feature/process/src/infrastructure/signal-host.lisp:127"
+     (("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host.lisp" "%HOST-PROCESS-INFO")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host.lisp" "%LINUX-PROCESS-INFO")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host.lisp" "%LINUX-FILE-BYTES")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host.lisp" "%LINUX-TEXT")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LINUX-PROCESS-IDENTITY")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LINUX-COMMAND-LINE")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LINUX-STAT-FIELDS")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LINUX-STATUS-UIDS")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-PROCESS-IDENTITY")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%DARWIN-COMMAND-LINE")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%JOIN-ARGV")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%NUL-FIELD")
+      ("AITOOLS.PROCESS.INFRASTRUCTURE" "packages/feature/process/src/infrastructure/signal-host-helpers.lisp" "%LE")))
+    ("AITOOLS.VCS.APPLICATION" "%SHOW-BLOB" 5 "packages/feature/vcs/src/application/blame-show-flows.lisp:168"
+     (("AITOOLS.VCS.APPLICATION" "packages/feature/vcs/src/application/show-flow.lisp" "%SHOW-BLOB")
+      ("AITOOLS.VCS.APPLICATION" "packages/feature/vcs/src/application/show-flow.lisp" "%SHOW-TEXT-LINES")
+      ("AITOOLS.VCS.APPLICATION" "packages/feature/vcs/src/application/show-flow.lisp" "%TEXT-FIELDS")
+      ("AITOOLS.VCS.APPLICATION" "packages/feature/vcs/src/application/flows.lisp" "%FINISH-FIELDS")))
+    ("AITOOLS.VCS.DOMAIN" "DIFF-FILES/K" 6 "packages/feature/vcs/src/domain/diff.lisp:72"
+     (("AITOOLS.VCS.DOMAIN" "packages/feature/vcs/src/domain/diff.lisp" "DIFF-FILES/K")
+      ("AITOOLS.VCS.DOMAIN" "packages/feature/vcs/src/domain/diff.lisp" "%HUNK-FILE-DATA")
+      ("AITOOLS.VCS.DOMAIN" "packages/feature/vcs/src/domain/diff.lisp" "%HUNK-FILE-STEP")
+      ("AITOOLS.VCS.DOMAIN" "packages/feature/vcs/src/domain/diff.lisp" "%COLLECT-DIFF-HUNKS")))))
 
