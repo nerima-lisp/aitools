@@ -24,8 +24,7 @@
 (describe "Org write flow targets"
           (it
            "rejects missing and non-file targets without changing nearby files"
-           (with-edit-workspace ()
-                                (let ((ports (make-org-write-flow-ports)))
+           (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
                                   (expect
                                    (org-flow-error-code
                                     (function
@@ -53,12 +52,11 @@
                                      "refusal.not-a-file")
                                     (expect (octets-of "folder/entry.org")
                                             :to-equalp
-                                            before))))))
+                                            before)))))))
 
 (describe "Org write flow input rejection"
           (it "rejects malformed UTF-8 before changing the source bytes"
-              (with-edit-workspace ()
-                                   (let* ((ports (make-org-write-flow-ports))
+              (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
                                           (original
                                            (octet-vector 42
                                                          32
@@ -91,10 +89,9 @@
                                       "input.not-utf8")
                                      (expect (octets-of "invalid.org")
                                              :to-equalp
-                                             original))))
+                                             original)))))
           (it "rejects NUL bytes before editing and preserves source bytes"
-              (with-edit-workspace ()
-                (let* ((ports (make-org-write-flow-ports))
+              (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
                        (original (octet-vector 42 32 84 79 68 79 32 0 10)))
                   (put "nul.org" original)
                   (expect
@@ -109,13 +106,12 @@
                     :at "2026-10-19T09:00:00"
                     :tz "UTC")
                    :to-equal "input.unsupported-format")
-                  (expect (octets-of "nul.org") :to-equalp original)))))
+                  (expect (octets-of "nul.org") :to-equalp original))))))
 
 (describe "Org table sort arguments"
           (it
            "rejects an unknown sort type through the application flow without changing the table"
-           (with-edit-workspace ()
-                                (let* ((ports (make-org-write-flow-ports))
+           (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
                                        (source
                                         (format nil
                                                 "| A | B |~%|---+---|~%| 1 | 2 |~%")))
@@ -142,4 +138,4 @@
                                      "argument.invalid")
                                     (expect (octets-of "table.org")
                                             :to-equalp
-                                            before))))))
+                                            before)))))))

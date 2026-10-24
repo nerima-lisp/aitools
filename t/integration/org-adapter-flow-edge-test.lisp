@@ -1,8 +1,7 @@
 (in-package #:aitools.edit.test)
 (describe "Org adapter flow edge cases"
   (it "returns agenda validation, habit, and resource failures"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "agenda.org" (format nil "#+TODO: TODO | DONE~%* TODO Work~%SCHEDULED: <2026-10-19 Mon>~%"))
         (expect (org-flow-error-code #'aitools.org.application:org-agenda/k ports
                                      :path "agenda.org" :root *root*
@@ -23,10 +22,9 @@
                                          limited-ports :path "agenda.org" :root *root*
                                          :from "2026-10-19" :through "2026-10-19"
                                          :at "2026-10-19T09:00:00" :tz "UTC")
-                    :to-equal "refusal.too-large"))))))
+                    :to-equal "refusal.too-large")))))))
   (it "reports clock precondition and report-range errors"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "report.org" (format nil "#+TODO: TODO | DONE~%* TODO Work~%SCHEDULED: <2026-10-19 Mon>~%"))
         (expect (org-flow-error-code #'aitools.org.application:org-clock-report/k ports
                                      :path "report.org" :root *root* :match ""
@@ -39,10 +37,9 @@
                                      :from "2026-10-19T10:00:00"
                                      :through "2026-10-19T09:00:00"
                                      :at "2026-10-19T09:00:00" :tz "UTC")
-                :to-equal "argument.invalid"))))
+                :to-equal "argument.invalid")))))
   (it "serializes agenda entries without a TODO state as JSON null"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "agenda-no-todo.org"
              (format nil "* Reminder~%SCHEDULED: <2026-10-19 Mon>~%"))
         (let* ((fields (org-flow-ok #'aitools.org.application:org-agenda/k ports
@@ -52,10 +49,9 @@
                (entry (first (coerce (field fields "entries") 'list)))
                (serialized (json-field entry "todo")))
           (expect (field fields "count") :to-be 1)
-          (expect serialized :to-be json-kit:+json-null+)))))
+          (expect serialized :to-be json-kit:+json-null+))))))
   (it "reports when the application context omits agenda or clock report ports"
-    (with-edit-workspace ()
-      (let* ((production (make-org-write-flow-ports))
+    (call-with-edit-workspace (lambda () (let* ((production (make-org-write-flow-ports))
              (ports (aitools.org.application:make-org-ports
                      :workspace-host
                      (aitools.org.application:org-ports-workspace-host production)
@@ -76,7 +72,7 @@
                                      :from "2026-10-19T09:00:00"
                                      :through "2026-10-19T10:00:00"
                                      :at "2026-10-19T09:00:00" :tz "UTC")
-                :to-equal "internal.unexpected"))))
+                :to-equal "internal.unexpected")))))
   (it "validates active and inactive planning timestamp forms and ranges"
     (dolist (case '(("scheduled" "<2026-10-19>" t)
                     ("scheduled" "<2026-10-19 09:00-10:00>" t)
@@ -102,8 +98,7 @@
 
 (describe "Org adapter uncovered validation paths"
   (it "rejects invalid agenda end dates, local context, and repeat modes"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "agenda-options.org" (format nil "* TODO Work~%"))
         (expect
          (org-flow-error-code (function aitools.org.application:org-agenda/k) ports
@@ -123,10 +118,9 @@
                               :from "2026-10-19" :through "2026-10-19"
                               :future-repeats "sometimes"
                               :at "2026-10-19T09:00:00" :tz "UTC")
-         :to-equal "argument.invalid"))))
+         :to-equal "argument.invalid")))))
   (it "rejects invalid clock report endpoints and clocking out without a clock"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "clock-options.org" (format nil "* TODO Work~%"))
         (expect
          (org-flow-error-code (function aitools.org.application:org-clock-report/k) ports
@@ -144,10 +138,9 @@
          (org-flow-error-code (function aitools.org.application:org-clock-out/k) ports
                               :path "clock-options.org" :root *root* :match "/TODO"
                               :at "2026-10-19T10:00:00" :tz "UTC")
-         :to-equal "selection.no-match"))))
+         :to-equal "selection.no-match")))))
   (it "rejects invalid Org table selections and numeric values"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "table-options.org"
              (format nil "| Name | Count |~%|------+-------|~%| apple | 1 |~%| pear | nope |~%"))
         (expect
@@ -163,10 +156,9 @@
                               :path "table-options.org" :table 1 :column 2
                               :type "numeric" :order "ascending" :start 1 :end 2
                               :root *root*)
-         :to-equal "argument.invalid"))))
+         :to-equal "argument.invalid")))))
   (it "rejects invalid planning kinds, ambiguous headings, and duplicate markers"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "planning-options.org"
              (format nil "#+TODO: TODO | DONE~%* TODO First~%* TODO Second~%"))
         (expect
@@ -188,10 +180,9 @@
                               :path "duplicate-planning.org" :match "/TODO"
                               :kind "scheduled" :timestamp "<2026-10-21>"
                               :at "2026-10-19T09:00:00" :tz "UTC" :root *root*)
-         :to-equal "selection.ambiguous"))))
+         :to-equal "selection.ambiguous")))))
   (it "preserves table bytes when the serialized output exceeds the kit limit"
-    (with-edit-workspace ()
-      (put "limited-table.org" (format nil "| A | 1 |~%"))
+    (call-with-edit-workspace (lambda () (put "limited-table.org" (format nil "| A | 1 |~%"))
       (let ((before (text "limited-table.org")))
         (let ((aitools.org.infrastructure::*org-kit-limits*
                 (org-kit:make-limits :max-output-length 1)))
@@ -200,4 +191,4 @@
              (org-flow-error-code (function aitools.org.application:org-table-align/k) ports
                                   :path "limited-table.org" :table 1 :root *root*)
              :to-equal "refusal.too-large")
-            (expect (text "limited-table.org") :to-equal before)))))))
+            (expect (text "limited-table.org") :to-equal before))))))))
