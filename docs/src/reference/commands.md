@@ -89,6 +89,21 @@ the root by its absolute real path; see [JSON output](json-schema.md#reads).
 The meaning and exit code of each error code are in
 [Errors and exit codes](errors.md).
 
+## YAML and TOML write formatting
+
+YAML and TOML write commands serialize the whole document through the format's
+value serializer.
+Comments are dropped, with a `format.comments-dropped` warning when the input
+contains comments.
+The `yaml fmt` and `toml fmt` commands emit UTF-8 without a BOM, use LF line
+endings, and end with a newline.
+A second run of either formatter is a byte-for-byte no-op.
+`toml fmt` emits each table's value entries first, then its child tables, then
+its arrays of tables.
+It preserves source order within each of those groups.
+On the first format pass, this changes any input interleaving among those
+groups to the fixed output order.
+
 ## Command index
 
 <!-- BEGIN GENERATED: commands -->
@@ -145,6 +160,16 @@ The meaning and exit code of each error code are in
 | [`table set`](#table-set) | edit | Set one cell of a CSV or TSV file by data row and column name. |
 | [`archive extract`](#archive-extract) | edit | Extract a zip, tar, tar.gz or gz archive after validating every entry. |
 | [`archive create`](#archive-create) | edit | Create a zip, tar, tar.gz or gz archive from workspace files (ignored files excluded). |
+| [`yaml set`](#yaml-set) | edit | Set a JSON value in a YAML document at a JSON Pointer; string values need JSON quotes. |
+| [`yaml delete`](#yaml-delete) | edit | Delete a value from a YAML document at a JSON Pointer. |
+| [`yaml merge`](#yaml-merge) | edit | Apply an RFC 7386 JSON Merge Patch from --stdin to a YAML document. |
+| [`yaml patch`](#yaml-patch) | edit | Apply an RFC 6902 JSON Patch from --stdin to a YAML document; all operations or none. |
+| [`yaml fmt`](#yaml-fmt) | edit | Format a YAML document; a second fmt is a byte-for-byte no-op. |
+| [`toml set`](#toml-set) | edit | Set a JSON value in a TOML document at a JSON Pointer; string values need JSON quotes. |
+| [`toml delete`](#toml-delete) | edit | Delete a value from a TOML document at a JSON Pointer. |
+| [`toml merge`](#toml-merge) | edit | Apply an RFC 7386 JSON Merge Patch from --stdin to a TOML document. |
+| [`toml patch`](#toml-patch) | edit | Apply an RFC 6902 JSON Patch from --stdin to a TOML document; all operations or none. |
+| [`toml fmt`](#toml-fmt) | edit | Format a TOML document. Value entries precede child tables and arrays of tables; order within each group is preserved, groups may reorder, and a second fmt is a byte-for-byte no-op. |
 | [`history`](#history) | journal | List journaled operations (op_id, command, paths, time), newest first. |
 | [`undo`](#undo) | journal | Revert one journaled op, checking first that none of its paths changed since. |
 | [`tx begin`](#tx-begin) | journal | Open a transaction: --tx writes stack up in it without touching the working tree. |
@@ -541,7 +566,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.unsupported-format`, `refu
 
 Filter, sort, and project the elements of a JSON array.
 
---where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
+--where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. Ordering compares numbers with numbers and strings with strings.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -549,8 +574,8 @@ Filter, sort, and project the elements of a JSON array.
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
 | `--pick` | string, repeatable |  | Return {pointer: value} for these relative pointers instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
-| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
+| `--sort-by` | string |  | Relative pointer to order by (null first, then booleans, numbers, strings). |
+| `--desc` | flag |  | Descending order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
 | `--limit` | integer | `50` | Maximum items returned. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
@@ -591,8 +616,6 @@ Errors: `input.not-found`, `input.unsupported-format`, `refusal.not-a-file`, `en
 
 Get a value from a YAML document.
 
-YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and the input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
-
 Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
 
 | Argument | Type | Default | Description |
@@ -601,7 +624,7 @@ Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are retur
 | `pointer` (positional, required) | string |  | RFC 6901 pointer. |
 | `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
 | `--keys` | flag |  | Return the object's keys or the array's indexes. |
-| `--raw` | flag |  | Return text: a string value unescaped, anything else as JSON text. |
+| `--raw` | flag |  | Return a string value unescaped. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
 
 | Output field | Description |
@@ -623,9 +646,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsu
 
 Filter, sort, and project a YAML array.
 
-YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and the input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
-
---where <rel-pointer><op><json-value> repeats for AND; op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
+--where <rel-pointer><op><json-value> repeats for AND. The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -633,8 +654,8 @@ YAML Core values convert to JSON. Aliases expand; mappings need unique string ke
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
 | `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
-| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
+| `--sort-by` | string |  | Relative pointer to order by. |
+| `--desc` | flag |  | Descending order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
 | `--limit` | integer | `50` | Maximum items returned. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
@@ -653,8 +674,6 @@ Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsu
 
 List value changes between two YAML files.
 
-YAML Core values convert to JSON. Aliases expand; mappings need unique string keys, and each input must contain one document. Custom tags, cyclic aliases, and non-finite floats are unsupported.
-
 Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
 
 | Argument | Type | Default | Description |
@@ -662,7 +681,7 @@ Values are compared after conversion to JSON. Key order is ignored; numbers comp
 | `a` (positional, required) | string |  | Old YAML file. |
 | `b` (positional, required) | string |  | New YAML file. |
 | `--limit` | integer | `100` | Maximum operations returned. |
-| `--tx` | string |  | Read both files from the tx's state. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
 
 | Output field | Description |
 |---|---|
@@ -677,8 +696,6 @@ Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsu
 
 Get a value from a TOML document.
 
-TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
-
 Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
 
 | Argument | Type | Default | Description |
@@ -687,7 +704,7 @@ Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are retur
 | `pointer` (positional, required) | string |  | RFC 6901 pointer. |
 | `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
 | `--keys` | flag |  | Return the object's keys or the array's indexes. |
-| `--raw` | flag |  | Return text: a string value unescaped, anything else as JSON text. |
+| `--raw` | flag |  | Return a string value unescaped. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
 
 | Output field | Description |
@@ -709,9 +726,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsu
 
 Filter, sort, and project a TOML array.
 
-TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
-
---where <rel-pointer><op><json-value> repeats for AND; op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=. `< <= > >=` match only two numbers or two strings; other type pairs do not match. `=` and `!=` compare JSON values of any type.
+--where <rel-pointer><op><json-value> repeats for AND. The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -719,8 +734,8 @@ TOML dates and times become strings in JSON values. Non-finite floats are unsupp
 | `pointer` (positional, required) | string |  | Pointer to the array. |
 | `--where` | string, repeatable |  | Condition on each element. |
 | `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by (missing/null, false, true, numbers, strings, then containers; ties retain array order). |
-| `--desc` | flag |  | Sort by descending key, keeping input order for ties; without `--sort-by`, reverse the selected items' input order. |
+| `--sort-by` | string |  | Relative pointer to order by. |
+| `--desc` | flag |  | Descending order. |
 | `--output` | enum: `items`, `count` | `items` | Sets mode. |
 | `--limit` | integer | `50` | Maximum items returned. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
@@ -739,8 +754,6 @@ Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsu
 
 List value changes between two TOML files.
 
-TOML dates and times become strings in JSON values. Non-finite floats are unsupported.
-
 Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
 
 | Argument | Type | Default | Description |
@@ -748,7 +761,7 @@ Values are compared after conversion to JSON. Key order is ignored; numbers comp
 | `a` (positional, required) | string |  | Old TOML file. |
 | `b` (positional, required) | string |  | New TOML file. |
 | `--limit` | integer | `100` | Maximum operations returned. |
-| `--tx` | string |  | Read both files from the tx's state. |
+| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
 
 | Output field | Description |
 |---|---|
@@ -1641,6 +1654,244 @@ Create a zip, tar, tar.gz or gz archive from workspace files (ignored files excl
 | `entries` | Entries written. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`.
+
+### `yaml set` {#yaml-set}
+
+Set a JSON value in a YAML document at a JSON Pointer; string values need JSON quotes.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `pointer` (positional, required) | string |  |  |
+| `value` (positional) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `yaml delete` {#yaml-delete}
+
+Delete a value from a YAML document at a JSON Pointer.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `pointer` (positional, required) | string |  |  |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `yaml merge` {#yaml-merge}
+
+Apply an RFC 7386 JSON Merge Patch from --stdin to a YAML document.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `yaml patch` {#yaml-patch}
+
+Apply an RFC 6902 JSON Patch from --stdin to a YAML document; all operations or none.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `selection.no-match`, `selection.ambiguous`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `yaml fmt` {#yaml-fmt}
+
+Format a YAML document; a second fmt is a byte-for-byte no-op.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `toml set` {#toml-set}
+
+Set a JSON value in a TOML document at a JSON Pointer; string values need JSON quotes.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `pointer` (positional, required) | string |  |  |
+| `value` (positional) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `toml delete` {#toml-delete}
+
+Delete a value from a TOML document at a JSON Pointer.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `pointer` (positional, required) | string |  |  |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `toml merge` {#toml-merge}
+
+Apply an RFC 7386 JSON Merge Patch from --stdin to a TOML document.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `toml patch` {#toml-patch}
+
+Apply an RFC 6902 JSON Patch from --stdin to a TOML document; all operations or none.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
+| `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `selection.no-match`, `selection.ambiguous`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
+
+### `toml fmt` {#toml-fmt}
+
+Format a TOML document. Value entries precede child tables and arrays of tables; order within each group is preserved, groups may reorder, and a second fmt is a byte-for-byte no-op.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  |  |
+| `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
+| `--dry-run` | flag |  | Validate and show the diff; write nothing. |
+| `--tx` | string |  | Stage the write in this tx instead of the working tree. |
+
+| Output field | Description |
+|---|---|
+| `changes` | [{path,action,from?,hash_before,hash_after,diff?,diff_truncated?}]; action is created, modified, deleted, moved, mode-changed or linked; diff is cut at 200 lines. |
+| `op_id` | The journal op (undo with `aitools undo <op_id>`); null when nothing changed. |
+| `tx` | With --tx: the tx the write was staged in, instead of op_id. |
+| `tx_op` | With --tx: the staged op's number. |
+| `dry_run` | With --dry-run: true; nothing was written. |
+| `warnings` | [{code,message,count}] for dropped comments; always present, empty when none. |
+
+Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `input.unsupported-value`.
 
 
 ## The journal context
@@ -2572,7 +2823,7 @@ Run several aitools invocations from one JSON input, optionally as one tx.
 | `op_id` | --atomic: the single journal op of the whole batch (undo reverses it). |
 | `next_commands` | Commands to show full diffs when a committed change diff is truncated. |
 
-Errors: `argument.invalid`, `input.syntax-error`, `refusal.target-changed`, `environment.busy`, `input.not-found`, `environment.io`, `internal.unexpected`, `input.unsupported-language`, `input.unsupported-format`, `selection.no-match`, `selection.ambiguous`, `refusal.not-a-file`, `refusal.too-large`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `selection.count-mismatch`, `input.not-utf8`, `environment.unavailable`, `environment.timeout`.
+Errors: `argument.invalid`, `input.syntax-error`, `refusal.target-changed`, `environment.busy`, `input.not-found`, `environment.io`, `internal.unexpected`, `input.unsupported-language`, `input.unsupported-format`, `selection.no-match`, `selection.ambiguous`, `refusal.not-a-file`, `input.unsupported-value`, `refusal.too-large`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `selection.count-mismatch`, `input.not-utf8`, `environment.unavailable`, `environment.timeout`.
 
 <!-- END GENERATED: commands -->
 
