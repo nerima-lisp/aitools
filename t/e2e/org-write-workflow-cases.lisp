@@ -49,9 +49,9 @@
       (expect (jget result "changed") :to-be t)
       (expect (file-octets ws "todo-note.org") :to-equalp expected)))
 
-  (define-org-write-case ("org planning rejects duplicate timestamps for set and delete" ws)
+  (define-org-write-case ("org planning rejects duplicate timestamps on indented lines" ws)
     (put ws "duplicate-planning.org"
-         (format nil "* TODO Release~%SCHEDULED: <2026-10-20> SCHEDULED: <2026-10-22>~%"))
+         (format nil "* TODO Release~%   SCHEDULED: <2026-10-20> SCHEDULED: <2026-10-22>~%"))
     (let ((before (file-octets ws "duplicate-planning.org")))
       (org-error ws
                  (org-write-time-args
