@@ -69,4 +69,3 @@
     "org.clock.out"
     (:group "org.clock" :command-builder #'%clock-out-command
      :schema (%schema "org.clock.out")))))
-

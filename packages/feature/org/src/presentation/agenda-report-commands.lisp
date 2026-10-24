@@ -49,4 +49,3 @@
     "org.clock.report"
     (:group "org.clock" :command-builder #'%clock-report-command
      :schema (%schema "org.clock.report")))))
-
