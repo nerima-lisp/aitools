@@ -1,11 +1,11 @@
 # Benchmarks
 
 This page records only measurements that were taken, with the conditions
-they were taken under. The repository has no committed timing benchmark
-suite; the test suite includes one allocation check, described under
-[Allocation](#allocation). No sb-sprof profile of the commands has been
-recorded, and the cost of writing the intent record for a single-file write
-has not been measured.
+they were taken under. The repository has no CI timing benchmark suite; the
+test suite includes one allocation check, described under
+[Allocation](#allocation), and the manual adapter comparison below. No
+sb-sprof profile of the commands has been recorded, and the cost of writing
+the intent record for a single-file write has not been measured.
 
 ## Startup
 
@@ -55,6 +55,50 @@ cons cell per line would add about 1.6 MB. It runs for these cases:
 
 To run the suite, including this file, see
 [Development](../project/development.md#running-the-tests).
+
+## Digest and DEFLATE adapters
+
+`t/perf/digest-deflate-adapter-benchmark.lisp` compares the F0 SHA-256 and
+raw DEFLATE implementations with the current adapters. From the project root,
+run it in the development shell:
+
+```sh
+nix develop --command sbcl --script t/perf/digest-deflate-adapter-benchmark.lisp
+```
+
+The harness reads the two F0 source files from revision
+`1b20c3abdea1d95a049cdb0481afcfd72072b2a4` with `jj`, compiles them into a
+temporary directory, and compares them with the loaded current systems in one
+SBCL process. It uses deterministic xorshift inputs: 16 MiB for SHA-256 and
+2 MiB for deflate and inflate. Inflate uses the shared stream produced by the
+current deflater from the same 2 MiB input, so both decoders receive identical
+bytes.
+
+Each workload runs two warmup pairs and 15 measured pairs. The first
+implementation alternates between pairs, and a full GC runs before every
+invocation. The harness prints each paired sample and its relative change,
+both arm medians, the median paired change, and the number of pairs where the
+current adapter is faster. It also reports the SBCL version, platform,
+workload sizes, and sample counts. Every pair checks SHA-256 parity against the
+current digest, checks each deflate result by round-tripping it through both
+decoders, or checks the inflate output and consumed length. Before measurement,
+the harness registers this workspace with ASDF, directs compiled outputs into a
+temporary workspace directory, and checks that the resolved source and
+compiled output paths stay inside the workspace. These checks validate
+results but impose no timing threshold; the harness is manual and is not part
+of CI.
+
+### Digest and DEFLATE results
+
+Two runs used the same Darwin / ARM64 / Apple M4 Max host and SBCL 2.6.8. Each run used one SBCL process, two excluded warmup pairs, 15 alternating measured pairs per workload, and a full GC before each timed call. Each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
+
+| Workload | Payload | Run 3 medians | Run 3 paired change / current wins | Run 4 medians | Run 4 paired change / current wins |
+|---|---:|---:|---:|---:|---:|
+| SHA-256 | 16 MiB | 169.519 / 169.965 | +1.11% / 8 of 15 | 181.908 / 190.200 | −4.63% / 3 of 15 |
+| deflate | 2 MiB input | 329.201 / 133.789 | +55.57% / 15 of 15 | 343.728 / 178.765 | +57.53% / 15 of 15 |
+| inflate | 2 MiB decoded | 607.944 / 309.260 | +54.28% / 15 of 15 | 124.594 / 68.149 | +48.31% / 15 of 15 |
+
+The deflate and inflate comparisons favored the current adapters in all 30 measured pairs for each workload. SHA-256 did not reproduce a direction: its paired median moved by 5.74 percentage points between runs and its faster-pair count changed from 8 of 15 to 3 of 15. These measurements do not establish that the current SHA-256 adapter is no slower. The run-to-run paired-median spread was 1.96 points for deflate and 5.97 points for inflate; no confidence interval was calculated. The arm medians also moved substantially, especially for inflate, so treat these as workload-specific advisory measurements rather than a general performance claim or a timing gate.
 
 ## Known dependency issues
 
