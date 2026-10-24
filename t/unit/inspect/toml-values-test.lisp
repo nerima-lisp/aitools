@@ -63,3 +63,26 @@
    (let* ((text (format nil "value = ~A~%" (render-json value)))
           (object (parse-toml-document text)))
      (expect (json-object-get object "value") :to-equal value))))
+
+(describe "TOML write validation"
+  (it "validates JSON values and reports source comment spans"
+    (multiple-value-bind (value comments)
+        (parse-toml-write-document (format nil "# note~%items = [1, false]~%"))
+      (let ((items (json-object-get value "items"))) (expect (length items) :to-be 2) (expect (aref items 0) :to-be 1) (expect (json-false-value-p (aref items 1)) :to-be t))
+      (expect comments :to-be 1)))
+  (it "rejects TOML date values and non-finite floats for writes"
+    (labels ((assert-unsupported (text reason pointer)
+               (handler-case
+                   (progn
+                     (parse-toml-write-document text)
+                     (fail "expected unsupported TOML write value"))
+                 (toml-unsupported-value (condition)
+                   (expect (toml-unsupported-reason condition) :to-equal reason)
+                   (expect (toml-unsupported-pointer condition) :to-equal pointer)))))
+      (assert-unsupported "value = 1979-05-27T07:32:00+00:00" "offset-date-time" "/value")
+      (assert-unsupported "value = 1979-05-27T07:32:00" "local-date-time" "/value")
+      (assert-unsupported "value = 1979-05-27" "local-date" "/value")
+      (assert-unsupported "value = 07:32:00" "local-time" "/value")
+      (assert-unsupported "value = [1, inf]" "non-finite-float" "/value/1")))
+  (it "maps malformed TOML to a syntax condition in write mode"
+    (signals toml-syntax-error (parse-toml-write-document "value = ["))))
