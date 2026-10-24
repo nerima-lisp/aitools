@@ -82,8 +82,8 @@
     (case reason
       (:unsupported-table-type
        (%failure :unsupported "Only Org pipe tables support this operation"))
-      (:unsupported-mode
-       (%failure :unsupported "Org table formula uses an unsupported mode"))
+      ((:unsupported-mode :unknown-function)
+       (%failure :unsupported "Org table formula uses unsupported syntax"))
       ((:invalid-number :invalid-value :invalid-index :invalid-range :ambiguous-range)
        (if (eq operation :table-sort)
            (%failure :argument "Org table options or cell values are invalid")
