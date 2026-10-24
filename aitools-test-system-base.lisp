@@ -153,6 +153,8 @@
                                               (:file "integration/journal-cli-test")
                                               (:file "unit/edit/package")
                                               (:file "integration/org-write-flow-test")
+                                              (:file "integration/org-adapter-validation-test")
+                                              (:file "integration/org-adapter-flow-edge-test")
                                               (:file "unit/edit/domain-test")
                                               (:file "unit/edit/command-spec-test")
                                               (:file "unit/edit/domain-edge-test")
