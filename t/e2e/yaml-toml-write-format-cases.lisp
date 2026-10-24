@@ -23,9 +23,9 @@
     (call-with-workspace
      (lambda (ws)
        (put ws "canonical.yaml"
-            "body: |\n  alpha\n  βeta\nempty: {}")
+            (format nil "body: |~%  alpha~%  βeta~%empty: {}"))
        (put ws "canonical.toml"
-            "[zeta]\nvalue = 1\n[alpha]\nvalue = \"雪\"\n[empty]")
+            (format nil "[zeta]~%value = 1~%[alpha]~%value = \"雪\"~%[empty]"))
        (dolist (format '("yaml" "toml"))
          (let* ((path (format nil "canonical.~A" format))
                 (first (run-ok ws (list format "fmt" path)))
@@ -44,9 +44,9 @@
     (aitools-binary)
     (call-with-workspace
      (lambda (ws)
-       (let* ((yaml-body (crlf-octets "key: old\n# original comment\n"))
+       (let* ((yaml-body (crlf-octets (format nil "key: old~%# original comment~%")))
               (yaml-before (concatenate '(vector (unsigned-byte 8)) #(239 187 191) yaml-body))
-              (toml-before (crlf-octets "key = \"old\"\n# 元のコメント\n")))
+              (toml-before (crlf-octets (format nil "key = \"old\"~%# 元のコメント~%"))))
          (put ws "undo.yaml" yaml-before)
          (put ws "undo.toml" toml-before)
          (dolist (case `(("yaml" "undo.yaml" ,yaml-before)

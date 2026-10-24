@@ -15,7 +15,7 @@
 (describe "aitools.edit YAML write flows"
   (it "applies all five JSON operations and always returns warnings"
     (with-edit-workspace ()
-      (put "doc.yaml" "# input\na: 1\nb: 2\n")
+      (put "doc.yaml" (format nil "# input~%a: 1~%b: 2~%"))
       (multiple-value-bind (status fields)
           (run "yaml.set" '("doc.yaml" "/a" "3"))
         (expect status :to-be :ok)
@@ -33,12 +33,12 @@
                :stdin-data "[{\"op\":\"replace\",\"path\":\"/c\",\"value\":5}]")
         (expect status :to-be :ok)
         (expect-yaml-comment-warning fields 0))
-      (put "fmt.yaml" "# keep count\nx: 1\n")
+      (put "fmt.yaml" (format nil "# keep count~%x: 1~%"))
       (multiple-value-bind (status fields)
           (run "yaml.fmt" '("fmt.yaml") :dry-run t)
         (expect status :to-be :ok)
         (expect-yaml-comment-warning fields 1)
-        (expect (text "fmt.yaml") :to-equal "# keep count\nx: 1\n"))
+        (expect (text "fmt.yaml") :to-equal (format nil "# keep count~%x: 1~%")))
       (multiple-value-bind (status fields)
           (run "yaml.fmt" '("fmt.yaml"))
         (expect status :to-be :ok)
@@ -50,7 +50,7 @@
         (expect (changes fields) :to-equal '()))))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
     (with-edit-workspace ()
-      (put "doc.yaml" "a: 1\n")
+      (put "doc.yaml" (format nil "a: 1~%"))
       (multiple-value-bind (status fields)
           (run "yaml.set" '("doc.yaml" "/a" "0e-9999"))
         (expect status :to-be :ok)
@@ -63,7 +63,7 @@
 
   (it "rejects a source tag before delete and carries format repairs"
     (with-edit-workspace ()
-      (put "bad.yaml" "keep: !custom value\ntarget: 2\n")
+      (put "bad.yaml" (format nil "keep: !custom value~%target: 2~%"))
       (multiple-value-bind (status code message keys)
           (run "yaml.delete" '("bad.yaml" "/target"))
         (declare (ignore message))

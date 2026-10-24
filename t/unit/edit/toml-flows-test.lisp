@@ -15,7 +15,7 @@
 (describe "aitools.edit TOML write flows"
   (it "applies all five JSON operations and always returns warnings"
     (with-edit-workspace ()
-      (put "doc.toml" "# input\na = 1\nb = 2\n")
+      (put "doc.toml" (format nil "# input~%a = 1~%b = 2~%"))
       (multiple-value-bind (status fields)
           (run "toml.set" '("doc.toml" "/a" "3"))
         (expect status :to-be :ok)
@@ -33,12 +33,12 @@
                :stdin-data "[{\"op\":\"replace\",\"path\":\"/c\",\"value\":5}]")
         (expect status :to-be :ok)
         (expect-toml-comment-warning fields 0))
-      (put "fmt.toml" "# keep count\nx = 1\n")
+      (put "fmt.toml" (format nil "# keep count~%x = 1~%"))
       (multiple-value-bind (status fields)
           (run "toml.fmt" '("fmt.toml") :dry-run t)
         (expect status :to-be :ok)
         (expect-toml-comment-warning fields 1)
-        (expect (text "fmt.toml") :to-equal "# keep count\nx = 1\n"))
+        (expect (text "fmt.toml") :to-equal (format nil "# keep count~%x = 1~%")))
       (multiple-value-bind (status fields)
           (run "toml.fmt" '("fmt.toml"))
         (expect status :to-be :ok)
@@ -50,7 +50,7 @@
         (expect (changes fields) :to-equal '()))))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
     (with-edit-workspace ()
-      (put "doc.toml" "a = 1\n")
+      (put "doc.toml" (format nil "a = 1~%"))
       (multiple-value-bind (status fields)
           (run "toml.set" '("doc.toml" "/a" "0e-9999"))
         (expect status :to-be :ok)
@@ -63,7 +63,7 @@
 
   (it "allows null merge deletion and rejects null and out-of-range set values"
     (with-edit-workspace ()
-      (put "doc.toml" "a = 1\nb = 2\n")
+      (put "doc.toml" (format nil "a = 1~%b = 2~%"))
       (multiple-value-bind (status fields)
           (run "toml.merge" '("doc.toml") :stdin-data "{\"a\":null}")
         (expect status :to-be :ok)
