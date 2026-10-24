@@ -60,8 +60,14 @@
 (describe "YAML write validation"
   (it "validates JSON values and reports source comment spans"
     (multiple-value-bind (value comments)
-        (parse-yaml-write-document (format nil "# note~%items:~%- 1~%- true~%"))
-      (let ((items (json-object-get value "items"))) (expect (length items) :to-be 2) (expect (aref items 0) :to-be 1) (expect (aref items 1) :to-be t))
+        (parse-yaml-write-document
+         (format nil "# note~%items:~%- 1~%- true~%fraction: 1.5~%"))
+      (let ((items (json-object-get value "items")))
+        (expect (length items) :to-be 2)
+        (expect (aref items 0) :to-be 1)
+        (expect (aref items 1) :to-be t))
+      (expect (<= (abs (- (json-object-get value "fraction") 1.5d0)) 1d-9)
+              :to-be t)
       (expect comments :to-be 1)))
   (it "rejects YAML constructs that cannot be represented as JSON"
     (labels ((assert-unsupported (text reason pointer)
@@ -82,7 +88,7 @@
     (signals yaml-syntax-error (parse-yaml-write-document "x: ["))))
 
 (describe "YAML write preflight edge cases"
-  (it "rejects scalar mapping keys and NaN values"
+  (it "rejects numeric mapping keys and NaN values"
     (labels ((assert-unsupported (text reason pointer)
                (handler-case
                    (progn
@@ -91,5 +97,5 @@
                  (yaml-unsupported-value (condition)
                    (expect (yaml-unsupported-reason condition) :to-equal reason)
                    (expect (yaml-unsupported-pointer condition) :to-equal pointer)))))
-      (assert-unsupported "? 1: value" "non-string-key" "")
+      (assert-unsupported "1: value" "non-string-key" "")
       (assert-unsupported "x: .nan" "non-finite-float" "/x"))))

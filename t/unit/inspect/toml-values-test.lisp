@@ -67,8 +67,14 @@
 (describe "TOML write validation"
   (it "validates JSON values and reports source comment spans"
     (multiple-value-bind (value comments)
-        (parse-toml-write-document (format nil "# note~%items = [1, false]~%"))
-      (let ((items (json-object-get value "items"))) (expect (length items) :to-be 2) (expect (aref items 0) :to-be 1) (expect (json-false-value-p (aref items 1)) :to-be t))
+        (parse-toml-write-document
+         (format nil "# note~%items = [1, false, 1.5]~%label = \"text\"~%"))
+      (let ((items (json-object-get value "items")))
+        (expect (length items) :to-be 3)
+        (expect (aref items 0) :to-be 1)
+        (expect (json-false-value-p (aref items 1)) :to-be t)
+        (expect (<= (abs (- (aref items 2) 1.5d0)) 1d-9) :to-be t))
+      (expect (json-object-get value "label") :to-equal "text")
       (expect comments :to-be 1)))
   (it "rejects TOML date values and non-finite floats for writes"
     (labels ((assert-unsupported (text reason pointer)
