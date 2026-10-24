@@ -41,7 +41,10 @@
 
 (defun %without-bound-symbols (active lambda-list)
   (let ((bound (%lambda-list-variables lambda-list)))
-    (remove-if (lambda (variable) (member variable bound :test #'eq)) active)))
+    (remove-if
+     (lambda (entry)
+       (member (if (consp entry) (car entry) entry) bound :test #'eq))
+     active)))
 
 (defun %function-argument-shape (argument)
   (cond
