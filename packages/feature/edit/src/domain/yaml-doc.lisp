@@ -23,6 +23,8 @@
                          (not (%yaml-finite-float-p number)))
                 (refuse "argument.invalid" "JSON number cannot be represented."))
               number))
+        (sb-kernel:reader-impossible-number-error ()
+          (refuse "argument.invalid" "JSON number cannot be represented."))
         (floating-point-overflow ()
           (refuse "argument.invalid" "JSON number cannot be represented."))
         (floating-point-underflow ()
