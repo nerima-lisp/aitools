@@ -45,6 +45,13 @@
                         nil)
                        ("multiple-value-bind"
                         "(multiple-value-bind (copy present) (values value t) (funcall callback copy))")
+                       ("multiple-value-bind-unrelated"
+                        "(multiple-value-bind (saved ignored) (values value callback) (funcall saved value))"
+                        nil)
+                       ("multiple-value-bind-alias-second"
+                        "(multiple-value-bind (ignored saved) (values :ignored callback) (funcall saved value))")
+                       ("multiple-value-bind-alias"
+                        "(multiple-value-bind (saved) (values callback) (funcall saved value))")
                        ("handler-case" "(handler-case value (error (condition) (funcall callback condition)))")
                        ("flow-call" "(flow-call value (:on-ok (result) (funcall callback result)))")
                        ("block" "(block terminal-block (funcall callback value))")
