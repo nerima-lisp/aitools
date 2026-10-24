@@ -18,13 +18,17 @@
     (+ (* era 146097) doe -719468)))
 
 (defun %dos-time-to-unix (time date)
-  (let ((year (+ 1980 (ldb (byte 7 9) date)))
-        (month (max 1 (min 12 (ldb (byte 4 5) date))))
-        (day (max 1 (min 31 (ldb (byte 5 0) date)))))
-    (+ (* 86400 (days-from-civil year month day))
-       (* 3600 (min 23 (ldb (byte 5 11) time)))
-       (* 60 (min 59 (ldb (byte 6 5) time)))
-       (* 2 (min 29 (ldb (byte 5 0) time))))))
+  (let* ((year (+ 1980 (ldb (byte 7 9) date)))
+         (month (max 1 (min 12 (ldb (byte 4 5) date))))
+         (day (max 1 (min 31 (ldb (byte 5 0) date))))
+         (hour (min 23 (ldb (byte 5 11) time)))
+         (minute (min 59 (ldb (byte 6 5) time)))
+         (second (* 2 (min 29 (ldb (byte 5 0) time)))))
+    (cl-date-kit:local-date-time-to-epoch-second
+     (cl-date-kit:local-date-time-plus-days
+      (cl-date-kit:local-date-time-of year month 1 hour minute second)
+      (1- day))
+     cl-date-kit:zone-offset-utc)))
 
 (defun %zip-signature-p (octets offset signature)
   (and (<= 0 offset) (<= (+ offset 4) (length octets))
