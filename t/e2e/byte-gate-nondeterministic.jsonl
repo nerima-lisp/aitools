@@ -165,3 +165,4 @@
 [["aitools e2e row 43 > row 43: base64 -d > file is util decode --to",1],["$.op_id"],"The store builds operation IDs from the current UTC time and a random suffix."]
 [["aitools e2e row 45 > row 45: openssl rand -hex 16's format is util random --length 32 --alphabet hex",1],["$.values[]"],"The utility command generates a fresh random value."]
 [["aitools e2e row 45 > row 45: uuidgen's format is util uuid's",1],["$.values[]"],"The utility command generates a fresh random value."]
+[["aitools edit e2e envelope compatibility > matches the pre-CPS exact-edit envelope",1],["$.op_id"],"The store builds operation IDs from the current UTC time and a random suffix."]
