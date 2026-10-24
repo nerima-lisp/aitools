@@ -108,4 +108,30 @@
     (expect (encode-string/k (string (code-char #xD800)) :utf-8 :on-encoded #'list) :to-be nil)
     (expect (encode-string/k (string (code-char #xD800)) :utf-8 :on-encoded #'list
                              :on-unmappable (lambda (index char) (list index (char-code char))))
-            :to-equal '(0 #xD800))))
+            :to-equal '(0 #xD800)))
+  (it "decodes only the requested byte range"
+    (expect
+     (decode-octets/k (octets #xFF 65 #xFF) :utf-8
+                      :start 1 :end 2
+                      :on-decoded (lambda (string replacements)
+                                    (list string replacements)))
+     :to-equal (list "A" 0))
+    (expect
+     (decode-octets/k (octets #xFF #x93 #xFA #xFF) :shift_jis
+                      :start 1 :end 3
+                      :on-decoded (lambda (string replacements)
+                                    (list string replacements)))
+     :to-equal (list "日" 0))
+    (expect
+     (decode-octets/k (octets #x41 #x93 #xFA #x42) :shift_jis
+                      :start 1 :end 2
+                      :on-invalid (lambda (position) (list position))
+                      :on-decoded (lambda (string replacements)
+                                    (list string replacements)))
+     :to-equal (list 1))
+    (expect
+     (decode-octets/k (octets 65) :utf-8
+                      :start 1 :end 1
+                      :on-decoded (lambda (string replacements)
+                                    (list string replacements)))
+     :to-equal (list "" 0))))
