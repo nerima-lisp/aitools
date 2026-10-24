@@ -5,7 +5,7 @@ they were taken under. The repository has no CI timing benchmark suite; the
 test suite includes one allocation check, described under
 [Allocation](#allocation), and the manual adapter comparison below. No
 sb-sprof profile of the commands has been recorded, and the cost of writing
-the intent record for a single-file write has not been measured.
+journal metadata before a single-file write has not been measured.
 
 ## Startup
 
@@ -58,8 +58,8 @@ To run the suite, including this file, see
 
 ## Digest and DEFLATE adapters
 
-`t/perf/digest-deflate-adapter-benchmark.lisp` compares the F0 SHA-256 and
-raw DEFLATE implementations with the current adapters. From the project root,
+`t/perf/digest-deflate-adapter-benchmark.lisp` compares the F0 (pre-adapter) implementations of SHA-256 and raw
+DEFLATE with the current adapters. From the project root,
 run it in the development shell:
 
 ```sh
@@ -90,7 +90,7 @@ of CI.
 
 ### Digest and DEFLATE results
 
-Two runs used the same Darwin / ARM64 / Apple M4 Max host and SBCL 2.6.8. Each run used one SBCL process, two excluded warmup pairs, 15 alternating measured pairs per workload, and a full GC before each timed call. Each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
+Runs 3 and 4 are the valid measurements; Runs 1 and 2 failed during harness setup before timing (a package-reader error and a component lookup error) and were excluded. Both valid runs used the same Darwin ARM64 / Apple M4 Max host and SBCL 2.6.8, and each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
 
 | Workload | Payload | Run 3 medians | Run 3 paired change / current wins | Run 4 medians | Run 4 paired change / current wins |
 |---|---:|---:|---:|---:|---:|
@@ -104,14 +104,14 @@ The deflate and inflate comparisons favored the current adapters in all 30 measu
 
 These are issues aitools met in its dependencies, at the versions
 `flake.nix` pins: cl-regex-kit v2.1.1, cl-process-kit v3.3.1, cl-cli v1.4.0,
-cl-nix-forge v0.6.1. The last column says whether aitools still carries a
-workaround in the current source.
+cl-nix-forge v0.6.1. The last column summarizes how the current source
+handles each issue.
 
-| Dependency | Issue | Effect on aitools | Workaround |
+| Dependency | Issue | Effect on aitools | Current behavior |
 |---|---|---|---|
-| cl-regex-kit | Before v2.1.1, a byte regex using `\b` cost time and memory proportional to the whole buffer on every scan, regardless of `:start` and `:end`. | `search` would pay whole-file cost on every candidate line. | Removed. `scan-line` (`packages/feature/search/src/domain/matcher.lisp`) scans the candidate line in place, bounded by `:end`, instead of copying it. |
+| cl-regex-kit | Before v2.1.1, a byte regex using `\b` cost time and memory proportional to the whole buffer on every scan, regardless of `:start` and `:end`. | `search` would pay whole-file cost on every candidate line. | `scan-line` (`packages/feature/search/src/domain/matcher.lisp`) scans the candidate line in place, bounded by `:end`, rather than copying it. |
 | cl-regex-kit | Before v2.1.1, the Pike VM allocated per input byte for a pattern with no required literal. | Allocation grew with file size for such patterns. | None needed. The `[0-9]{5}` allocation case above is a normal passing spec. |
-| cl-regex-kit | `(?:[^x]*r)?P` did not match `"P x"` in v2.1.0. | Broke the Rust `impl` pattern in the language table and a search matcher spec. | Removed. The search matcher specs blocked on this are normal specs under v2.1.1. |
-| cl-process-kit | Before v3.3.1, `spawn-native :session t` lost a setsid/process-group race on a fraction of Darwin launches. | `bg start` could fail before the program execs. | Removed. `bg start` launches once; a genuine failure is reported (`packages/feature/process/src/infrastructure/bg-launcher.lisp`). |
-| cl-cli | `:rest-p` positionals consumed later options in v1.3.0. | `search` had to declare optional path positionals. | Removed. `search` uses one rest positional for paths under v1.4.0. |
+| cl-regex-kit | `(?:[^x]*r)?P` did not match `"P x"` in v2.1.0. | Broke the Rust `impl` pattern in the language table and a search matcher spec. | The matcher specs blocked on this now run as normal specs under v2.1.1. |
+| cl-process-kit | Before v3.3.1, `spawn-native :session t` lost a setsid/process-group race on a fraction of Darwin launches. | `bg start` could fail before the program execs. | `bg start` launches once; a genuine failure is reported (`packages/feature/process/src/infrastructure/bg-launcher.lisp`). |
+| cl-cli | `:rest-p` positionals consumed later options in v1.3.0. | `search` had to declare optional path positionals. | `search` uses one rest positional for paths under v1.4.0. |
 | cl-nix-forge | Before v0.6.1, the `.asd` reader recursed once per character, so a `.asd` of a few tens of kilobytes exceeded Nix's default `max-call-depth`. | Evaluating `flake.nix`, which reads the version from `aitools.asd`, failed. | None needed. v0.6.1 walks the file iteratively. |
