@@ -53,12 +53,12 @@
      :conflicts conflicts :repairs repairs))))
 
 (aitools.kernel.domain:define-flow
-  (parse-toml-write-document/k text &key on-value on-error)
+  (parse-toml-write-document/k text &key max-depth on-value on-error)
   "Continue with compact JSON text and comment count, or a public error code and message."
   (declare (type function on-value on-error))
   (handler-case
       (multiple-value-bind (value comment-count)
-          (parse-toml-write-document text)
+          (parse-toml-write-document text :max-depth max-depth)
         (aitools.kernel.domain:flow-continue
           :on-value (render-json value) comment-count))
     (toml-unsupported-value (condition)

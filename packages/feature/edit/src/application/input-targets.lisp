@@ -31,85 +31,80 @@
           collect (json-object "path" candidate))))
 
 (aitools.kernel.domain:define-flow
-    (read-file-octets/k context path &key on-error on-octets)
-  "PATH's bytes in the write's view: ON-OCTETS (octets mode), or ON-ERROR
-with input.not-found (including candidates) or refusal.not-a-file."
+    (read-file-octets/k context path &key max-bytes on-error on-octets)
+  "PATH's bytes in the write's view: ON-OCTETS (octets and mode), or ON-ERROR
+with input.not-found (including candidates), refusal.not-a-file, or
+refusal.too-large when MAX-BYTES is exceeded."
   (let* ((view (write-context-view context))
-         ;; Only the kind and mode decide the branch here; VIEW-READ-FILE
-         ;; reads the bytes below, so hashing the file through VIEW-PATH-STATE
-         ;; would read it a second time for a value never used.
          (state (aitools.store.application:view-path-kind view path)))
     (case (aitools.store.domain:entry-state-kind state)
       (:file
-       (aitools.kernel.domain:flow-continue
-        :on-octets
-        (coerce (aitools.store.application:view-read-file view path) 'octets)
-        (aitools.store.domain:entry-state-mode state)))
+       (handler-case
+           (aitools.kernel.domain:flow-continue
+             :on-octets
+             (coerce (aitools.store.application:view-read-file
+                      view path :max-bytes max-bytes)
+                     'octets)
+             (aitools.store.domain:entry-state-mode state))
+         (aitools.store.application:store-io-error (condition)
+           (if (and max-bytes
+                    (string= (aitools.store.application:store-io-error-detail
+                              condition)
+                             "file exceeds byte limit"))
+               (aitools.kernel.domain:flow-continue
+                 :on-error
+                 "refusal.too-large"
+                 (format nil "~A exceeds the ~D-byte document limit"
+                         path max-bytes))
+               (error condition)))))
       (:absent
        (aitools.kernel.domain:flow-continue
-        :on-error "input.not-found" (format nil "~A does not exist" path)
-        :candidates (path-candidates view path)))
+         :on-error "input.not-found" (format nil "~A does not exist" path)
+         :candidates (path-candidates view path)))
       (t
        (aitools.kernel.domain:flow-continue
-        :on-error "refusal.not-a-file"
-        (format nil "~A is a ~(~A~), not a file"
-                path (aitools.store.domain:entry-state-kind state)))))))
+         :on-error "refusal.not-a-file"
+         (format nil "~A is a ~(~A~), not a file"
+                 path (aitools.store.domain:entry-state-kind state)))))))
 
 (aitools.kernel.domain:define-flow
-  (read-document/k context path &key prefilter on-error on-document on-filtered)
+  (read-document/k context path
+                   &key prefilter max-bytes on-error on-document on-filtered)
   "PATH decoded for a text edit: ON-DOCUMENT (document), or ON-ERROR for
-refusal.not-a-file (binary), input.not-utf8, or input.not-found.
+refusal.not-a-file (binary), input.not-utf8, input.not-found, or
+refusal.too-large when MAX-BYTES is exceeded.
 
 When PREFILTER returns NIL for PATH's raw octets, ON-FILTERED is called
 without decoding them. The prefilter must be sound: NIL must mean that no
 possible match exists."
   (aitools.kernel.domain:flow-call
-    (read-file-octets/k context path)
+    (read-file-octets/k context path :max-bytes max-bytes)
     (:on-octets (octets mode)
       (declare (ignore mode))
       (if (and prefilter (not (funcall prefilter octets)))
-          (aitools.kernel.domain:flow-continue
-            :on-filtered)
+          (aitools.kernel.domain:flow-continue :on-filtered)
           (aitools.kernel.domain:flow-call
             (decode-text-document/k octets)
             (:on-decoded (document)
-              (aitools.kernel.domain:flow-continue
-                :on-document
-                document))
+              (aitools.kernel.domain:flow-continue :on-document document))
             (:on-binary ()
               (aitools.kernel.domain:flow-continue
-                :on-error
-                "refusal.not-a-file"
-                (format
-                  nil
-                  "~A is binary; text edits refuse it"
-                  path)))
+                :on-error "refusal.not-a-file"
+                (format nil "~A is binary; text edits refuse it" path)))
             (:on-invalid (offset)
               (aitools.kernel.domain:flow-continue
-                :on-error
-                "input.not-utf8"
-                (format
-                  nil
-                  "~A is not valid UTF-8 at byte ~D"
-                  path
-                  offset)
+                :on-error "input.not-utf8"
+                (format nil "~A is not valid UTF-8 at byte ~D" path offset)
                 :diagnostics
                 (list (json-object "path" path "offset" offset)))))))
     (:on-error (code message &key candidates diagnostics conflicts repairs path)
       (aitools.kernel.domain:flow-continue
-        :on-error
-        code
-        message
-        :candidates
-        candidates
-        :diagnostics
-        diagnostics
-        :conflicts
-        conflicts
-        :repairs
-        repairs
-        :path
-        path))))
+        :on-error code message
+        :candidates candidates
+        :diagnostics diagnostics
+        :conflicts conflicts
+        :repairs repairs
+        :path path))))
 
 (defun %child (directory name)
   "NAME below the workspace-relative DIRECTORY (\"\" for the root)."

@@ -3,9 +3,9 @@
 
 (aitools.kernel.domain:define-flow
   (%read-format/k format command context path &key on-error on-json)
-  "Read and preflight one YAML or TOML document before applying an edit."
+  "Read and preflight one bounded YAML or TOML document before applying an edit."
   (aitools.kernel.domain:flow-call
-    (read-document/k context path)
+    (read-document/k context path :max-bytes +max-format-document-bytes+)
     (:on-error (code message &key candidates diagnostics conflicts repairs
                      ((:path ignored-path)))
       (declare (ignore ignored-path))
@@ -19,7 +19,9 @@
       (if (string= format "yaml")
           (aitools.kernel.domain:flow-call
             (aitools.inspect.application:parse-yaml-write-document/k
-             (document-logical-text document))
+             (document-logical-text document)
+             :max-input-length +max-format-document-bytes+
+             :max-depth +max-format-document-depth+)
             (:on-value (json-text comment-count)
               (aitools.kernel.domain:flow-continue
                 :on-json (parse-json-text json-text) document comment-count))
@@ -29,7 +31,8 @@
                 :repairs (%format-repairs command path code nil))))
           (aitools.kernel.domain:flow-call
             (aitools.inspect.application:parse-toml-write-document/k
-             (document-logical-text document))
+             (document-logical-text document)
+             :max-depth +max-format-document-depth+)
             (:on-value (json-text comment-count)
               (aitools.kernel.domain:flow-continue
                 :on-json (parse-json-text json-text) document comment-count))

@@ -7,6 +7,8 @@
 (defconstant +max-input-bytes+
   (* 256 1024 1024)
   "Largest --stdin or --content-file input read.")
+(defconstant +max-format-document-bytes+ (* 16 1024 1024))
+(defconstant +max-format-document-depth+ 512)
 
 (defstruct
     (edit-ports

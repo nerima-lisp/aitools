@@ -128,47 +128,61 @@
       (%yaml-unsupported "non-string-key" tokens))
     value))
 
-(defun %yaml-write-check-node (node tokens visited)
-  (unless (gethash node visited)
-    (setf (gethash node visited) t)
-    (%yaml-write-explicit-tag node tokens)
-    (%yaml-write-anchor node tokens)
-    (cond
-      ((yaml-kit:scalar-node-p node)
-       (let ((value (yaml-kit::construct node
-                                         :schema :core
-                                         :mapping-type :yaml-mapping
-                                         :sequence-type :vector)))
-         (when (and (floatp value)
-                    (not (%yaml-write-finite-float-p value)))
-           (%yaml-unsupported "non-finite-float" tokens))))
-      ((yaml-kit:sequence-node-p node)
-       (loop for child in (yaml-kit:sequence-node-items node)
-             for index from 0
-             do (%yaml-write-check-node
-                 child
-                 (append tokens (list (princ-to-string index)))
-                 visited)))
-      ((yaml-kit:mapping-node-p node)
-       (let ((seen (make-hash-table :test (function equal))))
-         (dolist (pair (yaml-kit:mapping-node-pairs node))
-           (let ((key (%yaml-write-key-value (car pair) tokens)))
-             (when (gethash key seen)
-               (%yaml-unsupported "duplicate-key" tokens))
-             (setf (gethash key seen) t)
-             (%yaml-write-check-node
-              (cdr pair)
-              (append tokens (list key))
-              visited))))))))
+(defun %yaml-write-check-node (node tokens visited depth max-depth)
+  (let* ((container-p (or (yaml-kit:sequence-node-p node)
+                          (yaml-kit:mapping-node-p node)))
+         (depth (if container-p (1+ depth) depth)))
+    (when (and container-p max-depth (> depth max-depth))
+      (error 'yaml-syntax-error))
+    (unless (gethash node visited)
+      (setf (gethash node visited) t)
+      (%yaml-write-explicit-tag node tokens)
+      (%yaml-write-anchor node tokens)
+      (cond
+        ((yaml-kit:scalar-node-p node)
+         (let ((value (yaml-kit::construct node
+                                           :schema :core
+                                           :mapping-type :yaml-mapping
+                                           :sequence-type :vector)))
+           (when (and (floatp value)
+                      (not (%yaml-write-finite-float-p value)))
+             (%yaml-unsupported "non-finite-float" tokens))))
+        ((yaml-kit:sequence-node-p node)
+         (loop for child in (yaml-kit:sequence-node-items node)
+               for index from 0
+               do (%yaml-write-check-node
+                   child
+                   (append tokens (list (princ-to-string index)))
+                   visited depth max-depth)))
+        ((yaml-kit:mapping-node-p node)
+         (let ((seen (make-hash-table :test (function equal))))
+           (dolist (pair (yaml-kit:mapping-node-pairs node))
+             (let ((key (%yaml-write-key-value (car pair) tokens)))
+               (when (gethash key seen)
+                 (%yaml-unsupported "duplicate-key" tokens))
+               (setf (gethash key seen) t)
+               (%yaml-write-check-node
+                (cdr pair)
+                (append tokens (list key))
+                visited depth max-depth)))))))))
 
-(defun parse-yaml-write-document (text)
+(defun parse-yaml-write-document (text &key max-input-length max-depth)
   (handler-case
-      (let ((nodes (yaml-kit:compose-all text)))
+      (let* ((options
+               (append (when max-input-length
+                         (list :max-input-length max-input-length))
+                       (when max-depth
+                         (list :max-depth max-depth))))
+             (nodes (apply #'yaml-kit:compose-all text options)))
         (unless (= (length nodes) 1)
           (%yaml-unsupported "document-count" nil))
         (%yaml-write-check-node
-         (first nodes) nil (make-hash-table :test (function eq)))
+         (first nodes) nil (make-hash-table :test (function eq)) 0 max-depth)
         (values (parse-yaml-document text)
-                (length (yaml-kit:comment-spans text))))
+                (length
+                 (if max-input-length
+                     (yaml-kit:comment-spans
+                      text :max-input-length max-input-length)
+                     (yaml-kit:comment-spans text)))))
     (yaml-kit:yaml-kit-error ()
       (error 'yaml-syntax-error))))
