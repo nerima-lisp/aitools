@@ -11,6 +11,7 @@
   ../packages/feature/env/env.asd
   ../packages/feature/inspect/inspect.asd
   ../packages/feature/journal/journal.asd
+  ../packages/feature/org/org.asd
   ../packages/feature/process/process.asd
   ../packages/feature/search/search.asd
   ../packages/feature/util/util.asd
