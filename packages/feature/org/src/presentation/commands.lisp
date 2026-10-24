@@ -73,21 +73,3 @@
                          :backend (%backend (option-value invocation :backend))
                          :root (option-value invocation :root)))))
 
-(defun register-org-commands (registry ports)
-  (aitools.protocol.application:register-command-declarations
-   registry
-   (list
-    (aitools.protocol.application:define-command
-     "org.outline"
-     (:group "org" :command-builder #'%outline-command
-      :schema (%schema "org.outline")))
-    (aitools.protocol.application:define-command
-     "org.query"
-     (:group "org" :command-builder #'%query-command
-      :schema (%schema "org.query")))
-    (aitools.protocol.application:define-command
-     "org.export"
-     (:group "org" :command-builder #'%export-command
-      :schema (%schema "org.export"))))
-   ports)
-  registry)

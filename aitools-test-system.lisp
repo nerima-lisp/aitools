@@ -90,7 +90,7 @@
                                                                     (:file "org-cases")
                                                                     (:file "org-read-error-cases")
                                                                     (:file "org-query-cases")
-                                                                    (:file "org-export-cases")
+                                                                    (:file "org-export-cases") (:file "org-write-cases") (:file "org-write-workflow-cases") (:file "org-write-table-cases")
                                                                     (:file "process-env-cases")
                                                                     (:file "process-env-host-cases")
                                                                     (:file "process-env-util-cases")
