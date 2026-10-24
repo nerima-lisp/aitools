@@ -80,3 +80,16 @@
       (assert-unsupported (format nil "x: 1~%---~%x: 2~%") "document-count" "")))
   (it "maps malformed YAML to a syntax condition in write mode"
     (signals yaml-syntax-error (parse-yaml-write-document "x: ["))))
+
+(describe "YAML write preflight edge cases"
+  (it "rejects scalar mapping keys and NaN values"
+    (labels ((assert-unsupported (text reason pointer)
+               (handler-case
+                   (progn
+                     (parse-yaml-write-document text)
+                     (fail "expected unsupported YAML write value"))
+                 (yaml-unsupported-value (condition)
+                   (expect (yaml-unsupported-reason condition) :to-equal reason)
+                   (expect (yaml-unsupported-pointer condition) :to-equal pointer)))))
+      (assert-unsupported "? 1: value" "non-string-key" "")
+      (assert-unsupported "x: .nan" "non-finite-float" "/x"))))

@@ -86,3 +86,13 @@
       (assert-unsupported "value = [1, inf]" "non-finite-float" "/value/1")))
   (it "maps malformed TOML to a syntax condition in write mode"
     (signals toml-syntax-error (parse-toml-write-document "value = ["))))
+
+(describe "TOML write preflight edge cases"
+  (it "rejects NaN values"
+    (handler-case
+        (progn
+          (parse-toml-write-document "value = nan")
+          (fail "expected unsupported TOML write value"))
+      (toml-unsupported-value (condition)
+        (expect (toml-unsupported-reason condition) :to-equal "non-finite-float")
+        (expect (toml-unsupported-pointer condition) :to-equal "/value")))))
