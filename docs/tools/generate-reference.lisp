@@ -23,11 +23,9 @@
 (defparameter *root*
   (merge-pathnames "../../" (make-pathname :name nil :type nil :defaults *load-truename*)))
 
-(asdf:initialize-source-registry
- `(:source-registry (:directory ,*root*) :inherit-configuration))
+(asdf:initialize-source-registry `(:source-registry (:directory ,*root*) :inherit-configuration))
 
-(let ((*error-output* (make-broadcast-stream)))
-  (asdf:load-system "aitools/cli"))
+(let ((*error-output* (make-broadcast-stream))) (asdf:load-system "aitools/cli"))
 
 (defun cell (text)
   "TEXT made safe for one Markdown table cell."
@@ -63,8 +61,7 @@
 (defun argument-type (arg)
   (format nil "~A~@[: ~{`~A`~^, ~}~]~:[~;, repeatable~]~@[, ~D values~]"
           (getf arg :type) (getf arg :choices)
-          (or (getf arg :repeatable) (getf arg :multiple))
-          (getf arg :value-count)))
+          (or (getf arg :repeatable) (getf arg :multiple)) (getf arg :value-count)))
 
 (defun write-command (schema out)
   (let* ((name (display-name schema))
@@ -167,8 +164,7 @@ context, then (\"composition root\" . SCHEMAS) for commands src/ registers."
              (write-command schema out)))))
      (loop for (context . schemas) in groups
            unless (string= context "composition root")
-             collect
-               (cons context
+             collect (cons context
                      (with-output-to-string (out)
                        (format out "# The ~A context~%~%[Command index](index.md#command-index).~%~%" context)
                        (dolist (schema schemas)
