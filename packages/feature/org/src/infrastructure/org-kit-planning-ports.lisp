@@ -89,7 +89,7 @@
     (when failure
       (return-from %org-todo-edit
         (values nil nil failure)))
-    (handler-case (multiple-value-bind (result transition) (org-kit:transition-heading-todo engine heading (getf options :state) :at at :time-context context :note (getf options :note))
+    (handler-case (multiple-value-bind (result transition) (org-kit:transition-heading-todo engine heading (getf options :state) :at at :time-context context :note (getf options :note) :preserve-scheduled-p t)
                     (values (org-kit:edit-result-updated-document result)
                             (list (cons "previous_state" (org-kit:transition-result-previous-state transition)) (cons "new_state" (org-kit:transition-result-new-state transition)))
                             nil))

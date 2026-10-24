@@ -43,6 +43,7 @@
                                                                     (:file "batch-failure-test")
                                                                     (:file "cli-schema-drift-test")
                                                                     (:file "org-dispatch-test")
+                                                                    (:file "org-write-dispatch-test")
                                                                     (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
                                                                     (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
                                                                     (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))
