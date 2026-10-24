@@ -161,18 +161,15 @@
                          (:body
                           (walk-body (nthcdr (third rule) form) visible nil nil
                                      terminal-block-targets))
-                         (:let-body
+                         (:binding-body
                           (walk-body
                            (nthcdr (third rule) form)
                            (%let-bound-callback-variables
-                            visible (nth (fourth rule) form) (fifth rule)
-                            #'%callback-designator-variables)
-                           nil nil terminal-block-targets))
-                         (:bound-body
-                          (walk-body
-                           (nthcdr (third rule) form)
-                           (%without-bound-symbols
-                            visible (nth (fourth rule) form))
+                            visible
+                            (nth (fourth rule) form)
+                            (fifth rule)
+                            #'%callback-designator-variables
+                            (and (sixth rule) (nth (sixth rule) form)))
                            nil nil terminal-block-targets))
                          (:handler-case
                           (walk-tail (nth (third rule) form) visible
