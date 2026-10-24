@@ -8,10 +8,10 @@
        (loop for entry in visible
              thereis
                (and (consp entry)
-                    (member (car form) (cdr entry) :test #'eq)
                     (or (eq (car entry) :local-macro)
                         (and (eq (car entry) :local-function)
-                             (not (%terminal-form-rule form))))))))
+                             (not (%terminal-form-rule form))))
+                    (member (car form) (cdr entry) :test #'eq)))))
              (macrolet-visible (visible definitions)
                (append visible
                        (list (cons :local-macro
