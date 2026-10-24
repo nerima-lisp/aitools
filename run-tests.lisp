@@ -32,8 +32,7 @@
      (:tree ,root)
      :inherit-configuration)))
 
-(progn
-  (defparameter *coverage-contexts*
+(defparameter *coverage-contexts*
     '((:kernel . "packages/core/kernel/src/") (:protocol . "packages/core/protocol/src/")
       (:workspace . "packages/core/workspace/src/") (:text . "packages/core/text/src/")
       (:store . "packages/core/store/src/") (:composition . "src/") (:search . "packages/feature/search/src/")
@@ -198,7 +197,7 @@
                           (getf stats :expression-total) (getf stats :branch-covered)
                           (getf stats :branch-total))))
               (require-context-coverage-baselines measured)))))))
- )
+
 
 (handler-case
     (let ((root (script-directory)))

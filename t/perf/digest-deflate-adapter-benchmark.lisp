@@ -12,7 +12,7 @@
 (defun %temporary-directory (root)
   (let ((directory
           (merge-pathnames
-           (format nil ".u11-benchmark-~36R-~36R/"
+           (format nil ".digest-deflate-adapter-benchmark-~36R-~36R/"
                    (get-universal-time) (random (expt 36 10)))
            root)))
     (when (probe-file directory)
