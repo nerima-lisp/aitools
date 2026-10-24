@@ -194,6 +194,18 @@ groups to the fixed output order.
 | [`org outline`](org.md#org-outline) | org | List Org headings and named or unnamed source and example blocks. |
 | [`org query`](org.md#org-query) | org | Find Org headings that match an Org match expression. |
 | [`org export`](org.md#org-export) | org | Export an Org file as HTML, GFM, or ASCII text. |
+| [`org todo set`](org.md#org-todo-set) | org | Change the TODO keyword on one matching heading. |
+| [`org property set`](org.md#org-property-set) | org | Set one property on one matching heading. |
+| [`org property delete`](org.md#org-property-delete) | org | Delete one property from one matching heading. |
+| [`org planning set`](org.md#org-planning-set) | org | Set one planning timestamp on one matching heading. |
+| [`org planning delete`](org.md#org-planning-delete) | org | Delete one planning timestamp from one matching heading. |
+| [`org clock in`](org.md#org-clock-in) | org | Start a clock on one matching heading. |
+| [`org clock out`](org.md#org-clock-out) | org | Stop the running clock on one matching heading. |
+| [`org agenda`](org.md#org-agenda) | org | List Org agenda entries in an inclusive date range. |
+| [`org clock report`](org.md#org-clock-report) | org | Summarize clock time for one heading and its descendants. |
+| [`org table align`](org.md#org-table-align) | org | Align one numbered Org table. |
+| [`org table sort`](org.md#org-table-sort) | org | Sort the standard rows of one numbered Org table. |
+| [`org table recalculate`](org.md#org-table-recalculate) | org | Recalculate formulas for one numbered Org table. |
 | [`sys info`](env.md#sys-info) | env | Describe the host: OS, architecture, CPUs, user, memory, and the workspace's disk. |
 | [`sys env`](env.md#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](env.md#sys-tools) | env | Find commands on PATH and report the first line of their version output. |
@@ -222,11 +234,11 @@ groups to the fixed output order.
 
 List implemented commands, or show one command's full schema.
 
-With no arguments, list every implemented command as {name, summary}. With command words (a group word followed by its subcommand, e.g. `schema json get`), return those commands' full detail. `--all` returns every command's detail.
+With no arguments, list every implemented command as {name, summary}. With command words (a group path followed by its subcommand token, e.g. schema org todo set), return those commands' full detail. `--all` returns every command's detail.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `commands` | string, repeatable |  | Command names as typed, e.g. `read` or `json get`. |
+| `commands` | string, repeatable |  | Command names as typed, such as read, json get, or org todo set. |
 | `--all` | flag |  | Return every command's full detail. |
 
 | Output field | Description |
