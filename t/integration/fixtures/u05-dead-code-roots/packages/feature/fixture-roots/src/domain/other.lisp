@@ -1,0 +1,10 @@
+(in-package #:aitools.fixture.other)
+
+(defun |duplicate-target| ()
+  (car '(fixture-value)))
+(defun |same-name-target| ()
+  nil)
+(defun find-symbol (name package)
+  (values name package))
+(defun relay-target ()
+  nil)

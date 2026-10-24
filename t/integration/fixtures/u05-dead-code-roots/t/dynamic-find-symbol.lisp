@@ -1,0 +1,6 @@
+(in-package #:cl-user)
+(aitools.fixture.roots.api::dynamic-find-symbol-test "name" "package")
+(aitools.fixture.roots.api::quoted-dynamic-find-symbol)
+(aitools.fixture.roots.api::unqualified-dynamic-find-symbol-test "name" "package")
+(aitools.fixture.roots.api::lexical-find-symbol-shadow-test "name" "package")
+(aitools.fixture.roots::%loop-generated-model-user)
