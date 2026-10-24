@@ -39,18 +39,26 @@ opens the file once and reads nothing past the sniffed prefix of a binary file."
  "Probe PATH and call ON-FILE (target) for a regular file; a missing path
 or a directory ends in ON-ERROR with its repairs."
  (declare (type function on-file on-error))
- (labels ((report-error (code message &key candidates diagnostics conflicts repairs)
-            (aitools.kernel.domain:flow-continue
-             :on-error code message
-             :candidates candidates
-             :diagnostics diagnostics
-             :conflicts conflicts
-             :repairs repairs)))
-   (let ((target (probe-target context path)))
-     (case (file-target-kind target)
-       (:file (aitools.kernel.domain:flow-continue :on-file target))
-       (:absent (fail-missing context target #'report-error))
-       (t (fail-not-a-file context target #'report-error))))))
+ (let ((target (probe-target context path)))
+   (case (file-target-kind target)
+     (:file
+      (aitools.kernel.domain:flow-continue :on-file target))
+     (:absent
+      (aitools.kernel.domain:flow-call
+       (%read-target-error/k context target nil)
+       (:on-error (code message &key candidates diagnostics conflicts repairs)
+         (aitools.kernel.domain:flow-continue
+          :on-error code message
+          :candidates candidates
+          :diagnostics diagnostics
+          :conflicts conflicts
+          :repairs repairs))))
+     (t
+      (aitools.kernel.domain:flow-call
+       (fail-not-a-file context target)
+       (:on-error (code message &key repairs)
+         (aitools.kernel.domain:flow-continue
+          :on-error code message :repairs repairs)))))))
 (aitools.kernel.domain:define-flow
  (record-read/k context target &key on-recorded on-error)
  "With `--tx`, record TARGET's disk state in the tx's read set (a

@@ -16,17 +16,15 @@
      (read-target-octets context target)
    (let ((path (file-target-argument target)))
      (if (null octets)
-         (fail-target-read
-          context target
-          (lambda (code message &key candidates diagnostics conflicts repairs)
+         (aitools.kernel.domain:flow-call
+          (%read-target-error/k context target problem)
+          (:on-error (code message &key candidates diagnostics conflicts repairs)
             (aitools.kernel.domain:flow-continue
-             :on-error
-             code message
+             :on-error code message
              :candidates candidates
              :diagnostics diagnostics
              :conflicts conflicts
-             :repairs repairs))
-          problem)
+             :repairs repairs)))
          (aitools.kernel.domain:flow-call
              (%table-lines/k octets options)
            (:on-lines (lines)

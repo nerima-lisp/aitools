@@ -19,11 +19,6 @@
   (view nil :read-only t)
   (lock-timeout-ms 0 :type integer :read-only t))
 
-(defun fail (on-error code message &rest keys &key repairs candidates diagnostics conflicts)
-  "Call ON-ERROR for CODE with KEYS. Every caller names at least one repair."
-  (declare (ignore repairs candidates diagnostics conflicts))
-  (apply on-error code message keys))
-
 (defun context-host (context)
   (inspect-ports-workspace-host (inspect-context-ports context)))
 

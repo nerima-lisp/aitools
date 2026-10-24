@@ -11,12 +11,14 @@
       (values (subseq items 0 limit) t)
       (values items nil)))
 
-(defun %finish (on-ok on-partial truncated fields)
-  (funcall
+(aitools.kernel.domain:define-flow
+ (%finish truncated fields &key on-ok on-partial)
+ (declare (type function on-ok on-partial))
+ (let ((fields (append fields
+                       (list (cons "truncated" (json-bool truncated))))))
    (if truncated
-       on-partial
-       on-ok)
-   (append fields (list (cons "truncated" (json-bool truncated))))))
+       (aitools.kernel.domain:flow-continue :on-partial fields)
+       (aitools.kernel.domain:flow-continue :on-ok fields))))
 
 ;;; ------------------------------------------------------------ files
 (defun %file-diff-fields (display-a display-b
@@ -188,53 +190,5 @@ aitools temp files skipped, sorted by path."
                      (cons "identical_count"
                            (- (length both) (length modified))))
                (or truncated-added truncated-removed truncated-modified)))))))))
-
-(defun %compare-paths (context a b options on-ok on-partial on-error)
-  (let ((target-a (probe-target context a))
-        (target-b (probe-target context b)))
-    (cond
-      ((eq (file-target-kind target-a) :absent)
-       (fail-missing context target-a on-error))
-      ((eq (file-target-kind target-b) :absent)
-       (fail-missing context target-b on-error))
-      ((and (eq (file-target-kind target-a) :directory)
-            (eq (file-target-kind target-b) :directory))
-       (multiple-value-bind (fields truncated)
-           (%directory-fields context target-a target-b (getf options :limit))
-         (%finish on-ok on-partial truncated fields)))
-      ((and (eq (file-target-kind target-a) :file)
-            (eq (file-target-kind target-b) :file))
-       (multiple-value-bind (octets-a problem-a)
-           (read-target-octets context target-a)
-         (multiple-value-bind (octets-b problem-b)
-             (read-target-octets context target-b)
-           (cond
-             ((null octets-a)
-              (fail-target-read context target-a on-error problem-a))
-             ((null octets-b)
-              (fail-target-read context target-b on-error problem-b))
-             (t
-              (multiple-value-bind (fields truncated)
-                  (apply #'%file-diff-fields
-                         (target-display-path target-a)
-                         (target-display-path target-b)
-                         a
-                         b
-                         octets-a
-                         octets-b
-                         options)
-                (%finish on-ok on-partial truncated fields)))))))
-      (t
-       (fail on-error
-             "argument.invalid"
-             (format nil
-                     "~A and ~A must both be files or both be directories"
-                     a
-                     b)
-             :repairs
-             (list
-              (repair "describe"
-                      "Check what each path is."
-                      (command-line context (list "info" a)))))))))
 
 ;;; ------------------------------------------------------------ --op

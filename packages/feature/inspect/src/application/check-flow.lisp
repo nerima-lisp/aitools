@@ -76,15 +76,14 @@
            (:on-error (code message &key diagnostics repairs)
              (aitools.kernel.domain:flow-continue
               :on-error code message :diagnostics diagnostics :repairs repairs)))
-          (fail-target-read
-           context
-           target
-           (lambda (code message &key candidates repairs)
+          (aitools.kernel.domain:flow-call
+           (%read-target-error/k context target problem)
+           (:on-error (code message &key candidates repairs)
              (if candidates
                  (aitools.kernel.domain:flow-continue
                   :on-error code message :candidates candidates :repairs repairs)
-                 (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))
-           problem))))
+                 (aitools.kernel.domain:flow-continue
+                  :on-error code message :repairs repairs)))))))
   (:on-error (code message &key repairs)
     (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))))
 

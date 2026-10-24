@@ -135,42 +135,68 @@ so a whole-file walk holds one chunk at a time. Returns the byte size, or
                             :count count
                             :max-distance (max 3 (floor (length name) 2)))))))
 
-(defun fail-missing (context target on-error)
-  (fail on-error "input.not-found"
-        (format nil "file ~A does not exist" (file-target-argument target))
-        :candidates (missing-path-candidates context (file-target-absolute target))
-        :repairs (list (repair "find" "List nearby files."
-                               (command-line context (list "find" (path-basename (file-target-absolute target)))
-                                             :tx :none)))))
-
-(defun fail-unreadable (context target on-error)
-  "contract-F1: a path that exists but was denied (EACCES) is environment.io,
-not input.not-found."
-  (fail on-error "environment.io"
-        (format nil "file ~A cannot be read: permission denied" (file-target-argument target))
-        :repairs (list (repair "describe" "Show the file's mode and owner to fix its permissions."
-                               (command-line context (list "info" (file-target-argument target)) :tx :none)))))
-
-(defun fail-target-read (context target on-error problem)
-  "Answer a failed read of an existing :FILE target: environment.io when
-PROBLEM is :UNREADABLE (EACCES), else input.not-found for a vanished file."
-  (if (eq problem :unreadable)
-      (fail-unreadable context target on-error)
-      (fail-missing context target on-error)))
-
-(defun fail-not-a-file (context target on-error)
-  "A directory is refused with a listing of it as the repair; anything else
-that is not a regular file (a FIFO, socket, or device) with `info`."
-  (let ((argument (file-target-argument target)))
-    (if (eq (file-target-kind target) :directory)
-        (fail on-error "refusal.not-a-file" (format nil "~A is a directory, not a file" argument)
-              :repairs (list (repair "list-directory" "List the directory instead."
-                                     (command-line context (list "find" "--depth" "1" argument) :tx :none))))
-        (fail on-error "refusal.not-a-file" (format nil "~A is not a regular file" argument)
-              :repairs (list (repair "describe" "Show what kind of file it is."
-                                     (command-line context (list "info" argument) :tx :none)))))))
+(aitools.kernel.domain:define-flow
+ (fail-not-a-file context target &key on-error)
+ "Refuse a directory or other non-regular file with the matching repair."
+ (declare (type function on-error))
+ (let* ((argument (file-target-argument target))
+        (directory (eq (file-target-kind target) :directory))
+        (message (if directory
+                     (format nil "~A is a directory, not a file" argument)
+                     (format nil "~A is not a regular file" argument)))
+        (repair-data
+          (if directory
+              (repair "list-directory"
+                      "List the directory instead."
+                      (command-line
+                       context (list "find" "--depth" "1" argument) :tx :none))
+              (repair "describe"
+                      "Show what kind of file it is."
+                      (command-line context (list "info" argument) :tx :none)))))
+   (aitools.kernel.domain:flow-continue
+    :on-error "refusal.not-a-file" message :repairs (list repair-data))))
 
 ;;; The change-detection hash rule `info` and every write's
 ;;; --expect-hash share is AITOOLS.STORE.APPLICATION:PATH-HASH: it bridges a
 ;;; store view and the workspace host, so it lives in the store context (see
 ;;; packages/core/store/src/application/view.lisp) and is imported here.
+
+(aitools.kernel.domain:define-flow
+ (%read-target-error/k context target problem &key on-error)
+ (declare (type function on-error))
+ (if (eq problem :unreadable)
+     (aitools.kernel.domain:flow-continue :on-error
+                                          "environment.io"
+                                          (format nil
+                                                  "file ~A cannot be read: permission denied"
+                                                  (file-target-argument target))
+                                          :repairs
+                                          (list
+                                           (repair "describe"
+                                                   "Show the file's mode and owner to fix its permissions."
+                                                   (command-line context
+                                                                 (list "info"
+                                                                       (file-target-argument
+                                                                        target))
+                                                                 :tx
+                                                                 :none))))
+     (aitools.kernel.domain:flow-continue :on-error
+                                          "input.not-found"
+                                          (format nil
+                                                  "file ~A does not exist"
+                                                  (file-target-argument target))
+                                          :candidates
+                                          (missing-path-candidates context
+                                                                   (file-target-absolute
+                                                                    target))
+                                          :repairs
+                                          (list
+                                           (repair "find"
+                                                   "List nearby files."
+                                                   (command-line context
+                                                                 (list "find"
+                                                                       (path-basename
+                                                                        (file-target-absolute
+                                                                         target)))
+                                                                 :tx
+                                                                 :none))))))

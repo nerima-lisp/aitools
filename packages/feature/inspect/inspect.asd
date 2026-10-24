@@ -50,7 +50,6 @@
                                   (:file "read-text-view-output")
                                   (:file "read-text-view-selection-output")
                                   (:file "read-text-view-flow")
-                                  (:file "read-target-error-flow")
                                   (:file "read-binary-flow")
                                   (:file "read-strings-flow")
                                   (:file "read-text-reader-flow")

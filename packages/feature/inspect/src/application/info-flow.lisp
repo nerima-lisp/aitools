@@ -114,14 +114,7 @@ rule, so the value is the one --expect-hash compares), else nothing."
   "`info`. Calls ON-OK (fields) or ON-ERROR."
   (declare (ignore on-partial) (type function on-ok on-error))
   (labels ((report-ok (fields)
-             (aitools.kernel.domain:flow-continue :on-ok fields))
-           (report-error (code message &key candidates diagnostics conflicts repairs)
-             (aitools.kernel.domain:flow-continue
-              :on-error code message
-              :candidates candidates
-              :diagnostics diagnostics
-              :conflicts conflicts
-              :repairs repairs)))
+             (aitools.kernel.domain:flow-continue :on-ok fields)))
     (aitools.kernel.domain:flow-call
      (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
      (:on-ready (context)
@@ -136,7 +129,15 @@ rule, so the value is the one --expect-hash compares), else nothing."
                      (:absent
                       (if allow-missing
                           (report-ok (append path-fields (%link-hash-fields context target)))
-                          (fail-missing context target #'report-error)))
+                          (aitools.kernel.domain:flow-call
+                           (%read-target-error/k context target nil)
+                           (:on-error (code message &key candidates diagnostics conflicts repairs)
+                             (aitools.kernel.domain:flow-continue
+                              :on-error code message
+                              :candidates candidates
+                              :diagnostics diagnostics
+                              :conflicts conflicts
+                              :repairs repairs)))))
                      (:file
                       (aitools.kernel.domain:flow-call
                        (record-read/k context target)
@@ -150,7 +151,15 @@ rule, so the value is the one --expect-hash compares), else nothing."
                                  (report-ok (append path-fields
                                                     (with-stat (ldiff content hash-tail))
                                                     hash-tail)))
-                               (fail-target-read context target #'report-error problem))))
+                               (aitools.kernel.domain:flow-call
+                                (%read-target-error/k context target problem)
+                                (:on-error (code message &key candidates diagnostics conflicts repairs)
+                                  (aitools.kernel.domain:flow-continue
+                                   :on-error code message
+                                   :candidates candidates
+                                   :diagnostics diagnostics
+                                   :conflicts conflicts
+                                   :repairs repairs))))))
                        (:on-error (code message &key repairs)
                          (aitools.kernel.domain:flow-continue
                           :on-error code message :repairs repairs))))

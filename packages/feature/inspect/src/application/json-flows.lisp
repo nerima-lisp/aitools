@@ -32,43 +32,44 @@
  (%json-document context target &key on-document on-error)
  "Parse TARGET's bytes as JSON and call ON-DOCUMENT (value)."
  (declare (type function on-document on-error))
- (labels ((report-error (code message &key candidates diagnostics conflicts repairs)
-            (aitools.kernel.domain:flow-continue
-             :on-error code message
-             :candidates candidates
-             :diagnostics diagnostics
-             :conflicts conflicts
-             :repairs repairs)))
-   (multiple-value-bind (octets problem)
-       (read-target-octets context target)
-     (if (null octets)
-         (fail-target-read context target #'report-error problem)
-         (aitools.kernel.domain:flow-call
-          (parse-json-document/k
-           (%join-lines (decode-text-lines octets)))
-          (:on-value (document)
-            (aitools.kernel.domain:flow-continue
-             :on-document document))
-          (:on-error (message line column)
-            (aitools.kernel.domain:flow-continue
-             :on-error
-             "input.unsupported-format"
-             (format nil "~A is not JSON: ~A at line ~D, column ~D"
-                     (file-target-argument target)
-                     message
-                     line
-                     column)
-             :diagnostics
-             (list (json-object "line" line "col" column "message" message))
-             :repairs
-             (list
-              (repair "check"
-                      "Locate the syntax error."
-                      (command-line context
-                                    (list "check"
-                                          (file-target-argument target)
-                                          "--format"
-                                          "json")))))))))))
+ (multiple-value-bind (octets problem)
+     (read-target-octets context target)
+   (if (null octets)
+       (aitools.kernel.domain:flow-call
+        (%read-target-error/k context target problem)
+        (:on-error (code message &key candidates diagnostics conflicts repairs)
+          (aitools.kernel.domain:flow-continue
+           :on-error code message
+           :candidates candidates
+           :diagnostics diagnostics
+           :conflicts conflicts
+           :repairs repairs)))
+       (aitools.kernel.domain:flow-call
+        (parse-json-document/k
+         (%join-lines (decode-text-lines octets)))
+        (:on-value (document)
+          (aitools.kernel.domain:flow-continue
+           :on-document document))
+        (:on-error (message line column)
+          (aitools.kernel.domain:flow-continue
+           :on-error
+           "input.unsupported-format"
+           (format nil "~A is not JSON: ~A at line ~D, column ~D"
+                   (file-target-argument target)
+                   message
+                   line
+                   column)
+           :diagnostics
+           (list (json-object "line" line "col" column "message" message))
+           :repairs
+           (list
+            (repair "check"
+                    "Locate the syntax error."
+                    (command-line context
+                                  (list "check"
+                                        (file-target-argument target)
+                                        "--format"
+                                        "json"))))))))))
 
 (aitools.kernel.domain:define-flow
  (%pointer-tokens pointer group &key on-tokens on-error)

@@ -15,7 +15,15 @@
    (multiple-value-bind (octets problem)
        (read-target-octets context target)
      (if (null octets)
-         (fail-target-read context target #'report-error problem)
+         (aitools.kernel.domain:flow-call
+          (%read-target-error/k context target problem)
+          (:on-error (code message &key candidates diagnostics conflicts repairs)
+            (report-error
+             code message
+             :candidates candidates
+             :diagnostics diagnostics
+             :conflicts conflicts
+             :repairs repairs)))
          (handler-case
              (aitools.kernel.domain:flow-continue
               :on-document
@@ -53,7 +61,15 @@
    (multiple-value-bind (octets problem)
        (read-target-octets context target)
      (if (null octets)
-         (fail-target-read context target #'report-error problem)
+         (aitools.kernel.domain:flow-call
+          (%read-target-error/k context target problem)
+          (:on-error (code message &key candidates diagnostics conflicts repairs)
+            (report-error
+             code message
+             :candidates candidates
+             :diagnostics diagnostics
+             :conflicts conflicts
+             :repairs repairs)))
          (handler-case
              (aitools.kernel.domain:flow-continue
               :on-document
