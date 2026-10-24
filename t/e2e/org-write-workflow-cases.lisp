@@ -43,7 +43,7 @@
                                   "--state" "DONE" "--note" "closing note"))
                            "org.todo.set"))
            (expected (octets
-                      (format nil "#+TODO: TODO(t!) | DONE(d@)~%* DONE Close~%CLOSED: [2026-10-19 Mon 09:00]~%:LOGBOOK:~%- CLOSING NOTE [2026-10-19 Mon 09:00] \\\\~%  closing note~%:END:~%"))))
+                      (format nil "#+TODO: TODO(t!) | DONE(d@)~%* DONE Close~%:LOGBOOK:~%- State \"DONE\"       from \"TODO\"       [2026-10-19 Mon 09:00] \\\\~%  closing note~%:END:~%"))))
       (expect (jget result "previous_state") :to-equal "TODO")
       (expect (jget result "new_state") :to-equal "DONE")
       (expect (jget result "changed") :to-be t)

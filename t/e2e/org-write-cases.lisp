@@ -195,9 +195,9 @@
     (expect (jget clock-in "changed") :to-be t)
     (expect (file-text ws "clock-in.org")
             :to-equal
-            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--~%:END:~%")))
+            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%")))
   (put ws "clock-out.org"
-       (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--~%:END:~%"))
+       (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%"))
   (let ((clock-out
           (org-ok ws
                   (org-write-time-args
@@ -209,11 +209,11 @@
     (expect (jget clock-out "changed") :to-be t)
     (expect (file-text ws "clock-out.org")
             :to-equal
-            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] => 0:30~%:END:~%"))))
+            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%:END:~%"))))
 
   (define-org-write-case ("org clock report aggregates closed clocks and omits running clocks" ws)
     (put ws "clock-report.org"
-         (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] => 0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] => 0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
+         (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] =>  0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
     (let* ((report (org-ok ws
                            '("org" "clock" "report" "clock-report.org" "--match" "/!"
                              "--from" "2026-10-19T09:00:00" "--through" "2026-10-19T10:00:00"
