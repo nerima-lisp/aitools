@@ -1,7 +1,7 @@
 ;;;; t/unit/kernel/json-test.lisp
 ;;;;
 ;;;; The JSON pointer and equality rules shared by the inspect and edit
-;;;; contexts. The values below use a representation private to this test
+;;;; contexts. The test-json-equal cases use a representation private to this test
 ;;;; (plists for objects, lists for arrays, keywords for literals, and either
 ;;;; Lisp numbers or number text), which is the point: JSON-EQUAL knows only
 ;;;; the classifier it is given.
@@ -19,59 +19,10 @@
 (defun test-json-equal (a b)
   (json-equal a b #'classify-test-value))
 
-(defstruct (stub-object (:constructor make-stub-object (members)) (:copier nil))
-  (members '() :read-only t))
+(defun json-object-with (&rest members)
+  (aitools.edit.domain:make-json-obj members))
 
-(defstruct (stub-array (:constructor make-stub-array (elements)) (:copier nil))
-  (elements #() :read-only t))
-
-(defun stub-object-with (&rest members)
-  (make-stub-object members))
-
-(defun stub-equal (left right)
-  (cond
-    ((and (stub-object-p left) (stub-object-p right))
-     (let ((left-members (stub-object-members left))
-           (right-members (stub-object-members right)))
-       (and (= (length left-members) (length right-members))
-            (every (lambda (left-member right-member)
-                     (and (equal (car left-member) (car right-member))
-                          (stub-equal (cdr left-member) (cdr right-member))))
-                   left-members right-members))))
-    ((and (stub-array-p left) (stub-array-p right))
-     (and (= (length (stub-array-elements left)) (length (stub-array-elements right)))
-          (every #'stub-equal (stub-array-elements left) (stub-array-elements right))))
-    ((or (stub-object-p left) (stub-object-p right)
-         (stub-array-p left) (stub-array-p right))
-     nil)
-    (t (equal left right))))
-
-(defun make-stub-value-model ()
-  (make-json-value-model
-   :object-p #'stub-object-p
-   :object-members #'stub-object-members
-   :object-from-members #'make-stub-object
-   :array-p #'stub-array-p
-   :array-elements #'stub-array-elements
-   :array-from-elements (lambda (elements) (make-stub-array (coerce elements 'vector)))
-   :array-insert (lambda (array index value)
-                   (make-stub-array
-                    (concatenate 'vector
-                                 (subseq (stub-array-elements array) 0 index)
-                                 (vector value)
-                                 (subseq (stub-array-elements array) index))))
-   :array-remove (lambda (array index)
-                   (make-stub-array
-                    (concatenate 'vector
-                                 (subseq (stub-array-elements array) 0 index)
-                                 (subseq (stub-array-elements array) (1+ index)))))
-   :null-p (lambda (value) (eq value :null))
-   :string-p #'stringp
-   :string-text #'identity
-   :string-length #'length
-   :equal #'stub-equal))
-
-(defun stub-model-error-message (thunk)
+(defun model-error-message (thunk)
   (handler-case (progn (funcall thunk) nil)
     (json-model-error (condition) (json-model-error-message condition))))
 
@@ -170,65 +121,71 @@
     (expect (test-json-equal 1/2 '(:number "0.5")) :to-be-truthy)))
 
 (describe "aitools.kernel.domain JSON value models"
-  (it "applies pointer operations to an object represented by a structure"
-    (let* ((model (make-stub-value-model))
-           (root (stub-object-with
-                  (cons "profile" (stub-object-with (cons "name" "old")))
-                  (cons "items" (make-stub-array (vector "one" "two")))))
-           (added (json-model-add model root '("profile" "city") "Tokyo"))
-           (replaced (json-model-replace model added '("items" "1") "TWO"))
-           (removed (json-model-remove model replaced '("items" "0"))))
-      (expect (json-model-pointer-get model added '("profile" "city")) :to-equal "Tokyo")
-      (expect (json-model-pointer-get model replaced '("items" "1")) :to-equal "TWO")
-      (expect (json-model-pointer-get model removed '("items" "0")) :to-equal "TWO")
-      (expect (stub-array-p (json-model-pointer-get model removed '("items"))) :to-be-truthy)))
+  (it "applies pointer operations to the production JSON representation"
+    (let* ((model aitools.edit.domain::*json-value-model*)
+           (root (json-object-with
+                  (cons "profile" (json-object-with (cons "name" "old")))
+                  (cons "items" (vector "one" "two"))))
+           (added (json-model-add model root (list "profile" "city") "Tokyo"))
+           (replaced (json-model-replace model added (list "items" "1") "TWO"))
+           (removed (json-model-remove model replaced (list "items" "0")))
+           (removed-items (json-model-pointer-get model removed (list "items"))))
+      (expect (json-model-pointer-get model added (list "profile" "city")) :to-equal "Tokyo")
+      (expect (json-model-pointer-get model replaced (list "items" "1")) :to-equal "TWO")
+      (expect (json-model-pointer-get model removed (list "items" "0")) :to-equal "TWO")
+      (expect (and (vectorp removed-items) (not (stringp removed-items))) :to-be-truthy)))
 
-  (it "applies JSON Patch operations through the value model"
-    (let* ((model (make-stub-value-model))
-           (root (stub-object-with
-                  (cons "items" (make-stub-array (vector "one" "two")))))
-           (operations (make-stub-array
-                        (vector
-                         (stub-object-with (cons "op" "add")
-                                           (cons "path" "/items/1")
-                                           (cons "value" "middle"))
-                         (stub-object-with (cons "op" "replace")
-                                           (cons "path" "/items/0")
-                                           (cons "value" "first"))
-                         (stub-object-with (cons "op" "test")
-                                           (cons "path" "/items/1")
-                                           (cons "value" "middle"))
-                         (stub-object-with (cons "op" "remove")
-                                           (cons "path" "/items/2")))))
-           (result (json-model-apply-patch model root operations)))
-      (expect (json-model-pointer-get model result '("items" "0")) :to-equal "first")
-      (expect (json-model-pointer-get model result '("items" "1")) :to-equal "middle")
-      (expect (length (stub-array-elements (json-model-pointer-get model result '("items"))))
-              :to-equal 2)))
+  (it "applies JSON Patch operations through the production value model"
+    (let* ((model aitools.edit.domain::*json-value-model*)
+           (root (json-object-with
+                  (cons "items" (vector "one" "two"))))
+           (operations (vector
+                        (json-object-with (cons "op" "add")
+                                          (cons "path" "/items/1")
+                                          (cons "value" "middle"))
+                        (json-object-with (cons "op" "replace")
+                                          (cons "path" "/items/0")
+                                          (cons "value" "first"))
+                        (json-object-with (cons "op" "test")
+                                          (cons "path" "/items/1")
+                                          (cons "value" "middle"))
+                        (json-object-with (cons "op" "remove")
+                                          (cons "path" "/items/2")))))
+      (let ((equality-spy (cl-weave:spy-on (quote aitools.kernel.domain:json-model-equal))))
+        (unwind-protect
+             (let* ((result (json-model-apply-patch model root operations))
+                    (result-items (json-model-pointer-get model result (list "items"))))
+               (expect (json-model-pointer-get model result (list "items" "0")) :to-equal "first")
+               (expect (json-model-pointer-get model result (list "items" "1")) :to-equal "middle")
+               (expect (and (vectorp result-items) (not (stringp result-items))) :to-be-truthy)
+               (expect (length result-items) :to-equal 2)
+               (expect (length (cl-weave:mock-calls equality-spy)) :to-equal 1))
+          (cl-weave:mock-restore equality-spy)
+          (cl-weave:dispose-mock equality-spy)))))
 
   (it "preserves JSON Patch pointer errors and field validation order"
-    (let ((model (make-stub-value-model))
-          (root (stub-object-with (cons "name" "old"))))
+    (let ((model aitools.edit.domain::*json-value-model*)
+          (root (json-object-with (cons "name" "old"))))
       (flet ((apply-one (operation)
-               (json-model-apply-patch model root (make-stub-array (vector operation)))))
-        (expect (stub-model-error-message
+               (json-model-apply-patch model root (vector operation))))
+        (expect (model-error-message
                  (lambda ()
-                   (apply-one (stub-object-with (cons "op" "add")
+                   (apply-one (json-object-with (cons "op" "add")
                                                 (cons "path" "/bad~2")
                                                 (cons "value" "x")))))
                 :to-equal "JSON pointer \"/bad~2\" must be empty or start with /, with valid ~ escapes")
-        (expect (stub-model-error-message
+        (expect (model-error-message
                  (lambda ()
-                   (apply-one (stub-object-with (cons "op" "add")
+                   (apply-one (json-object-with (cons "op" "add")
                                                 (cons "value" "x")))))
                 :to-equal "JSON Patch operation lacks \"path\"")
-        (expect (stub-model-error-message
+        (expect (model-error-message
                  (lambda ()
-                   (apply-one (stub-object-with (cons "op" "replace")
+                   (apply-one (json-object-with (cons "op" "replace")
                                                 (cons "value" "x")))))
                 :to-equal "JSON Patch operation lacks \"path\"")
-        (expect (stub-model-error-message
+        (expect (model-error-message
                  (lambda ()
-                   (apply-one (stub-object-with (cons "op" "test")
+                   (apply-one (json-object-with (cons "op" "test")
                                                 (cons "value" "x")))))
                 :to-equal "JSON Patch operation lacks \"path\"")))))

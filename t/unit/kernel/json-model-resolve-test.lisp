@@ -2,9 +2,9 @@
 
 (describe "aitools.kernel.domain JSON model continuation"
   (it "calls on-found after resolving every pointer token"
-    (let* ((model (make-stub-value-model))
-           (profile (stub-object-with (cons "name" "Ada")))
-           (document (stub-object-with (cons "profile" profile)))
+    (let* ((model aitools.edit.domain::*json-value-model*)
+           (profile (json-object-with (cons "name" "Ada")))
+           (document (json-object-with (cons "profile" profile)))
            (result nil))
       (json-model-resolve/k
        model document (quote ("profile" "name"))
@@ -12,9 +12,9 @@
        :on-missing (lambda (&rest values) (setf result values)))
       (expect result :to-equal "Ada")))
   (it "passes the prefix, current value, and missing token to on-missing"
-    (let* ((model (make-stub-value-model))
-           (profile (stub-object-with (cons "name" "Ada")))
-           (document (stub-object-with (cons "profile" profile)))
+    (let* ((model aitools.edit.domain::*json-value-model*)
+           (profile (json-object-with (cons "name" "Ada")))
+           (document (json-object-with (cons "profile" profile)))
            (result nil))
       (json-model-resolve/k
        model document (quote ("profile" "age"))
