@@ -1,6 +1,6 @@
 (require :asdf)
 
-(defparameter *f0-revision* "1b20c3abdea1d95a049cdb0481afcfd72072b2a4")
+(defparameter *baseline-revision* "1b20c3abdea1d95a049cdb0481afcfd72072b2a4")
 (defparameter *warmup-pairs* 2)
 (defparameter *sample-pairs* 15)
 
@@ -20,12 +20,12 @@
     (ensure-directories-exist (merge-pathnames "source.lisp" directory))
     directory))
 
-(defun %extract-f0-source (root directory relative-path name)
+(defun %extract-baseline-source (root directory relative-path name)
   (let* ((source (merge-pathnames (format nil "~A.lisp" name) directory))
          (fasl (merge-pathnames (format nil "~A.fasl" name) directory))
          (text (uiop:run-program
                 (list "jj" "file" "show" "--ignore-working-copy"
-                      "-r" *f0-revision* relative-path)
+                      "-r" *baseline-revision* relative-path)
                 :directory root :output :string :error-output :string)))
     (unless (plusp (length text))
       (error "Historical source is empty: ~A" relative-path))
@@ -36,7 +36,7 @@
         (compile-file source :output-file fasl)
       (declare (ignore warnings-p))
       (when failure-p
-        (error "Could not compile F0 source ~A" relative-path))
+        (error "Could not compile baseline source ~A" relative-path))
       (load compiled))))
 
 (defun %make-input (size seed)
@@ -194,21 +194,21 @@
                       (symbol-function (find-symbol "INFLATE" "AITOOLS.TEXT.DOMAIN")))
                     (expected-sha (funcall current-sha sha-input))
                     (shared-compressed (funcall current-deflate codec-input)))
-               (%extract-f0-source root temporary
+               (%extract-baseline-source root temporary
                                    "packages/core/kernel/src/domain/digest.lisp"
-                                   "f0-digest")
-               (%extract-f0-source root temporary
+                                   "baseline-digest")
+               (%extract-baseline-source root temporary
                                    "packages/core/text/src/domain/codec-deflate.lisp"
-                                   "f0-codec-deflate")
+                                   "baseline-codec-deflate")
                (let* ((old-sha
                         (symbol-function (find-symbol "SHA256-HEX" "AITOOLS.KERNEL.DOMAIN")))
                       (old-deflate
                         (symbol-function (find-symbol "DEFLATE" "AITOOLS.TEXT.DOMAIN")))
                       (old-inflate
                         (symbol-function (find-symbol "INFLATE" "AITOOLS.TEXT.DOMAIN"))))
-                 (format t "~&SBCL: ~A~%Platform: ~A / ~A / ~A~%F0 source revision: ~A~%"
+                 (format t "~&SBCL: ~A~%Platform: ~A / ~A / ~A~%Baseline source revision: ~A~%"
                          (lisp-implementation-version) (software-type)
-                         (machine-type) (machine-version) *f0-revision*)
+                         (machine-type) (machine-version) *baseline-revision*)
                  (format t "Protocol: one SBCL process; deterministic xorshift inputs; full GC before every timed call; order alternates within pairs; every pair checks SHA parity, DEFLATE round trips through both decoders, and inflate output/consumed length parity; no timing threshold.~%")
                  (%assert-inflate-result
                   (multiple-value-list (funcall current-inflate shared-compressed))
