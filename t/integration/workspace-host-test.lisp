@@ -25,7 +25,7 @@
 
 (describe "aitools workspace production host"
   (it "lists names with glob and escape characters and reports lstat kinds"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (write-file (concatenate 'string scratch "/a*b") "1")
       (write-file (concatenate 'string scratch "/[x]?") "2")
       (write-file (concatenate 'string scratch "/back\\slash") "3")
@@ -40,17 +40,17 @@
                      (aitools.workspace.application:host-read-octets host (concatenate 'string scratch "/a*b")))
                 :to-equal "1")
         (expect (aitools.workspace.application:host-stat host (concatenate 'string scratch "/missing"))
-                :to-be-falsy))))
+                :to-be-falsy)))))
 
   (it "refuses to read a FIFO instead of blocking on it"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((fifo (concatenate 'string scratch "/pipe")))
         (sb-posix:mkfifo fifo #o600)
         (expect (aitools.workspace.infrastructure:read-regular-file-octets fifo) :to-be-falsy)
-        (expect (aitools.workspace.infrastructure:read-regular-file-octets scratch) :to-be-falsy))))
+        (expect (aitools.workspace.infrastructure:read-regular-file-octets scratch) :to-be-falsy)))))
 
   (it "scans a real tree in path order, skipping builtin excludes outside git"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (dolist (file '("b.txt" "a/c.txt" "a.txt" "node_modules/x.js" "a*b.txt"))
         (write-file (concatenate 'string scratch "/" file) file))
       (let* ((host (host-for scratch)) (paths '()))
@@ -61,10 +61,10 @@
          :on-complete (lambda (source stopped) (declare (ignore stopped)) (expect source :to-be :builtin))
          :on-error (lambda (reason path) (fail (format nil "~A ~A" reason path))))
         (expect (mapcar #'first (reverse paths)) :to-equal '("a*b.txt" "a.txt" "a" "a/c.txt" "b.txt"))
-        (expect (second (assoc "a/c.txt" paths :test #'string=)) :to-be 7))))
+        (expect (second (assoc "a/c.txt" paths :test #'string=)) :to-be 7)))))
 
   (it "enforces the workspace boundary with real symlinks and a real .git directory"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((root-path (concatenate 'string scratch "/ws")))
         (make-directories (concatenate 'string root-path "/.git"))
         (make-directories (concatenate 'string scratch "/outside"))
@@ -84,7 +84,7 @@
             (expect (verdict "escape/new.lisp") :to-be :symlink-escape)
             (expect (verdict "../outside/x") :to-be :outside-root)
             (expect (verdict ".git/config") :to-be :git-directory)
-            (expect (verdict (concatenate 'string scratch "/state/tmp/scratch.txt")) :to-be :temporary))))))
+            (expect (verdict (concatenate 'string scratch "/state/tmp/scratch.txt")) :to-be :temporary)))))))
 
   (it "maps in input order on the CPU-sized pool"
     (expect (>= (aitools.workspace.infrastructure:processor-count) 1) :to-be-truthy)
@@ -101,7 +101,7 @@
 
 (describe "aitools workspace production host ports"
   (it "answers NIL for what each reader cannot read"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((file (concatenate 'string scratch "/plain.txt"))
             (missing (concatenate 'string scratch "/missing"))
             (host (host-for scratch)))
@@ -111,10 +111,10 @@
         (expect (multiple-value-list (aitools.workspace.application:host-list-directory host missing))
                 :to-equal '(nil nil))
         (expect (multiple-value-list (aitools.workspace.application:host-list-directory host file))
-                :to-equal '(nil nil)))))
+                :to-equal '(nil nil))))))
 
   (it "reports a FIFO as :other and reads a file larger than one buffer whole"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((fifo (concatenate 'string scratch "/pipe"))
             (big (concatenate 'string scratch "/big.bin"))
             (host (host-for scratch)))
@@ -126,12 +126,12 @@
                 :to-be :other)
         (let ((octets (aitools.workspace.application:host-read-octets host big)))
           (expect (length octets) :to-be 70000)
-          (expect (every (lambda (octet) (= octet 7)) octets) :to-be t)))))
+          (expect (every (lambda (octet) (= octet 7)) octets) :to-be t))))))
 
   (it "reports the root directory as / and any other directory without a trailing slash"
     ;; The non-root directory is a scratch directory, not a system one: the
     ;; Nix build sandbox has no /usr.
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((previous (sb-posix:getcwd))
             (host (aitools.workspace.infrastructure:make-host-workspace-host :getenv (constantly nil))))
         (unwind-protect
@@ -140,7 +140,7 @@
                (expect (aitools.workspace.application:host-current-directory host) :to-equal "/")
                (sb-posix:chdir (concatenate 'string scratch "/"))
                (expect (aitools.workspace.application:host-current-directory host) :to-equal scratch))
-          (sb-posix:chdir previous)))))
+          (sb-posix:chdir previous))))))
 
   (it "refuses a host port that is not a function"
     (expect (handler-case (aitools.workspace.application:make-workspace-host
@@ -153,7 +153,7 @@
   (it "maps a start given by its real path into the root named through the link"
     ;; `--root /tmp/x` from the working directory /private/tmp/x on macOS:
     ;; the root is lexical, a start typed from the working directory is real.
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((real-root (concatenate 'string scratch "/real/ws"))
             (linked-root (concatenate 'string scratch "/link/ws")))
         (write-file (concatenate 'string real-root "/a.txt") "a")
@@ -183,4 +183,4 @@
                     :to-equal (list :outside-root (concatenate 'string scratch "/elsewhere/c.txt")))
             (expect (aitools.workspace.application:workspace-path-ignored-p
                      host root (concatenate 'string real-root "/.git/config"))
-                    :to-be-truthy)))))))
+                    :to-be-truthy))))))))

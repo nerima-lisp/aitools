@@ -15,8 +15,7 @@
    #:string-bytes
    #:to-match-envelope
    #:tool-path
-   #:with-temporary-directory
    #:with-workspace
    #:write-bytes
    #:write-text
-   #:with-stdin-from))
+   #:with-stdin-from #:call-with-scratch-directory #:call-with-process-workspace))

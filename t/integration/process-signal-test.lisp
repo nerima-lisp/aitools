@@ -38,7 +38,7 @@ The process-info and signal-process ports remain the production ports."
 (describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))
     "aitools signal (integration)"
   (it "reaches a guarded PID and rejects changed guards and protected PIDs"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (multiple-value-bind (supervisor token) (signal-child root)
         (unwind-protect
              (let* ((target (or (matching-signal-child token supervisor) (error "signal child did not appear")))
@@ -67,10 +67,11 @@ The process-info and signal-process ports remain the production ports."
                  (expect code :to-be 0)
                  (expect (value envelope "total") :to-be 1)))
           (kill-group supervisor)
-          (expect (wait-for-group-gone supervisor) :to-be t)))))
+          (expect (wait-for-group-gone supervisor) :to-be t))))
+    :prefix "aitools-process"))
 
   (it "rejects incomplete or mismatched pattern selection and sends KILL after grace"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (multiple-value-bind (supervisor token) (signal-child root :stubborn t)
         (unwind-protect
              (let* ((target (or (matching-signal-child token supervisor) (error "signal child did not appear")))
@@ -135,10 +136,11 @@ The process-info and signal-process ports remain the production ports."
                               kill-sent (relative-ms kill-sent)
                               wait-decision)))))))))
           (kill-group supervisor)
-          (expect (wait-for-group-gone supervisor) :to-be t)))))
+          (expect (wait-for-group-gone supervisor) :to-be t))))
+    :prefix "aitools-process"))
 
   (it "signals its own child through a unique argv marker in pattern mode"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (multiple-value-bind (supervisor token) (signal-child root)
         (unwind-protect
              (let* ((target (or (matching-signal-child token supervisor)
@@ -155,10 +157,11 @@ The process-info and signal-process ports remain the production ports."
                  (expect (value envelope "items" 0 "signal") :to-be 15)
                  (expect (wait-for-pid-gone pid) :to-be t)))
           (kill-group supervisor)
-          (expect (wait-for-group-gone supervisor) :to-be t)))))
+          (expect (wait-for-group-gone supervisor) :to-be t))))
+    :prefix "aitools-process"))
 
   (it "accepts a start-time guard and sends the host USR1 number"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (multiple-value-bind (supervisor token) (signal-child root)
         (unwind-protect
              (let* ((target (or (matching-signal-child token supervisor)
@@ -172,4 +175,5 @@ The process-info and signal-process ports remain the production ports."
                  (expect (value envelope "items" 0 "signal")
                          :to-be #+darwin 30 #+linux 10)))
           (kill-group supervisor)
-          (expect (wait-for-group-gone supervisor) :to-be t))))))
+          (expect (wait-for-group-gone supervisor) :to-be t))))
+    :prefix "aitools-process")))

@@ -120,16 +120,16 @@
 (describe "aitools workspace gitignore parity with git ls-files"
   (it "matches git on nested .gitignore, negation, dir-only, anchoring, **, escapes, excludes, and the index"
     (unless (program-path "git") (skip "git is not on PATH; parity with git ls-files not checked"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((repository (concatenate 'string scratch "/repo")))
         (build-main-fixture scratch repository)
         (write-file (concatenate 'string repository "/new-untracked.txt") "x")
         (write-file (concatenate 'string repository "/new.log") "x")
-        (expect-parity scratch repository))))
+        (expect-parity scratch repository)))))
 
   (it "matches git with core.excludesFile set (the XDG default then unused)"
     (unless (program-path "git") (skip "git is not on PATH; parity with git ls-files not checked"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((repository (concatenate 'string scratch "/repo")))
         (git scratch scratch "init" "-q" repository)
         (write-file (concatenate 'string scratch "/home/custom-ignore") (format nil "*.custom~%"))
@@ -140,18 +140,18 @@
           (write-file (concatenate 'string repository "/" file) file))
         (expect-parity scratch repository :minimum 9)
         (expect (git-listing scratch repository)
-                :to-equal '("b.xdg" "c.txt" "d/f.xdg" "g/h.txt" "i.txt" "j.txt" "k.txt" "l.txt" "m.txt")))))
+                :to-equal '("b.xdg" "c.txt" "d/f.xdg" "g/h.txt" "i.txt" "j.txt" "k.txt" "l.txt" "m.txt"))))))
 
   (it "matches git in a linked worktree, whose info/exclude lives in the common dir"
     (unless (program-path "git") (skip "git is not on PATH; parity with git ls-files not checked"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((repository (concatenate 'string scratch "/repo"))
             (worktree (concatenate 'string scratch "/wt")))
         (build-main-fixture scratch repository)
         (git scratch repository "worktree" "add" "-q" worktree)
         (dolist (file '("wt-new.txt" "wt.log" "q.exclude" "sub/w.txt" "build/w.bin"))
           (write-file (concatenate 'string worktree "/" file) file))
-        (expect-parity scratch worktree)))))
+        (expect-parity scratch worktree))))))
 
 (describe "aitools workspace scan never starts git"
   (it "has no process-starting reference in the workspace context's sources"

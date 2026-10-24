@@ -9,12 +9,12 @@
 
 (defpackage #:aitools.workspace.integration-support
   (:use #:cl)
+  (:import-from #:aitools.test.support #:call-with-scratch-directory)
   (:export
    #:hex-octets
    #:program-path
    #:run-command
    #:call-with-scratch-directory
-   #:with-scratch-directory
    #:make-directories
    #:write-file
    #:read-file
@@ -69,23 +69,6 @@ is not found on SEARCH-PATH."
       (values (sb-ext:process-exit-code process)
               (coerce stdout '(simple-array (unsigned-byte 8) (*)))
               (get-output-stream-string stderr)))))
-
-(defun call-with-scratch-directory (function)
-  "Call FUNCTION with the real path (symlinks resolved, no trailing `/`) of a
-fresh private directory, removing it afterwards."
-  (let* ((template (concatenate 'string (string-right-trim "/" (or (sb-posix:getenv "TMPDIR") "/tmp"))
-                                "/aitools-it-XXXXXX"))
-         (created (sb-posix:mkdtemp template))
-         (real (string-right-trim "/" (sb-ext:native-namestring
-                                       (truename (sb-ext:parse-native-namestring created nil
-                                                                                 *default-pathname-defaults*
-                                                                                 :as-directory t))))))
-    (unwind-protect (funcall function real)
-      (when (search "/aitools-it-" real)
-        (run-command "/" "rm" (list "-rf" real))))))
-
-(defmacro with-scratch-directory ((var) &body body)
-  `(call-with-scratch-directory (lambda (,var) ,@body)))
 
 (defun make-directories (path)
   "mkdir -p for the native PATH."

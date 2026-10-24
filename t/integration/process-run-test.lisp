@@ -2,7 +2,7 @@
 
 (describe "aitools process trace port outcomes (integration)"
   (it "preserves run values while mapping completion statuses"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((observed nil)
              (ports
                (aitools.process.infrastructure:make-production-process-ports
@@ -38,7 +38,8 @@
                 :to-equal '((:child_process "process.run" :ok)
                             (:child_process "process.run" :timeout)
                             (:child_process "process.run" :unavailable)
-                            (:child_process "process.run" :error)))))))
+                            (:child_process "process.run" :error)))))
+    :prefix "aitools-process")))
 
 (describe "aitools run (integration)"
   (it "keeps stdin at EOF unless explicitly requested"
@@ -104,7 +105,7 @@
         (expect (lines envelope "stdout" "head") :to-equal (if (equal text "") nil (list text))))))
 
   (it "preserves binary stdin-file bytes and resolves it independently of child cwd"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((input (merge-pathnames "input.bin" directory))
              (child (merge-pathnames "child/" directory))
              (*default-pathname-defaults* directory))
@@ -119,10 +120,11 @@
                             (remove "" (uiop:split-string line :separator '(#\Space #\Tab))
                                     :test #'string=))
                           (lines envelope "stdout" "head"))
-                  :to-equal '("41" "00" "ff"))))))
+                  :to-equal '("41" "00" "ff")))))
+    :prefix "aitools-process"))
 
   (it "rejects a stdin FIFO without waiting for a writer"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((fifo (merge-pathnames "input.fifo" directory))
              (link (merge-pathnames "input-link" directory))
              (started (get-internal-real-time)))
@@ -133,17 +135,19 @@
               (invoke (list "run" "--stdin-file" (namestring path) "--timeout" "100ms" "--" "cat"))
             (expect code :to-be 1)
             (expect (value envelope "error" "code") :to-equal "environment.io")))
-        (expect (/ (- (get-internal-real-time) started) internal-time-units-per-second) :to-be-less-than 2))))
+        (expect (/ (- (get-internal-real-time) started) internal-time-units-per-second) :to-be-less-than 2)))
+    :prefix "aitools-process"))
 
   (it "sets child cwd without changing the caller's cwd"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((before (uiop:getcwd)))
         (multiple-value-bind (code envelope)
             (invoke (list "run" "--cwd" (namestring directory) "--" "pwd"))
           (expect code :to-be 0)
           (expect (value envelope "exit_code") :to-be 0)
           (expect (first (lines envelope "stdout" "head")) :to-equal (string-right-trim "/" (namestring directory))))
-        (expect (uiop:getcwd) :to-equal before))))
+        (expect (uiop:getcwd) :to-equal before)))
+    :prefix "aitools-process"))
 
   (it "overlays inherited environment with last-wins, empty, and embedded-equals values"
     (let ((before (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE")))
@@ -158,11 +162,12 @@
       (expect (uiop:getenv "AITOOLS_PROCESS_TEST_VALUE") :to-equal before)))
 
   (it "reports a missing stdin file as environment.io"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (multiple-value-bind (code envelope)
           (invoke (list "run" "--stdin-file" (namestring (merge-pathnames "absent" directory)) "--" "cat"))
         (expect code :to-be 1)
-        (expect (value envelope "error" "code") :to-equal "environment.io"))))
+        (expect (value envelope "error" "code") :to-equal "environment.io")))
+    :prefix "aitools-process"))
 
   (it "prints stdout lines of a real child"
     (multiple-value-bind (code envelope) (invoke (list "run" "--" "printf" (format nil "a~%b~%")))

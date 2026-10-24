@@ -7,7 +7,7 @@
 
 (describe "aitools bg logs of an ended process (integration)"
   (it "keeps ANSI escapes only under --no-strip-ansi"
-    (with-temporary-directory (state)
+    (aitools.test.support:call-with-temporary-directory (lambda (state)
       (let ((bg (merge-pathnames "bg/" state))
             (colored (format nil "~C[31mred~C[0m" (code-char 27) (code-char 27))))
         (ensure-directories-exist bg)
@@ -27,4 +27,5 @@
           (expect (lines envelope "lines") :to-equal '("red")))
         (multiple-value-bind (code envelope) (invoke (list "bg" "logs" "bg-1" "--no-strip-ansi") :state-directory state)
           (expect code :to-be 0)
-          (expect (lines envelope "lines") :to-equal (list colored)))))))
+          (expect (lines envelope "lines") :to-equal (list colored)))))
+    :prefix "aitools-process")))

@@ -12,7 +12,7 @@
   (:use #:cl)
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave #:it #:it-each #:expect #:describe-run-if)
-  (:import-from #:aitools.test.support #:json-alist-value #:with-temporary-directory))
+  (:import-from #:aitools.test.support #:json-alist-value))
 
 (in-package #:aitools.vcs.integration-test)
 (defun git-available-p ()
@@ -92,7 +92,7 @@ the parsed stdout, or stderr for an error."
 
 (describe-run-if (git-available-p) "aitools git commands against a real repository"
   (it "git status splits staged, unstaged, and untracked paths"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-status/k directory)
         (expect kind :to-be :ok)
@@ -100,10 +100,11 @@ the parsed stdout, or stderr for an error."
         (expect (mapcar (lambda (item) (json-alist-value item "path")) (field fields "staged")) :to-equal '("staged.txt"))
         (expect (json-alist-value (first (field fields "staged")) "status") :to-equal "A")
         (expect (mapcar (lambda (item) (json-alist-value item "path")) (field fields "unstaged")) :to-equal '("a.txt"))
-        (expect (field fields "untracked") :to-equal '("untracked.txt")))))
+        (expect (field fields "untracked") :to-equal '("untracked.txt"))))
+    :prefix "aitools-process"))
 
   (it "git log returns commits newest first and is partial past --limit"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-log/k directory :limit 1)
         (expect kind :to-be :partial)
@@ -116,10 +117,11 @@ the parsed stdout, or stderr for an error."
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-log/k directory :path "b.txt")
         (expect kind :to-be :ok)
         (expect (mapcar (lambda (item) (json-alist-value item "subject")) (field fields "items"))
-                :to-equal '("first commit")))))
+                :to-equal '("first commit"))))
+    :prefix "aitools-process"))
 
   (it "git diff gives hunks, stat counts, and summary files past --max-lines"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-diff/k directory)
         (expect kind :to-be :ok)
@@ -143,10 +145,11 @@ the parsed stdout, or stderr for an error."
       (multiple-value-bind (kind fields)
           (run-flow #'aitools.vcs.application:git-diff/k directory :ref "HEAD~1..HEAD" :path "a.txt")
         (expect kind :to-be :ok)
-        (expect (json-alist-value (first (field fields "files")) "added") :to-equal 1))))
+        (expect (json-alist-value (first (field fields "files")) "added") :to-equal 1)))
+    :prefix "aitools-process"))
 
   (it "git blame attributes lines to their commits within --range"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields)
           (run-flow #'aitools.vcs.application:git-blame/k directory "a.txt" :range "1:2")
@@ -159,10 +162,11 @@ the parsed stdout, or stderr for an error."
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-blame/k directory "a.txt")
         (expect kind :to-be :partial)
         (expect (field fields "total_lines") :to-equal 101)
-        (expect (field fields "next_commands") :to-equal '("aitools git blame a.txt --range 81:101")))))
+        (expect (field fields "next_commands") :to-equal '("aitools git blame a.txt --range 81:101"))))
+    :prefix "aitools-process"))
 
   (it "git show reads a committed blob with --range"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields)
           (run-flow #'aitools.vcs.application:git-show/k directory "HEAD:a.txt" :range "2:3")
@@ -171,16 +175,18 @@ the parsed stdout, or stderr for an error."
         (expect (field fields "total_lines") :to-equal 100))
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-show/k directory "HEAD:nope.txt")
         (expect kind :to-be :error)
-        (expect (getf fields :code) :to-equal "input.not-found"))))
+        (expect (getf fields :code) :to-equal "input.not-found")))
+    :prefix "aitools-process"))
 
   (it "reports environment.unavailable outside a repository"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (multiple-value-bind (kind fields) (run-flow #'aitools.vcs.application:git-status/k directory)
         (expect kind :to-be :error)
-        (expect (getf fields :code) :to-equal "environment.unavailable"))))
+        (expect (getf fields :code) :to-equal "environment.unavailable")))
+    :prefix "aitools-process"))
 
   (it "dispatches `aitools git ...` with aitools exit codes"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (code envelope) (dispatch-in directory "git" "log" "--limit" "5")
         (expect code :to-equal 0)
@@ -196,13 +202,15 @@ the parsed stdout, or stderr for an error."
         (expect code :to-equal 0)
         (expect (map 'list (lambda (line) (gethash "n" line)) (gethash "lines" envelope))
                 :to-equal '(10 100))))
-    (with-temporary-directory (directory)
+    :prefix "aitools-process")
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (multiple-value-bind (code envelope) (dispatch-in directory "git" "status")
         (expect code :to-equal 1)
-        (expect (gethash "code" (gethash "error" envelope)) :to-equal "environment.unavailable"))))
+        (expect (gethash "code" (gethash "error" envelope)) :to-equal "environment.unavailable")))
+    :prefix "aitools-process"))
 
   (it "resolves path arguments against the working directory, not the repository top"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (let ((subdirectory (merge-pathnames "sub/" directory)))
         (ensure-directories-exist subdirectory)
@@ -216,17 +224,20 @@ the parsed stdout, or stderr for an error."
           (expect (coerce (gethash "lines" envelope) 'list) :to-equal '("keep")))
         (multiple-value-bind (code envelope) (dispatch-in subdirectory "git" "blame" "../a.txt" "--range" "1")
           (expect code :to-equal 0)
-          (expect (gethash "path" envelope) :to-equal "a.txt")))))
+          (expect (gethash "path" envelope) :to-equal "a.txt"))))
+    :prefix "aitools-process"))
 
   (it "runs git in the global --root directory"
-    (with-temporary-directory (repository)
+    (aitools.test.support:call-with-temporary-directory (lambda (repository)
       (build-fixture repository)
-      (with-temporary-directory (elsewhere)
+      (aitools.test.support:call-with-temporary-directory (lambda (elsewhere)
         (multiple-value-bind (code envelope)
             (dispatch-in elsewhere "--root" (uiop:native-namestring repository) "git" "log")
           (expect code :to-equal 0)
           (expect (gethash "total" envelope) :to-equal 2))
         (multiple-value-bind (code envelope) (dispatch-in elsewhere "--root" "missing-dir" "git" "status")
           (expect code :to-equal 1)
-          (expect (gethash "code" (gethash "error" envelope)) :to-equal "input.not-found"))))))
+          (expect (gethash "code" (gethash "error" envelope)) :to-equal "input.not-found")))
+      :prefix "aitools-process"))
+    :prefix "aitools-process")))
 

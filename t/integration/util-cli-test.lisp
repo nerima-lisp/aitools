@@ -177,7 +177,7 @@
 
 (describe "aitools util production input readers"
   (it "reads a file's octets up to the limit, and reports a missing, oversized, or unreadable one"
-    (aitools.test.support:with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((file (uiop:native-namestring (merge-pathnames "in.bin" directory)))
             (read #'aitools.util.infrastructure::read-file-octets))
         (aitools.test.support:write-bytes file
@@ -185,21 +185,23 @@
         (expect (reader-outcome read file 3) :to-equal '(:octets (0 255 7)))
         (expect (reader-outcome read file 2) :to-equal '(:too-large))
         (expect (reader-outcome read (uiop:native-namestring (merge-pathnames "none" directory)) 3) :to-equal '(:missing))
-        (expect (reader-outcome read (uiop:native-namestring directory) 3) :to-equal '(:failure t)))))
+        (expect (reader-outcome read (uiop:native-namestring directory) 3) :to-equal '(:failure t))))
+    :prefix "aitools-process"))
 
   (it "reads standard input's octets up to the limit, and reports an unreadable one"
-    (aitools.test.support:with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((file (uiop:native-namestring (merge-pathnames "in.bin" directory)))
             (read #'aitools.util.infrastructure::read-stdin-octets))
         (aitools.test.support:write-bytes file
           (coerce '(1 2 3) (quote (vector (unsigned-byte 8)))))
         (aitools.test.support:with-stdin-from (file) (expect (reader-outcome read 3) :to-equal '(:octets (1 2 3))))
         (aitools.test.support:with-stdin-from (file) (expect (reader-outcome read 2) :to-equal '(:too-large)))
-        (aitools.test.support:with-stdin-from ((uiop:native-namestring directory)) (expect (reader-outcome read 3) :to-equal '(:failure t)))))))
+        (aitools.test.support:with-stdin-from ((uiop:native-namestring directory)) (expect (reader-outcome read 3) :to-equal '(:failure t)))))
+    :prefix "aitools-process")))
 
 (describe "aitools util --stdin and redact through dispatch"
   (it "encodes and evaluates text read from standard input"
-    (aitools.test.support:with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((file (uiop:native-namestring (merge-pathnames "in.txt" directory))))
         (aitools.test.support:write-bytes file
           (coerce (map 'list #'char-code (format nil "6 * 7~%")) (quote (vector (unsigned-byte 8)))))
@@ -207,7 +209,8 @@
           (expect (aitools.test.support:envelope-value (nth-value 1 (run-util-command "util" "calc" "--stdin")) "result") :to-equal "42"))
         (aitools.test.support:with-stdin-from (file)
           (expect (aitools.test.support:envelope-value (nth-value 1 (run-util-command "util" "encode" "hex" "--stdin")) "output")
-                  :to-equal "36202a20370a")))))
+                  :to-equal "36202a20370a"))))
+    :prefix "aitools-process"))
 
   (it "masks secrets with util redact"
     (multiple-value-bind (code envelope) (run-util-command "util" "redact" "--content" "password=hunter2")
@@ -217,7 +220,7 @@
 
 (describe "aitools util bounded file reader"
   (it "reads files across a 64 KiB chunk boundary and enforces the supplied limit"
-    (aitools.test.support:with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((file (uiop:native-namestring (merge-pathnames "large.bin" directory)))
              (reader (function aitools.util.infrastructure::read-file-octets))
              (contents (make-array 65537
@@ -227,4 +230,5 @@
         (multiple-value-bind (status octets) (funcall reader file 65537)
           (expect status :to-be :octets)
           (expect octets :to-equalp contents))
-        (expect (reader-outcome reader file 65536) :to-equal (list :too-large))))))
+        (expect (reader-outcome reader file 65536) :to-equal (list :too-large))))
+    :prefix "aitools-process")))

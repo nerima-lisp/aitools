@@ -65,7 +65,7 @@
 
 (describe "E2E byte capture comparison"
   (it "passes byte-identical captures and reports the fixed expected inventory and allowance"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((entries (list (byte-gate-test-entry "case-a" #(0 255 10) :stderr #(13 10))))
              (expected-ids '(("case-a" 1)))
              (captures (byte-gate-test-captures
@@ -82,10 +82,11 @@
         (expect (getf report :expected-invocation-count) :to-be 1)
         (expect (getf report :allowed-determinism-drop) :to-equal "0.0")
         (expect (gethash "expected_invocation_count" saved-report) :to-be 1)
-        (expect (gethash "allowed_determinism_drop" saved-report) :to-equal "0.0"))))
+        (expect (gethash "allowed_determinism_drop" saved-report) :to-equal "0.0")))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects a raw output octet mismatch"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1)))
              (baseline (list (byte-gate-test-entry "case-a" #(0 255 10))))
              (candidate (list (byte-gate-test-entry "case-a" #(0 254 10))))
@@ -97,10 +98,11 @@
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
         (expect (search "deterministic baseline bytes or exit status changed" message)
-                :to-be-truthy))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects a missing invocation ID from one capture"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (entry-a (byte-gate-test-entry "case-a" #(1)))
              (entry-b (byte-gate-test-entry "case-b" #(2)))
@@ -114,10 +116,11 @@
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
         (expect (search "does not match the expected invocation inventory" message)
-                :to-be-truthy))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects an extra invocation ID from one capture"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1)))
              (entry-a (byte-gate-test-entry "case-a" #(1)))
              (entry-b (byte-gate-test-entry "case-b" #(2)))
@@ -131,10 +134,11 @@
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
         (expect (search "does not match the expected invocation inventory" message)
-                :to-be-truthy))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects four captures with the same nonempty but incomplete ID subset"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (incomplete (list (byte-gate-test-entry "case-a" #(1))))
              (captures (byte-gate-test-captures
@@ -145,10 +149,11 @@
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
         (expect (search "does not match the expected invocation inventory" message)
-                :to-be-truthy))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects an empty capture"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1)))
              (entries (list (byte-gate-test-entry "case-a" #(1))))
              (captures (byte-gate-test-captures
@@ -158,10 +163,11 @@
                                    (list "candidate-b" entries))))
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
-        (expect (search "capture is empty" message) :to-be-truthy))))
+        (expect (search "capture is empty" message) :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects a corrupt blob length"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1)))
              (entries (list (byte-gate-test-entry "case-a" #(1 2))))
              (captures (byte-gate-test-captures
@@ -171,10 +177,11 @@
                                    (list "candidate-b" entries))))
              (message (byte-gate-test-error-message
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
-        (expect (search "blob length mismatch" message) :to-be-truthy))))
+        (expect (search "blob length mismatch" message) :to-be-truthy)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects candidate determinism-rate loss with the zero allowance"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (baseline (list (byte-gate-test-entry "case-a" #(1))
                              (byte-gate-test-entry "case-b" #(2))))
@@ -189,7 +196,8 @@
                        (lambda () (byte-gate-test-compare captures expected-ids)))))
         (expect (search "candidate determinism rate fell beyond the configured allowance"
                         message)
-                :to-be-truthy)))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate")))
 
 (describe "E2E byte capture inventory contract"
   (it "requires the fixed inventory and baseline revision before reading captures"
@@ -212,7 +220,7 @@
               :to-be-truthy)))
 
   (it "reads a fixed invocation inventory fixture"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-inventory")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 2)))
              (path (merge-pathnames "inventory.lisp" root)))
         (with-open-file (stream path :direction :output :if-exists :error
@@ -220,10 +228,11 @@
           (write expected-ids :stream stream :readably t)
           (terpri stream))
         (expect (byte-gate-read-expected-inventory path)
-                :to-equal expected-ids))))
+                :to-equal expected-ids)))
+    :prefix "aitools-byte-inventory"))
 
   (it "rejects an empty or multi-form invocation inventory"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-inventory")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let ((empty-path (merge-pathnames "empty.lisp" root))
             (multi-path (merge-pathnames "multi.lisp" root)))
         (with-open-file (stream empty-path :direction :output :if-exists :error
@@ -242,4 +251,5 @@
         (expect (search "must contain one form"
                         (byte-gate-test-error-message
                          (lambda () (byte-gate-read-expected-inventory multi-path))))
-                :to-be-truthy)))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-inventory")))

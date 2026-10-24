@@ -104,7 +104,7 @@ child reads aitools's package-qualified symbols only after loading them."
 (describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))
     "aitools bg (integration; skipped without the cl-process-kit-spawn trampoline)"
   (it "keeps running after the aitools process that started it has exited"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((envelope (child-sbcl-start-bg root (list "sleep" "30")))
              (id (value envelope "id"))
              (pid (value envelope "pid")))
@@ -115,10 +115,11 @@ child reads aitools's package-qualified symbols only after loading them."
                  (expect code :to-be 0)
                  (expect (value status "items" 0 "running") :to-be t)
                  (expect (coerce (value status "items" 0 "argv") 'list) :to-equal '("sleep" "30"))))
-          (invoke (list "bg" "stop" id "--grace" "1s") :state-directory (state-directory root))))))
+          (invoke (list "bg" "stop" id "--grace" "1s") :state-directory (state-directory root)))))
+    :prefix "aitools-process"))
 
   (it "reads only what follows --from and continues from next_offset"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((state (state-directory root))
              (id (value (start-bg root "sh" "-c" "echo one; sleep 0.5; echo two; sleep 30") "id")))
         (unwind-protect
@@ -139,10 +140,11 @@ child reads aitools's package-qualified symbols only after loading them."
                (multiple-value-bind (code grepped) (invoke (list "bg" "logs" id "--grep" "w") :state-directory state)
                  (expect code :to-be 0)
                  (expect (lines grepped "lines") :to-equal '("two"))))
-          (invoke (list "bg" "stop" id "--grace" "1s") :state-directory state)))))
+          (invoke (list "bg" "stop" id "--grace" "1s") :state-directory state))))
+    :prefix "aitools-process"))
 
   (it "stops with SIGTERM, and with SIGKILL after --grace when TERM is ignored"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((state (state-directory root))
              (polite-envelope (start-bg root "sh" "-c" "echo ready; sleep 30"))
              (polite (value polite-envelope "id"))
@@ -173,10 +175,11 @@ child reads aitools's package-qualified symbols only after loading them."
                ;; SIGKILL cannot be trapped: the whole group must really be gone.
                (expect (wait-for-pid-gone stubborn-pid) :to-be t))
           (kill-group polite-pid)
-          (kill-group stubborn-pid)))))
+          (kill-group stubborn-pid))))
+    :prefix "aitools-process"))
 
   (it "stops a descendant after its target exits but leaves the group alive"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((envelope (start-bg root "sh" "-c" "sleep 30 & exit 0"))
              (id (value envelope "id"))
              (pid (value envelope "pid"))
@@ -194,10 +197,11 @@ child reads aitools's package-qualified symbols only after loading them."
                  (expect code :to-be 0)
                  (expect (value stopped "stopped") :to-be t))
                (expect (wait-for-group-gone pid) :to-be t))
-          (kill-group pid)))))
+          (kill-group pid))))
+    :prefix "aitools-process"))
 
   (it "reports a bg exit to wait --exit and bg status"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((state (state-directory root))
              (id (value (start-bg root "sh" "-c" "sleep 0.3; exit 4") "id")))
         (multiple-value-bind (code envelope) (invoke (list "wait" "--bg" id "--exit" "--timeout" "10s") :state-directory state)
@@ -206,10 +210,11 @@ child reads aitools's package-qualified symbols only after loading them."
         (multiple-value-bind (code envelope) (invoke (list "bg" "status") :state-directory state)
           (expect code :to-be 0)
           (expect (value envelope "items" 0 "running") :to-be json-kit:+json-false+)
-          (expect (value envelope "items" 0 "exit_code") :to-be 4)))))
+          (expect (value envelope "items" 0 "exit_code") :to-be 4))))
+    :prefix "aitools-process"))
 
   (it "cannot stop a process aitools did not start, by pid or by a forged record"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((state (state-directory root))
              (bystander (process-kit:spawn (program-on-path "sleep") (list "30")))
              (pid (process-kit:process-id bystander))
@@ -235,7 +240,8 @@ child reads aitools's package-qualified symbols only after loading them."
           ;; races it ("Directory not empty"). Wait until its group is empty.
           (when started
             (kill-group started)
-            (wait-for-group-gone started)))))))
+            (wait-for-group-gone started)))))
+    :prefix "aitools-process")))
 
 (describe "aitools bg without a state directory (integration)"
   (it "fails with environment.unavailable and starts nothing"

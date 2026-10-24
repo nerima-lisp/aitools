@@ -8,7 +8,7 @@
 
 (describe "aitools process production ports: run-program with --stdout-to (integration)"
   (it "reports a target in a missing directory as a port error without running the child"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((target (merge-pathnames "missing/out.txt" directory))
              (marker (merge-pathnames "child-ran" directory))
              (touch-path (program-on-path "touch")))
@@ -20,9 +20,10 @@
                                              (list touch-path (uiop:native-namestring marker))
                                              5000 :stdout-path target))))
                 :to-be t)
-        (expect (probe-file marker) :to-be nil))))
+        (expect (probe-file marker) :to-be nil)))
+    :prefix "aitools-process"))
   (it "removes the target it created when the program cannot start"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((target (merge-pathnames "out.txt" directory)))
         (multiple-value-bind (status message program)
             (call-port (production-ports) 'aitools.process.application::process-ports-run-program
@@ -30,7 +31,8 @@
           (expect status :to-be :unavailable)
           (expect (starts-with-p "cannot start aitools-no-such-program: " message) :to-be t)
           (expect program :to-equal "aitools-no-such-program")
-          (expect (probe-file target) :to-be nil))))))
+          (expect (probe-file target) :to-be nil))))
+    :prefix "aitools-process")))
 
 ;;; ------------------------------------------------------------- launcher
 
@@ -61,17 +63,18 @@ that expected otherwise never leaks it."
 
 (describe "aitools process production ports: launcher lookup (integration)"
   (it "prefers an executable $CL_PROCESS_KIT_SPAWN"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((helper (make-executable (merge-pathnames "helper" directory) "")))
         (call-with-launcher-environment
          directory
          (lambda ()
            (expect (aitools.process.infrastructure:find-spawn-trampoline)
                    :to-equal (uiop:native-namestring helper)))
-         :override (uiop:native-namestring helper)))))
+         :override (uiop:native-namestring helper))))
+    :prefix "aitools-process"))
 
   (it "falls back to the helper beside the running executable when the override is not executable"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((plain (write-file (merge-pathnames "plain" directory) ""))
             (sibling (merge-pathnames "bin/cl-process-kit-spawn" directory)))
         (call-with-launcher-environment
@@ -80,10 +83,11 @@ that expected otherwise never leaks it."
            (make-executable sibling "")
            (expect (aitools.process.infrastructure:find-spawn-trampoline)
                    :to-equal (uiop:native-namestring sibling)))
-         :override (uiop:native-namestring plain)))))
+         :override (uiop:native-namestring plain))))
+    :prefix "aitools-process"))
 
   (it "searches only absolute PATH entries, skipping a directory named like the helper"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((shadow (merge-pathnames "shadow/" directory))
             (tools (merge-pathnames "tools/" directory)))
         (ensure-directories-exist (merge-pathnames "cl-process-kit-spawn/" shadow))
@@ -99,10 +103,11 @@ that expected otherwise never leaks it."
           (call-with-launcher-environment
            directory
            (lambda () (expect (aitools.process.infrastructure:find-spawn-trampoline) :to-be nil))
-           :path (format nil "relative:~A" (uiop:native-namestring shadow)))))))
+           :path (format nil "relative:~A" (uiop:native-namestring shadow))))))
+    :prefix "aitools-process"))
 
   (it "reports a missing helper as unavailable, naming the helper"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((sleep-path (program-on-path "sleep")))
         (call-with-launcher-environment
          directory
@@ -112,10 +117,11 @@ that expected otherwise never leaks it."
                        (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
              (expect kind :to-be :unavailable)
              (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
-             (expect program :to-equal "cl-process-kit-spawn")))))))
+             (expect program :to-equal "cl-process-kit-spawn"))))))
+    :prefix "aitools-process"))
 
   (it "reports a program path that is not executable as unavailable"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((helper (make-executable (merge-pathnames "helper" directory) ""))
             (script (namestring (write-file (merge-pathnames "script" directory) "echo hi"))))
         (call-with-launcher-environment
@@ -126,10 +132,11 @@ that expected otherwise never leaks it."
                    :to-equal (list :unavailable
                                    (format nil "cannot start ~A: not an executable file or not found on PATH" script)
                                    script)))
-         :override (uiop:native-namestring helper)))))
+         :override (uiop:native-namestring helper))))
+    :prefix "aitools-process"))
 
   (it "reports a helper that cannot be executed as unavailable for the program"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((garbage (merge-pathnames "garbage" directory))
             (sleep-path (program-on-path "sleep")))
         (make-executable garbage (make-string 16 :initial-element (code-char 0)))
@@ -142,10 +149,11 @@ that expected otherwise never leaks it."
              (expect kind :to-be :unavailable)
              (expect (starts-with-p (format nil "cannot start ~A: " sleep-path) message) :to-be t)
              (expect program :to-equal sleep-path)))
-         :override (uiop:native-namestring garbage)))))
+         :override (uiop:native-namestring garbage))))
+    :prefix "aitools-process"))
 
   (it "refuses a bg log that was swapped for a symlink, starting nothing"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((garbage (merge-pathnames "garbage" directory))
             (log (merge-pathnames "bg-1.log" directory))
             (target (merge-pathnames "elsewhere" directory))
@@ -162,7 +170,8 @@ that expected otherwise never leaks it."
                                              log (merge-pathnames "bg-1.exit" directory)))))
                    :to-be t))
          :override (uiop:native-namestring garbage))
-        (expect (probe-file target) :to-be nil)))))
+        (expect (probe-file target) :to-be nil)))
+    :prefix "aitools-process")))
 
 (defun call-without-sigchld-reaping (function)
   "Call FUNCTION with SBCL's SIGCHLD handler replaced by the default action, so
@@ -198,7 +207,7 @@ keeping the group alive), so a spec that signals the group waits for this."
 (describe-skip-if (null (aitools.process.infrastructure:find-spawn-trampoline))
     "aitools process production ports: process groups (integration; skipped without the cl-process-kit-spawn trampoline)"
   (it "sees a started group alive, signals it, and then reports it gone"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((ports (production-ports))
             (pid nil))
         (unwind-protect
@@ -219,10 +228,11 @@ keeping the group alive), so a spec that signals the group waits for this."
                              do (sleep 0.02))
                        :to-be t)
                (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be nil))
-          (when pid (kill-group pid))))))
+          (when pid (kill-group pid)))))
+    :prefix "aitools-process"))
 
   (it "reaps the supervisor it launched, so its zombie never keeps the group alive"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((ports (production-ports))
             (pid nil))
         (unwind-protect
@@ -241,4 +251,5 @@ keeping the group alive), so a spec that signals the group waits for this."
                                 return t
                               do (sleep 0.02))
                         :to-be t)))
-          (when pid (kill-group pid)))))))
+          (when pid (kill-group pid)))))
+    :prefix "aitools-process")))

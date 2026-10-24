@@ -8,7 +8,7 @@
 
 (describe "aitools text production source"
   (it "reads sizes, prefixes, whole files, and chunks of oddly named files"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/a*[b].txt")))
         (write-file path "0123456789")
         (expect (aitools.text.application:source-file-size (source) path) :to-be 10)
@@ -18,20 +18,20 @@
           (expect (aitools.text.application:source-call-with-chunks
                    (source) path 4 (lambda (chunk) (push (text chunk) chunks) nil))
                   :to-be-truthy)
-          (expect (reverse chunks) :to-equal '("0123" "4567" "89"))))))
+          (expect (reverse chunks) :to-equal '("0123" "4567" "89")))))))
 
   (it "follows a symlink to a file and refuses directories, FIFOs, and missing paths"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (write-file (concatenate 'string scratch "/target") "x")
       (make-symlink "target" (concatenate 'string scratch "/link"))
       (sb-posix:mkfifo (concatenate 'string scratch "/pipe") #o600)
       (expect (aitools.text.application:source-file-size (source) (concatenate 'string scratch "/link")) :to-be 1)
       (expect (aitools.text.application:source-read-octets (source) scratch) :to-be-falsy)
       (expect (aitools.text.application:source-read-octets (source) (concatenate 'string scratch "/pipe")) :to-be-falsy)
-      (expect (aitools.text.application:source-file-size (source) (concatenate 'string scratch "/none")) :to-be-falsy)))
+      (expect (aitools.text.application:source-file-size (source) (concatenate 'string scratch "/none")) :to-be-falsy))))
 
   (it "tells a file it may not open apart from a missing one"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/locked")))
         (write-file path "secret")
         (sb-posix:chmod path 0)
@@ -61,10 +61,10 @@
                         :on-missing (lambda (path) (declare (ignore path)) :missing)
                         :on-unreadable (lambda (path) (declare (ignore path)) :unreadable))
                        :to-be :unreadable))
-          (sb-posix:chmod path #o600)))))
+          (sb-posix:chmod path #o600))))))
 
   (it "makes write --content-file of a file it may not open environment.io, not input.not-found"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((root (concatenate 'string scratch "/work"))
             (locked (concatenate 'string scratch "/locked"))
             (previous (sb-posix:getenv "XDG_STATE_HOME")))
@@ -89,18 +89,18 @@
           (if previous
               (sb-posix:setenv "XDG_STATE_HOME" previous 1)
               (sb-posix:unsetenv "XDG_STATE_HOME"))
-          (sb-posix:chmod locked #o600)))))
+          (sb-posix:chmod locked #o600))))))
 
   (it "reads a file larger than one buffer completely"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/big"))
             (bytes (make-array 200000 :element-type '(unsigned-byte 8))))
         (dotimes (i (length bytes)) (setf (aref bytes i) (mod (* i 31) 256)))
         (write-file path bytes)
-        (expect (aitools.text.application:source-read-octets (source) path) :to-equalp bytes))))
+        (expect (aitools.text.application:source-read-octets (source) path) :to-equalp bytes)))))
 
   (it "reads a prefix, then the rest on the same descriptor only when asked"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/big"))
             (bytes (make-array 200000 :element-type '(unsigned-byte 8)))
             (seen '()))
@@ -123,10 +123,10 @@
              (expect (multiple-value-list (aitools.text.application:source-read-sniffed
                                            (source) path 8192 (constantly t)))
                      :to-equal '(nil :unreadable))
-          (sb-posix:chmod path #o600)))))
+          (sb-posix:chmod path #o600))))))
 
   (it "names no file with a path holding NUL or a character the file system cannot encode"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((target (concatenate 'string scratch "/target")))
         (write-file target "bytes")
         (dolist (path (list (format nil "~A~Csuffix" target (code-char 0))
@@ -135,10 +135,10 @@
           (expect (multiple-value-list (aitools.text.application:source-read-prefix (source) path 2)) :to-equal '(nil))
           (expect (multiple-value-list (aitools.text.application:source-read-octets (source) path)) :to-equal '(nil))
           (expect (multiple-value-list (aitools.text.application:source-read-sniffed (source) path 2 (constantly t)))
-                  :to-equal '(nil))))))
+                  :to-equal '(nil)))))))
 
   (it "ends chunked reads at end of file and at :STOP"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((empty (concatenate 'string scratch "/empty"))
             (full (concatenate 'string scratch "/full"))
             (chunks '()))
@@ -155,10 +155,10 @@
         (setf chunks '())
         (aitools.text.application:source-call-with-chunks
          (source) full 4 (lambda (chunk) (push (text chunk) chunks) nil))
-        (expect (reverse chunks) :to-equal '("abcd" "efgh")))))
+        (expect (reverse chunks) :to-equal '("abcd" "efgh"))))))
 
   (it "reads a file that grew or shrank after fstat to its current end"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let* ((path (concatenate 'string scratch "/changing"))
              (bytes (make-array 200000 :element-type '(unsigned-byte 8))))
         (dotimes (i (length bytes)) (setf (aref bytes i) (mod (* i 7) 256)))
@@ -180,10 +180,10 @@
         (write-file path (subseq bytes 0 65540))
         (let ((fd (sb-posix:open path sb-posix:o-rdonly)))
           (unwind-protect (expect (aitools.text.infrastructure::%read-all fd 3) :to-equalp (subseq bytes 0 65540))
-            (sb-posix:close fd))))))
+            (sb-posix:close fd)))))))
 
   (it "retries an interrupted read and propagates other syscall errors"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let* ((path (concatenate 'string scratch "/input"))
              (buffer (make-array 4 :element-type '(unsigned-byte 8)))
              (fd (progn
@@ -216,10 +216,10 @@
                   (sb-posix:syscall-error (condition)
                     (sb-posix:syscall-errno condition)))
                 :to-be sb-posix:ebadf))
-          (sb-posix:close fd)))))
+          (sb-posix:close fd))))))
 
   (it "classifies text and binary files through call-with-text-file/k"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (write-file (concatenate 'string scratch "/t.txt") (format nil "a~C~%" #\Return))
       (write-file (concatenate 'string scratch "/b.bin") (coerce #(1 0 2) '(simple-array (unsigned-byte 8) (*))))
       (flet ((outcome (name)
@@ -230,7 +230,7 @@
                 :on-missing (lambda (path) (declare (ignore path)) :missing))))
         (expect (outcome "t.txt") :to-equal '(:text 3 :crlf))
         (expect (outcome "b.bin") :to-equal '(:binary "application/octet-stream" 3))
-        (expect (outcome "nope") :to-be :missing))))
+        (expect (outcome "nope") :to-be :missing)))))
 
   (it "registers the source in a cl-boundary-kit boundary context"
     (let* ((source (source))

@@ -62,5 +62,21 @@ afterwards. The temporary tree is removed on exit."
                    (search (file-namestring (pathname base)) (namestring path)))
        :if-does-not-exist :ignore))))
 
-(defmacro with-temporary-directory ((variable &key (prefix "aitools-process")) &body body)
-  `(call-with-temporary-directory (lambda (,variable) ,@body) :prefix ,prefix))
+(defun call-with-process-workspace (function)
+  "Call FUNCTION with fresh workspace and state directory pathnames."
+  (call-with-temporary-directory
+   (lambda (directory)
+     (let ((root (merge-pathnames "ws/" directory))
+           (state (merge-pathnames "state/" directory)))
+       (ensure-directories-exist root)
+       (ensure-directories-exist (merge-pathnames "tmp/" state))
+       (funcall function root state)))
+   :prefix "aitools-process"))
+
+(defun call-with-scratch-directory (function)
+  "Call FUNCTION with the real path (symlinks resolved, no trailing `/`) of a fresh private directory, removing it afterwards."
+  (call-with-temporary-directory
+   (lambda (directory)
+     (funcall function
+              (string-right-trim "/" (sb-ext:native-namestring directory))))
+   :prefix "aitools-it"))

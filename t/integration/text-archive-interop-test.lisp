@@ -87,7 +87,7 @@
 (describe "aitools text codecs interoperate with the archivers on PATH"
   (it "reads a zip made by zip, and unzip extracts and tests our zip"
     (unless (and (program-path "zip") (program-path "unzip")) (skip "zip/unzip are not on PATH"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (make-fixture-tree scratch)
       (run-ok scratch "zip" "-q" "-r" "-X" "-y" "made.zip" "dir")
       (let ((archive (read-file (concatenate 'string scratch "/made.zip"))))
@@ -95,11 +95,11 @@
       (write-file (concatenate 'string scratch "/ours.zip") (write-zip (sample-members)))
       (run-ok scratch "unzip" "-tq" "ours.zip")
       (run-ok scratch "unzip" "-q" "ours.zip" "-d" "x")
-      (check-extracted (concatenate 'string scratch "/x"))))
+      (check-extracted (concatenate 'string scratch "/x")))))
 
   (it "reads a tar made by tar, and tar extracts our tar"
     (unless (program-path "tar") (skip "tar is not on PATH"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (make-fixture-tree scratch)
       (run-ok scratch "tar" "-cf" "made.tar" "dir")
       (let ((archive (read-file (concatenate 'string scratch "/made.tar"))))
@@ -107,11 +107,11 @@
       (write-file (concatenate 'string scratch "/ours.tar") (write-tar (sample-members)))
       (make-directories (concatenate 'string scratch "/x"))
       (run-ok scratch "tar" "-xf" "ours.tar" "-C" "x")
-      (check-extracted (concatenate 'string scratch "/x"))))
+      (check-extracted (concatenate 'string scratch "/x")))))
 
   (it "round-trips tar.gz and gz with tar -z and gzip"
     (unless (and (program-path "tar") (program-path "gzip")) (skip "tar/gzip are not on PATH"))
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (make-fixture-tree scratch)
       (run-ok scratch "tar" "-czf" "made.tar.gz" "dir")
       (let ((archive (gzip-decompress (read-file (concatenate 'string scratch "/made.tar.gz")))))
@@ -123,4 +123,4 @@
       (write-file (concatenate 'string scratch "/ours.gz") (gzip-compress (noise) :name "noise.bin"))
       (expect (run-ok scratch "gzip" "-dc" "ours.gz") :to-equalp (noise))
       (run-ok scratch "gzip" "-k" "dir/noise.bin")
-      (expect (gzip-decompress (read-file (concatenate 'string scratch "/dir/noise.bin.gz"))) :to-equalp (noise)))))
+      (expect (gzip-decompress (read-file (concatenate 'string scratch "/dir/noise.bin.gz"))) :to-equalp (noise))))))

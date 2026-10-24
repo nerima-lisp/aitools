@@ -2,7 +2,7 @@
 
 (describe "aitools text production source ranged read"
   (it "reads sparse ranges from zero, the middle, and the end of a file"
-    (with-scratch-directory (scratch)
+    (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/sparse.bin"))
             (size (* 64 1024 1024))
             (offset (* 40 1024 1024)))
@@ -27,5 +27,5 @@
             (aitools.text.application:source-read-range
              (aitools.text.infrastructure:make-host-text-source) path (- size 2) (+ size 100))
           (expect (length octets) :to-be 2)
-          (expect reported :to-be size))))))
+          (expect reported :to-be size)))))))
 

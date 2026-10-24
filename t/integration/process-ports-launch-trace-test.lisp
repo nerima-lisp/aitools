@@ -2,7 +2,7 @@
 
 (describe "aitools detached-process trace port (integration)"
   (it "preserves unavailable launcher results and assigns the fixed span outcome"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((observed nil)
              (ports
                (aitools.process.infrastructure:make-production-process-ports
@@ -26,4 +26,5 @@
              (expect program :to-equal "cl-process-kit-spawn")))
          :override "" :path "")
         (expect observed :to-equal
-                '((:child_process "process.launch-detached" :unavailable)))))))
+                '((:child_process "process.launch-detached" :unavailable)))))
+    :prefix "aitools-process")))

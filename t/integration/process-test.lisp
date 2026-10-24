@@ -64,26 +64,29 @@ argv[0] preserves the command name for multi-call executables."
 
 (describe "aitools run --stdout-to (integration)"
   (it "writes the child's stdout byte for byte to a new file inside the workspace"
-    (with-process-workspace (root state)
+    (call-with-process-workspace (lambda (root state)
+      (declare (ignorable state))
       (multiple-value-bind (code envelope) (stdout-to root state "out.txt" "printf" "\\033[31mx\\ny\\n")
         (expect code :to-be 0)
         (expect (value envelope "stdout" "path") :to-equal "out.txt")
         (expect (value envelope "stdout" "bytes") :to-be 9)
         (expect (value envelope "stdout" "head") :to-be nil)
         (expect (coerce (file-octets (merge-pathnames "out.txt" root)) 'list)
-                :to-equal '(27 91 51 49 109 120 10 121 10)))))
+                :to-equal '(27 91 51 49 109 120 10 121 10))))))
 
   (it "refuses an existing file and leaves it unchanged"
-    (with-process-workspace (root state)
+    (call-with-process-workspace (lambda (root state)
+      (declare (ignorable state))
       (with-open-file (out (merge-pathnames "out.txt" root) :direction :output)
         (write-string "keep" out))
       (multiple-value-bind (code envelope) (stdout-to root state "out.txt" "printf" "new")
         (expect code :to-be 1)
         (expect (value envelope "error" "code") :to-equal "refusal.exists"))
-      (expect (uiop:read-file-string (merge-pathnames "out.txt" root)) :to-equal "keep")))
+      (expect (uiop:read-file-string (merge-pathnames "out.txt" root)) :to-equal "keep"))))
 
   (it "refuses a path outside the root, through a symlink, and inside .git"
-    (with-process-workspace (root state)
+    (call-with-process-workspace (lambda (root state)
+      (declare (ignorable state))
       (let ((outside (merge-pathnames "../outside/" root)))
         (ensure-directories-exist outside)
         (sb-posix:symlink (string-right-trim "/" (namestring (truename outside)))
@@ -96,20 +99,22 @@ argv[0] preserves the command name for multi-call executables."
             (expect code :to-be 1)
             (expect (value envelope "error" "code") :to-equal "refusal.outside-workspace")))
         (expect (directory (merge-pathnames "*.txt" outside)) :to-equal '())
-        (expect (probe-file (merge-pathnames ".git/c.txt" root)) :to-be nil))))
+        (expect (probe-file (merge-pathnames ".git/c.txt" root)) :to-be nil)))))
 
   (it "allows the mktemp area outside the root"
-    (with-process-workspace (root state)
+    (call-with-process-workspace (lambda (root state)
+      (declare (ignorable state))
       (let ((target (namestring (merge-pathnames "tmp/run.out" (truename state)))))
         (multiple-value-bind (code envelope) (stdout-to root state target "printf" "ok")
           (expect code :to-be 0)
           (expect (value envelope "stdout" "bytes") :to-be 2))
-        (expect (uiop:read-file-string target) :to-equal "ok"))))
+        (expect (uiop:read-file-string target) :to-equal "ok")))))
 
   ;; `--root` is a global option the full aitools app adds, so the flow is
   ;; called directly, with the production ports this suite's INVOKE wires.
   (it "fails with environment.io, running nothing, when --root names a missing directory"
-    (with-process-workspace (root state)
+    (call-with-process-workspace (lambda (root state)
+      (declare (ignorable state))
       (let* ((marker (merge-pathnames "ran" root))
              (result (aitools.protocol.application:call-with-command-result/k
                       (lambda (&rest continuations)
@@ -129,7 +134,7 @@ argv[0] preserves the command name for multi-call executables."
                                        (namestring (merge-pathnames "gone" root)))
                                (getf fields :message)))
                 :to-be t)
-        (expect (probe-file marker) :to-be nil)))))
+        (expect (probe-file marker) :to-be nil))))))
 
 (defun call-with-listener (function)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket :type :stream :protocol :tcp)))
@@ -143,7 +148,7 @@ argv[0] preserves the command name for multi-call executables."
 
 (describe "aitools wait (integration)"
   (it "waits for a line that a child writes to a file later"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((path (uiop:native-namestring (merge-pathnames "app.log" directory))))
         ;; SPAWN with no :ENVIRONMENT gives the child an empty environment, so
         ;; sh falls back to its built-in PATH; in the Nix build sandbox no
@@ -155,16 +160,18 @@ argv[0] preserves the command name for multi-call executables."
             (invoke (list "wait" "--file" path "--pattern" "^ready" "--timeout" "10s"))
           (expect code :to-be 0)
           (expect (value envelope "line") :to-equal "ready on 8080")
-          (expect (>= (value envelope "elapsed_ms") 200) :to-be t)))))
+          (expect (>= (value envelope "elapsed_ms") 200) :to-be t))))
+    :prefix "aitools-process"))
 
   (it "resolves a relative --file against the working directory, not the process's"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (with-open-file (out (merge-pathnames "app.log" directory) :direction :output)
         (format out "booting~%ready on 8080~%"))
       (multiple-value-bind (code envelope)
           (invoke (list "wait" "--file" "app.log" "--pattern" "^ready" "--timeout" "2s") :cwd directory)
         (expect code :to-be 0)
-        (expect (value envelope "line") :to-equal "ready on 8080"))))
+        (expect (value envelope "line") :to-equal "ready on 8080")))
+    :prefix "aitools-process"))
 
   (it "waits for a listening TCP port"
     (call-with-listener

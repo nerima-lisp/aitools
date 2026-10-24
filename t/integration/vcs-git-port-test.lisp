@@ -10,32 +10,35 @@
 
 (describe-run-if (git-available-p) "aitools git production port limits"
   (it "dispatches git diff --output stat"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (code envelope) (dispatch-in directory "git" "diff" "--output" "stat")
         (expect code :to-equal 0)
         (expect (gethash "mode" envelope) :to-equal "stat")
-        (expect (gethash "mode" (aref (gethash "files" envelope) 0)) :to-equal "stat"))))
+        (expect (gethash "mode" (aref (gethash "files" envelope) 0)) :to-equal "stat")))
+    :prefix "aitools-process"))
 
   (it "fails as environment.io when git prints more than the output limit"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (let ((aitools.vcs.infrastructure::*git-output-limit* 10))
         (multiple-value-bind (kind fields)
             (run-flow #'aitools.vcs.application:git-show/k directory "HEAD:a.txt")
           (expect kind :to-be :error)
           (expect (getf fields :code) :to-equal "environment.io")
-          (expect (getf fields :message) :to-equal "git cat-file printed more than 10 characters")))))
+          (expect (getf fields :message) :to-equal "git cat-file printed more than 10 characters"))))
+    :prefix "aitools-process"))
 
   (it "reports environment.unavailable when git cannot be started"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (build-fixture directory)
       (multiple-value-bind (kind fields)
           (call-with-path (uiop:native-namestring directory)
                           (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
         (expect kind :to-be :error)
         (expect (getf fields :code) :to-equal "environment.unavailable")
-        (expect (getf fields :message) :to-equal "git could not be started")))))
+        (expect (getf fields :message) :to-equal "git could not be started")))
+    :prefix "aitools-process")))
 
 (describe "aitools git production port failure kinds"
   (it-each ((vcs-kit:git-exit-error (:command "git" :arguments ("log")) :exit "Git command failed: git log" nil)
@@ -49,7 +52,7 @@
   (it "treats a git that exits 0 without `true` from rev-parse as outside a work tree"
     ;; git before 2.25 printed `false` and exited 0 for --show-toplevel
     ;; outside a work tree instead of failing.
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((fake (merge-pathnames "git" directory)))
         (with-open-file (out fake :direction :output)
           (format out "#!/bin/sh~%printf 'false\\n/elsewhere\\n'~%"))
@@ -59,7 +62,8 @@
                             (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
           (expect kind :to-be :error)
           (expect (getf fields :code) :to-equal "environment.unavailable")
-          (expect (getf fields :message) :to-equal "the working directory is not inside a git work tree"))))))
+          (expect (getf fields :message) :to-equal "the working directory is not inside a git work tree"))))
+    :prefix "aitools-process")))
 
 (describe "aitools.vcs.application git port construction"
   (it-each ((:probe) (:run) (:status) (:numstat) (:at))

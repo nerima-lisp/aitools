@@ -63,7 +63,7 @@
           (expect (second payload) :to-equal "VCS operation failed")))))
 
   (it "classifies a translated outside-repository failure by exit code"
-    (with-temporary-directory (directory)
+    (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((fake (merge-pathnames "git" directory)))
         (with-open-file (out fake :direction :output)
           (format out "#!/bin/sh~%echo '致命的: Git リポジトリではありません' >&2~%exit 128~%"))
@@ -77,10 +77,11 @@
                 :to-be :unknown)
           (expect (getf fields :code) :to-equal "environment.unavailable")
           (expect (getf fields :message)
-                  :to-equal "the working directory is not inside a git work tree")))))
+                  :to-equal "the working directory is not inside a git work tree"))))
+    :prefix "aitools-process"))
 
   (it "preserves a Git failure that does not mean outside a work tree"
-    (with-temporary-directory (root)
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (ensure-directories-exist (merge-pathnames ".git/config" root))
       (let ((directory (merge-pathnames "nested/" root)))
         (ensure-directories-exist directory)
@@ -94,5 +95,6 @@
                               (lambda () (run-flow #'aitools.vcs.application:git-status/k directory)))
             (expect kind :to-be :error)
             (expect (getf fields :code) :to-equal "environment.io")
-            (expect (getf fields :message) :to-equal message)))))))
+            (expect (getf fields :message) :to-equal message)))))
+    :prefix "aitools-process")))
 

@@ -1,7 +1,7 @@
 (in-package #:aitools.e2e.test)
 (describe "E2E byte-gate baseline inventory"
   (it "reads the fixed revision and source reasons"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-inventory")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((id-a (list "case-a" 1))
              (id-b (list "case-b" 2))
              (ids (list id-a id-b))
@@ -35,10 +35,11 @@
           (expect (getf inventory :baseline-revision) :to-equal "fixture-revision")
           (expect (getf inventory :allowed-determinism-drop) :to-be 0.0)
           (expect (getf inventory :expected-ids) :to-equal ids)
-          (expect (getf inventory :nondeterministic-fields) :to-equal fields)))))
+          (expect (getf inventory :nondeterministic-fields) :to-equal fields))))
+    :prefix "aitools-byte-inventory"))
 
   (it "reports each source reason for baseline differences"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (baseline-a (list (byte-gate-test-entry "case-a" #(1))
                                (byte-gate-test-entry "case-b" #(2))))
@@ -62,10 +63,11 @@
         (expect (length (getf report :baseline-nondeterministic)) :to-be 1)
         (expect (gethash "reason"
                          (first (getf report :baseline-nondeterministic)))
-                :to-equal reason))))
+                :to-equal reason)))
+    :prefix "aitools-byte-gate"))
 
   (it "classifies source-declared runtime output even when baseline pairs match"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1) ("case-b" 1)))
              (baseline (list (byte-gate-test-entry "case-a" #(1))
                              (byte-gate-test-entry "case-b" #(2))))
@@ -89,10 +91,11 @@
         (expect (gethash "reason" (first (getf report :baseline-nondeterministic)))
                 :to-equal reason)
         (expect (gethash "reason" (first (getf report :candidate-nondeterministic)))
-                :to-equal reason))))
+                :to-equal reason)))
+    :prefix "aitools-byte-gate"))
 
   (it "rejects baseline differences without a source reason"
-    (aitools.test.support:with-temporary-directory (root :prefix "aitools-byte-gate")
+    (aitools.test.support:call-with-temporary-directory (lambda (root)
       (let* ((expected-ids '(("case-a" 1)))
              (first-run (list (byte-gate-test-entry "case-a" #(1))))
              (second-run (list (byte-gate-test-entry "case-a" #(2))))
@@ -105,5 +108,6 @@
                        (lambda ()
                          (byte-gate-test-compare captures expected-ids)))))
         (expect (search "do not cover all observed output differences" message)
-                :to-be-truthy)))))
+                :to-be-truthy)))
+    :prefix "aitools-byte-gate")))
 
