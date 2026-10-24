@@ -178,12 +178,12 @@
                            (nthcdr (fourth rule) form) (fifth rule) visible
                            terminal-block-targets))
                          (:local-body
-   (walk-body
-    (nthcdr (third rule) form)
-    (append visible
-            (list (cons :local-function
-                        (mapcar #'first (nth (fourth rule) form)))))
-    nil nil terminal-block-targets))
+                          (walk-body
+                           (nthcdr (third rule) form)
+                           (append visible
+                                   (list (cons :local-function
+                                               (mapcar (function first) (nth (fourth rule) form)))))
+                           nil nil terminal-block-targets))
                          (:macrolet-body
                           (walk-body
                            (nthcdr (third rule) form)
