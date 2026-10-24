@@ -9,7 +9,6 @@
     (unless (probe-file (merge-pathnames "aitools.asd" root))
       (error "Run this benchmark from the aitools project root."))
     root))
-
 (defun %temporary-directory (root)
   (let ((directory
           (merge-pathnames
@@ -54,9 +53,7 @@
   (sb-ext:gc :full t)
   (let ((start (get-internal-real-time)))
     (let ((values (multiple-value-list (funcall function))))
-      (values (* 1000.0
-                 (/ (- (get-internal-real-time) start)
-                    internal-time-units-per-second))
+      (values (* 1000.0 (/ (- (get-internal-real-time) start) internal-time-units-per-second))
               values))))
 
 (defun %paired-invoke (old-function current-function old-first-p)
@@ -69,10 +66,8 @@
           (%timed-invoke current-function)
         (multiple-value-bind (old-time old-values) (%timed-invoke old-function)
           (values old-time old-values current-time current-values)))))
-
 (defun %median (values)
   (nth (floor (length values) 2) (sort (copy-list values) #'<)))
-
 (defun %relative-change-percent (old-time current-time)
   (unless (plusp old-time)
     (error "Old-arm elapsed time is zero; cannot compute a paired difference."))
@@ -92,8 +87,7 @@
         (current-wins 0))
     (dotimes (index *sample-pairs*)
       (multiple-value-bind (old-time old-values current-time current-values)
-          (%paired-invoke old-function current-function
-                          (evenp (+ *warmup-pairs* index)))
+          (%paired-invoke old-function current-function (evenp (+ *warmup-pairs* index)))
         (funcall validator old-values current-values)
         (let ((relative (%relative-change-percent old-time current-time)))
           (push old-time old-times)
@@ -115,32 +109,25 @@
 (defun %assert-sha-parity (old-values current-values expected)
   (let ((old-hash (first old-values))
         (current-hash (first current-values)))
-    (unless (and (stringp old-hash) (stringp current-hash)
-                 (string= old-hash current-hash)
+    (unless (and (stringp old-hash) (stringp current-hash) (string= old-hash current-hash)
                  (string= current-hash expected))
       (error "SHA-256 outputs differ or failed the reference check."))))
-
 (defun %assert-inflate-result (values expected encoded)
   (let ((output (first values))
         (consumed (second values)))
-    (unless (and (equalp output expected)
-                 (eql consumed (length encoded)))
+    (unless (and (equalp output expected) (eql consumed (length encoded)))
       (error "Inflate output or consumed length is incorrect."))))
-
 (defun %assert-deflate-parity (old-values current-values input old-inflate current-inflate)
   (dolist (encoded (list (first old-values) (first current-values)))
     (unless (typep encoded '(simple-array (unsigned-byte 8) (*)))
       (error "Deflate did not return an octet vector."))
-    (%assert-inflate-result (multiple-value-list (funcall old-inflate encoded))
-                            input encoded)
+    (%assert-inflate-result (multiple-value-list (funcall old-inflate encoded)) input encoded)
     (%assert-inflate-result (multiple-value-list (funcall current-inflate encoded))
                             input encoded)))
-
 (defun %assert-inflate-parity (old-values current-values input encoded)
   (%assert-inflate-result old-values input encoded)
   (%assert-inflate-result current-values input encoded)
-  (unless (equalp (first old-values) (first current-values))
-    (error "Old and current inflate outputs differ.")))
+  (unless (equalp (first old-values) (first current-values)) (error "Old and current inflate outputs differ.")))
 
 (defun run-digest-deflate-adapter-benchmark ()
   (let* ((root (truename (%project-root)))
