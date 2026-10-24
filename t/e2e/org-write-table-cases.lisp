@@ -69,7 +69,7 @@
       (expect (jget aligned "changed") :to-be t)
       (expect (file-text ws "align.org")
               :to-equal
-              (format nil "Before~%  | key | value |   |~%  |-----+-------+---|~%  | a   | 1     |   |~%  |-----+-------+---|~%  | bb  |       |   |~%  |-----+-------+---|~%  | ccc |    22 | z |~%After~%"))))
+              (format nil "Before~%  | key | value |   |~%  |-----+-------+---|~%  | a   |     1 |   |~%  |-----+-------+---|~%  | bb  |       |   |~%  |-----+-------+---|~%  | ccc |    22 | z |~%After~%"))))
 
   (define-org-table-write-case ("org table sort is stable and honors explicit row bounds" ws)
     (put ws "sort.org" (format nil "| Z | 2 |~%| A | 1 |~%"))
