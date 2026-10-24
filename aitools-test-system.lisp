@@ -11,12 +11,19 @@
                                                                     (:file "cps-contract-analysis")
                                                                     (:file "cps-contract-analysis-positional")
                                                                     (:file "cps-contract-analysis-positional-flow")
+                                                                    (:file
+                                                                    "cps-contract-analysis-positional-flow-rules")
+                                                                    (:file
+                                                                    "cps-contract-analysis-positional-flow-walker")
+                                                                    (:file
+                                                                    "cps-contract-analysis-positional-flow-z-tail")
                                                                     (:file "cps-contract-analysis-source")
                                                                     (:file "cps-contract-analysis-positional-inventory")
                                                                     (:file "cps-contract-allowlist-slash-k")
                                                                     (:file "cps-contract-allowlist-on-key")
                                                                     (:file "cps-contract-test")
-                                                                    (:file "cps-contract-positional-test")))
+                                                                    (:file "cps-contract-positional-test")
+                                                                    (:file "cps-contract-z-positional-terminal-test")))
                                               (:module "integration"
                                                        :pathname "integration/"
                                                        :components ((:file "dispatch-test")
