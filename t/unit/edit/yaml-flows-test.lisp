@@ -214,3 +214,23 @@
             (declare (ignore message keys))
             (expect status :to-be :error)
             (expect code :to-equal "input.syntax-error")))))))
+(describe "aitools.edit YAML write byte-limit errors"
+  (it "does not infer byte-limit errors from their wording"
+    (with-edit-workspace ()
+      (put "doc.yaml" (format nil "keep: 1~%"))
+      (let ((read-file
+              (symbol-function 'aitools.store.application:view-read-file)))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'aitools.store.application:view-read-file)
+              (lambda (view path &rest arguments)
+                (if (string= path "doc.yaml")
+                    (error 'aitools.store.application:store-io-error
+                           :operation "read"
+                           :path path
+                           :detail "file exceeds byte limit")
+                    (apply read-file view path arguments)))))
+          (multiple-value-bind (status code message keys)
+              (run "yaml.fmt" (list "doc.yaml") :dry-run t)
+            (declare (ignore message keys))
+            (expect status :to-be :error)
+            (expect code :to-equal "environment.io")))))))

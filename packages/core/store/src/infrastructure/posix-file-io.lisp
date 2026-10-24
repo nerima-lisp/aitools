@@ -20,7 +20,10 @@
           (unless (= (logand (sb-posix:stat-mode stat) sb-posix:s-ifmt) sb-posix:s-ifreg)
             (error 'store-io-error :operation "read" :path path :detail "not a regular file"))
           (when (and max-bytes (> (sb-posix:stat-size stat) max-bytes))
-            (error 'store-io-error :operation "read" :path path :detail "file exceeds byte limit"))
+            (error 'store-byte-limit-error
+                   :operation "read"
+                   :path path
+                   :detail "file exceeds byte limit"))
           (aitools.store.application::fault-point :after-read-stat path))
       (error (condition) (sb-posix:close fd) (error condition)))
     (with-open-stream (stream (%fd-stream fd :input))
@@ -31,7 +34,10 @@
                                        :element-type '(unsigned-byte 8)))
                    (count (read-sequence buffer stream)))
               (when (and max-bytes (> (+ total count) max-bytes))
-                (error 'store-io-error :operation "read" :path path :detail "file exceeds byte limit"))
+                (error 'store-byte-limit-error
+                      :operation "read"
+                      :path path
+                      :detail "file exceeds byte limit"))
               (when (plusp count)
                 (push (if (= count (length buffer)) buffer (subseq buffer 0 count)) chunks)
                 (incf total count))

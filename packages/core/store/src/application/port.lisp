@@ -106,6 +106,7 @@
                      (store-io-error-operation condition)
                      (store-io-error-path condition)
                      (store-io-error-detail condition)))))
+(define-condition store-byte-limit-error (store-io-error) ())
 
 (define-condition store-committed-error (store-io-error)
   ((op-id :initarg :op-id :reader store-committed-error-op-id))

@@ -35,6 +35,7 @@
    #:store-io-now
    #:store-io-random-hex
    #:store-io-error
+   #:store-byte-limit-error
    #:store-io-error-operation
    #:store-io-error-path
    #:store-io-error-errno

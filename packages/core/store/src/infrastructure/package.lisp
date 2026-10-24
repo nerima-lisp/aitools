@@ -12,7 +12,9 @@
 (defpackage #:aitools.store.infrastructure
   (:use #:cl)
   (:import-from #:aitools.store.domain #:octets #:state-home)
-  (:import-from #:aitools.store.application #:make-store-io #:store-io-error #:make-store)
+  (:import-from #:aitools.store.application
+                #:make-store-io #:store-io-error #:store-byte-limit-error
+                #:make-store)
   (:export
    #:make-posix-store-io
    #:make-posix-store))
