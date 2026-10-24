@@ -86,7 +86,8 @@ opens such a root as a temporary store exempt from the state-directory guard."
                :text-source (aitools.text.infrastructure:make-host-text-source)
                :read-stdin-octets
                (symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
-               :unix-now (function aitools.edit.infrastructure:unix-now)))))
+               :unix-now (function aitools.edit.infrastructure:unix-now)
+               :serialize-document (function aitools.edit.infrastructure::serialize-document)))))
        (funcall function)))
    :chdir t))
 

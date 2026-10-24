@@ -5,7 +5,7 @@
 (defun %toml-write-refusal (reason pointer)
   (refuse "input.unsupported-value"
           (format nil "TOML value at JSON Pointer ~A uses unsupported ~A."
-                  pointer reason)))
+                  (or pointer "") reason)))
 
 (defun %toml-null-pointer (value tokens)
   (cond

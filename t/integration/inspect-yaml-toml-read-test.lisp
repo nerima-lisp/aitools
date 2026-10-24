@@ -33,33 +33,28 @@
 
 (describe "YAML and TOML schemas"
   (it "lists read and write commands with errors and output fields"
-    (dolist (format '("yaml" "toml"))
-      (multiple-value-bind (code envelope)
-          (run-aitools "schema" format)
-        (expect code :to-be 0)
-        (let* ((commands (coerce (value-at envelope "commands") 'list))
-               (names (sort (mapcar (lambda (command) (value-at command "name")) commands)
-                            #'string<)))
-          (expect names :to-equal
-                  (mapcar (lambda (subcommand)
-                            (format nil "~A ~A" format subcommand))
-                          '("delete" "diff" "fmt" "get" "merge" "patch" "select" "set")))
-          (dolist (command commands)
-            (let ((errors (coerce (value-at command "error_codes") 'list))
-                  (fields (mapcar (lambda (field) (value-at field "name"))
-                                  (coerce (value-at command "output_fields") 'list))))
-              (expect errors
-                    :to-contain "input.unsupported-value")
-              (expect errors :to-contain "input.syntax-error")
-              (expect fields
-                      :to-contain (cond ((search " get" (value-at command "name")) "value")
-                                        ((search " select" (value-at command "name")) "items")
-                                        (t "ops")))
-              (when (member (value-at command "name")
-                            '("yaml set" "yaml delete" "yaml merge" "yaml patch" "yaml fmt"
-                              "toml set" "toml delete" "toml merge" "toml patch" "toml fmt")
-                            :test #'string=)
-                (expect fields :to-contain "warnings"))))))))
+  (dolist (format '("yaml" "toml"))
+    (multiple-value-bind (code envelope) (run-aitools "schema" format)
+      (expect code :to-be 0)
+      (let* ((commands (coerce (value-at envelope "commands") 'list))
+             (names (sort (mapcar (lambda (command) (value-at command "name")) commands) #'string<)))
+        (expect names :to-equal
+                (mapcar (lambda (subcommand) (format nil "~A ~A" format subcommand))
+                        '("delete" "diff" "fmt" "get" "merge" "patch" "select" "set")))
+        (dolist (command commands)
+          (let ((name (value-at command "name"))
+                (errors (coerce (value-at command "error_codes") 'list))
+                (fields (mapcar (lambda (field) (value-at field "name"))
+                                (coerce (value-at command "output_fields") 'list))))
+            (expect errors :to-contain "input.unsupported-value")
+            (expect errors :to-contain "input.syntax-error")
+            (expect fields :to-contain
+                    (cond ((search " get" name) "value")
+                          ((search " select" name) "items")
+                          (t "ops")))
+            (when (member (subseq name 5) '("set" "delete" "merge" "patch" "fmt")
+                          :test #'string=)
+              (expect fields :to-contain "warnings"))))))))
 
 (describe "YAML and TOML read commands through dispatch"
   (it "maps values, filters, diffs, and leaves source bytes unchanged"

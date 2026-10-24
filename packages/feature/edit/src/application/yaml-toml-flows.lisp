@@ -16,19 +16,27 @@
         :conflicts conflicts
         :repairs repairs))
     (:on-document (document)
-      (aitools.kernel.domain:flow-call
-        (if (string= format "yaml")
+      (if (string= format "yaml")
+          (aitools.kernel.domain:flow-call
             (aitools.inspect.application:parse-yaml-write-document/k
              (document-logical-text document))
+            (:on-value (json-text comment-count)
+              (aitools.kernel.domain:flow-continue
+                :on-json (parse-json-text json-text) document comment-count))
+            (:on-error (code message)
+              (aitools.kernel.domain:flow-continue
+                :on-error code message
+                :repairs (%format-repairs command path code nil))))
+          (aitools.kernel.domain:flow-call
             (aitools.inspect.application:parse-toml-write-document/k
-             (document-logical-text document)))
-        (:on-value (json-text comment-count)
-          (aitools.kernel.domain:flow-continue
-            :on-json (parse-json-text json-text) document comment-count))
-        (:on-error (code message)
-          (aitools.kernel.domain:flow-continue
-            :on-error code message
-            :repairs (%format-repairs command path code nil)))))
+             (document-logical-text document))
+            (:on-value (json-text comment-count)
+              (aitools.kernel.domain:flow-continue
+                :on-json (parse-json-text json-text) document comment-count))
+            (:on-error (code message)
+              (aitools.kernel.domain:flow-continue
+                :on-error code message
+                :repairs (%format-repairs command path code nil))))))
     (:on-filtered ())))
 
 (defun %format-repairs (command path code pointer)
