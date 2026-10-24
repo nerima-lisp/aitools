@@ -48,6 +48,20 @@
       (expect *minimum-executed-specs* :to-equal 3149)
       (expect executed :to-equal 3148)
       (expect (length problems) :to-equal 1)))
+  (it "does not count skipped or todo specs toward the executed-spec minimum"
+    (dolist (status (list "skip" "todo"))
+      (let ((event (make-hash-table :test (function equal))))
+        (setf (gethash "status" event) status)
+        (multiple-value-bind (problems executed)
+            (%policy-problems
+             (append (%u11-pass-events 3148)
+                     (list event)))
+          (expect executed :to-equal 3148)
+          (expect
+           (find-if (lambda (problem)
+                      (search "only 3148 specs ran" problem))
+                    problems)
+           :to-be-truthy)))))
 
   (it "accepts nonempty coverage artifacts with positive counts"
     (%u11-with-artifacts

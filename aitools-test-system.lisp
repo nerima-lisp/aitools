@@ -42,6 +42,7 @@
                                                                     (:file "store-structure-contract-test")
                                                                     (:file "coverage-baseline-reader")
                                                                     (:file "coverage-baseline-test")
+                                                                    (:file "structure-timeout-test")
                                                                     (:file "u11-sec7-gates")
                                                                     (:file "u11-sec7-gates-test" :depends-on ("u11-sec7-gates"))
                                                                     (:file "structure-budget-baseline")
