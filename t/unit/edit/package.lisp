@@ -19,6 +19,46 @@
 (defun bytes (string)
   (coerce (sb-ext:string-to-octets string :external-format :utf-8) '(simple-array (unsigned-byte 8) (*))))
 
+(defun byte-limit-comment-document (limit text)
+  (let* ((tail (bytes text))
+         (document (make-array (1+ limit)
+                               :element-type '(unsigned-byte 8)
+                               :initial-element (char-code #\x)
+                               :fill-pointer limit
+                               :adjustable t))
+         (separator (- limit (length tail))))
+    (setf (aref document 0) (char-code #\#)
+          (aref document (1- separator)) (char-code #\Newline))
+    (replace document tail :start1 separator)
+    document))
+
+(defun call-with-format-byte-limit-reads
+    (at-limit-path over-limit-path limit small-document thunk)
+  (let ((at-limit-read-p nil)
+        (over-limit-read-p nil)
+        (read-file
+          (symbol-function 'aitools.store.application:view-read-file)))
+    (cl-weave:with-mocked-functions
+        (((symbol-function 'aitools.store.application:view-read-file)
+          (lambda (view path &rest arguments)
+            (let ((max-bytes (getf arguments :max-bytes)))
+              (when (and max-bytes (string= path at-limit-path))
+                (setf at-limit-read-p t)
+                (expect max-bytes :to-be limit))
+              (when (and max-bytes (string= path over-limit-path))
+                (setf over-limit-read-p t)
+                (expect max-bytes :to-be limit))
+              (let ((octets (apply read-file view path arguments)))
+                (if (member path (list at-limit-path over-limit-path) :test #'string=)
+                    (progn
+                      (expect (length octets)
+                              :to-be (if (string= path at-limit-path) limit (1+ limit)))
+                      small-document)
+                    octets))))))
+      (funcall thunk)
+      (expect at-limit-read-p :to-be t)
+      (expect over-limit-read-p :to-be t))))
+
 (defun octet-vector (&rest values)
   (make-array (length values) :element-type '(unsigned-byte 8) :initial-contents values))
 
