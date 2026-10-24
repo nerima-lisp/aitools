@@ -71,6 +71,7 @@
                                               (:file "unit/text/codec-gzip-test")
                                               (:file "unit/text/archive-test")
                                               (:file "unit/text/archive-zip-test")
+                                              (:file "unit/text/archive-zip-signature-test")
                                               (:file "unit/text/archive-zip-date-test")
                                               (:file "unit/text/archive-tar-test")
                                               (:file "unit/text/archive-safety-test")
