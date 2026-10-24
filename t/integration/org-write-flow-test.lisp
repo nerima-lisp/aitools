@@ -32,8 +32,7 @@
 
 (describe "Org write flows through the shared edit application"
   (it "runs TODO, property, planning, clock, and table writes in process"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "todo.org" (format nil "#+TODO: TODO | DONE~%* TODO Task~%"))
         (let ((fields
                 (apply #'org-flow-ok #'aitools.org.application:org-todo-set/k ports
@@ -119,22 +118,20 @@
                 (org-flow-ok #'aitools.org.application:org-table-recalculate/k ports
                              :path "formula.org" :table 1 :root *root*)))
           (expect (field fields "changed") :to-be t)
-          (expect (search "| 2 | 3 |" (text "formula.org")) :to-be-truthy)))))
+          (expect (search "| 2 | 3 |" (text "formula.org")) :to-be-truthy))))))
 
   (it "rejects unknown formula functions as unsupported syntax"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "unknown-function.org"
              (format nil "| Input | Result |~%|-------+--------|~%| 2 | 0 |~%#+TBLFM: @2$2=unknown(1)~%"))
         (expect
          (org-flow-error-code #'aitools.org.application:org-table-recalculate/k ports
                               :path "unknown-function.org" :table 1 :root *root*)
-         :to-equal "input.unsupported-format")))))
+         :to-equal "input.unsupported-format"))))))
 
 (describe "Org read flows through the infrastructure adapters"
   (it "returns agenda and clock report data in the command result"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "agenda.org"
              (format nil "#+TODO: TODO | DONE~%* TODO Work :work:~%SCHEDULED: <2026-10-19 Mon>~%"))
         (let* ((fields
@@ -157,12 +154,11 @@
                              :through "2026-10-19T10:00:00"
                              :at "2026-10-19T10:00:00" :tz "UTC" :root *root*)))
           (expect (field fields "total_minutes") :to-be 30)
-          (expect (length (field fields "rows")) :to-be 1))))))
+          (expect (length (field fields "rows")) :to-be 1)))))))
 
 (describe "Org adapter argument and selection failures"
   (it "rejects invalid planning, clock, table, agenda, and report requests"
-    (with-edit-workspace ()
-      (let ((ports (make-org-write-flow-ports)))
+    (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
         (put "invalid.org" (format nil "#+TODO: TODO | DONE~%* TODO Task~%"))
         (expect
          (org-flow-error-code #'aitools.org.application:org-planning-set/k ports
@@ -201,7 +197,7 @@
                               :from "2026-10-19T10:00:00"
                               :through "2026-10-19T09:00:00"
                               :at "2026-10-19T10:00:00" :tz "UTC" :root *root*)
-         :to-equal "argument.invalid")))))
+         :to-equal "argument.invalid"))))))
 
 (describe "Org table error mapping"
   (it "maps unknown-function errors to unsupported syntax"
