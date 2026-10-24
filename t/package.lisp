@@ -35,11 +35,36 @@ The limit covers a single spec, while external-process helpers retain their
 own operation-specific budgets.")
   (defvar *last-test-outcomes* nil))
 
-(defparameter *minimum-executed-specs* 2853
-  "Fewer specs than this actually running (passed, failed or errored; not
-skipped or todo) fails the run: a load order mistake or a suite-wide skip
-must not read as a green run. Raise it when specs are added.")
+(defparameter *spec-count-baseline*
+  (let ((pathname (merge-pathnames "t/spec-count-baseline.lisp"
+                                   (asdf:system-source-directory "aitools/test/base"))))
+    (with-open-file (stream pathname)
+      (let* ((*read-eval* nil)
+             (baseline (read stream nil :eof))
+             (minimum (getf baseline :minimum-executed-specs))
+             (starts (getf baseline :outer-start-events))
+             (ends (getf baseline :outer-end-events))
+             (nested (getf baseline :nested-e2e-diagnostic-events)))
+        (unless (and (listp baseline) (evenp (length baseline))
+                     (= (getf baseline :schema-version) 1)
+                     (eq (getf baseline :source) :successful-darwin-ci-run)
+                     (stringp (getf baseline :run-id))
+                     (stringp (getf baseline :revision))
+                     (eq (getf baseline :platform) :darwin)
+                     (integerp minimum) (plusp minimum)
+                     (integerp starts) (= starts minimum)
+                     (integerp ends) (= ends minimum)
+                     (integerp nested) (not (minusp nested))
+                     (stringp (getf baseline :reason))
+                     (plusp (length (getf baseline :reason))))
+          (error "Invalid executed-spec baseline: ~S" baseline))
+        (unless (eq (read stream nil :eof) :eof)
+          (error "Executed-spec baseline contains trailing data: ~A" pathname))
+        baseline))))
 
+(defparameter *minimum-executed-specs*
+  (getf *spec-count-baseline* :minimum-executed-specs)
+  "Fewer executed specs (passed, failed or errored; not skipped or todo) than the data-backed baseline fails the run.")
 (defparameter *allowed-unrun-specs*
   ;; Optional fields are an environment variable, its required state, and exact-reason matching.
   '((:skip "zip/unzip are not on PATH" "archive interop oracle needs the host tools")
