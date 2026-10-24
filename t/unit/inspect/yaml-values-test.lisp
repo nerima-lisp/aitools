@@ -98,4 +98,13 @@
                    (expect (yaml-unsupported-reason condition) :to-equal reason)
                    (expect (yaml-unsupported-pointer condition) :to-equal pointer)))))
       (assert-unsupported "1: value" "non-string-key" "")
-      (assert-unsupported "x: .nan" "non-finite-float" "/x"))))
+      (assert-unsupported "x: .nan" "non-finite-float" "/x")))
+  (it "rejects values outside the YAML parser representation"
+    (handler-case
+        (progn
+          (aitools.inspect.domain::%yaml-to-json :unexpected nil)
+          (fail "expected an unsupported YAML parser value"))
+      (simple-error (condition)
+        (expect (search "unexpected YAML parser value"
+                        (simple-condition-format-control condition))
+                :to-be-truthy)))))

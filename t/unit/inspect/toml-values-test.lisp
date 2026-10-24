@@ -101,4 +101,13 @@
           (fail "expected unsupported TOML write value"))
       (toml-unsupported-value (condition)
         (expect (toml-unsupported-reason condition) :to-equal "non-finite-float")
-        (expect (toml-unsupported-pointer condition) :to-equal "/value")))))
+        (expect (toml-unsupported-pointer condition) :to-equal "/value"))))
+  (it "rejects values outside the TOML parser representation"
+    (handler-case
+        (progn
+          (aitools.inspect.domain::%toml-to-json :unexpected nil)
+          (fail "expected an unsupported TOML parser value"))
+      (simple-error (condition)
+        (expect (search "unexpected TOML parser value"
+                        (simple-condition-format-control condition))
+                :to-be-truthy)))))
