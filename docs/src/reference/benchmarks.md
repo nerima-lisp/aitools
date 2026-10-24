@@ -58,7 +58,7 @@ To run the suite, including this file, see
 
 ## Digest and DEFLATE adapters
 
-`t/perf/digest-deflate-adapter-benchmark.lisp` compares the F0 (pre-adapter) implementations of SHA-256 and raw
+`t/perf/digest-deflate-adapter-benchmark.lisp` compares the pre-adapter implementations of SHA-256 and raw
 DEFLATE with the current adapters. From the project root,
 run it in the development shell:
 
@@ -66,7 +66,7 @@ run it in the development shell:
 nix develop --command sbcl --script t/perf/digest-deflate-adapter-benchmark.lisp
 ```
 
-The harness reads the two F0 source files from revision
+The harness reads the two baseline source files from revision
 `1b20c3abdea1d95a049cdb0481afcfd72072b2a4` with `jj`, compiles them into a
 temporary directory, and compares them with the loaded current systems in one
 SBCL process. It uses deterministic xorshift inputs: 16 MiB for SHA-256 and
@@ -102,8 +102,8 @@ The deflate and inflate comparisons favored the current adapters in all 30 measu
 
 ## Known dependency issues
 
-These are issues aitools met in its dependencies, at the versions
-`flake.nix` pins: cl-regex-kit v2.1.1, cl-process-kit v3.3.1, cl-cli v1.4.0,
+These are issues aitools met in its dependencies. Current `flake.nix` pins
+cl-regex-kit v2.2.0, cl-process-kit v3.4.0, cl-cli v1.4.0, and
 cl-nix-forge v0.6.1. The last column summarizes how the current source
 handles each issue.
 
@@ -111,7 +111,7 @@ handles each issue.
 |---|---|---|---|
 | cl-regex-kit | Before v2.1.1, a byte regex using `\b` cost time and memory proportional to the whole buffer on every scan, regardless of `:start` and `:end`. | `search` would pay whole-file cost on every candidate line. | `scan-line` (`packages/feature/search/src/domain/matcher.lisp`) scans the candidate line in place, bounded by `:end`, rather than copying it. |
 | cl-regex-kit | Before v2.1.1, the Pike VM allocated per input byte for a pattern with no required literal. | Allocation grew with file size for such patterns. | None needed. The `[0-9]{5}` allocation case above is a normal passing spec. |
-| cl-regex-kit | `(?:[^x]*r)?P` did not match `"P x"` in v2.1.0. | Broke the Rust `impl` pattern in the language table and a search matcher spec. | The matcher specs blocked on this now run as normal specs under v2.1.1. |
+| cl-regex-kit | `(?:[^x]*r)?P` did not match `"P x"` in v2.1.0. | Broke the Rust `impl` pattern in the language table and a search matcher spec. | The matcher specs blocked on this now run as normal specs under v2.2.0. |
 | cl-process-kit | Before v3.3.1, `spawn-native :session t` lost a setsid/process-group race on a fraction of Darwin launches. | `bg start` could fail before the program execs. | `bg start` launches once; a genuine failure is reported (`packages/feature/process/src/infrastructure/bg-launcher.lisp`). |
 | cl-cli | `:rest-p` positionals consumed later options in v1.3.0. | `search` had to declare optional path positionals. | `search` uses one rest positional for paths under v1.4.0. |
 | cl-nix-forge | Before v0.6.1, the `.asd` reader recursed once per character, so a `.asd` of a few tens of kilobytes exceeded Nix's default `max-call-depth`. | Evaluating `flake.nix`, which reads the version from `aitools.asd`, failed. | None needed. v0.6.1 walks the file iteratively. |
