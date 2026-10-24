@@ -81,11 +81,14 @@ T as a flag and anything else as a value."
                                     (getf option :name))))
                              (ecase (getf option :kind)
                                (:flag (list flag))
-                               (:value (list flag value))
+                               (:value (list flag (princ-to-string value)))
                                (:multi
                                 (loop for item in value
-                                      append (list flag item)))
-                               (:pair (list flag (first value) (second value))))))
+                                      append (list flag (princ-to-string item))))
+                               (:pair
+                                (list flag
+                                      (princ-to-string (first value))
+                                      (princ-to-string (second value)))))))
             (when
                 (some
                  (lambda (positional)

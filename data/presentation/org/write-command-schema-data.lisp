@@ -31,14 +31,15 @@
 
 (defparameter *org-common-read-error-codes*
   '("input.not-found" "input.not-utf8" "input.unsupported-format"
-    "input.syntax-error" "environment.io" "internal.unexpected"))
+    "input.syntax-error" "refusal.too-large" "environment.io"
+    "internal.unexpected"))
 
 (defparameter *org-common-write-error-codes*
   '("argument.invalid" "input.not-found" "input.not-utf8"
     "input.unsupported-format" "input.syntax-error"
-    "refusal.outside-workspace" "refusal.target-changed"
-    "refusal.redacted-input" "environment.busy" "environment.io"
-    "internal.unexpected"))
+    "refusal.not-a-file" "refusal.outside-workspace" "refusal.target-changed"
+    "refusal.redacted-input" "refusal.too-large"
+    "environment.busy" "environment.io" "internal.unexpected"))
 
 (defparameter *org-selection-error-codes*
   '("selection.no-match" "selection.ambiguous"))
@@ -149,8 +150,7 @@
                                (:name "through" :description "Inclusive end date.")
                                (:name "entries" :description "[{date,kind,line,title,todo,tags}] in document order.")
                                (:name "count" :description "Number of agenda entries."))
-              :error-codes (append *org-common-read-error-codes*
-                                   '("argument.invalid" "refusal.too-large")))
+              :error-codes (append *org-common-read-error-codes* '("argument.invalid")))
         (list :name "org.clock.in"
               :summary "Start a clock on one matching heading."
               :description "Requires an explicit local time context. A heading with an existing running clock is rejected."
@@ -246,5 +246,4 @@
                               '((:name "table" :description "One-based table number.")
                                 (:name "changed" :description "True when a formula changed cell values."))
                               *org-write-output-fields*)
-              :error-codes (append *org-common-write-error-codes*
-                                   '("refusal.too-large"))))))
+              :error-codes *org-common-write-error-codes*))))

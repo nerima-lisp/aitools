@@ -109,11 +109,11 @@
       (return-from %org-property-edit
         (values nil nil failure)))
     (let ((name (getf options :name)))
-      (handler-case (let ((result
+      (handler-case (let ((updated
                            (if delete-p
                                (org-kit:remove-property engine heading name)
                                (org-kit:set-property engine heading name (getf options :value)))))
-                      (values (org-kit:edit-result-updated-document result) (list (cons "property" name)) nil))
+                      (values updated (list (cons "property" name)) nil))
         (org-kit:org-edit-error (condition)
           (if (and delete-p (eq (org-kit:org-edit-error-reason condition) :target-not-found))
               (values engine (list (cons "property" name)) nil)
@@ -146,11 +146,11 @@
           (when duplicate
             (return-from %org-planning-edit
               (values nil nil duplicate)))))
-      (handler-case (let ((result
+      (handler-case (let ((updated
                            (if delete-p
                                (org-kit:remove-planning engine heading kind)
                                (org-kit:set-planning engine heading kind timestamp))))
-                      (values (org-kit:edit-result-updated-document result)
+                      (values updated
                               (append (list (cons "kind" (%org-kind-name kind)))
                                       (unless delete-p
                                         (list (cons "timestamp" timestamp))))

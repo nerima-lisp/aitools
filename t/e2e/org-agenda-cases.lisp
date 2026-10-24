@@ -21,3 +21,4 @@
                       "--through" "2026-10-19" "--at" "2026-10-19T09:00:00"
                       "--tz" "UTC")
                  "org.agenda" "argument.invalid")))
+)

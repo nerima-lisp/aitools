@@ -43,7 +43,7 @@
 
 (defun %planning-timestamp-node (timestamp)
   (let ((nodes nil)
-        (source (format nil "* Probe~%SCHEDULED: ~A~%" timestamp)))
+        (source (format nil "* Probe~%~A~%" timestamp)))
     (handler-case (let* ((engine (org-kit:parse-org (sb-ext:string-to-octets source :external-format :utf-8)))
                          (root (org-kit:document-root engine)))
                     (org-kit:map-nodes

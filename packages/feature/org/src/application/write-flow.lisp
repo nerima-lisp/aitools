@@ -34,7 +34,8 @@
                                   path output))
                            '())
                        (append fields
-                               (list (cons "changed" changed))))))))))))
+                               (list (cons "changed"
+                                           (aitools.protocol.domain:json-boolean changed)))))))))))))
 (defun %org-plan-write (ports context operation options command on-committed on-rejected)
   (let* ((view (aitools.edit.application:write-context-view context))
          (path (aitools.edit.application:context-path context))
