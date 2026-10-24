@@ -118,6 +118,10 @@
            (entries (read-zip-entries archive)))
       (expect (entry-summary entries archive) :to-equal (member-summary members))
       (expect (mapcar #'archive-entry-format entries) :to-equal (make-list (length members) :initial-element :zip))))
+  (it "encodes a missing symlink target as an empty target"
+    (let* ((archive (write-zip (list (make-archive-member :name "link" :kind :symlink))))
+           (entry (first (read-zip-entries archive))))
+      (expect (archive-entry-link-target entry) :to-equal "")))
 
   (it "stores MS-DOS times at two-second resolution as UTC"
     (let ((entries (read-zip-entries (write-zip (sample-members)))))
