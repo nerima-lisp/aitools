@@ -110,7 +110,6 @@
    #:gzip-decompress
    #:gzip-compress
    ;; codec-zip.lisp
-   #:days-from-civil
    #:read-zip-entries
    #:write-zip
    ;; codec-tar.lisp

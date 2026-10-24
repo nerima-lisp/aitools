@@ -8,15 +8,6 @@
 ;;;; archive lists the same way on every host.
 (in-package #:aitools.text.domain)
 
-(defun days-from-civil (year month day)
-  "Days since 1970-01-01 for a proleptic Gregorian date (H. Hinnant)."
-  (let* ((y (if (<= month 2) (1- year) year))
-         (era (floor y 400))
-         (yoe (- y (* era 400)))
-         (doy (+ (floor (+ (* 153 (+ month (if (> month 2) -3 9))) 2) 5) (1- day)))
-         (doe (+ (* yoe 365) (floor yoe 4) (- (floor yoe 100)) doy)))
-    (+ (* era 146097) doe -719468)))
-
 (defun %dos-time-to-unix (time date)
   (let* ((year (+ 1980 (ldb (byte 7 9) date)))
          (month (max 1 (min 12 (ldb (byte 4 5) date))))
