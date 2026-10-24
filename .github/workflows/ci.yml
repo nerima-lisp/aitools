@@ -33,6 +33,12 @@ jobs:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Check generated command reference
+        run: >-
+          nix --option extra-substituters https://takeokunn-aitools.cachix.org
+          --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU=
+          develop --command sbcl --script docs/tools/generate-reference.lisp --check
+
       # `nix flake check` runs the SBCL test suite, the paredit-lint structural
       # check, the docs build (checks.docs), and the treefmt formatting gate
       # (checks.formatting), so unformatted Nix or an unbalanced .lisp file
@@ -75,6 +81,12 @@ jobs:
         with:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Check generated command reference
+        run: >-
+          nix --option extra-substituters https://takeokunn-aitools.cachix.org
+          --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU=
+          develop --command sbcl --script docs/tools/generate-reference.lisp --check
 
       - name: Check Nix delivery, syntax, docs and formatting
         run: nix flake check --print-build-logs

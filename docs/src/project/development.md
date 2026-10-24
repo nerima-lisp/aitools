@@ -216,18 +216,20 @@ command in an existing context needs no change in `src/`.
 
 ## Regenerating the reference
 
-The command sections of [Commands](../reference/commands.md), the error
-table in [Errors](../reference/errors.md), and the correspondence table in
-[Using aitools from an agent](../guide/agents.md) are generated. Regenerate
-them after changing a command schema, the error catalog, or
+The command index and context pages under [Commands](../reference/commands/index.md),
+the error table in [Errors](../reference/errors.md), and the correspondence
+table in [Using aitools from an agent](../guide/agents.md) are generated.
+Regenerate them after changing a command schema, the error catalog, or
 `data/domain/protocol/correspondence-table-data.lisp`:
 
 ```sh
 sbcl --script docs/tools/generate-reference.lisp
+sbcl --script docs/tools/generate-reference.lisp --check
 ```
 
+The `--check` form fails when generated text is stale without rewriting files.
+
 It needs the same `CL_SOURCE_REGISTRY` as `run-tests.lisp`. It loads
-`aitools/cli`, calls each context's `register-<context>-commands` into a
-fresh registry, and rewrites only the text between each
-`<!-- BEGIN GENERATED: name -->` and `<!-- END GENERATED: name -->` pair.
+`aitools/cli` and calls each context's `register-<context>-commands` into a
+fresh registry. It rewrites marked regions and the generated context pages.
 Review the diff before committing.
