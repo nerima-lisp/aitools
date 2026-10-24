@@ -5,8 +5,7 @@
 
 (describe "aitools move, copy, delete and mkdir"
   (it "renames a directory, refuses to merge into an existing one, and undoes the move"
-    (with-edit-workspace ()
-      (put "d/a.txt" "a")
+    (call-with-edit-workspace (lambda () (put "d/a.txt" "a")
       (put "d/sub/b.txt" "b")
       (put "e/x" "x")
       (let ((before (snapshot)))
@@ -17,20 +16,18 @@
           (expect (text "moved/sub/b.txt") :to-equal "b")
           (expect (kind "d") :to-be :absent)
           (expect (undo (field fields "op_id")) :to-be :committed))
-        (expect (snapshot) :to-equal before))))
+        (expect (snapshot) :to-equal before)))))
 
   (it "moves over a file only with --overwrite and a hash"
-    (with-edit-workspace ()
-      (put "a" "A")
+    (call-with-edit-workspace (lambda () (put "a" "A")
       (put "b" "B")
       (with-error (code) (run "move" '("a" "b")) (expect code :to-equal "refusal.exists"))
       (with-error (code) (run "move" '("a" "b") :overwrite t) (expect code :to-equal "argument.invalid"))
       (expect (run "move" '("a" "b") :overwrite t :expect-hash (list (format nil "b=~A" (hash "b")))) :to-be :ok)
-      (expect (text "b") :to-equal "A")))
+      (expect (text "b") :to-equal "A"))))
 
   (it "copies a tree recursively, skipping symlinks that leave the workspace, within --max-bytes"
-    (with-edit-workspace ()
-      (put "src/a.txt" "aaaa" :mode #o755)
+    (call-with-edit-workspace (lambda () (put "src/a.txt" "aaaa" :mode #o755)
       (put "src/deep/b.txt" "bb")
       (put "existing.txt" "keep")
       (sb-posix:mkdir (disk "existing-dir") #o755)
@@ -60,11 +57,10 @@
           (expect (kind "dst/inside") :to-be :symlink)
           (expect (kind "dst/outside") :to-be :absent)
           (expect (undo (field fields "op_id")) :to-be :committed))
-        (expect (snapshot) :to-equal before))))
+        (expect (snapshot) :to-equal before)))))
 
   (it "deletes files and empty directories, refuses non-empty ones, and undo restores them"
-    (with-edit-workspace ()
-      (put "full/x" "x")
+    (call-with-edit-workspace (lambda () (put "full/x" "x")
       (sb-posix:mkdir (disk "empty") #o755)
       (put "f.txt" "f" :mode #o600)
       (let ((before (snapshot)))
@@ -75,21 +71,19 @@
             (expect (changes fields) :to-equal (list (list path "deleted")))
             (expect (kind path) :to-be :absent)
             (expect (undo (field fields "op_id")) :to-be :committed)))
-        (expect (snapshot) :to-equal before))))
+        (expect (snapshot) :to-equal before)))))
 
   (it "creates directories with parents and treats an existing one as no change"
-    (with-edit-workspace ()
-      (multiple-value-bind (kind fields) (run "mkdir" '("a/b"))
+    (call-with-edit-workspace (lambda () (multiple-value-bind (kind fields) (run "mkdir" '("a/b"))
         (expect kind :to-be :ok)
         (expect (changes fields) :to-equal '(("a" "created") ("a/b" "created"))))
       (multiple-value-bind (kind fields) (run "mkdir" '("a/b"))
         (expect kind :to-be :ok)
-        (expect (field fields "changes") :to-equal '())))))
+        (expect (field fields "changes") :to-equal '()))))))
 
 (describe "aitools rm safety and journal"
   (it "previews a recursive removal, checks the count, and restores binary bytes and links"
-    (with-edit-workspace ()
-      (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
+    (call-with-edit-workspace (lambda () (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
       (put "keep" "untouched")
       (sb-posix:symlink "../../keep" (disk "tree/sub/link"))
       (let ((before (snapshot)))
@@ -108,30 +102,27 @@
           (expect (kind "tree") :to-be :absent)
           (expect (text "keep") :to-equal "untouched")
           (expect (undo (field fields "op_id")) :to-be :committed))
-        (expect (snapshot) :to-equal before))))
+        (expect (snapshot) :to-equal before)))))
   (it "reports a missing rm path with a find repair"
-    (with-edit-workspace ()
-      (put "tree/kept.txt" "kept")
+    (call-with-edit-workspace (lambda () (put "tree/kept.txt" "kept")
       (let ((before (snapshot)))
         (with-error (code message keys)
             (run "rm" '("tree/missing.txt"))
           (expect code :to-equal "input.not-found")
           (expect message :to-equal "tree/missing.txt does not exist")
           (expect (repair-commands keys) :to-equal '("aitools find tree/missing.txt")))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
 
   (it "removes a leaf symlink without following it and undoes the removal"
-    (with-edit-workspace ()
-      (sb-posix:symlink "/outside-not-owned-by-this-test" (disk "link"))
+    (call-with-edit-workspace (lambda () (sb-posix:symlink "/outside-not-owned-by-this-test" (disk "link"))
       (multiple-value-bind (kind fields) (run "rm" '("link"))
         (expect kind :to-be :ok)
         (expect (kind "link") :to-be :absent)
         (expect (undo (field fields "op_id")) :to-be :committed)
-        (expect (sb-posix:readlink (disk "link")) :to-equal "/outside-not-owned-by-this-test"))))
+        (expect (sb-posix:readlink (disk "link")) :to-equal "/outside-not-owned-by-this-test")))))
 
   (it "rejects entry and byte limits before changing any path"
-    (with-edit-workspace ()
-      (put "tree/a" "1234")
+    (call-with-edit-workspace (lambda () (put "tree/a" "1234")
       (put "tree/b" "56")
       (let ((before (snapshot)))
         (with-error (code) (run "rm" '("tree") :recursive t :dry-run t :max-entries "2")
@@ -141,29 +132,26 @@
           (expect code :to-equal "refusal.too-large")
           (expect message :to-equal "rm exceeds --max-bytes"))
         (expect-unchanged before)
-        (expect (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "6" :max-entries "3") :to-be :ok))))
+        (expect (run "rm" '("tree") :recursive t :expect-count "3" :max-bytes "6" :max-entries "3") :to-be :ok)))))
 
   (it-each ((".git") (".jj") (".GIT") (".JJ"))
     "refuses the whole tree when it contains metadata: ~A" (metadata)
-    (with-edit-workspace ()
-      (put (format nil "tree/~A/data" metadata) "protected")
+    (call-with-edit-workspace (lambda () (put (format nil "tree/~A/data" metadata) "protected")
       (put "tree/ordinary" "keep")
       (let ((before (snapshot)))
         (with-error (code) (run "rm" '("tree") :recursive t :expect-count "4")
           (expect code :to-equal "refusal.outside-workspace"))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
 
   (it "refuses the workspace root without deleting descendants"
-    (with-edit-workspace ()
-      (put "keep" "safe")
+    (call-with-edit-workspace (lambda () (put "keep" "safe")
       (let ((before (snapshot)))
         (with-error (code) (run "rm" '(".") :recursive t :expect-count "2")
           (expect code :to-equal "refusal.outside-workspace"))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
 
   (it "counts staged bytes and stages a recursive removal without changing disk"
-    (with-edit-workspace ()
-      (put "tree/a" "old")
+    (call-with-edit-workspace (lambda () (put "tree/a" "old")
       (let ((tx (begin-tx)))
         (expect (run-in tx "write" '("tree/b") :content '("new")) :to-be :ok)
         (multiple-value-bind (kind fields) (run-in tx "rm" '("tree") :recursive t :dry-run t)
@@ -173,12 +161,11 @@
         (expect (run-in tx "rm" '("tree") :recursive t :expect-count "3") :to-be :ok)
         (expect (text "tree/a") :to-equal "old")
         (expect (commit-tx tx) :to-be :committed)
-        (expect (kind "tree") :to-be :absent)))))
+        (expect (kind "tree") :to-be :absent))))))
 
 (describe "aitools transaction write errors"
   (it "suggests a find command for a missing target"
-    (with-edit-workspace ()
-      (put "tree/kept.txt" "kept")
+    (call-with-edit-workspace (lambda () (put "tree/kept.txt" "kept")
       (let ((tx (begin-tx)))
         (let ((before (snapshot)))
           (with-error (code message keys)
@@ -187,11 +174,10 @@
             (expect message :to-equal "tree/missing.txt does not exist")
             (expect (repair-commands keys)
                     :to-equal (list "aitools find tree/missing.txt")))
-          (expect-unchanged before)))))
+          (expect-unchanged before))))))
 
   (it "reports the destination repair when a staged move is refused"
-    (with-edit-workspace ()
-      (put "source.txt" "new")
+    (call-with-edit-workspace (lambda () (put "source.txt" "new")
       (put "destination.txt" "old")
       (let ((tx (begin-tx))
             (before (snapshot)))
@@ -203,11 +189,10 @@
         (expect-unchanged before)
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "source.txt") :to-equal "new")
-        (expect (text "destination.txt") :to-equal "old"))))
+        (expect (text "destination.txt") :to-equal "old")))))
 
   (it "forwards the destination repair from a transaction dry-run refusal"
-    (with-edit-workspace ()
-      (put "source.txt" "new")
+    (call-with-edit-workspace (lambda () (put "source.txt" "new")
       (put "destination.txt" "old")
       (let ((tx (begin-tx))
             (before (snapshot)))
@@ -219,6 +204,6 @@
         (expect-unchanged before)
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "source.txt") :to-equal "new")
-        (expect (text "destination.txt") :to-equal "old"))))
+        (expect (text "destination.txt") :to-equal "old")))))
 
 )

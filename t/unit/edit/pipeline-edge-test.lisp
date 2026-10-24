@@ -52,8 +52,7 @@
                     nil))))
 
   (it "resolves bare, target-named and additional hash paths by their area"
-    (with-edit-workspace ()
-      (sb-posix:mkdir (disk "tmp") #o700)
+    (call-with-edit-workspace (lambda () (sb-posix:mkdir (disk "tmp") #o700)
       (let* ((targets (list (aitools.edit.application:make-write-target "a.txt")))
              (paths (list "a.txt"))
              (host (aitools.workspace.infrastructure:make-host-workspace-host))
@@ -84,4 +83,4 @@
               (format nil "~A=00" (disk "tmp/other")))
              targets paths :inside host root temporary-root)
           (expect path :to-equal "other")
-          (expect area :to-be :temporary))))))
+          (expect area :to-be :temporary)))))))

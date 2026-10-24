@@ -2,8 +2,7 @@
 
 (describe "aitools chmod, link and touch"
   (it "sets and clears execute bits and sets a mode, reporting the previous one"
-    (with-edit-workspace ()
-      (put "s.sh" "echo" :mode #o644)
+    (call-with-edit-workspace (lambda () (put "s.sh" "echo" :mode #o644)
       (multiple-value-bind (kind fields) (run "chmod" '("s.sh") :exec t)
         (expect kind :to-be :ok)
         (expect (field fields "previous_mode") :to-equal "0644")
@@ -15,11 +14,10 @@
       (expect (mode "s.sh") :to-be #o750)
       (run "chmod" '("s.sh") :no-exec t)
       (expect (mode "s.sh") :to-be #o640)
-      (with-error (code) (run "chmod" '("s.sh") :exec t :mode "700") (expect code :to-equal "argument.invalid"))))
+      (with-error (code) (run "chmod" '("s.sh") :exec t :mode "700") (expect code :to-equal "argument.invalid")))))
 
   (it "links inside the workspace, refuses targets outside it, and replaces only symlinks"
-    (with-edit-workspace ()
-      (put "target.txt" "t")
+    (call-with-edit-workspace (lambda () (put "target.txt" "t")
       (put "regular.txt" "r")
       (multiple-value-bind (kind fields) (run "link" '("target.txt" "l"))
         (expect kind :to-be :ok)
@@ -42,10 +40,9 @@
         (expect kind :to-be :ok)
         (expect (sb-posix:readlink (disk "l")) :to-equal "regular.txt")
         (expect (undo (field fields "op_id")) :to-be :committed)
-        (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt"))))
+        (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt")))))
   (it "requires --expect-hash before replacing a symlink"
-    (with-edit-workspace ()
-      (put "target.txt" "original")
+    (call-with-edit-workspace (lambda () (put "target.txt" "original")
       (put "replacement.txt" "replacement")
       (sb-posix:symlink "target.txt" (disk "l"))
       (let ((before (snapshot)))
@@ -54,10 +51,9 @@
           (expect code :to-equal "argument.invalid")
           (expect (repair-commands keys) :to-equal (list "aitools info l")))
         (expect (snapshot) :to-equal before)
-        (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt"))))
+        (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt")))))
   (it "refuses chmod of a symlink staged in a transaction"
-    (with-edit-workspace ()
-      (put "target.txt" "original" :mode #o644)
+    (call-with-edit-workspace (lambda () (put "target.txt" "original" :mode #o644)
       (let ((tx (begin-tx)))
         (let ((before (snapshot)))
           (expect (run-in tx "link" '("target.txt" "l")) :to-be :ok)
@@ -69,20 +65,18 @@
           (expect (commit-tx tx) :to-be :committed)
           (expect (sb-posix:readlink (disk "l")) :to-equal "target.txt")
           (expect (mode "target.txt") :to-be #o644)
-          (expect (text "target.txt") :to-equal "original")))))
+          (expect (text "target.txt") :to-equal "original"))))))
 
   (it "hashes a dangling symlink by its target text for --expect-hash"
-    (with-edit-workspace ()
-      (put "regular.txt" "r")
+    (call-with-edit-workspace (lambda () (put "regular.txt" "r")
       (sb-posix:symlink "missing.txt" (disk "l"))
       (expect (run "link" '("regular.txt" "l") :overwrite t
                    :expect-hash (list (format nil "l=~A" (aitools.kernel.domain:content-hash (bytes "missing.txt")))))
               :to-be :ok)
-      (expect (sb-posix:readlink (disk "l")) :to-equal "regular.txt")))
+      (expect (sb-posix:readlink (disk "l")) :to-equal "regular.txt"))))
 
   (it "creates an empty file (undo removes it) and sets an existing file's mtime"
-    (with-edit-workspace ()
-      (multiple-value-bind (kind fields) (run "touch" '("new.txt"))
+    (call-with-edit-workspace (lambda () (multiple-value-bind (kind fields) (run "touch" '("new.txt"))
         (expect kind :to-be :ok)
         (expect (text "new.txt") :to-equal "")
         (expect (undo (field fields "op_id")) :to-be :committed)
@@ -97,19 +91,17 @@
         (expect (text "old.txt") :to-equal "keep")
         (expect (undo (field fields "op_id")) :to-be :committed))
       (expect (sb-posix:stat-mtime (sb-posix:stat (disk "old.txt"))) :to-be 1000000000)
-      (expect (text "old.txt") :to-equal "keep")))
+      (expect (text "old.txt") :to-equal "keep"))))
 
   (it "creates a file with the --mtime given, and refuses a time before 1970"
-    (with-edit-workspace ()
-      (expect (run "touch" '("new.txt") :mtime "@1577934245") :to-be :ok)
+    (call-with-edit-workspace (lambda () (expect (run "touch" '("new.txt") :mtime "@1577934245") :to-be :ok)
       (expect (sb-posix:stat-mtime (sb-posix:stat (disk "new.txt"))) :to-be 1577934245)
       (with-error (code) (run "touch" '("other.txt") :mtime "1969-12-31T23:59:59Z")
         (expect code :to-equal "argument.invalid"))
-      (expect (kind "other.txt") :to-be :absent)))
+      (expect (kind "other.txt") :to-be :absent))))
 
   (it "stages an existing file's mtime in a tx and applies it at commit"
-    (with-edit-workspace ()
-      (put "old.txt" "keep")
+    (call-with-edit-workspace (lambda () (put "old.txt" "keep")
       (sb-posix:utimes (disk "old.txt") 1000000000 1000000000)
       (let ((tx (begin-tx)))
         (multiple-value-bind (kind fields) (run-in tx "touch" '("old.txt") :mtime "1577934245")
@@ -118,12 +110,11 @@
         (expect (sb-posix:stat-mtime (sb-posix:stat (disk "old.txt"))) :to-be 1000000000)
         (expect (commit-tx tx) :to-be :committed)
         (expect (sb-posix:stat-mtime (sb-posix:stat (disk "old.txt"))) :to-be 1577934245)
-        (expect (text "old.txt") :to-equal "keep")))))
+        (expect (text "old.txt") :to-equal "keep"))))))
 
 (describe "aitools mktemp"
   (it "creates files and directories in tmp/ without a journal entry"
-    (with-edit-workspace ()
-      (multiple-value-bind (kind fields) (run "mktemp" '() :suffix ".json")
+    (call-with-edit-workspace (lambda () (multiple-value-bind (kind fields) (run "mktemp" '() :suffix ".json")
         (expect kind :to-be :ok)
         (expect (search "/tmp/tmp." (field fields "path")) :to-be-truthy)
         (expect (string= ".json" (field fields "path") :start2 (- (length (field fields "path")) 5)) :to-be t)
@@ -131,4 +122,4 @@
       (multiple-value-bind (kind fields) (run "mktemp" '() :dir t)
         (expect kind :to-be :ok)
         (expect (sb-posix:s-isdir (sb-posix:stat-mode (sb-posix:stat (field fields "path")))) :to-be-truthy))
-      (expect (aitools.store.application:read-journal (open-store *root*)) :to-equal '()))))
+      (expect (aitools.store.application:read-journal (open-store *root*)) :to-equal '())))))

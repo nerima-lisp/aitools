@@ -14,8 +14,7 @@
 
 (describe "aitools.edit TOML write flows"
   (it "applies all five JSON operations, supports stdin sets, and always returns warnings"
-    (with-edit-workspace ()
-      (put "doc.toml" (format nil "# input~%a = 1~%b = 2~%"))
+    (call-with-edit-workspace (lambda () (put "doc.toml" (format nil "# input~%a = 1~%b = 2~%"))
       (multiple-value-bind (status fields)
           (run "toml.set" (list "doc.toml" "/a" "3"))
         (expect status :to-be :ok)
@@ -64,10 +63,9 @@
                 :to-be t)
         (expect (length items) :to-be 2)
         (expect (aref items 0) :to-be 1)
-        (expect (aref items 1) :to-be t))))
+        (expect (aref items 1) :to-be t)))))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
-    (with-edit-workspace ()
-      (put "doc.toml" (format nil "a = 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.toml" (format nil "a = 1~%"))
       (multiple-value-bind (status fields)
           (run "toml.set" '("doc.toml" "/a" "0e-9999"))
         (expect status :to-be :ok)
@@ -76,10 +74,9 @@
           (run "toml.set" '("doc.toml" "/a" "1e-9999"))
         (declare (ignore message keys))
         (expect status :to-be :error)
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
   (it "formats an empty TOML document with a final LF"
-    (with-edit-workspace ()
-      (put "empty.toml" "")
+    (call-with-edit-workspace (lambda () (put "empty.toml" "")
       (multiple-value-bind (status fields)
           (run "toml.fmt" (list "empty.toml"))
         (expect status :to-be :ok)
@@ -89,11 +86,10 @@
           (run "toml.fmt" (list "empty.toml"))
         (expect status :to-be :ok)
         (expect-toml-comment-warning fields 0)
-        (expect (changes fields) :to-equal (list)))))
+        (expect (changes fields) :to-equal (list))))))
 
   (it "allows null merge deletion and rejects invalid source documents"
-    (with-edit-workspace ()
-      (put "doc.toml" (format nil "a = 1~%b = 2~%"))
+    (call-with-edit-workspace (lambda () (put "doc.toml" (format nil "a = 1~%b = 2~%"))
       (multiple-value-bind (status fields)
           (run "toml.merge" (list "doc.toml") :stdin-data "{\"a\":null}")
         (expect status :to-be :ok)
@@ -134,12 +130,11 @@
           (run "toml.fmt" (list "absent.toml"))
         (declare (ignore message keys))
         (expect status :to-be :error)
-        (expect code :to-equal "input.not-found")))))
+        (expect code :to-equal "input.not-found"))))))
 
 (describe "aitools.edit TOML write argument errors"
   (it "rejects invalid arguments before reading or changing a file"
-    (with-edit-workspace ()
-      (put "doc.toml" (format nil "keep = 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.toml" (format nil "keep = 1~%"))
       (let ((reads 0)
             (before (snapshot))
             (read-file
@@ -175,11 +170,10 @@
             (expect-error "argument.invalid" "toml.patch" (list "doc.toml"))
             (expect-error "argument.invalid" "toml.fmt" nil)
             (expect reads :to-be 0)
-            (expect (snapshot) :to-equal before)))))))
+            (expect (snapshot) :to-equal before))))))))
 (describe "aitools.edit TOML write input limits"
   (it "accepts a document at the byte limit and rejects one byte over"
-    (with-edit-workspace ()
-      (let* ((limit aitools.edit.application::+max-format-document-bytes+)
+    (call-with-edit-workspace (lambda () (let* ((limit aitools.edit.application::+max-format-document-bytes+)
              (tail (format nil "keep = 1~%"))
              (at-limit-path "at-limit.toml")
              (over-limit-path "over-limit.toml")
@@ -198,10 +192,9 @@
                (run "toml.fmt" (list over-limit-path) :dry-run t)
              (declare (ignore message keys))
              (expect status :to-be :error)
-             (expect code :to-equal "refusal.too-large")))))))
+             (expect code :to-equal "refusal.too-large"))))))))
   (it "accepts the nesting limit and rejects one extra collection"
-    (with-edit-workspace ()
-      (let ((limit aitools.edit.application::+max-format-document-depth+))
+    (call-with-edit-workspace (lambda () (let ((limit aitools.edit.application::+max-format-document-depth+))
         (labels ((document-of (depth)
                    (concatenate 'string
                                 "items = "
@@ -219,4 +212,4 @@
               (run "toml.fmt" (list "over-depth.toml") :dry-run t)
             (declare (ignore message keys))
             (expect status :to-be :error)
-            (expect code :to-equal "input.syntax-error")))))))
+            (expect code :to-equal "input.syntax-error"))))))))

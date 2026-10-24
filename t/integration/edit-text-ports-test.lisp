@@ -38,8 +38,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       "reads ~A with a bounded read"
       (name size limit outcome)
     (declare (ignore name))
-    (with-edit-workspace ()
-      (let ((octets (make-array size :element-type '(unsigned-byte 8) :initial-element 65)))
+    (call-with-edit-workspace (lambda () (let ((octets (make-array size :element-type '(unsigned-byte 8) :initial-element 65)))
         (call-with-file-octets
          octets
          (lambda (path)
@@ -50,20 +49,18 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
                           (expect read :to-equalp octets)
                           (expect (typep read '(simple-array (unsigned-byte 8) (*))) :to-be t))
                    (progn (expect too-large :to-be t)
-                          (expect read :to-be nil))))))))))
+                          (expect read :to-be nil)))))))))))
 
   (it "reads descriptor 0 as raw bytes, refusing more than the limit"
-    (with-edit-workspace ()
-      (call-with-file-octets
+    (call-with-edit-workspace (lambda () (call-with-file-octets
        (octet-vector 0 255 13 10)
        (lambda (path)
          (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 10) :to-equalp (list :octets (octet-vector 0 255 13 10)))))
-         (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 3) :to-equal (list :too-large nil))))))))
+         (call-with-standard-input-from path (lambda () (expect (read-stdin-outcome 3) :to-equal (list :too-large nil)))))))))
 
   (it "reports a descriptor 0 that cannot be read as a failure"
-    (with-edit-workspace ()
-      (sb-posix:mkdir (disk "dir") #o755)
-      (call-with-standard-input-from (disk "dir") (lambda () (expect (read-stdin-outcome 10) :to-equal '(:failure t))))))
+    (call-with-edit-workspace (lambda () (sb-posix:mkdir (disk "dir") #o755)
+      (call-with-standard-input-from (disk "dir") (lambda () (expect (read-stdin-outcome 10) :to-equal '(:failure t)))))))
 
   (it "builds ports over the production adapters without doing I/O"
     (let ((ports (aitools.edit.infrastructure:make-production-edit-ports :workspace-host :host :open-store #'identity
@@ -98,8 +95,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
 
 (describe "aitools write pipeline: the boundary rechecked under the lock"
   (it "refuses a write whose target a symlink swap moved to another workspace path"
-    (with-edit-workspace ()
-      (put "a/x.txt" (format nil "a~%"))
+    (call-with-edit-workspace (lambda () (put "a/x.txt" (format nil "a~%"))
       (put "b/x.txt" (format nil "b~%"))
       (sb-posix:symlink "a" (disk "link"))
       (call-with-fault-at-lock
@@ -109,56 +105,50 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
            (expect code :to-equal "refusal.target-changed")
            (expect message :to-equal "a target path now resolves elsewhere"))))
       (expect (text "a/x.txt") :to-equal (format nil "a~%"))
-      (expect (text "b/x.txt") :to-equal (format nil "b~%"))))
+      (expect (text "b/x.txt") :to-equal (format nil "b~%")))))
 
   (it "refuses a write whose target a symlink swap moved outside the workspace"
-    (with-edit-workspace ()
-      (put "a/x.txt" (format nil "a~%"))
+    (call-with-edit-workspace (lambda () (put "a/x.txt" (format nil "a~%"))
       (sb-posix:symlink "a" (disk "link"))
       (call-with-fault-at-lock
        (lambda () (sb-posix:unlink (disk "link")) (sb-posix:symlink "/" (disk "link")))
        (lambda ()
          (with-error (code) (run "edit" '("link/x.txt") :old "a" :new "z")
            (expect code :to-equal "refusal.outside-workspace"))))
-      (expect (text "a/x.txt") :to-equal (format nil "a~%"))))
+      (expect (text "a/x.txt") :to-equal (format nil "a~%")))))
 
   (it "reports a damaged store record met outside a tx as environment.io with a tx status repair"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "a~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%"))
       (call-with-fault-at-lock
        (lambda () (error 'aitools.store.domain:store-format-error :detail "injected"))
        (lambda ()
          (with-error (code message keys) (run "edit" '("a.txt") :old "a" :new "z")
            (expect code :to-equal "environment.io")
            (expect (repair-commands keys) :to-equal '("aitools tx status")))))
-      (expect (text "a.txt") :to-equal (format nil "a~%")))))
+      (expect (text "a.txt") :to-equal (format nil "a~%"))))))
 
 (describe "aitools write guards: remaining boundary and marker cases"
   (it "keeps a file that already holds the redaction marker editable"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "[REDACTED_SECRET]~%x~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "[REDACTED_SECRET]~%x~%"))
       (expect (run "edit" '("a.txt") :old "x" :new "y") :to-be :ok)
-      (expect (text "a.txt") :to-equal (format nil "[REDACTED_SECRET]~%y~%"))))
+      (expect (text "a.txt") :to-equal (format nil "[REDACTED_SECRET]~%y~%")))))
 
   (it "refuses an empty --expect-count"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "a~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%"))
       (with-error (code) (run "replace" '("a" "b" "a.txt") :expect-count "")
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
 
   (it "refuses to move or delete a .git entry the target names itself"
-    (with-edit-workspace ()
-      (put "a.txt" "a")
+    (call-with-edit-workspace (lambda () (put "a.txt" "a")
       (sb-posix:mkdir (disk ".git") #o755)
       (with-error (code message) (run "move" '("a.txt" ".git"))
         (expect code :to-equal "refusal.outside-workspace")
         (expect (search "inside .git" message) :to-be-truthy))
       (with-error (code) (run "delete" '(".git")) (expect code :to-equal "refusal.outside-workspace"))
-      (expect (kind ".git") :to-be :directory)))
+      (expect (kind ".git") :to-be :directory))))
 
   (it "deletes and moves mktemp entries, which are valid write targets"
-    (with-edit-workspace ()
-      (let* ((file (mktemp-path))
+    (call-with-edit-workspace (lambda () (let* ((file (mktemp-path))
              (directory (mktemp-path :dir t))
              (inner (concatenate 'string directory "/x")))
         (expect (run "write" (list inner) :content '("x")) :to-be :ok)
@@ -166,27 +156,24 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
         (expect (probe-file inner) :to-be nil)
         (expect (run "delete" (list (concatenate 'string directory "/y"))) :to-be :ok)
         (expect (run "delete" (list file)) :to-be :ok)
-        (expect (probe-file file) :to-be nil))))
+        (expect (probe-file file) :to-be nil)))))
 
   (it "names a symlink loop as the reason a target is refused"
-    (with-edit-workspace ()
-      (sb-posix:symlink "l2" (disk "l1"))
+    (call-with-edit-workspace (lambda () (sb-posix:symlink "l2" (disk "l1"))
       (sb-posix:symlink "l1" (disk "l2"))
       (with-error (code message) (run "write" '("l1/x") :content '("x"))
         (expect code :to-equal "refusal.outside-workspace")
-        (expect (search "a symlink loop" message) :to-be-truthy))))
+        (expect (search "a symlink loop" message) :to-be-truthy)))))
 
   (it "refuses a link pointing into the mktemp area"
-    (with-edit-workspace ()
-      (let ((temporary (mktemp-path)))
+    (call-with-edit-workspace (lambda () (let ((temporary (mktemp-path)))
         (with-error (code message) (run "link" (list temporary "l"))
           (expect code :to-equal "refusal.outside-workspace")
           (expect (search "is in the mktemp area" message) :to-be-truthy))
-        (expect (kind "l") :to-be :absent))))
+        (expect (kind "l") :to-be :absent)))))
 
   (it "refuses a bad --root when another context drives the pipeline directly with a file as root"
-    (with-edit-workspace ()
-      (put "file" "x")
+    (call-with-edit-workspace (lambda () (put "file" "x")
       (let ((result nil))
         (aitools.edit.application:run-write-command/k
          *ports*
@@ -199,10 +186,9 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
          :on-ok (lambda (fields) (setf result fields))
          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
         (expect (first result) :to-equal "argument.invalid")
-        (expect (search "is not a directory" (second result)) :to-be-truthy))))
+        (expect (search "is not a directory" (second result)) :to-be-truthy)))))
   (it "refuses a bad --root when another context drives the pipeline directly"
-    (with-edit-workspace ()
-      (let ((result nil))
+    (call-with-edit-workspace (lambda () (let ((result nil))
         (aitools.edit.application:run-write-command/k
          *ports*
          (aitools.edit.application:make-write-plan
@@ -217,4 +203,4 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
                      (declare (ignore keys))
                      (setf result (list code message))))
         (expect (first result) :to-equal "input.not-found")
-        (expect (search "does not exist" (second result)) :to-be-truthy)))))
+        (expect (search "does not exist" (second result)) :to-be-truthy))))))

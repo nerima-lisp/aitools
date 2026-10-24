@@ -20,13 +20,12 @@
   (reduce (lambda (value key) (and value (gethash key value))) keys :initial-value object))
 
 (defun call-with-cli-workspace (function)
-  (with-edit-workspace ()
-    (let ((previous (sb-posix:getenv "XDG_STATE_HOME")))
+  (call-with-edit-workspace (lambda () (let ((previous (sb-posix:getenv "XDG_STATE_HOME")))
       (sb-posix:setenv "XDG_STATE_HOME" *home* 1)
       (unwind-protect (funcall function)
         (if previous
             (sb-posix:setenv "XDG_STATE_HOME" previous 1)
-            (sb-posix:unsetenv "XDG_STATE_HOME"))))))
+            (sb-posix:unsetenv "XDG_STATE_HOME")))))))
 
 (describe "aitools edit commands through dispatch"
   (it "previews and removes a tree through rm's guarded CLI and restores it with undo"

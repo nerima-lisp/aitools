@@ -2,19 +2,17 @@
 
 (describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
-    (with-edit-workspace ()
-      (put "a.txt" "a")
+    (call-with-edit-workspace (lambda () (put "a.txt" "a")
       (put "d/b.txt" "b")
       (multiple-value-bind (kind fields) (run "copy" '("." "x") :recursive t)
         (expect kind :to-be :ok)
         (expect (field fields "files") :to-be 2))
       (expect (text "x/a.txt") :to-equal "a")
       (expect (text "x/d/b.txt") :to-equal "b")
-      (expect (kind "xa.txt") :to-be :absent))))
+      (expect (kind "xa.txt") :to-be :absent)))))
 (describe "aitools rm byte limits"
   (it "refuses an oversized view read without deleting the file"
-    (with-edit-workspace ()
-      (put "small.bin" "x")
+    (call-with-edit-workspace (lambda () (put "small.bin" "x")
       (let* ((target (disk "small.bin"))
              (read-count 0)
              (read-limit nil)
@@ -51,12 +49,11 @@
         (expect read-count :to-be 1)
         (expect read-limit :to-be 2)
         (expect (kind "small.bin") :to-be :file)
-        (expect (text "small.bin") :to-equal "x")))))
+        (expect (text "small.bin") :to-equal "x"))))))
 
 (describe "aitools rm protected roots and recovery"
   (it "refuses the injected home directory without touching its children"
-    (with-edit-workspace ()
-      (put "fixture-home/keep" "protected")
+    (call-with-edit-workspace (lambda () (put "fixture-home/keep" "protected")
       (put "ordinary/keep" "ordinary")
       (cl-weave:with-mocked-functions
           (((symbol-function 'aitools.workspace.infrastructure::%home-directory)
@@ -77,10 +74,9 @@
           (with-error (code)
               (run "rm" '("fixture-home") :recursive t :expect-count "2")
             (expect code :to-equal "refusal.outside-workspace"))
-          (expect-unchanged before)))))
+          (expect-unchanged before))))))
   (it "refuses recursive rm when a child directory becomes an outside symlink"
-    (with-edit-workspace ()
-      (put "tree/escape/keep" "safe")
+    (call-with-edit-workspace (lambda () (put "tree/escape/keep" "safe")
       (put "tree/ordinary/keep" "owned")
       (put "../outside/keep" "outside")
       (let* ((target (disk "tree/escape"))
@@ -132,11 +128,10 @@
         (expect (kind "tree/escape-before-race") :to-be :directory)
         (expect (text "tree/escape-before-race/keep") :to-equal "safe")
         (expect (text "tree/ordinary/keep") :to-equal "owned")
-        (expect (text "../outside/keep") :to-equal "outside"))))
+        (expect (text "../outside/keep") :to-equal "outside")))))
 
   (it "refuses an ancestor containing a custom state home before deleting ordinary files"
-    (with-edit-workspace ()
-      (let ((*home* (disk "protected/custom-state/aitools")))
+    (call-with-edit-workspace (lambda () (let ((*home* (disk "protected/custom-state/aitools")))
         (put "protected/ordinary" "keep")
         (expect (run "write" '("initialized") :content '("ready")) :to-be :ok)
         (expect (kind "protected/custom-state/aitools") :to-be :directory)
@@ -152,11 +147,10 @@
           (expect-unchanged before)
           (with-error (code) (run "rm" '("protected") :recursive t :dry-run t)
             (expect code :to-equal "refusal.outside-workspace"))
-          (expect-unchanged before)))))
+          (expect-unchanged before))))))
 
   (it "never traverses an existing outside directory linked from a removed tree"
-    (with-edit-workspace ()
-      (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
+    (call-with-edit-workspace (lambda () (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
       (put "tree/ordinary" "owned")
       (sb-posix:symlink "../../outside" (disk "tree/link"))
       (let ((before (snapshot))
@@ -172,13 +166,12 @@
           (expect (mode "../outside/keep") :to-be #o600)
           (expect (undo (field fields "op_id")) :to-be :committed))
         (expect (snapshot) :to-equal before)
-        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside))))
+        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside)))))
 
   (it-each ((:after-intent :throw) (:after-apply-step :throw)
             (:after-apply :throw) (:after-journal :throw) (:after-apply-step :exit))
       "recovers a recursive rm interrupted at ~A with ~A and preserves its undo" (point mode)
-    (with-edit-workspace ()
-      (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
+    (call-with-edit-workspace (lambda () (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
       (put "keep" "untouched")
       (sb-posix:chmod (disk "tree") #o750)
       (sb-posix:chmod (disk "tree/sub") #o700)
@@ -187,8 +180,7 @@
             (op-id nil)
             (store (open-store *root*)))
         (flet ((interrupt ()
-                 (aitools.store.test-support:with-fault-at (point :mode mode)
-                   (run "rm" '("tree") :recursive t :expect-count "4"))))
+                 (aitools.store.test-support:call-with-fault-at point (lambda () (run "rm" '("tree") :recursive t :expect-count "4")) :mode mode)))
           (if (eq mode :exit)
               (let ((pid (aitools.store.test-support:call-in-child-process #'interrupt)))
                 (expect (multiple-value-list (aitools.store.test-support:wait-for-child pid))
@@ -219,12 +211,11 @@
                  :on-busy (lambda () (error "rm recovery lock is busy")))
                 :to-be :none)
         (expect (undo op-id) :to-be :committed)
-        (expect (snapshot) :to-equal before)))))
+        (expect (snapshot) :to-equal before))))))
 
 (describe "aitools rm refuses symlinked parent paths"
   (it "leaves an outside file untouched when a parent link escapes the workspace"
-    (with-edit-workspace ()
-      (put "../outside/keep" "outside")
+    (call-with-edit-workspace (lambda () (put "../outside/keep" "outside")
       (put "tree/inside" "inside")
       (sb-posix:symlink "../../outside" (disk "tree/escape"))
       (let ((before (snapshot))
@@ -233,4 +224,4 @@
             (run "rm" (list "tree/escape/keep"))
           (expect code :to-equal "refusal.outside-workspace"))
         (expect-unchanged before)
-        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside)))))
+        (expect (coerce (octets-of "../outside/keep") 'list) :to-equal outside))))))

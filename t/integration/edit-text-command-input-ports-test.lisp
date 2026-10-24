@@ -2,8 +2,7 @@
 
 (describe "aitools edit input ports and recorded options"
   (it "raises when an injected stdin port returns an unknown result"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "keep~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "keep~%"))
       (let ((before (snapshot)))
         (let ((*ports*
                 (make-edit-ports
@@ -28,7 +27,7 @@
                          (search "Unknown standard-input result" failure)
                          (search ":UNKNOWN" failure))
                     :to-be-truthy)))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
   (it "keeps the last single-value option while parsing recorded argv"
     (destructuring-bind (name positionals options)
         (parse-recorded-argv
@@ -40,10 +39,9 @@
                               (list "a.txt")
                               (list :old "x" :new "last")))))
   (it "reports an invalid line selector without changing its target"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "keep~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "keep~%"))
       (let ((before (snapshot)))
         (with-error (code)
             (run "transform" (list "a.txt") :op (list "sort") :match "(" :expect-count "1")
           (expect code :to-equal "input.syntax-error"))
-        (expect-unchanged before)))))
+        (expect-unchanged before))))))

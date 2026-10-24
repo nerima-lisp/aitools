@@ -54,8 +54,7 @@
 
 (describe "mktemp with a state home behind a symlink"
   (it "returns a real path and its hash that write --overwrite --expect-hash accepts, and journals workspace writes"
-    (with-edit-workspace ()
-      (let ((link (concatenate 'string *home* "-link"))
+    (call-with-edit-workspace (lambda () (let ((link (concatenate 'string *home* "-link"))
             (previous (sb-posix:getenv "XDG_STATE_HOME")))
         (sb-posix:symlink *home* link)
         (sb-posix:setenv "XDG_STATE_HOME" link 1)
@@ -77,7 +76,7 @@
                (expect (text "w.txt") :to-equal "w"))
           (if previous
               (sb-posix:setenv "XDG_STATE_HOME" previous 1)
-              (sb-posix:unsetenv "XDG_STATE_HOME")))))))
+              (sb-posix:unsetenv "XDG_STATE_HOME"))))))))
 
 (describe "aitools --root named through a symlink"
   (it "maps paths and the working directory, both real, into the workspace for search, overview and archive create"

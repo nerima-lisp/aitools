@@ -2,8 +2,7 @@
 
 (describe "aitools in-process write runtime"
   (it "writes supplied bytes under a mktemp directory through the in-process write runtime"
-    (with-edit-workspace ()
-      (let* ((temporary (mktemp-path :dir t))
+    (call-with-edit-workspace (lambda () (let* ((temporary (mktemp-path :dir t))
              (destination (format nil "~A/decoded.bin" temporary))
              (decoded (octet-vector 0 97 0 255))
              (result nil))
@@ -33,4 +32,4 @@
           (let ((actual (make-array (file-length input)
                                     :element-type (array-element-type decoded))))
             (read-sequence actual input)
-            (expect actual :to-equalp decoded)))))))
+            (expect actual :to-equalp decoded))))))))

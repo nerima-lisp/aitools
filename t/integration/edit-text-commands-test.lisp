@@ -5,18 +5,16 @@
 
 (describe "aitools insert"
   (it "inserts at the start, at the end, and around selected lines"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "b~%d~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "b~%d~%"))
       (multiple-value-bind (kind fields) (run "insert" '("a.txt") :at "start" :content "a")
         (expect kind :to-be :ok)
         (expect (field fields "inserted_at") :to-equal '(1)))
       (expect (run "insert" '("a.txt") :after t :range "2" :content "c" :expect-hash (list (hash "a.txt"))) :to-be :ok)
       (expect (run "insert" '("a.txt") :before t :match "^d$" :expect-count "1" :content "c2") :to-be :ok)
-      (expect (text "a.txt") :to-equal (format nil "a~%b~%c~%c2~%d~%"))))
+      (expect (text "a.txt") :to-equal (format nil "a~%b~%c~%c2~%d~%")))))
 
   (it "inserts after every --match line, checking the count"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "x~%y~%x~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "x~%y~%x~%"))
       (let ((before (snapshot)))
         (with-error (code)
             (run "insert" '("a.txt") :after t :match "^missing$" :content "+" :expect-count "1")
@@ -29,12 +27,11 @@
           (run "insert" '("a.txt") :after t :match "^x" :content "+" :expect-count "2")
         (expect kind :to-be :ok)
         (expect (field fields "inserted_at") :to-equal '(2 5)))
-      (expect (text "a.txt") :to-equal (format nil "x~%+~%y~%x~%+~%")))))
+      (expect (text "a.txt") :to-equal (format nil "x~%+~%y~%x~%+~%"))))))
 
 (describe "aitools replace"
   (it "replaces across files and writes nothing when the count differs"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "foo foo~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "foo foo~%"))
       (put "b.txt" (format nil "foo~%"))
       (let ((before (snapshot)))
         (with-error (code message keys) (run "replace" '("foo" "bar") :expect-count "2")
@@ -44,11 +41,10 @@
       (multiple-value-bind (kind fields) (run "replace" '("foo" "bar") :expect-count "3")
         (expect kind :to-be :ok)
         (expect (mapcar (lambda (change) (json-field change "count")) (field fields "changes")) :to-equal '(2 1)))
-      (expect (text "a.txt") :to-equal (format nil "bar bar~%"))))
+      (expect (text "a.txt") :to-equal (format nil "bar bar~%")))))
 
   (it "honours --word, --nth, --multiline, --fixed and --ignore-case"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "cat concat Cat~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "cat concat Cat~%"))
       (expect (run "replace" '("cat" "dog" "a.txt") :word t :ignore-case t :expect-count "2") :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "dog concat dog~%"))
       (put "n.txt" (format nil "x x x~%"))
@@ -59,20 +55,18 @@
       (expect (text "m.txt") :to-equal (format nil "start~%end~%"))
       (put "f.txt" (format nil "a.b axb~%"))
       (expect (run "replace" '("a.b" "!" "f.txt") :fixed t :expect-count "1") :to-be :ok)
-      (expect (text "f.txt") :to-equal (format nil "! axb~%"))))
+      (expect (text "f.txt") :to-equal (format nil "! axb~%")))))
 
   (it "limits a single file's replacement to the selection and refuses a selector with several files"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "v~%v~%v~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "v~%v~%v~%"))
       (put "b.txt" (format nil "v~%"))
       (expect (run "replace" '("v" "w" "a.txt") :range "2" :expect-count "1" :expect-hash (list (hash "a.txt"))) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "v~%w~%v~%"))
       (with-error (code) (run "replace" '("v" "w" "a.txt" "b.txt") :match "v" :expect-count "2")
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
 
   (it "expands templates and filters, refuses \\1, and allows it with --literal-replacement"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "item_007 getValue~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "item_007 getValue~%"))
       (expect (run "replace" '("item_(\\d+) (?<name>\\w+)" "item_${1:inc} ${name:snake}" "a.txt") :expect-count "1") :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "item_008 get_value~%"))
       (with-error (code message keys) (run "replace" '("(item)" "\\1x" "a.txt") :expect-count "1")
@@ -81,46 +75,41 @@
       (expect (run "replace" '("(item)" "\\1x" "a.txt") :expect-count "1" :literal-replacement t) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "\\1x_008 get_value~%"))
       (with-error (code) (run "replace" '("(get)" "${1:inc}" "a.txt") :expect-count "1")
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
 
   (it "matches one non-ASCII character with ."
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "[あ]~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "[あ]~%"))
       (expect (run "replace" '("\\[.\\]" "ok" "a.txt") :expect-count "1") :to-be :ok)
-      (expect (text "a.txt") :to-equal (format nil "ok~%")))))
+      (expect (text "a.txt") :to-equal (format nil "ok~%"))))))
 
 (defparameter +git-diff+
   (format nil "diff --git a/src/a.txt b/src/a.txt~%index 1111111..2222222 100644~%--- a/src/a.txt~%+++ b/src/a.txt~%@@ -1,3 +1,3 @@~% one~%-two~%+TWO~% three~%"))
 
 (describe "aitools apply"
   (it "applies git diff output, stripping a/ and b/"
-    (with-edit-workspace ()
-      (put "src/a.txt" (format nil "one~%two~%three~%"))
+    (call-with-edit-workspace (lambda () (put "src/a.txt" (format nil "one~%two~%three~%"))
       (setf *stdin* (bytes +git-diff+))
       (multiple-value-bind (kind fields) (run "apply" '() :stdin t)
         (expect kind :to-be :ok)
         (expect (field fields "applied_hunks") :to-be 1))
-      (expect (text "src/a.txt") :to-equal (format nil "one~%TWO~%three~%"))))
+      (expect (text "src/a.txt") :to-equal (format nil "one~%TWO~%three~%")))))
 
   (it "finds a shifted hunk within --fuzz, and --reverse undoes it"
-    (with-edit-workspace ()
-      (put "src/a.txt" (format nil "new~%lines~%one~%two~%three~%"))
+    (call-with-edit-workspace (lambda () (put "src/a.txt" (format nil "new~%lines~%one~%two~%three~%"))
       (setf *stdin* (bytes +git-diff+))
       (expect (run "apply" '() :stdin t :fuzz "3") :to-be :ok)
       (expect (text "src/a.txt") :to-equal (format nil "new~%lines~%one~%TWO~%three~%"))
       (expect (run "apply" '() :stdin t :reverse t) :to-be :ok)
-      (expect (text "src/a.txt") :to-equal (format nil "new~%lines~%one~%two~%three~%"))))
+      (expect (text "src/a.txt") :to-equal (format nil "new~%lines~%one~%two~%three~%")))))
 
   (it "honours --strip"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "one~%two~%three~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "one~%two~%three~%"))
       (setf *stdin* (bytes +git-diff+))
       (expect (run "apply" '() :stdin t :strip "2") :to-be :ok)
-      (expect (text "a.txt") :to-equal (format nil "one~%TWO~%three~%"))))
+      (expect (text "a.txt") :to-equal (format nil "one~%TWO~%three~%")))))
 
   (it "writes nothing when one hunk of several files misses"
-    (with-edit-workspace ()
-      (put "src/a.txt" (format nil "one~%two~%three~%"))
+    (call-with-edit-workspace (lambda () (put "src/a.txt" (format nil "one~%two~%three~%"))
       (put "src/b.txt" (format nil "x~%"))
       (let ((before (snapshot)))
         (setf *stdin* (bytes (concatenate 'string +git-diff+
@@ -128,29 +117,26 @@
         (with-error (code message keys) (run "apply" '() :stdin t)
           (expect code :to-equal "selection.no-match")
           (expect (json-field (first (getf keys :candidates)) "path") :to-equal "src/b.txt"))
-        (expect-unchanged before)))))
+        (expect-unchanged before))))))
 
 (describe "aitools transform"
   (it "applies ops in order, only inside the selection"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "keep~%b~%a~%b~%end~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "keep~%b~%a~%b~%end~%"))
       (multiple-value-bind (kind fields)
           (run "transform" '("a.txt") :op '("unique" "sort") :between '("^keep$" "^end$") :exclusive t)
         (expect kind :to-be :ok)
         (expect (field fields "removed_lines") :to-be 1))
-      (expect (text "a.txt") :to-equal (format nil "keep~%a~%b~%end~%"))))
+      (expect (text "a.txt") :to-equal (format nil "keep~%a~%b~%end~%")))))
   (it "reports a match-count mismatch without changing the file"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "x~%x~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "x~%x~%"))
       (let ((before (snapshot)))
         (with-error (code message keys)
             (run "transform" '("a.txt") :op '("sort") :match "^x$" :expect-count "1")
           (expect code :to-equal "selection.count-mismatch")
           (expect (json-field (first (getf keys :diagnostics)) "actual") :to-be 2))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
   (it "returns a similar definition when a symbol selector misses"
-    (with-edit-workspace ()
-      (put "a.lisp" (format nil "(defun present () 1)~%"))
+    (call-with-edit-workspace (lambda () (put "a.lisp" (format nil "(defun present () 1)~%"))
       (let ((before (snapshot)))
         (with-error (code message keys)
             (run "transform" '("a.lisp") :op '("sort") :symbol "presnt"
@@ -158,19 +144,17 @@
           (expect code :to-equal "selection.no-match")
           (expect message :to-equal "the selector matches nothing in a.lisp")
           (expect (json-field (first (getf keys :candidates)) "name") :to-equal "present"))
-        (expect-unchanged before))))
+        (expect-unchanged before)))))
 
   (it "applies whole-file ops, refusing them with a selector"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "a~%b"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%b"))
       (expect (run "transform" '("a.txt") :op '("eol-crlf" "final-newline")) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "a~C~%b~C~%" #\Return #\Return))
       (with-error (code) (run "transform" '("a.txt") :op '("eol-lf") :range "1" :expect-hash (list (hash "a.txt")))
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
 
   (it "requires --seed for shuffle and a known comment syntax for comment"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "1~%2~%3~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "1~%2~%3~%"))
       (put "a.unknownext" (format nil "x~%"))
       (with-error (code) (run "transform" '("a.txt") :op '("shuffle")) (expect code :to-equal "argument.invalid"))
       (expect (run "transform" '("a.txt") :op '("shuffle") :seed "5") :to-be :ok)
@@ -179,22 +163,20 @@
         (run "transform" '("a.txt") :op '("shuffle") :seed "5")
         (expect (text "a.txt") :to-equal once))
       (with-error (code) (run "transform" '("a.unknownext") :op '("comment"))
-        (expect code :to-equal "input.unsupported-language")))))
+        (expect code :to-equal "input.unsupported-language"))))))
 
 (describe "aitools move-lines"
   (it "moves lines within a file and into another file"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "1~%2~%3~%4~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "1~%2~%3~%4~%"))
       (put "b.txt" (format nil "x~%"))
       (expect (run "move-lines" '("a.txt") :range "1" :to-position "after:3" :expect-hash (list (hash "a.txt"))) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "2~%3~%1~%4~%"))
       (expect (run "move-lines" '("a.txt") :match "^4$" :expect-count "1" :to "b.txt" :to-position "start") :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "2~%3~%1~%"))
-      (expect (text "b.txt") :to-equal (format nil "4~%x~%"))))
+      (expect (text "b.txt") :to-equal (format nil "4~%x~%")))))
 
   (it "refuses a position-based move when either hash is stale, changing neither file"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "1~%2~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "1~%2~%"))
       (put "b.txt" (format nil "x~%y~%"))
       (let ((before (snapshot)))
         (with-error (code) (run "move-lines" '("a.txt") :range "1" :to "b.txt" :to-position "before:2"
@@ -205,5 +187,5 @@
                                            :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))
                                                               (format nil "b.txt=~A" (hash "b.txt"))))
               :to-be :ok)
-      (expect (text "b.txt") :to-equal (format nil "x~%1~%y~%")))))
+      (expect (text "b.txt") :to-equal (format nil "x~%1~%y~%"))))))
 

@@ -131,9 +131,6 @@ opens such a root as a temporary store exempt from the state-directory guard."
        (funcall function)))
    :chdir t))
 
-(defmacro with-edit-workspace (() &body body)
-  `(call-with-edit-workspace (lambda () ,@body)))
-
 (defun disk (relative)
   (concatenate 'string *root* "/" relative))
 

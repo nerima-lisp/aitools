@@ -38,21 +38,19 @@
       "rejects ~A"
       (name argv code fragment)
     (declare (ignore name))
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "a~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%"))
       (put "c.json" "{}")
       (destructuring-bind (kind actual-code message) (replay-argv argv)
         (expect kind :to-be :reject)
         (expect actual-code :to-equal code)
-        (expect (search fragment message) :to-be-truthy))))
+        (expect (search fragment message) :to-be-truthy)))))
 
   (it "re-runs a content-based op against the view, reading its recorded stdin input"
-    (with-edit-workspace ()
-      (put "c.json" "{\"a\":1}")
+    (call-with-edit-workspace (lambda () (put "c.json" "{\"a\":1}")
       (expect (replay-argv '("json" "set" "--stdin-data" "{\"pointer\":\"/a\",\"value\":2}" "c.json"))
               :to-equal '(:commit ("c.json")))
       (expect (replay-argv '("edit" "--between" "^a$" "^c$" "--exclusive" "--new" "B" "x.txt"))
-              :to-equal (list :reject "input.not-found" "x.txt does not exist"))))
+              :to-equal (list :reject "input.not-found" "x.txt does not exist")))))
 
   (it "parses a flag, a two-word command it does not know as one word, and positionals after --"
     (destructuring-bind (name positionals options)
@@ -70,8 +68,7 @@
     (expect (options-argv "edit" '("") '(:old "a")) :to-equal '("edit" "--old" "a" "")))
 
   (it "replays a replace op on the moved base"
-    (with-edit-workspace ()
-      (put "a.txt" (format nil "x = 1~%"))
+    (call-with-edit-workspace (lambda () (put "a.txt" (format nil "x = 1~%"))
       (let ((tx (begin-tx)))
         (expect (run-in tx "replace" '("x = 1" "x = 2" "a.txt") :expect-count "1") :to-be :ok)
         (put "a.txt" (format nil "head~%x = 1~%"))
@@ -82,4 +79,4 @@
                                                        :on-busy (lambda () :busy))
                 :to-equal '("a.txt"))
         (expect (commit-tx tx) :to-be :committed)
-        (expect (text "a.txt") :to-equal (format nil "head~%x = 2~%"))))))
+        (expect (text "a.txt") :to-equal (format nil "head~%x = 2~%")))))))

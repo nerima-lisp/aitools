@@ -14,8 +14,7 @@
 
 (describe "aitools.edit YAML write flows"
   (it "applies all five JSON operations, supports stdin sets, and always returns warnings"
-    (with-edit-workspace ()
-      (put "doc.yaml" (format nil "# input~%a: 1~%b: 2~%"))
+    (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "# input~%a: 1~%b: 2~%"))
       (multiple-value-bind (status fields)
           (run "yaml.set" (list "doc.yaml" "/a" "3"))
         (expect status :to-be :ok)
@@ -67,10 +66,9 @@
                 :to-be t)
         (expect (length items) :to-be 2)
         (expect (aref items 0) :to-be 1)
-        (expect (aref items 1) :to-be t))))
+        (expect (aref items 1) :to-be t)))))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
-    (with-edit-workspace ()
-      (put "doc.yaml" (format nil "a: 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "a: 1~%"))
       (multiple-value-bind (status fields)
           (run "yaml.set" '("doc.yaml" "/a" "0e-9999"))
         (expect status :to-be :ok)
@@ -79,7 +77,7 @@
           (run "yaml.set" '("doc.yaml" "/a" "1e-9999"))
         (declare (ignore message keys))
         (expect status :to-be :error)
-        (expect code :to-equal "argument.invalid"))))
+        (expect code :to-equal "argument.invalid")))))
   (it "adds a final LF when serialization omits it"
     (let ((document
             (aitools.edit.application::%format-document
@@ -93,8 +91,7 @@
       (aitools.edit.infrastructure::serialize-document "other" nil)))
 
   (it "rejects invalid source documents and carries format repairs"
-    (with-edit-workspace ()
-      (put "bad-tag.yaml" (format nil "keep: !custom value~%target: 2~%"))
+    (call-with-edit-workspace (lambda () (put "bad-tag.yaml" (format nil "keep: !custom value~%target: 2~%"))
       (multiple-value-bind (status code message keys)
           (run "yaml.delete" (list "bad-tag.yaml" "/target"))
         (declare (ignore message))
@@ -127,12 +124,11 @@
           (run "yaml.fmt" (list "absent.yaml"))
         (declare (ignore message keys))
         (expect status :to-be :error)
-        (expect code :to-equal "input.not-found")))))
+        (expect code :to-equal "input.not-found"))))))
 
 (describe "aitools.edit YAML write argument errors"
   (it "rejects invalid arguments before reading or changing a file"
-    (with-edit-workspace ()
-      (put "doc.yaml" (format nil "keep: 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "keep: 1~%"))
       (let ((reads 0)
             (before (snapshot))
             (read-file
@@ -168,11 +164,10 @@
             (expect-error "argument.invalid" "yaml.patch" (list "doc.yaml"))
             (expect-error "argument.invalid" "yaml.fmt" nil)
             (expect reads :to-be 0)
-            (expect (snapshot) :to-equal before)))))))
+            (expect (snapshot) :to-equal before))))))))
 (describe "aitools.edit YAML write input limits"
   (it "accepts a document at the byte limit and rejects one byte over"
-    (with-edit-workspace ()
-      (let* ((limit aitools.edit.application::+max-format-document-bytes+)
+    (call-with-edit-workspace (lambda () (let* ((limit aitools.edit.application::+max-format-document-bytes+)
              (tail (format nil "keep: 1~%"))
              (at-limit-path "at-limit.yaml")
              (over-limit-path "over-limit.yaml")
@@ -191,10 +186,9 @@
                (run "yaml.fmt" (list over-limit-path) :dry-run t)
              (declare (ignore message keys))
              (expect status :to-be :error)
-             (expect code :to-equal "refusal.too-large")))))))
+             (expect code :to-equal "refusal.too-large"))))))))
   (it "accepts the nesting limit and rejects one extra collection"
-    (with-edit-workspace ()
-      (let ((limit aitools.edit.application::+max-format-document-depth+))
+    (call-with-edit-workspace (lambda () (let ((limit aitools.edit.application::+max-format-document-depth+))
         (labels ((document-of (depth)
                    (concatenate 'string
                                 (make-string depth :initial-element #\[)
@@ -211,11 +205,10 @@
               (run "yaml.fmt" (list "over-depth.yaml") :dry-run t)
             (declare (ignore message keys))
             (expect status :to-be :error)
-            (expect code :to-equal "input.syntax-error")))))))
+            (expect code :to-equal "input.syntax-error"))))))))
 (describe "aitools.edit YAML write byte-limit errors"
   (it "does not infer byte-limit errors from their wording"
-    (with-edit-workspace ()
-      (put "doc.yaml" (format nil "keep: 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "keep: 1~%"))
       (let ((read-file
               (symbol-function 'aitools.store.application:view-read-file)))
         (cl-weave:with-mocked-functions
@@ -231,10 +224,9 @@
               (run "yaml.fmt" (list "doc.yaml") :dry-run t)
             (declare (ignore message keys))
             (expect status :to-be :error)
-            (expect code :to-equal "environment.io"))))))
+            (expect code :to-equal "environment.io")))))))
   (it "does not treat downstream byte-limit errors as oversized input"
-    (with-edit-workspace ()
-      (put "doc.yaml" (format nil "keep: 1~%"))
+    (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "keep: 1~%"))
       (cl-weave:with-mocked-functions
           (((symbol-function 'aitools.inspect.application:parse-yaml-write-document/k)
             (lambda (&rest arguments)
@@ -247,4 +239,4 @@
             (run "yaml.fmt" (list "doc.yaml") :dry-run t)
           (declare (ignore message keys))
           (expect status :to-be :error)
-          (expect code :to-equal "environment.io"))))))
+          (expect code :to-equal "environment.io")))))))
