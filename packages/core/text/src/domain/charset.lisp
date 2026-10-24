@@ -51,10 +51,8 @@
         ((or (= lead #x8E) (<= #xA1 lead #xFE)) 2)
         (t 1)))
 
-(defun %decode-legacy (octets start end charmap sequence-length replace on-invalid)
-  "Decode with CHARMAP. Returns (VALUES STRING REPLACEMENTS); on the first
-invalid sequence when REPLACE is false, returns the value of ON-INVALID
-called with its byte offset instead."
+(defun %decode-legacy (octets start end charmap sequence-length replace)
+  "Decode with CHARMAP and return the string, replacement count, and first invalid offset."
   (declare (type octets octets) (type fixnum start end) (type function sequence-length))
   (let ((table (%charmap-decode charmap))
         (out (make-string-output-stream))
@@ -72,7 +70,7 @@ called with its byte offset instead."
                                         table))))
                (cond
                  (char (write-char char out) (incf i length))
-                 ((not replace) (return-from %decode-legacy (funcall on-invalid i)))
+                 ((not replace) (return-from %decode-legacy (values nil nil i)))
                  (t
                   (write-char (code-char #xFFFD) out)
                   (incf replacements)
@@ -82,22 +80,23 @@ called with its byte offset instead."
                   (loop repeat (1- length)
                         while (and (< i end) (>= (aref octets i) #x80))
                         do (incf i))))))
-    (values (get-output-stream-string out) replacements)))
+    (values (get-output-stream-string out) replacements nil)))
 
-(defun %decode-codec-kit (octets start end encoding replace on-invalid)
+(defun %decode-codec-kit (octets start end encoding replace)
   (if replace
       (let ((string (cl-codec-kit:octets-to-string octets :start start :end end
-                                                          :encoding encoding :errorp nil)))
+                                                   :encoding encoding :errorp nil)))
         (values string
                 (if (eq encoding :iso-8859-1)
                     0
-                    (count (code-char #xFFFD) string))))
+                    (count (code-char #xFFFD) string))
+                nil))
       (handler-case (values (cl-codec-kit:octets-to-string octets :start start :end end
-                                                                  :encoding encoding)
-                            0)
+                                                             :encoding encoding)
+                            0
+                            nil)
         (cl-codec-kit:decode-error (condition)
-          (return-from %decode-codec-kit
-            (funcall on-invalid (cl-codec-kit:decode-error-position condition)))))))
+          (values nil nil (cl-codec-kit:decode-error-position condition))))))
 
 (aitools.kernel.domain:define-flow
   (decode-octets/k octets encoding &key (start 0) end replace on-decoded
@@ -113,15 +112,15 @@ in the result for the Unicode encodings."
   (declare (type octets octets) (type function on-decoded))
   (let ((end (or end (length octets))))
     (multiple-value-bind (string replacements invalid-position)
-        (flet ((invalid (position) (values nil nil position)))
-          (declare (dynamic-extent #'invalid))
-          (ecase encoding
-            (:shift_jis (%decode-legacy octets start end *cp932-charmap* #'%sjis-sequence-length
-                                        replace #'invalid))
-            (:euc-jp (%decode-legacy octets start end *euc-jp-charmap* #'%euc-sequence-length
-                                     replace #'invalid))
-            ((:utf-8 :utf-16le :utf-16be :iso-8859-1)
-             (%decode-codec-kit octets start end encoding replace #'invalid))))
+        (ecase encoding
+          (:shift_jis
+           (%decode-legacy octets start end *cp932-charmap* #'%sjis-sequence-length
+                           replace))
+          (:euc-jp
+           (%decode-legacy octets start end *euc-jp-charmap* #'%euc-sequence-length
+                           replace))
+          ((:utf-8 :utf-16le :utf-16be :iso-8859-1)
+           (%decode-codec-kit octets start end encoding replace)))
       (if invalid-position
           (aitools.kernel.domain:flow-continue :on-invalid invalid-position)
           (aitools.kernel.domain:flow-continue :on-decoded string replacements)))))
