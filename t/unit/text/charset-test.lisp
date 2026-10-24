@@ -73,7 +73,9 @@
     (expect (decode (octets #x41 #x81 #x20) :shift_jis) :to-equal '(:invalid 1))
     (expect (decode (octets #x41 #x81 #x20) :shift_jis :replace t)
             :to-equal (list (coerce (list #\A (code-char #xFFFD) #\Space) 'string) 1))
-    (expect (decode (octets #xA1) :euc-jp) :to-equal '(:invalid 0)))
+    (expect (decode (octets #xA1) :euc-jp) :to-equal '(:invalid 0))
+    (expect (decode (octets #x8F #xA1 #x20) :euc-jp :replace t)
+            :to-equal (list (coerce (list (code-char #xFFFD) #\Space) 'string) 1)))
 
   (it "reports or replaces unmappable characters"
     (expect (encode "a日" :iso-8859-1) :to-equal (list :unmappable 1 #\日))
