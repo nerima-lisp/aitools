@@ -302,6 +302,7 @@ is in neither context list)."
  (format nil "~A:9: unused definition AITOOLS.FIXTURE.ROOTS:%UNUSED-METHOD-HELPER"
          "packages/feature/fixture-roots/src/domain/methods.lisp")
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:4: unresolved dynamic find-symbol"
+ "packages/feature/fixture-roots/src/domain/commands.lisp:27: unresolved command builder"
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:8: unresolved dynamic find-symbol")
        (function string<)))
       (let* ((definitions (%liveness-definitions records))
@@ -417,7 +418,7 @@ is in neither context list)."
                 (expect (getf (gethash "AITOOLS.FIXTURE.OTHER" packages) :uses)
                         :to-equal nil)
                 (expect (getf (gethash "AITOOLS.FIXTURE.OTHER" packages) :uses-declared-p)
-                        :to-equal nil)
+                        :to-equal t)
                 (expect (getf (gethash "AITOOLS.FIXTURE.DEFAULT-USE" packages) :uses)
                         :to-equal nil)
                 (expect (getf (gethash "AITOOLS.FIXTURE.DEFAULT-USE" packages) :uses-declared-p)

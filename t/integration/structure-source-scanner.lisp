@@ -139,77 +139,86 @@ package, or :UNREADABLE."
         (let ((*read-eval* nil) (*package* *reader-package*))
           (read-from-string text t nil :start position)))
     (error () :unreadable)))
+(defvar *liveness-reader-view-cache* (make-hash-table :test #'eq))
+
 (defun %liveness-read-form-at (text position)
   "Read one form with occurrence metadata for qualified symbols and FIND-SYMBOL calls."
-  (multiple-value-bind (view replacements) (%liveness-reader-view text)
-    (let* ((offset
-             (+ position
-                (loop for replacement in replacements
-                      for start = (first replacement)
-                      for end = (second replacement)
-                      for token = (third replacement)
-                      when (<= end position)
-                        sum (- (+ 2 (length token)) (- end start)))))
-           (origins (make-hash-table :test #'equal))
-           (source-positions (make-hash-table :test #'equal))
-           (source-names (make-hash-table :test #'equal)))
-      (dolist (replacement replacements)
-        (setf (gethash (third replacement) origins) (fourth replacement)
-              (gethash (third replacement) source-positions) (first replacement)
-              (gethash (third replacement) source-names) (fifth replacement)))
-      (handler-case
-          (with-standard-io-syntax
-            (let ((*read-eval* nil)
-                  (*package* *reader-package*)
-                  (quasiquote-depth 0)
-                  (readtable (copy-readtable nil)))
-              (labels ((read-quasiquote (stream character)
-                         (declare (ignore character))
-                         (incf quasiquote-depth)
+  (let* ((cache
+           (or (gethash text *liveness-reader-view-cache*)
+               (setf (gethash text *liveness-reader-view-cache*)
+                     (%liveness-reader-view-cache-entry text))))
+         (view (first cache))
+         (replacements (second cache))
+         (offset
+           (+ position
+              (loop for replacement in replacements
+                    for start = (first replacement)
+                    for end = (second replacement)
+                    for token = (third replacement)
+                    when (<= end position)
+                      sum (- (+ 2 (length token)) (- end start)))))
+         (origins (make-hash-table :test #'equal))
+         (source-positions (make-hash-table :test #'equal))
+         (source-names (make-hash-table :test #'equal)))
+    (dolist (replacement replacements)
+      (setf (gethash (third replacement) origins) (fourth replacement)
+            (gethash (third replacement) source-positions) (first replacement)
+            (gethash (third replacement) source-names) (fifth replacement)))
+    (handler-case
+        (with-standard-io-syntax
+          (let ((*read-eval* nil)
+                (*package* *reader-package*)
+                (quasiquote-depth 0)
+                (readtable (copy-readtable nil)))
+            (labels ((read-quasiquote (stream character)
+                       (declare (ignore character))
+                       (incf quasiquote-depth)
+                       (unwind-protect
+                            (list :u05-quasiquote (read stream t nil t))
+                         (decf quasiquote-depth)))
+                     (read-unquote (stream character)
+                       (declare (ignore character))
+                       (when (zerop quasiquote-depth)
+                         (error "Comma outside a quasiquote."))
+                       (let ((splicing-p
+                               (member (peek-char nil stream nil nil)
+                                       '(#\@ #\.))))
+                         (when splicing-p (read-char stream))
+                         (decf quasiquote-depth)
                          (unwind-protect
-                              (list :u05-quasiquote (read stream t nil t))
-                           (decf quasiquote-depth)))
-                       (read-unquote (stream character)
-                         (declare (ignore character))
-                         (when (zerop quasiquote-depth)
-                           (error "Comma outside a quasiquote."))
-                         (let ((splicing-p
-                                 (member (peek-char nil stream nil nil)
-                                         '(#\@ #\.))))
-                           (when splicing-p (read-char stream))
-                           (decf quasiquote-depth)
-                           (unwind-protect
-                                (list (if splicing-p
-                                          :u05-unquote-splicing
-                                          :u05-unquote)
-                                      (read stream t nil t))
-                             (incf quasiquote-depth)))))
-                (let ((*readtable* readtable))
-                  (set-macro-character #\` #'read-quasiquote nil)
-                  (set-macro-character #\, #'read-unquote nil)
-                  (let ((form (read-from-string view t nil :start offset))
-                        (seen (make-hash-table :test #'eq)))
-                    (labels ((annotate (object)
-                               (cond
-                                 ((symbolp object)
-                                  (let* ((name (symbol-name object))
-                                         (origin (gethash name origins))
-                                         (source-name (gethash name source-names)))
-                                    (when (or origin source-name)
-                                      (setf (get object :u05-source-position)
-                                            (gethash name source-positions))
-                                      (when origin
-                                        (setf (get object :u05-qualified-reference) origin))
-                                      (when source-name
-                                        (setf (get object :u05-source-name) source-name)))))
-                                 ((consp object)
-                                  (unless (gethash object seen)
-                                    (setf (gethash object seen) t)
-                                    (annotate (car object))
-                                    (annotate (cdr object)))))))
-                      (annotate form))
-                    form)))))
-(error () :unreadable)))))
+                              (list (if splicing-p
+                                        :u05-unquote-splicing
+                                        :u05-unquote)
+                                    (read stream t nil t))
+                           (incf quasiquote-depth)))))
+              (let ((*readtable* readtable))
+                (set-macro-character #\` #'read-quasiquote nil)
+                (set-macro-character #\, #'read-unquote nil)
+                (let ((form (read-from-string view t nil :start offset))
+                      (seen (make-hash-table :test #'eq)))
+                  (labels ((annotate (object)
+                             (cond
+                               ((symbolp object)
+                                (let* ((name (symbol-name object))
+                                       (origin (gethash name origins))
+                                       (source-name (gethash name source-names)))
+                                  (when (or origin source-name)
+                                    (setf (get object :u05-source-position)
+                                          (gethash name source-positions))
+                                    (when origin
+                                      (setf (get object :u05-qualified-reference) origin))
+                                    (when source-name
+                                      (setf (get object :u05-source-name) source-name)))))
+                               ((consp object)
+                                (unless (gethash object seen)
+                                  (setf (gethash object seen) t)
+                                  (annotate (car object))
+                                  (annotate (cdr object)))))))
+                    (annotate form))
+                  form)))))
+      (error () :unreadable)))
+)
+
 (defun %liveness-reader-view (text)
   "Return reader text and unique metadata for qualified symbols and call occurrences."
   (let* ((code (%strip-prose text))
@@ -247,6 +256,11 @@ package, or :UNREADABLE."
                 (setf cursor end)
              finally (write-string (subseq text cursor) output)))
      replacements)))
+
+(defun %liveness-reader-view-cache-entry (text)
+  (multiple-value-bind (view replacements)
+      (%liveness-reader-view text)
+    (list view replacements)))
 (defun %form-positions (stripped operator)
   "Start positions of every operator form or exact keyword token in STRIPPED."
   (let* ((keyword-p (and (plusp (length operator))
@@ -268,11 +282,61 @@ package, or :UNREADABLE."
     (nreverse positions)))
 (defun %liveness-form-positions (stripped operator)
   (let ((positions (%form-positions stripped operator)))
-    (dolist (reference (%qualified-references stripped))
-      (when (string-equal (second reference) operator)
-        (let ((start (position #\( stripped :end (fifth reference) :from-end t)))
-          (when start (push start positions)))))
-    (sort (remove-duplicates positions :test (function =)) (function <))))
+    (labels ((escaped-head (start)
+               (let ((position (1+ start))
+                     (length (length stripped))
+                     (bars nil)
+                     (escaped nil)
+                     (qualified nil)
+                     (had-escape nil))
+                 (loop while (and (< position length)
+                                  (find (char stripped position)
+                                        '(#\Space #\Tab #\Newline #\Return #\Page)))
+                       do (incf position))
+                 (values
+                  (with-output-to-string (output)
+                    (loop while (< position length)
+                          for char = (char stripped position)
+                          do (cond
+                               (escaped
+                                (write-char char output)
+                                (setf escaped nil)
+                                (incf position))
+                               ((char= char #\\)
+                                (setf escaped t
+                                      had-escape t)
+                                (incf position))
+                               ((char= char #\|)
+                                (setf bars (not bars)
+                                      had-escape t)
+                                (incf position))
+                               ((and (not bars) (char= char #\:))
+                                (setf qualified t)
+                                (return))
+                               ((and (not bars)
+                                     (member char
+                                             '(#\Space #\Tab #\Newline #\Return #\Page
+                                               #\( #\) #\' #\" #\` #\, #\; #\#)))
+                                (return))
+                               (t
+                                (write-char (if bars char (char-upcase char)) output)
+                                (incf position)))))
+                  qualified
+                  had-escape))))
+      (loop for start = (position #\( stripped)
+            then (position #\( stripped :start (1+ start))
+            while start
+            do (multiple-value-bind (head qualified escaped)
+                   (escaped-head start)
+                 (when (and escaped
+                            (not qualified)
+                            (string= head operator))
+                   (push start positions))))
+      (dolist (reference (%qualified-references stripped))
+        (when (string-equal (second reference) operator)
+          (let ((start (position #\( stripped :end (fifth reference) :from-end t)))
+            (when start (push start positions)))))
+      (sort (remove-duplicates positions :test (function =)) (function <)))))
 (defun %designator-name (designator)
   (cond
     ((stringp designator) (string-upcase designator))
@@ -1410,27 +1474,9 @@ line."
                                   (dolist (reference refs)
                                     (destructuring-bind (namespace symbol package) reference
                                       (record-reference reference-kind record namespace symbol package)))
-                                  (mark-package-syntax reference-kind record form)
-                                  (when (and (consp form)
-                                             (string= (%liveness-symbol-name (first form)) "DEFINE-COMMAND"))
-                                    (let* ((options (third form))
-                                           (builder
-                                            (loop for tail on options
-                                                  when (eq (first tail) :command-builder)
-                                                  return (second tail))))
-                                      (unless (and (consp builder)
-                                                   (member (%liveness-symbol-name (first builder))
-                                                           '("FUNCTION" "QUOTE")
-                                                           :test #'string=))
-                                        (lookup-diagnostic record start "unresolved command builder"))))
-                                  (when (and (consp form)
-                                             (string= (%liveness-symbol-name (first form))
-                                                      "DEFINE-INSPECT-COMMAND"))
-                                    (unless (and (consp (fourth form))
-                                                 (member (%liveness-symbol-name (first (fourth form)))
-                                                         '("FUNCTION" "QUOTE")
-                                                         :test #'string=))
-                                      (lookup-diagnostic record start "unresolved inspect command builder")))
+                                  (progn
+                                    (lookup-diagnostic record start form)
+                                    (mark-package-syntax reference-kind record form))
                                   (when (and (eq kind :production)
                                              (string= (getf record :relative) "aitools.asd")
                                              (asdf-entry-point-p form))
@@ -1454,14 +1500,102 @@ line."
                                   (symbolp (second object)))
                              (%liveness-symbol-name (second object)))
                             (t nil)))
-             (lookup-diagnostic (record position message)
-               (push
-                (format nil
-                        "~A:~D: ~A"
-                        (getf record :relative)
-                        (%line-at (getf record :text) position)
-                        message)
-                diagnostics))
+             (lookup-diagnostic (record position message-or-form)
+               (when (eq (getf record :kind) :production)
+                 (if (stringp message-or-form)
+                     (push (format nil "~A:~D: ~A"
+                                   (getf record :relative)
+                                   (%line-at (getf record :text) position)
+                                   message-or-form)
+                           diagnostics)
+                     (labels ((static-builder-p (builder allow-lambda-p)
+                                (and (consp builder)
+                                     (symbolp (first builder))
+                                     (member (%liveness-symbol-name (first builder))
+                                             (if allow-lambda-p
+                                                 (list "FUNCTION" "QUOTE" "LAMBDA")
+                                                 (list "FUNCTION" "QUOTE"))
+                                             :test (function string=))))
+                              (form-position (operator cursor)
+                                (or (loop for candidate in
+                                            (%liveness-form-positions
+                                             (getf record :code)
+                                             operator)
+                                          when (>= candidate cursor)
+                                            return candidate)
+                                    position))
+                              (scan (object cursor context depth)
+                                (if (not (consp object))
+                                    cursor
+                                    (let* ((head (first object))
+                                           (operator (and (symbolp head)
+                                                          (%liveness-symbol-name head)))
+                                           (next-position cursor))
+                                      (cond
+                                        ((eq head :u05-quasiquote)
+                                         (case context
+                                           (:active
+                                            (scan (second object) cursor :template 1))
+                                           (:template
+                                            (scan (second object) cursor :template
+                                                  (1+ depth)))
+                                           (otherwise
+                                            (scan (second object) cursor :inactive 0))))
+                                        ((member head
+                                                 (list :u05-unquote :u05-unquote-splicing))
+                                         (case context
+                                           (:template
+                                            (if (= depth 1)
+                                                (scan (second object) cursor :active 0)
+                                                (scan (second object) cursor :template
+                                                      (1- depth))))
+                                           (otherwise
+                                            (scan (second object) cursor :inactive 0))))
+                                        (t
+                                         (when (and operator
+                                                    (member operator
+                                                            (list "DEFINE-COMMAND"
+                                                                  "DEFINE-INSPECT-COMMAND")
+                                                            :test (function string=)))
+                                           (let ((at (form-position operator cursor)))
+                                             (setf next-position (1+ at))
+                                             (when (eq context :active)
+                                               (cond
+                                                 ((string= operator "DEFINE-COMMAND")
+                                                  (let* ((options (third object))
+                                                         (builder
+                                                           (loop for tail = options then (cdr tail)
+                                                                 while (consp tail)
+                                                                 when (eq (first tail)
+                                                                          :command-builder)
+                                                                   return (second tail))))
+                                                    (unless (static-builder-p builder t)
+                                                      (lookup-diagnostic
+                                                       record at
+                                                       "unresolved command builder"))))
+                                                 (t
+                                                  (unless (static-builder-p
+                                                           (fourth object) nil)
+                                                    (lookup-diagnostic
+                                                     record at
+                                                     "unresolved inspect command builder")))))))
+                                         (if (and operator (string= operator "QUOTE"))
+                                             (setf next-position
+                                                   (scan (second object)
+                                                         next-position
+                                                         (if (eq context :active)
+                                                             :inactive
+                                                             context)
+                                                         depth))
+                                             (loop for tail = object then (cdr tail)
+                                                   while (consp tail)
+                                                   do (setf next-position
+                                                            (scan (car tail)
+                                                                  next-position
+                                                                  context
+                                                                  depth))))
+                                         next-position))))))
+                       (scan message-or-form position :active 0)))))
              (scan-find-symbol (record position form)
   (let* ((name (and (consp form) (literal-name (second form))))
          (package (if (cddr form)
@@ -1528,7 +1662,7 @@ line."
 (defun scan-dead-code-tree (root)
   "Sorted dead definitions and package violations under ROOT.
 Exported definitions are public roots; test-only exports remain violations."
-  (let* ((records (%liveness-files root))
+  (let* ((records (progn (clrhash *liveness-reader-view-cache*) (%liveness-files root)))
          (packages (%liveness-all-package-metadata records))
          (definitions (%liveness-definitions records))
          (violations '()))
