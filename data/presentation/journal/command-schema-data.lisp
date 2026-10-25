@@ -1,4 +1,3 @@
-;;;; data/presentation/journal/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for `history`, `undo` and the `tx` group
 ;;;; (docs/src/reference/transactions.md), one entry per command. AITOOLS.JOURNAL.PRESENTATION

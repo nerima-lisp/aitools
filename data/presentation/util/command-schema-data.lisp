@@ -1,4 +1,3 @@
-;;;; data/presentation/util/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the `util` group, one entry
 ;;;; per command. AITOOLS.UTIL.PRESENTATION builds each COMMAND-SCHEMA from

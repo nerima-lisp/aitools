@@ -1,4 +1,3 @@
-;;;; data/presentation/env/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the `sys` and `time` groups,
 ;;;; one entry per command keyed by its full dispatch name.

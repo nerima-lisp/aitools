@@ -1,4 +1,3 @@
-;;;; data/domain/text/language-data.lisp
 ;;;;
 ;;;; The language table shared by `code outline|defs|refs`, `--symbol`, and
 ;;;; `transform --op comment|uncomment`, kept as data so that a language is

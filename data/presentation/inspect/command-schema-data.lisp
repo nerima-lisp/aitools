@@ -1,4 +1,3 @@
-;;;; data/presentation/inspect/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for `read`, `info`, `check`, and `diff`
 ;;;; (docs/src/reference/commands/inspect.md). AITOOLS.INSPECT.PRESENTATION builds each

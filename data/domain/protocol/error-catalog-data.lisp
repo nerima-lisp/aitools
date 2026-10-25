@@ -1,4 +1,3 @@
-;;;; data/domain/protocol/error-catalog-data.lisp
 ;;;;
 ;;;; The error.code table (docs/src/reference/errors.md). AITOOLS.PROTOCOL.
 ;;;; DOMAIN:ERROR-CODE-EXIT-CODE reads this list as the canonical mapping

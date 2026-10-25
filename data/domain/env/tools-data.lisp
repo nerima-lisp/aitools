@@ -1,4 +1,3 @@
-;;;; data/domain/env/tools-data.lisp
 ;;;;
 ;;;; The default list `sys tools` probes when no name is
 ;;;; given. Each entry is (NAME . VERSION-ARGUMENTS); most tools answer

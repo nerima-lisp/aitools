@@ -1,4 +1,3 @@
-;;;; data/domain/protocol/selector-options-data.lisp
 ;;;;
 ;;;; The selector options (every selector but --old; one selector per
 ;;;; call), as the single data definition three presentation

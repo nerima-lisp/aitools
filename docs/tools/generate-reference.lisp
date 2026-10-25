@@ -1,4 +1,3 @@
-;;;; docs/tools/generate-reference.lisp
 ;;;;
 ;;;; Regenerates the data-derived parts of the documentation:
 ;;;;

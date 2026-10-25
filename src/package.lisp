@@ -1,4 +1,3 @@
-;;;; src/package.lisp -- the aitools composition root.
 ;;;;
 ;;;; This package assembles every context's presentation layer into one
 ;;;; cl-cli app, dispatches parsed argv to a command's handler, and owns the

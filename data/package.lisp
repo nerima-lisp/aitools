@@ -1,4 +1,3 @@
-;;;; data/package.lisp
 ;;;;
 ;;;; Data is kept separate from logic: every `data/**/*-data.lisp` file
 ;;;; interns its constants into this one shared package rather than each
@@ -10,9 +9,8 @@
 ;;;;
 ;;;; Each data file EXPORTs its own symbols at its own end (see e.g.
 ;;;; error-catalog-data.lisp) instead of listing them in a shared
-;;;; DEFPACKAGE :EXPORT clause here, so that adding a new data file never
-;;;; requires editing this file -- consistent with "each writer owns only
-;;;; its context's components.sexp (plus its dirs)".
+;;;; DEFPACKAGE :EXPORT clause here, so adding a data file does not require
+;;;; updating a shared export list.
 (in-package #:cl-user)
 
 (defpackage #:aitools.data

@@ -1,4 +1,3 @@
-;;;; data/domain/text/mime-data.lisp
 ;;;;
 ;;;; MIME detection tables (the MIME magic-byte table as data). Magic
 ;;;; signatures are consulted first, in order; the extension table only

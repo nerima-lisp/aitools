@@ -1,4 +1,3 @@
-;;;; data/domain/workspace/builtin-excludes-data.lisp
 ;;;;
 ;;;; The fixed exclude list used to scan a workspace that
 ;;;; is not inside a git repository. Written in .gitignore syntax so the same

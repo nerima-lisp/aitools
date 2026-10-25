@@ -1,4 +1,3 @@
-;;;; src/app.lisp
 ;;;;
 ;;;; Assembles the cl-cli app: every feature context's registered commands,
 ;;;; plus `schema` (src/schema.lisp) and `batch` (src/batch.lisp).
@@ -38,7 +37,7 @@ specific command."
   (multiple-value-list (build-app))
   "(LIST APP REGISTRY), built once as this file loads so `program-op' bakes the
 command registry into the delivered heap instead of MAIN rebuilding it on every
-process start (BUILD-APP was ~20% of `--version'). Only the static
+process start. Only the static
 command tree is frozen. Every per-invocation fact stays dynamic: the ports hold
 function references (#'current-state-directory, #'make-posix-store) and closures
 whose adapters read cwd/HOME/XDG_STATE_HOME and the filesystem only when a flow

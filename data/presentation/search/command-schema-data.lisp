@@ -1,4 +1,3 @@
-;;;; data/presentation/search/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the search context's commands,
 ;;;; one entry per command. AITOOLS.SEARCH.PRESENTATION builds each

@@ -1,4 +1,3 @@
-;;;; data/presentation/inspect/format-command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the read side of the `json`, `yaml`, `toml`, and `table` groups.
 (in-package #:aitools.data)

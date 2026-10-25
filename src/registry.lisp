@@ -1,4 +1,3 @@
-;;;; src/registry.lisp
 ;;;;
 ;;;; Turns the protocol command registry into cl-cli's app command list. The
 ;;;; registry itself lives in AITOOLS.PROTOCOL.APPLICATION so presentation

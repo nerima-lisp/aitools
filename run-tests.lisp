@@ -1,4 +1,3 @@
-;;;; run-tests.lisp
 ;;;;
 ;;;; Lisp-level test entry point:
 ;;;;

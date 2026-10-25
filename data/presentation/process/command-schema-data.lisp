@@ -1,4 +1,3 @@
-;;;; data/presentation/process/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for `run`, `wait`, and the `bg` group, one entry per
 ;;;; command. AITOOLS.PROCESS.PRESENTATION builds each

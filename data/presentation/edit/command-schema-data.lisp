@@ -1,4 +1,3 @@
-;;;; data/presentation/edit/command-schema-data.lisp
 ;;;;
 ;;;; Schema text shared across the edit context's commands
 ;;;; (see docs/src/reference/json-schema.md): the output fields every write command

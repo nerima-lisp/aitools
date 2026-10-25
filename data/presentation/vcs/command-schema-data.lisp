@@ -1,4 +1,3 @@
-;;;; data/presentation/vcs/command-schema-data.lisp
 ;;;;
 ;;;; Schema text for the `git` group, one entry per
 ;;;; command. AITOOLS.VCS.PRESENTATION builds each COMMAND-SCHEMA from this

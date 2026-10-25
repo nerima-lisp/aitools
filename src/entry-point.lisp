@@ -1,10 +1,7 @@
-;;;; src/entry-point.lisp -- process and delivery boundaries.
 ;;;;
-;;;; Mirrors cl-sl's src/cli-entry-point.lisp shape: MAIN takes the process
-;;;; argv and injectable DISPATCH-FUNCTION/QUIT-FUNCTION (for delivery
-;;;; tests), IMAGE-ENTRY-POINT sets up process-level state and calls MAIN.
-;;;; aitools has no raw terminal mode to restore on a signal, so it needs
-;;;; none of cl-sl's signal-handling code.
+;;;; MAIN accepts process argv and injectable dispatch/quit functions for
+;;;; delivery tests. IMAGE-ENTRY-POINT sets process defaults and calls MAIN.
+;;;; The CLI sets no raw terminal mode that needs restoration on a signal.
 (in-package #:aitools/cli)
 
 (defun main (&key (argv (current-process-argv))
@@ -20,7 +17,6 @@ resolved at dispatch time."
     (funcall quit-function (funcall dispatch-function app registry argv))))
 
 (defun image-entry-point (&key (main-function #'main))
-  "Initialize delivery state and delegate to MAIN-FUNCTION."
   (setf *default-pathname-defaults* (uiop:getcwd))
   (uiop:setup-temporary-directory)
   (funcall main-function))

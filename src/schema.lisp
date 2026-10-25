@@ -1,4 +1,3 @@
-;;;; src/schema.lisp
 ;;;;
 ;;;; `schema [command...] [--all]`. Composition-root, not a feature
 ;;;; context's command, because it reads every context's registered

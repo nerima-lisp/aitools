@@ -1,4 +1,3 @@
-;;;; src/workspace-context.lisp
 ;;;;
 ;;;; Per-invocation workspace facts the composition root owns: the resolved
 ;;;; real root (from the global `--root`), the per-workspace state directory derived

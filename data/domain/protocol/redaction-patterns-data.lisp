@@ -1,9 +1,6 @@
-;;;; data/domain/protocol/redaction-patterns-data.lisp
 ;;;;
-;;;; The list of "known formats" redaction masks. Deliberately not a general
-;;;; secret-entropy detector (only known formats are masked -- an
-;;;; entropy-based detector was rejected precisely because it would mask a
-;;;; git SHA, a UUID, or any other long identifier).
+;;;; Only known formats are masked. A general entropy detector would mask
+;;;; git SHAs, UUIDs, and other long identifiers.
 (in-package #:aitools.data)
 
 (defparameter *redaction-literal-prefixes*

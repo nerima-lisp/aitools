@@ -1,4 +1,3 @@
-;;;; src/dispatch.lisp
 ;;;;
 ;;;; Calls cl-cli:PARSE-ARGV directly rather than RUN-APP: RUN-APP's own
 ;;;; usage-error and --help/--version handling all print plain text, which

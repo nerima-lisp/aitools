@@ -1,4 +1,3 @@
-;;;; data/domain/search/build-files-data.lisp
 ;;;;
 ;;;; The file names `overview` reports as build files.
 ;;;; Each entry is a wildmatch pattern tested against a file's base name.

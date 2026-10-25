@@ -1,4 +1,3 @@
-;;;; src/context-registration.lisp
 ;;;;
 ;;;; Builds every feature context's production ports and registers its
 ;;;; commands. Only feature contexts have a presentation layer

@@ -1,4 +1,3 @@
-;;;; data/presentation/inspect/archive-command-schema-data.lisp
 ;;;;
 ;;;; Schema text for `archive list`, `archive read`, `snapshot create`,
 ;;;; and `snapshot diff`.

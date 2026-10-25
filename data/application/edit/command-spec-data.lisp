@@ -1,4 +1,3 @@
-;;;; data/application/edit/command-spec-data.lisp
 ;;;;
 ;;;; The edit context's commands (text edits, file operations, and the write
 ;;;; side of the format groups) as data: positionals, options, output fields and error codes. The
