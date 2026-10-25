@@ -16,7 +16,7 @@
   16)
 
 (defparameter *literal-table-limit-rationale*
-  "Measured quoted collections have a gap: 15 is the largest below the threshold and 19 is the smallest above it.")
+  "Baseline 1b20c3abdea1d95a049cdb0481afcfd72072b2a4 measured 289 source files: 13 is the largest quoted collection below threshold 16, and 19 is the smallest above it.")
 
 (defparameter *literal-table-ratchet*
   '())

@@ -120,8 +120,14 @@
 (describe "aitools structure budgets (quoted tables)"
   (it "ratchets quoted list and vector literals by source file"
     (expect *literal-table-limit* :to-equal 16)
-    (expect (search "15 is the largest below" *literal-table-limit-rationale*)
-            :to-be-truthy)
+    (expect
+     (and
+      (search "Baseline 1b20c3abdea1d95a049cdb0481afcfd72072b2a4"
+              *literal-table-limit-rationale*)
+      (search "289 source files" *literal-table-limit-rationale*)
+      (search "13 is the largest quoted collection below threshold 16"
+              *literal-table-limit-rationale*))
+     :to-be-truthy)
     (expect (search "19 is the smallest above" *literal-table-limit-rationale*)
             :to-be-truthy)
     (expect (length *literal-table-ratchet*) :to-equal 0)
