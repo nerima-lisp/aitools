@@ -189,7 +189,7 @@
          (symbol-package (and (symbolp symbol) (symbol-package symbol))))
     (append (and (%slash-k-name-p name)
                  ;; This adapter converts whichever flow callback fires into
-                 ;; COMMAND-RESULT; the design keeps that conversion at the
+                 ;; COMMAND-RESULT at the command boundary.
                  (not (and (string= relative-path "packages/core/protocol/src/application/command-result.lisp")
                            (equal package-name "AITOOLS.PROTOCOL.APPLICATION")
                            (eq symbol-package (find-package "AITOOLS.PROTOCOL.APPLICATION"))
