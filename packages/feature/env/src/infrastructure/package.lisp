@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/infrastructure/package.lisp
 ;;;;
 ;;;; Adapters behind AITOOLS.ENV.APPLICATION:ENV-PORTS.
 (in-package #:cl-user)

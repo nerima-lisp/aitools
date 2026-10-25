@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/application/input.lisp
 ;;;;
 ;;;; The input rule for the single-input util commands: exactly one of
 ;;;; `--content <text>`, `--content-file <path>` (read as bytes, never

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/yaml-doc.lisp
 ;;;; YAML write validation for JSON values and number representability.
 (in-package #:aitools.edit.domain)
 

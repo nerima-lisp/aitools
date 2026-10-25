@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/find.lisp
 ;;;;
 ;;;; The rules of `find`: the name-or-path pattern, the per-entry filters, the
 ;;;; three orderings, and `--output tree`. The application layer turns scan

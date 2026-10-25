@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/undo-flow.lisp
 ;;;;
 ;;;; `undo <op_id>` over the store's UNDO-OP/K: the op id is
 ;;;; required so that one agent never undoes another's op by accident, and a

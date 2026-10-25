@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/archive.lisp
 ;;;;
 ;;;; The read side of `archive list` and `archive read` over the text context's codecs. An archive is
 ;;;; untrusted input: every malformed byte ends in ARCHIVE-ERROR (the codecs

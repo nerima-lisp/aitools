@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/tx-flows.lisp
 ;;;;
 ;;;; `tx begin`, `tx status`, and `tx diff` resolve the workspace's store
 ;;;; and shape transaction summaries, details, and bounded diffs.

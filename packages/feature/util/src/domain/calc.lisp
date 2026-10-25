@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/calc.lisp
 ;;;;
 ;;;; `util calc`: an arithmetic-only expression language (it has
 ;;;; arithmetic expressions and nothing else). The expression is

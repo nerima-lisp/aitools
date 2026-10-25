@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/table-option-flows.lisp
 (in-package #:aitools.inspect.application)
 (defstruct (table-options (:constructor make-table-options) (:copier nil))
   "The reading options for table read and table agg are shared."

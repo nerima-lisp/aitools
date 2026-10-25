@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/table-text-build.lisp
 (in-package #:aitools.inspect.domain)
 ;;; ------------------------------------------------------------ building
 

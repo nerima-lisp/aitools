@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/write-guards.lisp
 ;;;;
 ;;;; The checks write-runtime.lisp runs around a plan: the
 ;;;; redaction-marker refusal for inputs and for the bytes about to be

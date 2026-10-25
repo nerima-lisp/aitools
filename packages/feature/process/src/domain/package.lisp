@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/package.lisp
 ;;;;
 ;;;; Pure rules for `run`, `wait`, and `bg`: terminal-output
 ;;;; normalization (ANSI escapes, `\r` progress lines), head/tail truncation,

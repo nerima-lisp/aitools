@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/infrastructure/bg-launcher.lisp
 ;;;;
 ;;;; The LAUNCH-DETACHED port. A bg process must outlive aitools, so it
 ;;;; is started through process-kit:SPAWN-NATIVE with :SESSION T: the native

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/archive-plan.lisp
 ;;;;
 ;;;; `archive extract` and `archive create`. Extraction is
 ;;;; planned in full before anything is written (rejecting

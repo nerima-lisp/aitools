@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/table-agg-flows.lisp
 ;;;;
 ;;;; `table agg`: group the rows of a parsed table and compute
 ;;;; count/sum/avg/min/max/distinct per group, refusing a numeric aggregate

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/ports.lisp
 ;;;;
 ;;;; The effects inspect flows use, passed explicitly to every flow
 ;;;; (docs/src/reference/architecture.md, "Ports and the composition root").

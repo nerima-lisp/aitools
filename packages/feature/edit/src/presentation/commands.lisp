@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/presentation/commands.lisp
 ;;;;
 ;;;; cl-cli commands and `schema` entries for every edit command, built from
 ;;;; the application's command table (the same one `tx rebase` parses

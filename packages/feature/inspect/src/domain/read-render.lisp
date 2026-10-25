@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/read-render.lisp
 ;;;;
 ;;;; The alternative views `read` gives of a file: `--escape-invisible` (the `cat -A`
 ;;;; replacement), `--as hex` rows, and `--as strings` runs.

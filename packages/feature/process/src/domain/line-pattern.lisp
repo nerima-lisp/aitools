@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/line-pattern.lisp
 ;;;;
 ;;;; `run --grep`, `bg logs --grep`, and `wait --pattern` all match one line
 ;;;; at a time (without `--multiline` a pattern never spans a

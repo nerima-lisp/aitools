@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/toml-values.lisp
 (in-package #:aitools.inspect.domain)
 
 (define-condition toml-unsupported-value (error)

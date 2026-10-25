@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/infrastructure/ports.lisp
 ;;;;
 ;;;; The composition root calls MAKE-PRODUCTION-PROCESS-PORTS once per aitools
 ;;;; run. Construction does no I/O: the state directory is resolved, and

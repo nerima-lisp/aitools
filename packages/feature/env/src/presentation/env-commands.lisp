@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/presentation/env-commands.lisp
 ;;;;
 ;;;; cl-cli definitions and schemas for the `sys` and `time` groups
 ;;;; (docs/src/reference/commands/env.md). Handlers turn the parsed invocation into a flow call;

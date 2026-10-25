@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/tx-stage-flows.lisp
 ;;;;
 ;;;; `tx drop` and `tx rebase` use the store's tx API. Rebase applies staged
 ;;;; operations through the registered journal replayers.

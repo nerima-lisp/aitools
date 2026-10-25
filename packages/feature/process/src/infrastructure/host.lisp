@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/infrastructure/host.lisp
 ;;;;
 ;;;; File, signal, socket, and clock adapters for PROCESS-PORTS. Every I/O
 ;;;; failure leaves as AITOOLS.PROCESS.APPLICATION:PROCESS-PORT-ERROR.

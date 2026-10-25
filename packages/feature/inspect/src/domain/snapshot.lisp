@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/snapshot.lisp
 ;;;;
 ;;;; `snapshot create`/`snapshot diff` record file paths, size, mtime, hashes,
 ;;;; and scan options. DECODE-SNAPSHOT accepts an object with a matching

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/selection.lisp
 ;;;;
 ;;;; Resolves line selectors (`--range`, `--symbol`, `--between`, `--match`)
 ;;;; against file lines. Results are selected ranges, no-match candidates,

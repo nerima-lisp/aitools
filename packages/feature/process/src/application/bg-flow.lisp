@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/application/bg-flow.lisp
 ;;;;
 ;;;; Background process record helpers and `bg start`. Processes are tracked
 ;;;; through records in this workspace's `bg/` directory, so `bg stop` can

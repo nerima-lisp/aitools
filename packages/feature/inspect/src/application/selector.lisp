@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/selector.lisp
 ;;;;
 ;;;; The public selector boundary (selector rules: docs/src/reference/commands/index.md,
 ;;;; "Conventions shared by many commands"): turning

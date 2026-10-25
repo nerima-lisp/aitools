@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/ports.lisp
 ;;;;
 ;;;; The journal context's side-effect boundary is the store itself: the
 ;;;; flows resolve the workspace root through the workspace context's host

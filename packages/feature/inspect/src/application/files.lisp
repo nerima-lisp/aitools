@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/files.lisp
 ;;;;
 ;;;; Locating and reading the file a command names. Reads are not bound by
 ;;;; the workspace, so a path resolves against the working

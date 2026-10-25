@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/presentation/commands.lisp
 ;;;;
 ;;;; cl-cli commands for `history`, `undo` and the `tx` group. Each handler
 ;;;; turns the parsed invocation (including the global `--root` and

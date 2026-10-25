@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/uuid.lisp
 ;;;;
 ;;;; `util uuid` layouts (RFC 9562). Randomness and time are arguments, so
 ;;;; the bit layout and the v7 ordering rule are testable without a clock or

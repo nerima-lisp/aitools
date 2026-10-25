@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/common.lisp
 ;;;;
 ;;;; Pieces every journal flow shares: opening the store of the resolved
 ;;;; workspace, the global-option words repeated in repair commands, and the

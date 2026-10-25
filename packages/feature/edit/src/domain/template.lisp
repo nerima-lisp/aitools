@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/template.lisp
 ;;;;
 ;;;; Replacement templates: `$0`, `$1`, `$name`, `${name}`, `$$`, and
 ;;;; aitools' `${group:filter:filter}` extension. The template is parsed once

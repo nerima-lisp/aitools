@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/overview.lisp
 ;;;;
 ;;;; The pure parts of `overview`: git facts from the bytes of `.git` files
 ;;;; (no scanning command starts a git process), build-file

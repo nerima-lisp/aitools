@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/wait-condition.lisp
 ;;;;
 ;;;; `wait` takes exactly one condition -- `--file P --pattern RE`,
 ;;;; `--port N`, `--bg ID --pattern RE`, `--bg ID --exit`, or `--duration D`.

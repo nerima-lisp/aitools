@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/lisp-scan.lisp
 ;;;;
 ;;;; A delimiter scanner for Lisp-family source, shared by `check --format
 ;;;; lisp` (balance with strings, comments, and character literals

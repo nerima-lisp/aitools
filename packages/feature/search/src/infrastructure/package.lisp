@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/infrastructure/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.search.infrastructure

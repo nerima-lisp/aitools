@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/history-flow.lisp
 ;;;;
 ;;;; `history [path]`: journal entries newest first, optionally only
 ;;;; those that touched PATH or something under it. More entries than

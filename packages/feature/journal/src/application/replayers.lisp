@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/replayers.lisp
 ;;;;
 ;;;; `tx rebase` re-runs each drifted content-based op from its
 ;;;; recorded argv, which only the command that staged it can interpret. The

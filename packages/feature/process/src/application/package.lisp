@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/application/package.lisp
 ;;;;
 ;;;; Use cases for `run`, `wait`, and `bg`. Every side effect goes through a
 ;;;; PROCESS-PORTS value the caller supplies (production adapters from the

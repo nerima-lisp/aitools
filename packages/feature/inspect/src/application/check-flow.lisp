@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/check-flow.lisp
 ;;;;
 ;;;; `check`: JSON syntax, or Lisp delimiter balance. A problem is
 ;;;; `input.syntax-error` with `diagnostics[{line,col,message}]`.

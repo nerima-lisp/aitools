@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/table-agg.lisp
 ;;;;
 ;;;; `table agg`: declarative grouping and aggregation, the
 ;;;; replacement for `awk '{s+=$2}'` and `sort | uniq -c`. Numeric

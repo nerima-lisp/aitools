@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/domain/render.lisp
 ;;;;
 ;;;; JSON shapes of `history`, `tx status`'s tx paths, and the repairs
 ;;;; of commit conflicts. A tx path's `base` and `staged`, like a

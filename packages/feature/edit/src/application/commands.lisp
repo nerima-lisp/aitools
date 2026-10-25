@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/commands.lisp
 ;;;;
 (in-package #:aitools.edit.application)
 

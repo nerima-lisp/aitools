@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/infrastructure/ports.lisp
 ;;;;
 ;;;; The production SEARCH-PORTS. The workspace host, text source, and store
 ;;;; opener belong to other contexts' infrastructure, which this layer may

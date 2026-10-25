@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/session.lisp
 ;;;;
 ;;;; What every search-context flow shares: resolving the workspace root
 ;;;; (`--root`, the git top, or the working directory), the `--tx` read-through (a staged path is

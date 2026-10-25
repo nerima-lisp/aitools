@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/infrastructure/package.lisp
 ;;;;
 ;;;; Production adapters for AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS:
 ;;;; process-kit for `run` and `bg start`, sb-posix for process-group

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/archive-commands.lisp
 ;;;;
 ;;;; `archive list` and `archive read`.
 (in-package #:aitools.inspect.presentation)

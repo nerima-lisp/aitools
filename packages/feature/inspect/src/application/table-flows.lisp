@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/table-flows.lisp
 ;;;;
 ;;;; `table read` and `table agg`: one parse of the file into
 ;;;; a typed table, then row filtering (`--where`), column choice

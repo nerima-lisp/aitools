@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/domain/civil-time.lisp
 ;;;;
 ;;;; Proleptic Gregorian calendar arithmetic over Unix epoch milliseconds
 ;;;; (the one instant representation the env context uses), ISO 8601

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/file-facts.lisp
 ;;;;
 ;;;; The content fields of `info` (`wc`, `file`, `stat` replacements) and
 ;;;; the format choice of `check`.

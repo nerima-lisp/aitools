@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/package.lisp
 ;;;;
 ;;;; Pure rules of the edit context (text edits, file operations, and the
 ;;;; write side of the format groups):

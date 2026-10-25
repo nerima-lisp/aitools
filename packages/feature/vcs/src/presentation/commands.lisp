@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/presentation/commands.lisp
 ;;;;
 ;;;; The `git` group's cl-cli commands. Each handler turns the parsed
 ;;;; invocation into one AITOOLS.VCS.APPLICATION flow call and returns the

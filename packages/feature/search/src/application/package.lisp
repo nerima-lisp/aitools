@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/package.lisp
 ;;;;
 ;;;; The search context's use cases: `search`, `find`,
 ;;;; `code outline|defs|refs`, and `overview`. Each flow follows the command

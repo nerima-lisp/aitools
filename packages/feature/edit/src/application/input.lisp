@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/input.lisp
 ;;;;
 ;;;; What the command flows share: reading content inputs (--content,
 ;;;; --content-file, --stdin, never stdin implicitly), reading a text target

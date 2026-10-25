@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/old-match.lisp
 ;;;;
 ;;;; `edit --old`: an exact search of the logical
 ;;;; text first, then a line-wise search that ignores leading and trailing

@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/find-flow.lisp
 ;;;;
 ;;;; `find`. One ignore-aware scan below the start path collects every
 ;;;; entry; directory totals for `--sizes` and emptiness for `--empty` are

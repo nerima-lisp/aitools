@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/infrastructure/ports.lisp
 (in-package #:aitools.journal.infrastructure)
 
 (defun make-production-journal-ports (&key workspace-host open-store &allow-other-keys)

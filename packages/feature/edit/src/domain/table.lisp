@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/table.lisp
 ;;;;
 ;;;; `table set` over CSV and TSV: the file is scanned into records
 ;;;; of field spans, and only the addressed field's span is rewritten, so

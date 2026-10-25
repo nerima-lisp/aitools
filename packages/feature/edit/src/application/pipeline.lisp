@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/pipeline.lisp
 ;;;;
 ;;;; RUN-WRITE-COMMAND/K: the path every workspace-changing command takes
 ;;;; (guards, input, output, redaction refusal, the workspace boundary,

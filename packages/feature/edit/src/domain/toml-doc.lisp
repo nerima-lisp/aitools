@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/toml-doc.lisp
 ;;;; TOML root, null, and integer constraints for JSON write values.
 (in-package #:aitools.edit.domain)
 

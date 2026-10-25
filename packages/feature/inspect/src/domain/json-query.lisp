@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/json-query.lisp
 ;;;;
 ;;;; The read side of the `json` group (`get`, `select`, `diff`): RFC 6901
 ;;;; pointers, `--where` conditions with the shared comparison operators
@@ -11,7 +10,7 @@
 ;;; RFC 6901 pointers and array-index resolution live in
 ;;; AITOOLS.KERNEL.DOMAIN (one canonical implementation shared with the
 ;;; write side). These forward to it under the names the inspect domain and
-;;; its tests already use.
+;;; The inspect domain exports these names for its callers.
 
 (defun parse-json-pointer (text)
   "The reference tokens of pointer TEXT (\"\" is the whole document), or

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/registry.lisp
 ;;;;
 ;;;; How inspect's command files plug into REGISTER-INSPECT-COMMANDS: each
 ;;;; file declares its commands with DEFINE-INSPECT-COMMAND at top level

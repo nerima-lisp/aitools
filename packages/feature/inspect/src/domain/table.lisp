@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/table.lisp
 ;;;;
 ;;;; `table read`: the `cut`/`awk` column replacement. Every format
 ;;;; becomes one TABLE of named, typed columns: csv (RFC 4180 quoting), tsv,

@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/presentation/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.journal.presentation

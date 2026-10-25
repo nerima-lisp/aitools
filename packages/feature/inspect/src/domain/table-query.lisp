@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/table-query.lisp
 ;;;;
 ;;;; Queries over a parsed TABLE shared by `table read` and `table agg`:
 ;;;; column lookup by name or 1-based number, `--where` comparisons typed by

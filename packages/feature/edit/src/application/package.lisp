@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/package.lisp
 ;;;;
 ;;;; The edit context's public boundary. RUN-WRITE-COMMAND/K is the shared
 ;;;; write pipeline (also used by `util decode --to`); RUN-EDIT-COMMAND runs

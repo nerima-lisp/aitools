@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/infrastructure/os-random.lisp
 ;;;;
 ;;;; The cryptographic random source `util` requires (random values come from
 ;;;; the OS cryptographic random source). cl-boundary-kit's own MAKE-RANDOM-SOURCE is

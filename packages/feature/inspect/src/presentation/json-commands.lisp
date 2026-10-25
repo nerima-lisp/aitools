@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/json-commands.lisp
 ;;;;
 ;;;; `json get`, `json select`, and `json diff` (the read side of `json`).
 (in-package #:aitools.inspect.presentation)

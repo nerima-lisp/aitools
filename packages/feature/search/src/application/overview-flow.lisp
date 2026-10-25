@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/overview-flow.lisp
 ;;;;
 ;;;; `overview`. One scan below the path tallies languages (lines are counted
 ;;;; on the worker pool from the undecoded bytes), collects build files and

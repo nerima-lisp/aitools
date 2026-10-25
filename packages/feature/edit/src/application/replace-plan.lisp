@@ -13,7 +13,7 @@ state is an error; scanned files in that state are skipped."
           ;; where a miss means zero replacements and no error, so it is
           ;; applied only to scanned (non-explicit) files and dropped when a
           ;; selector restricts the lines. A file that clears it is still
-          ;; matched exactly as before.
+          ;; A literal-prefilter hit still uses the replacement matcher.
           (literal (and (null selector) (replacer-required-literal replacer))))
       (labels ((reject-or-skip (path code message
                  &key candidates diagnostics conflicts repairs)

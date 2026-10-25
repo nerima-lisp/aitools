@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/replace-flows.lisp
 ;;;;
 ;;;; `replace`: the multi-file write that validates every file
 ;;;; before the store writes any. Its file scan is in scan.lisp, and `apply`

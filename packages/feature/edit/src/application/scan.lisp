@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/scan.lisp
 ;;;;
 ;;;; SCAN-FILES/K: the workspace scan the multi-file writes (replace,
 ;;;; archive create) select their files with, honouring the common scan

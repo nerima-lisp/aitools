@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/tx-commit-flows.lisp
 ;;;;
 ;;;; `tx commit` and `tx abort` use the store's tx API for locking,
 ;;;; validation, and transaction state.

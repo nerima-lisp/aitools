@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/outline.lisp
 ;;;;
 ;;;; Definitions for `--symbol`: the start line comes from
 ;;;; the text context's language table (the same data `code outline` uses),

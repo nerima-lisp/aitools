@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/application/flows.lisp
 ;;;;
 ;;;; The `git status`, `git log`, and `git diff` flows are defined here.
 ;;;; `git blame` is in `blame-flows.lisp`, and `git show` is in

@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/blame.lisp
 ;;;;
 ;;;; `git blame` output from `git blame --porcelain`. Porcelain prints a commit's
 ;;;; author headers only the first time that commit appears, so the parser

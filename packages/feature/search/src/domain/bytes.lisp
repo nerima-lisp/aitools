@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/bytes.lisp
 ;;;;
 ;;;; Allocation-free byte scanning: line boundaries, character
 ;;;; columns, and literal search run over the undecoded file bytes, so a line

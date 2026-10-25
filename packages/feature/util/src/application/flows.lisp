@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/application/flows.lisp
 ;;;;
 ;;;; Shared constants and flow helpers for the util command flows.
 (in-package #:aitools.util.application)

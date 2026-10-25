@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/results.lisp
 ;;;;
 ;;;; One file's `search` outcome and its rendering. SEARCH-FILE retains the
 ;;;; file octets and match offsets, without decoding strings. BUILD-BLOCKS

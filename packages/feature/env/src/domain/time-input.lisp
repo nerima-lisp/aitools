@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/domain/time-input.lisp
 ;;;;
 ;;;; `time convert`'s automatic input-format detection: one parser for every time value `time
 ;;;; convert` and `time diff` accept.

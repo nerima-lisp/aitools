@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/package.lisp
 ;;;;
 ;;;; Pure value computations behind `util`: byte codecs,
 ;;;; text statistics, the arithmetic-only calculator, UUID layouts, and

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/diff.lisp
 ;;;;
 ;;;; The comparisons of `diff` over already-split lines: unified hunks (with the
 ;;;; `-w` and `--strip-trailing-cr` style normalisations), `stat` counts,

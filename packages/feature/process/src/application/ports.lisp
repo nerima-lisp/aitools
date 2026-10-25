@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/application/ports.lisp
 ;;;;
 ;;;; The process context's side-effect boundary. Infrastructure supplies the
 ;;;; production port functions; unit tests supply fakes. WORKSPACE-HOST carries

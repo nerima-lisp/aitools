@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/blob.lisp
 ;;;;
 ;;;; `git show` returns a blob in `read`'s shape and `git blame` pages blame output
 ;;;; the same way, so both share the line-window arithmetic here.

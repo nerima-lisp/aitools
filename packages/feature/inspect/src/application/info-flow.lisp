@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/info-flow.lisp
 ;;;;
 ;;;; `info`: the `wc`, `stat`, `file`, `sha256sum`, `test -e`, and
 ;;;; `realpath` replacement. Path fields describe where the name leads
@@ -71,11 +70,8 @@ disk's."
               (values nil nil))))))
 
 (defun %content-fields (octets target digest)
-  ;; TEXT-CONTENT-COUNTS scans the decoded bytes once instead of
-  ;; materializing a per-line string vector, so the byte counts below are
-  ;; unchanged while the large intermediate consing of DECODE-TEXT-LINES is
-  ;; gone. LINE-COUNT/WORD-COUNT/MAX-CHARS/CHARACTERS are meaningful only for
-  ;; text; a binary file reports them as null exactly as before.
+  ;; Text counts are computed in one pass over decoded bytes. For binary files,
+  ;; LINE-COUNT/WORD-COUNT/MAX-CHARS/CHARACTERS are null.
   (let* ((binary (binary-octets-p octets))
          (layout (detect-text-layout octets)))
     (multiple-value-bind (line-count word-count max-chars characters)

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/archive-flows.lisp
 ;;;;
 ;;;; `archive extract` and `archive create`.
 (in-package #:aitools.edit.application)

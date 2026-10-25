@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/log.lisp
 ;;;;
 ;;;; `git log`. The log is requested as `git log -z --date=format:%z
 ;;;; --format=<*LOG-FORMAT*>`: every field, including the last, ends in a NUL,

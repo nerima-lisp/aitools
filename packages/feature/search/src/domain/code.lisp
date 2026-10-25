@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/code.lisp
 ;;;;
 ;;;; `code outline`, `code defs`, and `code refs` over the text context's
 ;;;; language table (data/domain/text/language-data.lisp). Every language's definition

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/regex.lisp
 ;;;;
 ;;;; cl-regex-kit as the edit commands use it: compiling a user pattern
 ;;;; (--fixed/--word/--ignore-case), turning the kit's errors into

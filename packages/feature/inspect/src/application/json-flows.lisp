@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/json-flows.lisp
 ;;;;
 ;;;; The read side of the `json` group: `json get`
 ;;;; (the `jq '.a.b'`, `keys`, `length`, `-r` replacement), `json select`

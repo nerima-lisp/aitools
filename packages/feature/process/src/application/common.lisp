@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/application/common.lisp
 ;;;;
 ;;;; Pieces every process flow shares: repair entries (every error
 ;;;; carries at least one complete command), duration parsing into the

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/read-flow.lisp
 ;;;;
 ;;;; `read`. Three modes (`--as text|hex|strings`); text mode takes
 ;;;; one selector or `--tail`, always capped by `--max-lines`, and names

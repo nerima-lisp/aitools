@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/file-commands.lisp
 ;;;;
 ;;;; `read`, `info`, `check`, and `diff`: option parsing
 ;;;; and one flow call each.

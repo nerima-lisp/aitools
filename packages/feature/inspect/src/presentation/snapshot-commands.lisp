@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/snapshot-commands.lisp
 ;;;;
 ;;;; `snapshot create` and `snapshot diff`. They run against the disk only
 ;;;; (docs/src/reference/transactions.md), so they take no `--tx`.

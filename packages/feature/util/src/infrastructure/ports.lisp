@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/infrastructure/ports.lisp
 ;;;;
 ;;;; Adapters from cl-boundary-kit ports (random-source, uuid-source, clock)
 ;;;; and the host file system to AITOOLS.UTIL.APPLICATION:UTIL-PORTS. The

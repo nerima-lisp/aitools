@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/terminal-text.lisp
 ;;;;
 ;;;; `run` and `bg logs` drop ANSI escape sequences and keep
 ;;;; only the last redraw of a `\r`-overwritten progress line, unless

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/package.lisp
 ;;;;
 ;;;; Pure rules of the inspect context (the file reads, the read side of the
 ;;;; format groups, and `snapshot`): line decoding, selector resolution, the views

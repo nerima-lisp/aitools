@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/application/package.lisp
 ;;;;
 ;;;; The journal context's public boundary: the flows behind `history`,
 ;;;; `undo` and the `tx` group (thin over the store context's journal, undo

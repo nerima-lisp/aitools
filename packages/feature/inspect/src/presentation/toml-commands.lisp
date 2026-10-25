@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/toml-commands.lisp
 ;;;; TOML read commands.
 (in-package #:aitools.inspect.presentation)
 

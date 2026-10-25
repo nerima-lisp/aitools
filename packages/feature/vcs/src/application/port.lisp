@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/application/port.lisp
 ;;;;
 ;;;; The one side-effect boundary of the vcs context: running git. Each slot
 ;;;; is a function taking continuations, so a flow never sees a condition

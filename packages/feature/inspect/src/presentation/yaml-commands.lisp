@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/yaml-commands.lisp
 ;;;; YAML read commands.
 (in-package #:aitools.inspect.presentation)
 

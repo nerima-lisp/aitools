@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/bg-record.lisp
 ;;;;
 ;;;; A `bg start` process is remembered as three files in the workspace's
 ;;;; state `bg/` directory: `<id>.json` (this record), `<id>.log` (its

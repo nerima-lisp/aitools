@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/yaml-flows.lisp
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow

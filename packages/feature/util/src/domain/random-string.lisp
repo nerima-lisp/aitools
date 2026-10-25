@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/random-string.lisp
 ;;;;
 ;;;; `util random` alphabet sampling. Each character is chosen by rejection
 ;;;; sampling over random octets: an octet at or above the largest multiple

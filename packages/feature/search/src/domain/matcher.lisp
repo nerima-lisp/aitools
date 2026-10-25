@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/matcher.lisp
 ;;;;
 ;;;; The `search` matcher over one file's bytes: cl-regex-kit byte regexes,
 ;;;; no allocation for non-matching lines, and a per-file literal prefilter.
@@ -13,7 +12,7 @@
 ;;;; re-runs it on that match's line with the CR excluded. A line holding no
 ;;;; candidate is never handed to the engine and never decoded.
 ;;;;
-;;;; Only `scan` is used: it runs a fresh Pike VM per call, so one compiled
+;;;; `scan` creates a fresh Pike VM per call, so one compiled
 ;;;; matcher is safe to share between the scan's worker threads, whereas
 ;;;; `is-match-p` shares a lazily built DFA workspace between callers.
 (in-package #:aitools.search.domain)

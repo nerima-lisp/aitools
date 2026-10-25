@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/status.lisp
 ;;;;
 ;;;; `git status` output from a porcelain-v2 status snapshot. The snapshot
 ;;;; arrives as a plist (see AITOOLS.VCS.APPLICATION:GIT-PORT) so this layer

@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/log-slice.lisp
 ;;;;
 ;;;; `bg logs`: the caller, not aitools, holds the read position (a
 ;;;; server-side cursor loses data across agents and context resets), so

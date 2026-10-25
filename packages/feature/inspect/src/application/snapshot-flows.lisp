@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/snapshot-flows.lisp
 ;;;;
 ;;;; `snapshot create` and `snapshot diff`: detecting changes
 ;;;; made outside aitools (builds, formatters, other tools). Independent of

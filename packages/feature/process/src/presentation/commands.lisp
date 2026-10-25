@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/presentation/commands.lisp
 ;;;;
 ;;;; cl-cli commands for `run`, `wait`, and the `bg` group. Each handler turns
 ;;;; the parsed invocation into one AITOOLS.PROCESS.APPLICATION flow call and

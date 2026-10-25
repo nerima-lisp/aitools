@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/presentation/commands.lisp
 ;;;;
 ;;;; The cl-cli commands `search`, `find`, `overview`, and `code
 ;;;; outline|defs|refs`. Each handler turns the parsed invocation into one

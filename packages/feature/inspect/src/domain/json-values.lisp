@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/json-values.lisp
 ;;;;
 ;;;; The JSON value vocabulary of the inspect context. Output values and
 ;;;; parsed documents share one representation, the one json-kit writes:

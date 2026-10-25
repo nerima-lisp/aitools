@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/search-flow.lisp
 ;;;;
 ;;;; SEARCH-FILE receives each whole file as octets. For blocks and matches,
 ;;;; it retains those octets and the byte offsets needed for output, without

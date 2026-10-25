@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/diff-flow.lisp
 ;;;;
 ;;;; `diff`: two files (`diff -u`, `cmp`, `comm`), two directories
 ;;;; (recursive, by path then content), or one journal op's full diff

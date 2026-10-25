@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/table-read-flows.lisp
 (in-package #:aitools.inspect.application)
 ;;; ------------------------------------------------------------ table read
 

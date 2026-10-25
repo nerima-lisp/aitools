@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/table-build.lisp
 ;;;;
 ;;;; `table read`: build a TABLE from split string records (csv, tsv,
 ;;;; sep, ws) or parsed JSON values (jsonl, json), and PARSE-TABLE/K, the

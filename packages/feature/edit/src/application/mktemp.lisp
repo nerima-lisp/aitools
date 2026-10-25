@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/mktemp.lisp
 ;;;;
 ;;;; `mktemp`: a file or directory in the workspace's tmp/ area, which
 ;;;; alone of the file operations bypasses the journal.

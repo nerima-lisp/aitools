@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/application/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.vcs.application

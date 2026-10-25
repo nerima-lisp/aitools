@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/lines.lisp
 ;;;;
 ;;;; File bytes to line strings: the UTF-8 BOM never appears in
 ;;;; line 1, invalid UTF-8 becomes U+FFFD and is counted, and a CRLF

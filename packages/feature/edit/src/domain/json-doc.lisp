@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/json-doc.lisp
 ;;;;
 ;;;; The JSON write commands: a value model that keeps
 ;;;; object key order and each number's source text, RFC 6901 pointers,

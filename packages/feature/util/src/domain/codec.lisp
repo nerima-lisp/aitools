@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/codec.lisp
 ;;;;
 ;;;; `util encode`/`util decode`'s three byte codecs. Every codec works on octets in both
 ;;;; directions, so `--content-file` input (raw bytes) and `--content` input

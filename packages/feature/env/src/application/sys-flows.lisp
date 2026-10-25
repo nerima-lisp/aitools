@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/application/sys-flows.lisp
 ;;;;
 ;;;; `sys info`, `sys env`, `sys tools`, `sys procs`, `sys ports`
 ;;;; The OS decides the source: Linux reads

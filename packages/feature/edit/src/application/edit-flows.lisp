@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/edit-flows.lisp
 ;;;;
 ;;;; `edit` and `insert`.
 (in-package #:aitools.edit.application)

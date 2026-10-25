@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/ports.lisp
 ;;;;
 ;;;; The effects the edit flows need beyond the store, as plain closures
 ;;;; (the infrastructure layer builds them; unit tests pass their own).

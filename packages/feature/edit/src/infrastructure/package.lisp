@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/infrastructure/package.lisp
 ;;;;
 ;;;; Production adapters for the edit context's ports: standard input as
 ;;;; bytes, a file's modification time, the clock. The workspace host, the

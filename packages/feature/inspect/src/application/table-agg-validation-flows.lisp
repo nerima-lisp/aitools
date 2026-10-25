@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/table-agg-validation-flows.lisp
 (in-package #:aitools.inspect.application)
 (aitools.kernel.domain:define-flow
  (%numeric-check/k context path options table rows aggregates command-words

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/apply-flows.lisp
 ;;;;
 ;;;; `apply`: a unified diff from --stdin, every hunk checked
 ;;;; against the current files before the store writes any.

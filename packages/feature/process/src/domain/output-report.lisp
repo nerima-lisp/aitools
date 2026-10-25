@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/output-report.lisp
 ;;;;
 ;;;; `run`'s per-stream `{head, tail, total_lines, truncated, matches?}`.
 ;;;; `--grep` runs over every line before head/tail truncation (so an error

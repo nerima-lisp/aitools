@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/domain/package.lisp
 ;;;;
 ;;;; Pure rendering for `history`, `undo` and the `tx` group: journal entries
 ;;;; and tx states as the JSON shapes of docs/src/reference/commands/journal.md and

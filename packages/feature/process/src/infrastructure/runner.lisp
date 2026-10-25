@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/infrastructure/runner.lisp
 ;;;;
 ;;;; The RUN-PROGRAM port over process-kit:RUN: argv without a shell, the
 ;;;; child in its own process group (so a timeout's SIGTERM -> SIGKILL reaches

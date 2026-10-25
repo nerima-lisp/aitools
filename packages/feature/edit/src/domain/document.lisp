@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/document.lisp
 ;;;;
 ;;;; TEXT-DOCUMENT is a UTF-8 file as the text-editing commands see it:
 ;;;; its lines without terminators, each line's own terminator,

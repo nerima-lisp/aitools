@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/domain/process-outcome.lisp
 ;;;;
 ;;;; What a finished `run` child left behind, independent of how it was
 ;;;; launched, and `run`'s success fields built from it.

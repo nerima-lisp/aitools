@@ -1,7 +1,6 @@
-;;;; packages/feature/inspect/src/application/archive-flows.lisp
 ;;;;
-;;;; `archive list` lists archive members; `archive read` reads one member
-;;;; and returns a text view with the same shape and selectors as `read`.
+;;;; The list flow returns archive members; the read flow returns the `read`
+;;;; text view with the same shape and selectors.
 (in-package #:aitools.inspect.application)
 
 (defun %archive-list-command (context path)

@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/presentation/util-commands.lisp
 ;;;;
 ;;;; cl-cli definitions and schemas for the `util` group (docs/src/reference/commands/util.md).
 ;;;; Each handler turns the parsed invocation into a flow call; the flow's

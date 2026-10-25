@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/command-spec.lisp
 ;;;;
 ;;;; The expanded command table (data/application/edit/command-spec-data.lisp
 ;;;; plus the shared option groups), the canonical argv a write records in

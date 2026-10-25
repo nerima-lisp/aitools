@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/paths.lisp
 ;;;;
 ;;;; User paths are relative to the process's working directory; git paths
 ;;;; are relative to the repository top, where every git command runs. These

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/infrastructure/ports.lisp
 ;;;;
 ;;;; The production INSPECT-PORTS. Every effect inspect needs is another
 ;;;; context's adapter, built by the composition root and handed in here

@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/infrastructure/git-port.lisp
 ;;;;
 ;;;; The production GIT-PORT over cl-vcs-kit. Every git condition is turned
 ;;;; into a failure continuation here, and the continuation is called only

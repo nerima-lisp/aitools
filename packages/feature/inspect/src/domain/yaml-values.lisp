@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/yaml-values.lisp
 (in-package #:aitools.inspect.domain)
 
 (define-condition yaml-unsupported-value (error)

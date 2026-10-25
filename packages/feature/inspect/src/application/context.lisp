@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/context.lisp
 ;;;;
 ;;;; What every inspect flow needs before it touches a file: the workspace
 ;;;; root (`--root`, git top, or cwd), the working directory that

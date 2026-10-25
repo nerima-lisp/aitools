@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/presentation/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.env.presentation

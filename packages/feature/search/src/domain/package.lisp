@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/domain/package.lisp
 ;;;;
 ;;;; Pure rules of the search context: the byte-level
 ;;;; matcher behind `search` (regex semantics over cl-regex-kit byte

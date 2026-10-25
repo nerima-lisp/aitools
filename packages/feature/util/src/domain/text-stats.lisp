@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/domain/text-stats.lisp
 ;;;;
 ;;;; `util tokens`. `approx_tokens` comes from the kernel's shared
 ;;;; estimator so this command and every content-returning command agree.

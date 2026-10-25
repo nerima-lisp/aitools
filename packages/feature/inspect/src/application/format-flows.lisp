@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/application/format-flows.lisp
 (in-package #:aitools.inspect.application)
 
 (defun %format-group (format)

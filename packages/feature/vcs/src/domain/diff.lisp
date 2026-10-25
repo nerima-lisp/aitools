@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/diff.lisp
 ;;;;
 ;;;; `git diff`. Per-file counts and paths come from `git diff --numstat -z`
 ;;;; (parsed by cl-vcs-kit, NUL-separated, so no path quoting applies); the
@@ -6,8 +5,8 @@
 ;;;; line and paired with the numstat records by position, since both list
 ;;;; files in the same diffcore order.
 ;;;;
-;;;; Hunk bodies are parsed by AITOOLS.KERNEL.DOMAIN:PARSE-UNIFIED-DIFF. With
-;;;; known issue 8 fixed, that parser spends each hunk's `@@` line budget before
+;;;; Hunk bodies are parsed by AITOOLS.KERNEL.DOMAIN:PARSE-UNIFIED-DIFF.
+;;;; The parser consumes each hunk's `@@` line budget before
 ;;;; a `--- `/`+++ ` line can close the file, so such a line inside a hunk stays
 ;;;; its removed `-- ...`/added `++ ...` content (an SQL or Lua comment, for
 ;;;; instance) instead of being taken for a file header. SPLIT-PATCH-BY-FILE

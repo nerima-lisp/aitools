@@ -1,4 +1,3 @@
-;;;; packages/feature/util/src/application/ports.lisp
 ;;;;
 ;;;; The effects `util` needs, as one explicit argument to every flow.
 ;;;; Each port is a closure: the structure test keeps the

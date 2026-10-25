@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/infrastructure/ports.lisp
 ;;;;
 ;;;; MAKE-PRODUCTION-EDIT-PORTS, which the composition root calls with the
 ;;;; shared host, store constructor and text source. Construction does no

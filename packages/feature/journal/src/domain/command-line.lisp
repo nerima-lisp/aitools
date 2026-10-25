@@ -1,4 +1,3 @@
-;;;; packages/feature/journal/src/domain/command-line.lisp
 ;;;;
 ;;;; `repairs[].command`, `next_commands` and `history`'s `command` hold a
 ;;;; command line an agent can paste into a shell, so every word echoed into

@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/pattern.lisp
 ;;;;
 ;;;; Regular expressions as the inspect context uses them: compiled
 ;;;; once with cl-regex-kit and matched against one line string at a time

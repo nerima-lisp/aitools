@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/domain/similarity.lisp
 ;;;;
 ;;;; Ranking for `candidates` (a missing file, entry, or selector match comes
 ;;;; back with its nearest neighbours; see docs/src/reference/errors.md).

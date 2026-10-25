@@ -1,4 +1,3 @@
-;;;; packages/feature/inspect/src/presentation/table-commands.lisp
 ;;;;
 ;;;; `table read` and `table agg`.
 (in-package #:aitools.inspect.presentation)

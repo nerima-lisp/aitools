@@ -1,4 +1,3 @@
-;;;; packages/feature/process/src/application/wait-flow.lisp
 ;;;;
 ;;;; `wait`. Unlike `run`, a timeout here is a failure
 ;;;; (`environment.timeout`, exit 1): the condition holding is the whole

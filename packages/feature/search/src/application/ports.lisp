@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/ports.lisp
 ;;;;
 ;;;; The effects the search flows need, as one explicit argument. Each slot
 ;;;; is supplied by the composition root through

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/application/json-flows.lisp
 ;;;;
 ;;;; The `json` write commands and `table set`.
 ;;;; A JSON write keeps key order, re-indents with the width the file

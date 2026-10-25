@@ -1,4 +1,3 @@
-;;;; packages/feature/search/src/application/code-flow.lisp
 ;;;;
 ;;;; `code outline`, `code defs`, `code refs`. All three
 ;;;; read definitions through the language table the text context owns and

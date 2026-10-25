@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/domain/host-values.lisp
 ;;;;
 ;;;; Small value rules shared by the `sys` and `time` flows: which variable
 ;;;; names are secret, PATH search order, tool version lines, time zone

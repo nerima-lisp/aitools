@@ -1,4 +1,3 @@
-;;;; packages/feature/vcs/src/domain/render.lisp
 ;;;;
 ;;;; JSON value helpers and the command-line text used in `next_commands`.
 ;;;; json-kit writes NIL as `[]`, so absent scalars and false flags need its

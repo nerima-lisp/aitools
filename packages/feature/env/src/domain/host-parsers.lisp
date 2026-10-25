@@ -1,4 +1,3 @@
-;;;; packages/feature/env/src/domain/host-parsers.lisp
 ;;;;
 ;;;; Pure parsers for the OS sources behind `sys info`, `sys procs`, and `sys
 ;;;; ports` (Linux reads /proc, Darwin runs sysctl, vm_stat, ps, and lsof).

@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/refusal.lisp
 ;;;;
 ;;;; EDIT-REFUSAL is how a pure edit computation deep inside a value
 ;;;; transformation (a JSON Patch operation, a table cell, a template

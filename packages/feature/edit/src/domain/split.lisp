@@ -1,4 +1,3 @@
-;;;; packages/feature/edit/src/domain/split.lisp
 ;;;;
 ;;;; `split`: cut a file's bytes into pieces by line count, before
 ;;;; each line matching a pattern, or by byte count. Pieces are byte ranges
