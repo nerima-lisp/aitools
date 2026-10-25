@@ -19,8 +19,6 @@
                                                                     "cps-contract-analysis-positional-flow-z-tail")
                                                                     (:file "cps-contract-analysis-source")
                                                                     (:file "cps-contract-analysis-positional-inventory")
-                                                                    (:file "cps-contract-allowlist-slash-k")
-                                                                    (:file "cps-contract-allowlist-on-key")
                                                                     (:file "cps-contract-test")
                                                                     (:file "cps-contract-positional-test")
                                                                     (:file "cps-contract-z-positional-terminal-test")))

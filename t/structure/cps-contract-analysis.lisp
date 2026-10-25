@@ -206,12 +206,6 @@
          (variables (%continuation-variables (rest lambda-list))))
     (mapcar (lambda (kind) (list relative-path name kind)) (%flow-body-kinds (cddr form) variables))))
 
-(defvar *legacy-cps-allowlist*)
-
-(defun %allowlist-keys ()
-  (loop for (kind . entries) in *legacy-cps-allowlist*
-        append (mapcar (lambda (entry) (append entry (list kind))) entries)))
-
 (defun %fixture-violations (text &optional (relative-path "fixture.lisp"))
   (append (%source-violations text relative-path)
           (mapcar (lambda (record)

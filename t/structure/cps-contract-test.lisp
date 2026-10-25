@@ -1,30 +1,8 @@
 (in-package #:aitools.integration.cps-contract-test)
 
-(defparameter *legacy-cps-allowlist* (list *legacy-cps-slash-k-allowlist* *legacy-cps-on-key-allowlist*))
-
 (describe "aitools CPS structure contract"
-  (it "matches every legacy continuation definition to its exact allowlist key"
-    (let* ((actual (%cps-contract-violations (repository-root)))
-           (allowed (%allowlist-keys))
-           (unexpected (set-difference actual allowed :test #'equal))
-           (stale (set-difference allowed actual :test #'equal)))
-      (progn
-        (expect (count :slash-k-defun actual :key #'third) :to-equal 0)
-        (expect (count :on-key-defun actual :key #'third) :to-equal 0)
-        (expect (count :positional-continuation-defun actual :key #'third) :to-equal 0)
-        ;; RUN-COMMAND/K is a DEFINE-FLOW and must not be reported as a /k DEFUN.
-        (expect
-         (member '("packages/feature/process/src/application/run-flow.lisp"
-                   "RUN-COMMAND/K" :slash-k-defun)
-                 actual :test #'equal)
-         :to-equal nil)
-        (expect
-         (member '("packages/feature/process/src/application/run-flow.lisp"
-                   "RUN-COMMAND/K" :slash-k-defun)
-                 allowed :test #'equal)
-         :to-equal nil))
-      (expect unexpected :to-equal nil)
-      (expect stale :to-equal nil)))
+  (it "has no CPS contract violations in the repository"
+    (expect (%cps-contract-violations (repository-root)) :to-equal nil))
 
   (it "passes named continuation flows and quoted data"
     (let ((source
@@ -76,12 +54,15 @@
              "packages/core/protocol/src/application/command-result.lisp")
             :to-equal nil))
 
-  (it "rejects another slash-k definition in the adapter package"
+  (it "rejects slash-k and on-key definitions"
     (expect (%fixture-violations
              "(in-package #:aitools.protocol.application) (defun alias/k (flow-function) flow-function)"
              "packages/core/protocol/src/application/command-result.lisp")
             :to-equal (list (list "packages/core/protocol/src/application/command-result.lisp"
-                                  "ALIAS/K" :slash-k-defun))))
+                                  "ALIAS/K" :slash-k-defun)))
+    (expect (%fixture-violations
+             "(defun on-key-handler (&key on-success) on-success)")
+            :to-equal (list (list "fixture.lisp" "ON-KEY-HANDLER" :on-key-defun))))
 
   (it "rejects the adapter symbol in a different package"
     (expect (%fixture-violations
