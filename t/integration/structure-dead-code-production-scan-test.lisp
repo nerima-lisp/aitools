@@ -25,17 +25,32 @@
                              references)
                     :to-equal t)))
         (expect (scan-dead-code-tree (repository-root)) :to-equal nil)
-        (expect
-         (%liveness-filter-allowlisted-findings
-          '("used through generated syntax" "actually-unused")
-          '((:finding "used through generated syntax"
-             :reason "the macro constructs this call from a quoted symbol")))
-         :to-equal '("actually-unused"))
+        (progn
+          (expect
+           (%liveness-filter-allowlisted-findings
+            (list "first.lisp:3: unused definition AITOOLS.FIXTURE:GENERATED-HELPER")
+            (list (list :kind :unused-definition
+                        :package "AITOOLS.FIXTURE"
+                        :symbol "GENERATED-HELPER"
+                        :reason "a macro emits the generated call")))
+           :to-equal nil)
+          (expect
+           (%liveness-filter-allowlisted-findings
+            (list "first.lisp:3: unused definition AITOOLS.FIXTURE:GENERATED-HELPER"
+                  "second.lisp:47: unused definition AITOOLS.FIXTURE:GENERATED-HELPER")
+            (list (list :kind :unused-definition
+                        :package "AITOOLS.FIXTURE"
+                        :symbol "GENERATED-HELPER"
+                        :reason "a macro emits the generated call")))
+           :to-equal nil))
         (let ((rejected nil))
           (handler-case
               (%liveness-filter-allowlisted-findings
-               '("used through generated syntax")
-               '((:finding "used through generated syntax")))
+               (list "first.lisp:3: unused definition AITOOLS.FIXTURE:GENERATED-HELPER")
+               (list (list :kind :unused-definition
+                           :package "AITOOLS.FIXTURE"
+                           :symbol "STALE-HELPER"
+                           :reason "this entry must correspond to a current finding")))
             (error () (setf rejected t)))
           (expect rejected :to-equal t))))
     (format *error-output*

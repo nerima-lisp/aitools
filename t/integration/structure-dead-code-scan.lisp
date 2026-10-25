@@ -38,45 +38,109 @@
                     references))))
 (defparameter *liveness-dead-code-allowlist*
   (list
-   (list :finding "packages/core/kernel/src/domain/flow.lisp:68: unused definition AITOOLS.KERNEL.DOMAIN:%CHECK-FLOW-CONTINUATIONS"
-         :reason "DEFINE-FLOW emits this call at packages/core/kernel/src/domain/flow.lisp:103; the static walker excludes quasiquoted generated forms.")
-   (list :finding "packages/core/protocol/src/application/package.lisp:3: exported symbol AITOOLS.PROTOCOL.APPLICATION:MAKE-COMMAND-DECLARATION is referenced only from tests"
-         :reason "DEFINE-COMMAND emits this constructor call at packages/core/protocol/src/application/command-registry.lisp:125; its quasiquote hides the production reference.")
-   (list :finding "packages/core/store/src/application/files.lisp:110: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-TEMP-DIR"
-         :reason "WITH-TEMP-DIR emits this call at packages/core/store/src/application/files.lisp:124; production code uses the macro.")
-   (list :finding "packages/core/store/src/application/files.lisp:94: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-TEMP-FILE"
-         :reason "WITH-TEMP-FILE emits this call at packages/core/store/src/application/files.lisp:108; production code uses the macro.")
-   (list :finding "packages/core/store/src/application/write-preparation.lisp:39: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-PREPARED-INTENT/K"
-         :reason "WITH-PREPARED-INTENT emits this call at packages/core/store/src/application/write-preparation.lisp:78; production write planning invokes the macro.")
-   (list :finding "packages/core/text/src/domain/package.lisp:14: exported symbol AITOOLS.TEXT.DOMAIN:MAP-LINES is referenced only from tests"
-         :reason "DO-LINES emits this call at packages/core/text/src/domain/line-index.lisp:49; production BUILD-LINE-INDEX uses the macro.")
-   (list :finding "packages/feature/edit/src/application/yaml-toml-command-flows.lisp:141: unused definition AITOOLS.EDIT.APPLICATION:%FORMAT-COMMAND/K"
-         :reason "DEFINE-FORMAT-WRITE-COMMANDS emits this call at packages/feature/edit/src/application/yaml-toml-command-flows.lisp:197; production YAML and TOML flows invoke that macro.")
-   (list :finding "packages/feature/inspect/src/presentation/registry.lisp:49: unused definition AITOOLS.INSPECT.PRESENTATION:%SCHEMA"
-         :reason "DEFINE-INSPECT-COMMAND emits this call at packages/feature/inspect/src/presentation/registry.lisp:24; production command declarations invoke the macro.")
-   (list :finding "packages/feature/util/src/domain/calc-parser.lisp:3: unused definition AITOOLS.UTIL.DOMAIN:%PARSER-DEPTH"
-         :reason "%WITH-DEPTH emits these accessor calls at packages/feature/util/src/domain/calc-parser.lisp:25 and 27; production parser forms use the macro.")
-   (list :finding "src/trace-context.lisp:4: unused definition AITOOLS/CLI:%TRACE-SESSION-PROVIDER"
-         :reason "The DEFSTRUCT slot is written through SETF at src/trace-context.lisp:45; the analyzer separates the generated reader from its live setter."))
-  "Exact findings accepted with an explanation of the analyzer limitation.")
+   (list :kind :unused-definition
+         :package "AITOOLS.KERNEL.DOMAIN"
+         :symbol "%CHECK-FLOW-CONTINUATIONS"
+         :reason "DEFINE-FLOW calls this continuation in its generated function body.")
+   (list :kind :test-only-export
+         :package "AITOOLS.PROTOCOL.APPLICATION"
+         :symbol "MAKE-COMMAND-DECLARATION"
+         :reason "DEFINE-COMMAND emits this constructor in its generated registry entry.")
+   (list :kind :unused-definition
+         :package "AITOOLS.STORE.APPLICATION"
+         :symbol "CALL-WITH-TEMP-DIR"
+         :reason "WITH-TEMP-DIR emits a call to this helper.")
+   (list :kind :unused-definition
+         :package "AITOOLS.STORE.APPLICATION"
+         :symbol "CALL-WITH-TEMP-FILE"
+         :reason "WITH-TEMP-FILE emits a call to this helper.")
+   (list :kind :unused-definition
+         :package "AITOOLS.STORE.APPLICATION"
+         :symbol "CALL-WITH-PREPARED-INTENT/K"
+         :reason "WITH-PREPARED-INTENT emits a call to this continuation.")
+   (list :kind :test-only-export
+         :package "AITOOLS.TEXT.DOMAIN"
+         :symbol "MAP-LINES"
+         :reason "DO-LINES expands to a call to this helper.")
+   (list :kind :unused-definition
+         :package "AITOOLS.EDIT.APPLICATION"
+         :symbol "%FORMAT-COMMAND/K"
+         :reason "DEFINE-FORMAT-WRITE-COMMANDS emits calls to this continuation.")
+   (list :kind :unused-definition
+         :package "AITOOLS.INSPECT.PRESENTATION"
+         :symbol "%SCHEMA"
+         :reason "DEFINE-INSPECT-COMMAND emits this schema builder call.")
+   (list :kind :unused-definition
+         :package "AITOOLS.UTIL.DOMAIN"
+         :symbol "%PARSER-DEPTH"
+         :reason "WITH-DEPTH expands to reads and writes of this slot accessor.")
+   (list :kind :unused-definition
+         :package "AITOOLS/CLI"
+         :symbol "%TRACE-SESSION-PROVIDER"
+         :reason "The DEFSTRUCT slot is assigned through its generated SETF accessor.")))
 (defun %liveness-filter-allowlisted-findings
     (findings &optional (allowlist *liveness-dead-code-allowlist*))
-  (dolist (entry allowlist)
-    (unless (and (listp entry)
-                 (= (length entry) 4)
-                 (eq (first entry) :finding)
-                 (stringp (second entry))
-                 (eq (third entry) :reason)
-                 (stringp (fourth entry))
-                 (plusp (length (string-trim '(#\Space #\Tab #\Newline)
-                                             (fourth entry)))))
-      (error "Dead-code allowlist entries require :finding and non-empty :reason: ~S"
-             entry)))
-  (remove-if (lambda (finding)
-               (some (lambda (entry)
-                       (string= finding (second entry)))
-                     allowlist))
-             findings))
+  (let ((patterns (list
+                   (list :unused-definition "unused definition ")
+                   (list :test-only-export "exported symbol ")
+                   (list :unused-import "unused :import-from ")
+                   (list :unused-shadowing-import
+                         "unused :shadowing-import-from ")
+                   (list :unused-use "unused :use ")))
+        (seen nil))
+    (labels ((finding-key (finding)
+                          (loop for (kind marker) in patterns
+                                for start = (search marker finding)
+                                when start
+                                return
+                                (let* ((tail (subseq finding (+ start (length marker))))
+                                       (end (and (eq kind :test-only-export)
+                                                 (search " is referenced only from tests"
+                                                         tail)))
+                                       (qualified (if end (subseq tail 0 end) tail))
+                                       (separator (position #\: qualified)))
+                                  (list kind
+                                        (if separator (subseq qualified 0 separator)
+                                          qualified)
+                                        (and separator
+                                             (subseq qualified (1+ separator))))))
+                          (entry-key (entry)
+                                     (list (getf entry :kind)
+                                           (getf entry :package)
+                                           (getf entry :symbol))))
+             (dolist (entry allowlist)
+               (unless (and (listp entry)
+                            (= (length entry) 8)
+                            (eq (first entry) :kind)
+                            (member (second entry)
+                                    (list :unused-definition :test-only-export
+                                          :unused-import :unused-shadowing-import
+                                          :unused-use))
+                            (eq (third entry) :package)
+                            (stringp (fourth entry))
+                            (eq (fifth entry) :symbol)
+                            (or (and (eq (second entry) :unused-use)
+                                     (null (sixth entry)))
+                                (and (not (eq (second entry) :unused-use))
+                                     (stringp (sixth entry))))
+                            (eq (seventh entry) :reason)
+                            (stringp (eighth entry))
+                            (plusp (length (string-trim
+                                            (list #\Space #\Tab #\Newline)
+                                            (eighth entry)))))
+                 (error "Dead-code allowlist entries require kind, package, symbol, and reason: ~S"
+                        entry))
+               (let ((key (entry-key entry)))
+                 (when (member key seen :test (function equal))
+                   (error "Duplicate dead-code allowlist key: ~S" key))
+                 (push key seen)
+                 (unless (some (lambda (finding)
+                                 (equal key (finding-key finding)))
+                               findings)
+                   (error "Stale dead-code allowlist key: ~S" key))))
+             (remove-if (lambda (finding)
+                          (member (finding-key finding) seen :test (function equal)))
+                        findings)))))
 
 (defun scan-dead-code-tree (root)
   "Sorted dead definitions and package violations under ROOT.
