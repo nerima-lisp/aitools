@@ -1,8 +1,12 @@
 (require :asdf)
 
-(defparameter *baseline-revision* "1b20c3abdea1d95a049cdb0481afcfd72072b2a4")
-(defparameter *warmup-pairs* 2)
-(defparameter *sample-pairs* 15)
+(progn
+  (defparameter *baseline-revision* "1b20c3abdea1d95a049cdb0481afcfd72072b2a4")
+  (defparameter *benchmark-mode* :compare)
+  (defparameter *self-arm* :old)
+  (defparameter *signature-hash-function* nil))
+(defparameter *warmup-pairs* 6)
+(defparameter *sample-pairs* 80)
 
 (defun %project-root ()
   (let ((root (uiop:ensure-directory-pathname (uiop:getcwd))))
@@ -56,55 +60,90 @@
       (values (* 1000.0 (/ (- (get-internal-real-time) start) internal-time-units-per-second))
               values))))
 
-(defun %paired-invoke (old-function current-function old-first-p)
-  (if old-first-p
-      (multiple-value-bind (old-time old-values) (%timed-invoke old-function)
-        (multiple-value-bind (current-time current-values)
-            (%timed-invoke current-function)
-          (values old-time old-values current-time current-values)))
-      (multiple-value-bind (current-time current-values)
-          (%timed-invoke current-function)
-        (multiple-value-bind (old-time old-values) (%timed-invoke old-function)
-          (values old-time old-values current-time current-values)))))
+(defun %paired-invoke (first-function second-function first-first-p)
+  (if first-first-p
+      (multiple-value-bind (first-time first-values)
+          (%timed-invoke first-function)
+        (multiple-value-bind (second-time second-values)
+            (%timed-invoke second-function)
+          (values first-time first-values second-time second-values)))
+      (multiple-value-bind (second-time second-values)
+          (%timed-invoke second-function)
+        (multiple-value-bind (first-time first-values)
+            (%timed-invoke first-function)
+          (values first-time first-values second-time second-values)))))
 (defun %median (values)
-  (nth (floor (length values) 2) (sort (copy-list values) #'<)))
-(defun %relative-change-percent (old-time current-time)
-  (unless (plusp old-time)
-    (error "Old-arm elapsed time is zero; cannot compute a paired difference."))
-  (* 100.0 (/ (- old-time current-time) old-time)))
+  (let* ((ordered (sort (copy-list values) #'<))
+         (count (length ordered))
+         (middle (floor count 2)))
+    (if (oddp count)
+        (nth middle ordered)
+        (/ (+ (nth (1- middle) ordered) (nth middle ordered)) 2.0))))
+(defun %relative-change-percent (first-time second-time)
+  (unless (plusp first-time)
+    (error "First-arm elapsed time is zero; cannot compute a paired difference."))
+  (* 100.0 (/ (- second-time first-time) first-time)))
 
 (defun %run-workload (name input-size old-function current-function validator)
-  (format t "~&Workload: ~A; input=~:D bytes; warmup pairs=~D; sample pairs=~D; order alternates; full GC before each call.~%"
-          name input-size *warmup-pairs* *sample-pairs*)
-  (dotimes (index *warmup-pairs*)
-    (multiple-value-bind (old-time old-values current-time current-values)
-        (%paired-invoke old-function current-function (evenp index))
-      (declare (ignore old-time current-time))
-      (funcall validator old-values current-values)))
-  (let ((old-times nil)
-        (current-times nil)
-        (relative-changes nil)
-        (current-wins 0))
-    (dotimes (index *sample-pairs*)
-      (multiple-value-bind (old-time old-values current-time current-values)
-          (%paired-invoke old-function current-function (evenp (+ *warmup-pairs* index)))
-        (funcall validator old-values current-values)
-        (let ((relative (%relative-change-percent old-time current-time)))
-          (push old-time old-times)
-          (push current-time current-times)
-          (push relative relative-changes)
-          (when (< current-time old-time)
-            (incf current-wins))
-          (format t "  pair ~D order=~A old=~,3F ms current=~,3F ms relative=~,2F%~%"
-                  (1+ index)
-                  (if (evenp (+ *warmup-pairs* index)) "old/current" "current/old")
-                  old-time current-time relative))))
-    (setf old-times (nreverse old-times)
-          current-times (nreverse current-times)
-          relative-changes (nreverse relative-changes))
-    (format t "  medians old=~,3F ms current=~,3F ms; paired median change=~,2F% (positive means current faster); current faster in ~D/~D pairs.~%"
-            (%median old-times) (%median current-times)
-            (%median relative-changes) current-wins *sample-pairs*)))
+  (let* ((compare-p (eq *benchmark-mode* :compare))
+         (first-label
+           (if compare-p "old"
+               (string-downcase (symbol-name *self-arm*))))
+         (second-label (if compare-p "current" first-label))
+         (first-function
+           (if (or compare-p (eq *self-arm* :old))
+               old-function current-function))
+         (second-function (if compare-p current-function first-function)))
+    (format t "~&Workload: ~A; input=~:D bytes; arms=~A/~A; warmup pairs=~D; sample pairs=~D; order alternates; full GC before each call.~%"
+            name input-size first-label second-label
+            *warmup-pairs* *sample-pairs*)
+    (format t "# raw-timing-v1~%row_type~Cworkload~Cpair~Carm_a~Carm_b~Corder~Ctime_a_ms~Ctime_b_ms~Crelative_difference_percent~Ccorrectness~Coutput_signature_a~Coutput_signature_b~%"
+            #\Tab #\Tab #\Tab #\Tab #\Tab #\Tab
+            #\Tab #\Tab #\Tab #\Tab #\Tab)
+    (dotimes (index *warmup-pairs*)
+      (multiple-value-bind (first-time first-values second-time second-values)
+          (%paired-invoke first-function second-function (evenp index))
+        (declare (ignore first-time second-time))
+        (funcall validator first-values second-values)))
+    (let ((first-times nil)
+          (second-times nil)
+          (relative-changes nil)
+          (second-wins 0))
+      (dotimes (index *sample-pairs*)
+        (multiple-value-bind (first-time first-values second-time second-values)
+            (%paired-invoke first-function second-function
+                            (evenp (+ *warmup-pairs* index)))
+          (funcall validator first-values second-values)
+          (let ((relative (%relative-change-percent first-time second-time))
+                (first-signature (%output-signature first-values))
+                (second-signature (%output-signature second-values)))
+            (push first-time first-times)
+            (push second-time second-times)
+            (push relative relative-changes)
+            (when (< second-time first-time)
+              (incf second-wins))
+            (format t "sample~C~A~C~D~C~A~C~A~C~A~C~,6F~C~,6F~C~,6F~Cpass~C~A~C~A~%"
+                    #\Tab name #\Tab (1+ index) #\Tab
+                    first-label #\Tab second-label #\Tab
+                    (if (evenp (+ *warmup-pairs* index))
+                        "arm-a/arm-b" "arm-b/arm-a")
+                    #\Tab first-time #\Tab second-time #\Tab relative
+                    #\Tab #\Tab first-signature #\Tab second-signature))))
+      (setf first-times (nreverse first-times)
+            second-times (nreverse second-times)
+            relative-changes (nreverse relative-changes))
+      (format t "  median arm times: ~A=~,6F ms, ~A=~,6F ms; median relative difference=~,6F% (positive means arm B slower); arm B (~A) faster in ~D/~D pairs.~%"
+              first-label (%median first-times)
+              second-label (%median second-times)
+              (%median relative-changes)
+              second-label second-wins *sample-pairs*)
+      (multiple-value-bind (lower upper lower-rank upper-rank)
+          (%median-interval relative-changes)
+        (if lower-rank
+            (format t "  95%+ distribution-free median interval: [~,6F%, ~,6F%] (order statistics ~D and ~D).~%"
+                    lower upper lower-rank upper-rank)
+            (format t "  95%+ distribution-free median interval unavailable for ~D pairs.~%"
+                    *sample-pairs*))))))
 
 (defun %assert-sha-parity (old-values current-values expected)
   (let ((old-hash (first old-values))
@@ -128,123 +167,9 @@
   (%assert-inflate-result old-values input encoded)
   (%assert-inflate-result current-values input encoded)
   (unless (equalp (first old-values) (first current-values)) (error "Old and current inflate outputs differ.")))
-
-(defun run-digest-deflate-adapter-benchmark ()
-  (let* ((root (truename (%project-root)))
-         (temporary (%temporary-directory root))
-         (fasl-directory (merge-pathnames "fasl/" temporary))
-         (sha-input (%make-input (* 16 1024 1024) #x61746f6f))
-         (codec-input (%make-input (* 2 1024 1024) #x6465666c)))
-    (unwind-protect
-         (progn
-           (ensure-directories-exist (merge-pathnames "output.fasl" fasl-directory))
-           (asdf:initialize-source-registry
-            (list :source-registry (list :directory root) :inherit-configuration))
-           (asdf:initialize-output-translations
-            (list :output-translations
-                  (list (list root :**/ :*.*.*)
-                        (list fasl-directory :**/ :*.*.*))
-                  :inherit-configuration))
-           (asdf:load-system "aitools")
-           (labels ((assert-inside-workspace (pathname description)
-                      (unless (probe-file pathname)
-                        (error "Resolved ~A path does not exist: ~A"
-                               description pathname))
-                      (let ((workspace-name
-                              (namestring
-                               (uiop:ensure-directory-pathname (truename root))))
-                            (resolved-name (namestring (truename pathname))))
-                        (unless (and (>= (length resolved-name)
-                                         (length workspace-name))
-                                     (string= workspace-name resolved-name
-                                              :end2 (length workspace-name)))
-                          (error "~A path resolves outside the workspace: ~A"
-                                 description resolved-name))))
-                    (assert-system-component-in-workspace
-    (system-name component-path)
-  (let* ((system (asdf:find-system system-name))
-         (component-label (format nil "~{~A~^/~}" component-path))
-         (component (asdf:find-component system component-path)))
-    (assert-inside-workspace
-     (asdf:system-source-directory system)
-     (format nil "~A source directory" system-name))
-    (unless component
-      (error "Cannot find component ~A in ~A" component-label system-name))
-    (assert-inside-workspace
-     (asdf:component-pathname component)
-     (format nil "~A source file" component-label))
-    (multiple-value-bind (outputs translated-p)
-        (asdf:output-files (asdf:make-operation 'asdf:compile-op) component)
-      (declare (ignore translated-p))
-      (unless outputs
-        (error "ASDF returned no compile output for ~A" component-label))
-      (dolist (output outputs)
-        (assert-inside-workspace
-         output
-         (format nil "~A compiled output" component-label)))))))
-             (assert-system-component-in-workspace
-              "aitools/core/kernel" '("domain" "digest-kit"))
-             (assert-system-component-in-workspace
-              "aitools/core/text" '("domain" "codec-deflate"))
-             (let* ((current-sha
-                      (symbol-function (find-symbol "SHA256-HEX" "AITOOLS.KERNEL.DOMAIN")))
-                    (current-deflate
-                      (symbol-function (find-symbol "DEFLATE" "AITOOLS.TEXT.DOMAIN")))
-                    (current-inflate
-                      (symbol-function (find-symbol "INFLATE" "AITOOLS.TEXT.DOMAIN")))
-                    (expected-sha (funcall current-sha sha-input))
-                    (shared-compressed (funcall current-deflate codec-input)))
-               (%extract-baseline-source root temporary
-                                   "packages/core/kernel/src/domain/digest.lisp"
-                                   "baseline-digest")
-               (%extract-baseline-source root temporary
-                                   "packages/core/text/src/domain/codec-deflate.lisp"
-                                   "baseline-codec-deflate")
-               (let* ((old-sha
-                        (symbol-function (find-symbol "SHA256-HEX" "AITOOLS.KERNEL.DOMAIN")))
-                      (old-deflate
-                        (symbol-function (find-symbol "DEFLATE" "AITOOLS.TEXT.DOMAIN")))
-                      (old-inflate
-                        (symbol-function (find-symbol "INFLATE" "AITOOLS.TEXT.DOMAIN"))))
-                 (format t "~&SBCL: ~A~%Platform: ~A / ~A / ~A~%Baseline source revision: ~A~%"
-                         (lisp-implementation-version) (software-type)
-                         (machine-type) (machine-version) *baseline-revision*)
-                 (format t "Protocol: one SBCL process; deterministic xorshift inputs; full GC before every timed call; order alternates within pairs; every pair checks SHA parity, DEFLATE round trips through both decoders, and inflate output/consumed length parity; no timing threshold.~%")
-                 (%assert-inflate-result
-                  (multiple-value-list (funcall current-inflate shared-compressed))
-                  codec-input shared-compressed)
-                 (%assert-sha-parity (list (funcall old-sha sha-input))
-                                     (list expected-sha) expected-sha)
-                 (%run-workload
-                  "SHA-256" (length sha-input)
-                  (lambda () (funcall old-sha sha-input))
-                  (lambda () (funcall current-sha sha-input))
-                  (lambda (old current)
-                    (%assert-sha-parity old current expected-sha)))
-                 (%run-workload
-                  "deflate" (length codec-input)
-                  (lambda () (funcall old-deflate codec-input))
-                  (lambda () (funcall current-deflate codec-input))
-                  (lambda (old current)
-                    (%assert-deflate-parity old current codec-input
-                                            old-inflate current-inflate)))
-                 (%run-workload
-                  "inflate (2 MiB decoded)" (length codec-input)
-                  (lambda () (funcall old-inflate shared-compressed))
-                  (lambda () (funcall current-inflate shared-compressed))
-                  (lambda (old current)
-                    (%assert-inflate-parity old current codec-input
-                                            shared-compressed))))))
-      (when (probe-file temporary)
-        (let ((directory-name (namestring temporary)))
-          (uiop:delete-directory-tree
-           temporary
-           :validate
-           (lambda (pathname)
-             (let ((pathname-name (namestring pathname)))
-               (and (>= (length pathname-name) (length directory-name))
-                    (string= directory-name pathname-name
-                             :end2 (length directory-name)))))
-           :if-does-not-exist :ignore)))))))
-
-(run-digest-deflate-adapter-benchmark)
+  (progn
+  (load (merge-pathnames
+         "digest-deflate-adapter-benchmark-runner.lisp"
+         *load-truename*))
+  (%parse-command-line-options))
+  (run-digest-deflate-adapter-benchmark)

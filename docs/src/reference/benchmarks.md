@@ -59,46 +59,89 @@ To run the suite, including this file, see
 ## Digest and DEFLATE adapters
 
 `t/perf/digest-deflate-adapter-benchmark.lisp` compares the pre-adapter implementations of SHA-256 and raw
-DEFLATE with the current adapters. From the project root,
-run it in the development shell:
+DEFLATE with the current adapters. From the project root, run the comparison
+and current/current control in separate development-shell invocations:
 
 ```sh
-nix develop --command sbcl --script t/perf/digest-deflate-adapter-benchmark.lisp
+nix develop --command sbcl --script t/perf/digest-deflate-adapter-benchmark.lisp --mode compare --warmup-pairs 6 --sample-pairs 80
+nix develop --command sbcl --script t/perf/digest-deflate-adapter-benchmark.lisp --mode self --self-arm current --warmup-pairs 6 --sample-pairs 80
 ```
 
 The harness reads the two baseline source files from revision
 `1b20c3abdea1d95a049cdb0481afcfd72072b2a4` with `jj`, compiles them into a
 temporary directory, and compares them with the loaded current systems in one
-SBCL process. It uses deterministic xorshift inputs: 16 MiB for SHA-256 and
-2 MiB for deflate and inflate. Inflate uses the shared stream produced by the
-current deflater from the same 2 MiB input, so both decoders receive identical
-bytes.
+SBCL process. That revision must be available in the local `jj` history. Each
+invocation measures all three workloads in one fresh SBCL process. It uses
+deterministic xorshift inputs: 16 MiB for SHA-256 and 2 MiB
+for deflate and inflate. Inflate uses the shared stream produced by the current
+deflater from the same 2 MiB input, so both decoders receive identical bytes.
 
-Each workload runs two warmup pairs and 15 measured pairs. The first
-implementation alternates between pairs, and a full GC runs before every
-invocation. The harness prints each paired sample and its relative change,
-both arm medians, the median paired change, and the number of pairs where the
-current adapter is faster. It also reports the SBCL version, platform,
-workload sizes, and sample counts. Every pair checks SHA-256 parity against the
-current digest, checks each deflate result by round-tripping it through both
-decoders, or checks the inflate output and consumed length. Before measurement,
-the harness registers this workspace with ASDF, directs compiled outputs into a
-temporary workspace directory, and checks that the resolved source and
-compiled output paths stay inside the workspace. These checks validate
-results but impose no timing threshold; the harness is manual and is not part
-of CI.
+Each workload discards six warmup pairs and measures 80 pairs. In comparison
+mode, each pair runs both the baseline and current implementation, alternating
+which runs first. In self mode, both arms run the current implementation with
+the same alternating order. A full GC runs before every invocation. The harness
+prints raw paired times, relative changes, output signatures, medians, current
+wins, and a distribution-free median interval. Every pair checks SHA-256 parity
+against the current digest, checks each deflate result by round-tripping it
+through both decoders, or checks the inflate output and consumed length. Before
+measurement, the harness registers this workspace with ASDF, directs compiled
+outputs into a temporary workspace directory, and checks that the resolved
+source and compiled output paths stay inside the workspace. These checks
+validate results but impose no timing threshold; the harness is manual and is
+not part of CI.
 
 ### Digest and DEFLATE results
 
-Runs 3 and 4 are the valid measurements; Runs 1 and 2 failed during harness setup before timing and were excluded. Both valid runs used the same Darwin ARM64 / Apple M4 Max host and SBCL 2.6.8, and each measured result passed the workload's correctness and parity checks. `Paired change` is `100 × (old − current) / old`; a positive value means the current adapter was faster. Medians are shown as old / current milliseconds.
+The measurements below used Darwin ARM64 / Apple M4 Max and SBCL 2.6.8. Each
+comparison run loaded baseline revision
+`1b20c3abdea1d95a049cdb0481afcfd72072b2a4` and the current adapter in the same
+process. Both A/A runs used the current adapter in both arms. All 80 measured
+pairs per workload passed their correctness checks. SHA-256 and inflate output
+signatures matched across the A/B arms; deflate outputs were validated by both
+decoders but had different compressed-byte signatures. An A/A pair difference
+is `100 × (time_b − time_a) / time_a`. The A/A noise width is the 95th
+percentile of the absolute differences pooled across 160 current/current pairs,
+using the 152nd ordered value. The A/B table reports old/current arm medians
+and the median of 80 values of `100 × (current − old) / old` for each run;
+positive values mean current was slower. It also reports current wins and the
+distribution-free median interval from the 31st and 50th ordered pair
+differences. These order-statistic intervals assume independent paired
+differences and do not adjust for temporal correlation in system load.
 
-| Workload | Payload | Run 3 medians | Run 3 paired change / current wins | Run 4 medians | Run 4 paired change / current wins |
+| Workload | Payload | A/A noise width, 160 pairs |
+|---|---:|---:|
+| SHA-256 | 16 MiB | 69.013762% |
+| deflate | 2 MiB input | 70.810413% |
+| inflate | 2 MiB decoded | 113.286804% |
+
+| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | Current faster |
 |---|---:|---:|---:|---:|---:|
-| SHA-256 | 16 MiB | 169.519 / 169.965 | +1.11% / 8 of 15 | 181.908 / 190.200 | −4.63% / 3 of 15 |
-| deflate | 2 MiB input | 329.201 / 133.789 | +55.57% / 15 of 15 | 343.728 / 178.765 | +57.53% / 15 of 15 |
-| inflate | 2 MiB decoded | 607.944 / 309.260 | +54.28% / 15 of 15 | 124.594 / 68.149 | +48.31% / 15 of 15 |
+| SHA-256 | 1 | 252.697995 / 245.552500 | +3.516982% | −1.350893% to +5.898093% | 32/80 |
+| SHA-256 | 2 | 239.638000 / 235.380495 | −0.663535% | −3.210751% to +3.869691% | 42/80 |
+| deflate | 1 | 490.143010 / 185.922500 | −60.222820% | −63.529202% to −57.141015% | 80/80 |
+| deflate | 2 | 355.699000 / 147.624495 | −57.826465% | −59.288730% to −56.175170% | 80/80 |
+| inflate | 1 | 140.536005 / 74.548500 | −47.002578% | −48.325899% to −45.224114% | 78/80 |
+| inflate | 2 | 174.507010 / 87.870500 | −47.208156% | −50.088415% to −43.256759% | 74/80 |
 
-SHA-256 did not reproduce a direction: its paired median moved by 5.74 percentage points between runs and its faster-pair count changed from 8 of 15 to 3 of 15. These measurements do not establish that the current SHA-256 adapter is no slower. The run-to-run paired-median spread was 1.96 points for deflate and 5.97 points for inflate; no confidence interval was calculated. The arm medians also moved substantially, especially for inflate, so treat these as workload-specific advisory measurements rather than a general performance claim or a timing gate.
+For SHA-256, both A/B interval upper bounds are inside the measured A/A noise
+width, so these runs support the conclusion that the current adapter was not
+slower than the baseline within the resolution of this measurement. The A/A
+noise width is large, so this is not evidence of tight performance equivalence.
+Deflate and inflate were faster with the current adapters in both runs, with
+both intervals below zero.
+
+The host was under high load from another project's processing during every
+official run. The recorded one-minute load averages immediately before and
+after each process were 75.66 to 93.87 for A/A run 1, 90.58 to 60.04 for A/A
+run 2, 55.20 to 60.61 for A/B run 1, and 62.26 to 71.75 for A/B run 2. Each
+run's `uptime` output
+and all raw paired samples were retained with the local measurement logs under
+`~/.local/state/aitools-phase2/logs/`: `sha256-perf-aa-current-run1.log`,
+`sha256-perf-aa-current-run2.log`, `sha256-perf-ab-run1.log`, and
+`sha256-perf-ab-run2.log`. The high-load condition is part of these results and
+makes the measured noise widths poor thresholds for detecting small
+regressions. These are advisory measurements, not a general performance
+guarantee or a CI timing gate.
 
 ## Known dependency issues
 
