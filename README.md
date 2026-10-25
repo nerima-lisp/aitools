@@ -8,10 +8,12 @@ A command-line tool for AI agents with built-in file and text operations and
 an external-program runner. Use the built-ins instead of `cat`, `grep`, `sed`,
 `find`, `jq`, or `tar`, or invoke installed programs through `aitools run`.
 Every call prints one JSON object. File reads support bounded windows and
-continuation; journaled writes are guarded by the expected text, hash, or count,
-support crash recovery and guarded undo; known secret formats are masked in JSON output; and
-every error names an aitools command to run next. It has no features for
-people (no color, prompts, or completion). Written in Common Lisp for SBCL.
+continuation. Text and position-based edits can use expected text, file hashes,
+or match counts as guards; journaled writes support crash recovery and guarded
+undo. Known secret formats are masked in JSON output. Errors include suggested
+aitools repairs. Some repair suggestions need additional arguments, so review
+them before use. It has no features for people (no color, prompts, or
+completion). Written in Common Lisp for SBCL.
 
 ## Quick Start
 

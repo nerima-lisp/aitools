@@ -60,6 +60,10 @@ choose only one input source.
 **Discovery.** `aitools schema` lists every command; `aitools schema <command>` returns its arguments, output
 fields, and declared error codes. Treat that output as the reference when this file and the binary differ.
 
+For complete arguments and options, see the [generated command reference](../../docs/src/reference/commands/index.md).
+
+Pass `--trace` before or after a command to include command, child-process, and store IO spans under `meta.trace`.
+
 ## Commands
 
 Examples are independent unless a sequence is described. Replace sample operation, transaction,
@@ -158,6 +162,19 @@ aitools table agg access.log --format ws --group-by 1 --count --min-count 10
 aitools table set users.csv --row 3 --column email --value new@example.com --dry-run
 ```
 
+For YAML and TOML, use `get`, `select`, and `diff` to inspect a value, filter arrays, or compare documents.
+Use `set`, `delete`, `merge`, `patch`, or `fmt` to update a document. These writes use the journal and can be
+reverted with `aitools undo <op_id>`.
+
+### Org files
+
+Use `org outline`, `org query`, and `org export` to inspect structure, find matching headings, or export HTML,
+GFM, and ASCII. Use `org agenda` and `org clock report` to summarize scheduled work and recorded time.
+`org todo set`, `org property set` and `org property delete`, `org planning set` and `org planning delete`,
+`org clock in` and `org clock out`, and `org table align`, `org table sort`, and `org table recalculate`
+update a matching heading or table. These writes use the journal and can be reverted with
+`aitools undo <op_id>`.
+
 ### Archives and snapshots
 
 tar/zip/gz without shelling out. Every entry is validated before extraction; entries that
@@ -235,9 +252,10 @@ aitools mktemp --suffix .json
 aitools mktemp --dir
 ```
 
-`rm` takes exactly one path. Without `--recursive`, it accepts a file, symlink,
-or empty directory. For a tree, first run a dry run, inspect the selected paths
-and returned count, then repeat with `--expect-count COUNT`:
+`delete` handles one file, symlink, or empty directory. Use `rm` for recursive
+removal; `rm` also accepts single paths. For a tree, first run a dry run,
+inspect the selected paths and returned count, then repeat with
+`--expect-count COUNT`:
 
 ```sh
 aitools rm build/scratch --recursive --dry-run
@@ -296,8 +314,9 @@ Use `run -- sh -c '...'` only when shell syntax is needed, and keep untrusted da
 `run` captures non-interactive output; it does not allocate a terminal or PTY.
 `run` keeps the first --head and last
 --tail lines of each stream; --timeout (default 120s) sends SIGTERM to the process group, then SIGKILL.
-`bg` starts detached processes whose logs live in the state directory; `wait` blocks on one condition
-(default timeout 60s, then environment.timeout).
+`bg` starts detached processes whose logs live in the state directory; `wait`
+blocks on one condition for up to 60 seconds by default. If it expires, the
+result has status `environment.timeout`.
 
 `run` defaults to closed stdin, the current directory, and the inherited environment.
 Use mutually exclusive `--stdin`, `--stdin-data TEXT`, or `--stdin-file PATH` for input.
@@ -430,9 +449,9 @@ nothing and reports the selection's count as `expect_count` next to the diff. A 
 --dry-run, and its `diagnostics[0].actual` is the current count.
 
 ```sh
+aitools search 'old-name' src --word --output count
 aitools replace 'old-name' 'new-name' src --word --dry-run
 aitools replace 'old-name' 'new-name' src --word --expect-count 12
-aitools search 'old-name' src --word --output count
 ```
 
 ### Multi-file change in a tx
@@ -555,15 +574,11 @@ aitools git diff --output stat
 
 ## Anti-patterns
 
-- **Shell text tools**: Calling cat/grep/sed/find/jq/tar through a shell and parsing their text output. Instead: Use the aitools command from the replacement table; its JSON has stable field names and a hash for the next guard.
-
 - **Copying redacted output**: Writing text copied from output that contains [REDACTED_SECRET]. Instead: Leave the secret where it is and edit around it with --old on neighboring text, or copy the file with `aitools copy`; the write is refused anyway (refusal.redacted-input).
 
 - **Unguarded position edit**: Editing by --range or --symbol from a stale read, or attaching a fresh hash to old positions. Instead: Re-read the target, derive the selection again, and pass that read's `hash` as --expect-hash.
 
 - **Raising limits to escape partial**: Answering exit 3 by setting --max-lines or --limit to a huge value. Instead: Inspect diagnostics and section statuses first; unavailable observations need a supported collector or permission, not a larger output limit. For bounded read-only results, follow available next_commands or narrow the selection. For `run`, inspect retained output and child status; do not rerun a side-effecting command to recover output.
-
-- **Writing into git or state**: Editing files under .git/ or the aitools state directory, or writing outside --root. Instead: Use `aitools git ...` for repository facts and `aitools mktemp` for scratch space.
 
 - **Sequential multi-file writes**: Issuing dependent writes to several files one by one and hoping none fails midway. Instead: Stage them in a tx or send them as one `batch --stdin --atomic`.
 

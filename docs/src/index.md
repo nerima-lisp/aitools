@@ -5,9 +5,9 @@ operations and a runner for installed programs (`awk`, `sed`, `grep`, and
 others). People are not its audience: it has no color, prompts, or shell
 completion.
 
-- **One JSON object per call.** Success goes to standard output, errors to
-  standard error, and the exit code separates a precondition failure (2) and
-  a cut-off read (3) from other errors (1).
+- **One JSON object per call.** Success goes to standard output, errors go to
+  standard error. Exit code 0 marks success; 2 marks a precondition failure,
+  3 a partial result, and 1 another error.
 - **Bounded reads.** Every read has a limit. A cut result says so and
   carries the command that reads the next part.
 - **Guarded writes.** A guarded edit names the text it replaces or the hash and
@@ -22,9 +22,10 @@ completion.
 - **External programs.** `aitools run -- PROGRAM ARG...` captures output and
   reports the child's exit status. External writes are not guarded or
   journaled; raw output saved with `--stdout-to` is not secret-masked.
-- **Repairs.** Every error includes at least one aitools command to run next.
-  Calling a shell command name such as `cat` returns the aitools command
-  that replaces it.
+- **Repairs.** Every error includes at least one suggested aitools command.
+  Review it before use; some repairs name only a command, without the arguments
+  needed for a complete invocation. Calling a shell command name such as `cat`
+  returns a suggested aitools replacement.
 
 aitools is written in Common Lisp for SBCL and built with Nix.
 

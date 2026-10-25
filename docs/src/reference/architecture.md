@@ -1,7 +1,8 @@
 # Architecture
 
-Adding or changing a command touches one feature context rather than a layer
-that spans every context. The layout follows nshell's architecture.
+Feature contexts group command-specific behavior across domain, application,
+infrastructure, and presentation layers. Shared types and services live in
+`core/kernel`, `core/protocol`, `core/workspace`, `core/text`, and `core/store`.
 
 ## Contexts
 
@@ -18,7 +19,7 @@ that spans every context. The layout follows nshell's architecture.
 | feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
 | feature/vcs | domain, application, infrastructure, presentation | The read-only `git` group |
-| feature/org | domain, application, infrastructure, presentation | Read-only `org outline`, `org query`, and `org export` |
+| feature/org | domain, application, infrastructure, presentation | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
 | feature/env | domain, application, infrastructure, presentation | The `sys` and `time` groups |
 | feature/util | domain, application, infrastructure, presentation | The `util` group |
 
@@ -96,8 +97,8 @@ export their own symbols.
 Secret format prefixes and assignment key names live in
 `data/domain/protocol/redaction-patterns-data.lisp`. The protocol matcher
 derives its first-character dispatch table from those values for each masking
-scan. Add a pattern there and cover its masking behavior in the protocol tests;
-live configuration changes take effect without a scanner branch edit.
+scan. Add a pattern there, rebuild `aitools`, and cover its masking behavior
+in the protocol tests. The scanner needs no branch change.
 
 ### The structure test
 
@@ -105,18 +106,12 @@ live configuration changes take effect without a scanner branch edit.
 `packages/<core|feature>/<context>/src/<layer>/*.lisp` file, it strips
 comments and string literals and looks for package-qualified references
 (`name:` or `name::`) to any package it knows. A reference that the file's
-layer may not make is a violation. The rules beyond the table:
+layer may not make is a violation.
 
 The structure test also supports context-specific symbol allowances, each
 with a reason. The Org adapter may reference only the kit symbols it uses.
 Protocol infrastructure may use `JSON-KIT` for the streaming JSON writer.
 Neither allowance adds a kit to a global package list.
-
-- A core context's application may reach only core applications, never a
-  feature context.
-- Only presentation may reference `CL-CLI`, so the `aitools` system, which
-  holds every domain, application, and infrastructure layer, never depends
-  on cl-cli.
 
 The test also runs against fixtures under `t/integration/fixtures/`: three
 violating trees (a domain file referencing an effectful kit, a core file
@@ -203,9 +198,9 @@ per workspace:
 
 The workspace id is the root directory's name followed by the first 16 hex
 digits of the SHA-256 of the root's real path (`workspace-id` in
-`packages/core/store/src/domain/layout.lisp`). The only files aitools
-creates in the working tree are the write protocol's temporary files,
-`.aitools-<op_id>-<n>.tmp`, which every scan excludes.
+`packages/core/store/src/domain/layout.lisp`). The write protocol creates
+temporary files in the working tree named `.aitools-<op_id>-<n>.tmp`; every
+scan excludes them.
 
 The store creates its state files with mode `0600` and its directories with
 mode `0700`, opening files `O_CREAT|O_EXCL|O_NOFOLLOW`, so the state is
@@ -261,9 +256,9 @@ omitted.
 
 ### Resources
 
-Each resource is scoped by a `call-with-X` function, with a `with-X` macro as
-sugar. The description below states how normal, error, and crash-like exits
-handle each resource:
+The following table describes four resources managed by a `call-with-X`
+function and its `with-X` macro. For each listed resource, it states how
+normal, error, and crash-like exits are handled:
 
 | Resource | Form | Used by |
 |---|---|---|
@@ -275,7 +270,7 @@ handle each resource:
 `call-with-prepared-intent/k` distinguishes three exits. An error before
 the commit point removes the temporary files and, best effort, the
 incomplete intent record, then lets the error propagate; the workspace was
-never touched. A non-error unwind (the fault injector's model of a crash)
+never touched. A non-error unwind (the test fault injector's `:throw` mode)
 leaves the prepared state exactly as a dead process would, for the next
 recovery to discard. A normal return is the commit, so a complete intent
 record survives for recovery to roll forward. `call-with-temp-file` and
