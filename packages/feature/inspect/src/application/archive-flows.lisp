@@ -1,6 +1,7 @@
 ;;;;
-;;;; `archive list` returns archive members; `archive read` returns the text
-;;;; view of one selected member with line selectors.
+;;;; List returns archive member records. Read defaults to a selected member's
+;;;; text view with selectors; `--as hex` returns hex rows, while binary content
+;;;; returns metadata.
 (in-package #:aitools.inspect.application)
 
 (defun %archive-list-command (context path)
