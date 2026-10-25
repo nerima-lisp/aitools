@@ -20,6 +20,18 @@
       (values status
               (sb-ext:octets-to-string stdout :external-format :utf-8)
               stderr)))
+  (defun %run-runner-timeout-fixture ()
+    (multiple-value-bind (status stdout stderr)
+        (aitools.workspace.integration-support:run-command
+         (namestring (asdf:system-source-directory "aitools"))
+         "sbcl"
+         (list "--noinform" "--no-sysinit" "--no-userinit" "--script"
+               "t/integration/fixtures/runner-timeout.lisp")
+         :search-path (%runner-search-path)
+         :merge-error-output-p t)
+      (values status
+              (sb-ext:octets-to-string stdout :external-format :utf-8)
+              stderr)))
   (defun %run-host-runner-error ()
     (multiple-value-bind (status stdout stderr)
         (aitools.workspace.integration-support:run-command
@@ -105,4 +117,13 @@
                          (and type-end
                               (> type-end (+ start (length prefix)))
                               (search "/dev/" stdout :start2 type-end))))
-                  (expect (not (null typed-message)) :to-be t)))))
+                  (expect (not (null typed-message)) :to-be t))))
+          (it "reports a per-spec timeout and fails the child runner process"
+              (multiple-value-bind (status stdout stderr)
+                  (%run-runner-timeout-fixture)
+                (declare (ignore stderr))
+                (expect status :to-be 1)
+                (expect stdout :to-contain
+                        "[fail] runner timeout fixture > exceeds its configured timeout")
+                (expect stdout :to-contain "Test exceeded its 25 ms timeout.")
+                (expect stdout :to-contain "only 1 specs ran; at least"))))

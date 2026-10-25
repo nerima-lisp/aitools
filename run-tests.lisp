@@ -127,7 +127,6 @@
     (asdf:load-system "aitools" :force t)
     (asdf:load-system "aitools/cli" :force t)
     (asdf:load-system "aitools/test")
-    (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE")) 60000)
     (let* ((include (coverage-candidate-files))
            (aggregate-baseline (read-coverage-baseline root :aggregate))
            (json (make-string-output-stream)))
@@ -136,7 +135,8 @@
           (classify-coverage-inputs include root)
         (let* ((selected (loop for group in groups append (copy-list (cdr group))))
                (passed (uiop:symbol-call
-                        "CL-WEAVE" "RUN-ALL" :reporter :json :stream json :coverage t
+                        "CL-WEAVE" "RUN-ALL"
+                        :timeout-ms 60000 :reporter :json :stream json :coverage t
                         :coverage-output (merge-pathnames "coverage.json" root)
                         :coverage-report-directory (merge-pathnames "coverage/" root)
                         :coverage-include-pathnames selected
@@ -206,9 +206,7 @@
           (progn
             (asdf:load-system "aitools")
             (asdf:load-system "aitools/test")
-            (setf (symbol-value (find-symbol "*DEFAULT-TIMEOUT-MS*" "CL-WEAVE"))
-                  60000)
-            (unless (uiop:symbol-call :aitools/test :run-tests)
+            (unless (uiop:symbol-call :aitools/test :run-tests :timeout-ms 60000)
               (error "aitools self test suite failed."))))
       (uiop:quit 0))
   (error (condition)

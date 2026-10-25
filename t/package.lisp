@@ -28,10 +28,7 @@
 (in-package #:aitools/test)
 
 (progn
-  (defparameter cl-weave:*default-timeout-ms* 30000
-    "Bound every cl-weave spec to 30 seconds unless it declares a tighter limit.
-The limit covers a single spec, while external-process helpers retain their
-own operation-specific budgets.")
+  (defconstant +default-test-timeout-ms+ 60000)
   (defvar *last-test-outcomes* nil))
 
 (defparameter *spec-count-baseline*
@@ -214,15 +211,18 @@ the reported path."
         (%report-json-test-outcomes (cdr events) stream)
         (%report-test-outcomes events stream))))
 
-(defun run-tests ()
-  "Run every registered cl-weave spec with the spec report on
-*STANDARD-OUTPUT*, and signal, so ASDF's TEST-OP fails, when a spec failed,
+(defun run-tests (&key (timeout-ms +default-test-timeout-ms+))
+  "Run every registered cl-weave spec with TIMEOUT-MS per spec and the spec report on
+*STANDARD-OUTPUT*, and signal, so the ASDF test operation fails, when a spec failed,
 when too few ran, or when a spec was skipped for a reason
 *ALLOWED-UNRUN-SPECS* does not list."
   (setf *last-test-outcomes* nil)
   (let* ((json (make-string-output-stream))
-         (events (call-with-spec-progress
-                  (lambda () (cl-weave:run nil :reporter :json :stream json))))
+         (events
+           (call-with-spec-progress
+            (lambda ()
+              (cl-weave:run nil :timeout-ms timeout-ms
+                            :reporter :json :stream json))))
          (report (json-kit:parse (get-output-stream-string json))))
     (setf *last-test-outcomes* events)
     (cl-weave:explain! events)

@@ -25,10 +25,7 @@
                           (uiop:symbol-call :aitools/test
                                             :call-with-spec-progress
                                             (lambda ()
-                                              (uiop:symbol-call :cl-weave
-                                                                :run
-                                                                nil
-                                                                :reporter
+                                              (uiop:symbol-call :cl-weave :run nil :timeout-ms 60000 :reporter
                                                                 :json
                                                                 :stream
                                                                 json
