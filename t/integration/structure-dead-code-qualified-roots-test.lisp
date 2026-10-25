@@ -68,7 +68,7 @@
  (format nil "~A:9: unused definition AITOOLS.FIXTURE.ROOTS:%UNUSED-METHOD-HELPER"
          "packages/feature/fixture-roots/src/domain/methods.lisp")
  (format nil
-        "~A:12: unused definition AITOOLS.FIXTURE.ROOTS:USE-ERROR-VALUES"
+        "~A:11: unused definition AITOOLS.FIXTURE.ROOTS:USE-ERROR-VALUES"
         "packages/feature/fixture-roots/src/domain/macro-lambda-list-scope.lisp")
  (format nil
         "~A:3: unused definition AITOOLS.FIXTURE.ROOTS:ON-ERROR"

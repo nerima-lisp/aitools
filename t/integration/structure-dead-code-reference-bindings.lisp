@@ -3,67 +3,65 @@
 (defun %liveness-walk-destructuring-bind (object values functions)
   (let ((names '()) (initializers '()))
     (labels ((bind-pattern (pattern)
-           (cond
-             ((symbolp pattern)
-              (let ((name (%liveness-reference-name-of pattern)))
-                (when
-                    (and name
-                         (not (keywordp pattern))
-                         (not
-                          (member name
-                                  (quote
-                                   ("&WHOLE" "&ENVIRONMENT"
-                                             "&OPTIONAL"
-                                             "&REST"
-                                             "&BODY"
-                                             "&KEY"
-                                             "&ALLOW-OTHER-KEYS"
-                                             "&AUX"))
-                                  :test
-                                  (function equal))))
-                  (pushnew name names :test (function equal)))))
-             ((consp pattern) (parse-pattern pattern))))
-         (parse-pattern (lambda-list)
-           (let ((mode :required))
-             (loop while (consp lambda-list)
-                   for item = (pop lambda-list)
-                   for name = (%liveness-reference-name-of item)
-                   do (cond
-                        ((member name '("&WHOLE" "&ENVIRONMENT") :test #'equal)
-                         (setf mode :whole-next))
-                        ((equal name "&OPTIONAL")
-                         (setf mode :optional))
-                        ((member name '("&REST" "&BODY") :test #'equal)
-                         (setf mode :rest-next))
-                        ((equal name "&KEY")
-                         (setf mode :key))
-                        ((equal name "&AUX")
-                         (setf mode :aux))
-                        ((equal name "&ALLOW-OTHER-KEYS") nil)
-                        ((member mode '(:whole-next :rest-next))
-                          (bind-pattern item)
-                          (setf mode :required))
-                        ((member mode '(:optional :key :aux))
-                         (let* ((designator (and (consp item) (first item)))
-                                (variable
-                                 (if (and (eq mode :key) (consp designator))
-                                     (second designator)
-                                     designator))
-                                (initial (and (consp item) (second item)))
-                                (supplied (and (consp item) (third item))))
-                           (when initial
-                             (push (cons initial (copy-list names)) initializers))
-                           (bind-pattern (or variable item))
-                           (when supplied
-                             (bind-pattern supplied))))
-                        (t (bind-pattern item))))
-             (when lambda-list
-               (bind-pattern lambda-list)))))
-  (parse-pattern (second object))
-  (%liveness-walk-form (third object) values functions)
-  (dolist (initializer (nreverse initializers))
-    (%liveness-walk-form (car initializer) (append values (cdr initializer)) functions))
-  (%liveness-walk-sequence (cdddr object) (append values (nreverse names)) functions))
+               (cond
+                 ((symbolp pattern)
+                  (let ((name (%liveness-reference-name-of pattern)))
+                    (when (and name
+                               (not (keywordp pattern))
+                               (not (member name
+                                            '("&WHOLE" "&ENVIRONMENT" "&OPTIONAL" "&REST"
+                                              "&BODY" "&KEY" "&ALLOW-OTHER-KEYS" "&AUX")
+                                            :test #'equal)))
+                      (pushnew name names :test #'equal))))
+                 ((consp pattern)
+                  (parse-pattern pattern))))
+             (parse-pattern (lambda-list)
+               (let ((mode :required))
+                 (loop while (consp lambda-list)
+                       for item = (pop lambda-list)
+                       for name = (%liveness-reference-name-of item)
+                       do (cond
+                            ((member name '("&WHOLE" "&ENVIRONMENT") :test #'equal)
+                             (setf mode :whole-next))
+                            ((equal name "&OPTIONAL")
+                             (setf mode :optional))
+                            ((member name '("&REST" "&BODY") :test #'equal)
+                             (setf mode :rest-next))
+                            ((equal name "&KEY")
+                             (setf mode :key))
+                            ((equal name "&AUX")
+                             (setf mode :aux))
+                            ((equal name "&ALLOW-OTHER-KEYS")
+                             nil)
+                            ((member mode '(:whole-next :rest-next))
+                             (bind-pattern item)
+                             (setf mode :required))
+                            ((member mode '(:optional :key :aux))
+                             (let* ((designator (and (consp item) (first item)))
+                                    (variable (if (and (eq mode :key)
+                                                       (consp designator))
+                                                  (second designator)
+                                                  designator))
+                                    (initial (and (consp item) (second item)))
+                                    (supplied (and (consp item) (third item))))
+                               (when initial
+                                 (push (cons initial (copy-list names)) initializers))
+                               (bind-pattern (or variable item))
+                               (when supplied
+                                 (bind-pattern supplied))))
+                            (t
+                             (bind-pattern item))))
+                 (when lambda-list
+                   (bind-pattern lambda-list)))))
+      (parse-pattern (second object))
+      (%liveness-walk-form (third object) values functions)
+      (dolist (initializer (nreverse initializers))
+        (%liveness-walk-form (car initializer)
+                             (append values (cdr initializer))
+                             functions))
+      (%liveness-walk-sequence (cdddr object)
+                               (append values (nreverse names))
+                               functions))
     t))
 
 (defun %liveness-walk-binding-form (object operator values functions)
