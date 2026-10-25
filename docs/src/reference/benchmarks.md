@@ -80,11 +80,11 @@ Each workload discards six warmup pairs and measures 80 pairs. In comparison
 mode, each pair runs both the baseline and current implementation, alternating
 which runs first. In self mode, both arms run the current implementation with
 the same alternating order. A full GC runs before every invocation. The harness
-prints raw paired times, relative changes, output signatures, medians, current
-wins, and a distribution-free median interval. Every pair checks SHA-256 parity
-against the current digest, checks each deflate result by round-tripping it
-through both decoders, or checks the inflate output and consumed length. Before
-measurement, the harness registers this workspace with ASDF, directs compiled
+prints paired times to six decimal places, relative changes, output signatures,
+medians, second-arm win counts, and a distribution-free median interval. Every pair
+checks its workload's correctness: SHA-256 parity against the current digest,
+deflate round trips through both decoders, or inflate output and consumed
+length. Before measurement, the harness registers this workspace with ASDF, directs compiled
 outputs into a temporary workspace directory, and checks that the resolved
 source and compiled output paths stay inside the workspace. These checks
 validate results but impose no timing threshold; the harness is manual and is
