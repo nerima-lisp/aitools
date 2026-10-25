@@ -105,6 +105,21 @@
                  "org.table.sort" "argument.invalid")
       (expect (file-octets ws "bad-table.org") :to-equalp before)))
 
+  (define-org-table-write-case
+    ("org table sort supports numeric descending and undoes exactly" ws)
+    (put ws "numeric-sort.org"
+         (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| 2 | two |~%| 10 | ten |~%"))
+    (let* ((before (file-octets ws "numeric-sort.org"))
+           (sorted (org-ok ws '("org" "table" "sort" "numeric-sort.org" "--table" "1"
+                                "--column" "1" "--type" "numeric" "--order" "descending"
+                                "--start" "1" "--end" "2")
+                           "org.table.sort"))
+           (expected
+             (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| 10 | ten |~%| 2 | two |~%")))
+      (expect (jget sorted "table") :to-be 1)
+      (expect (jget sorted "changed") :to-be t)
+      (expect-org-write-and-undo ws "numeric-sort.org" before expected sorted)))
+
   (define-org-table-write-case ("org table formula recalculate evaluates and rejects the documented subset" ws)
     (put ws "formula.org"
          (format nil "| Input | Total |~%|-------+-------|~%| 2 | 0 |~%#+TBLFM: @2$2=$1+1~%"))

@@ -184,7 +184,7 @@
    ("org export omits comments, properties, and planning metadata" ws)
    (let* ((source
             (format nil
-                    "# COMMENT-ONLY-MARKER~%* VISIBLE-HEADING-MARKER~%VISIBLE-BODY-MARKER~%* Metadata~%SCHEDULED: <2026-10-20 Tue>~%:PROPERTIES:~%:EXPORT_ONLY: PROPERTY-ONLY-MARKER~%:END:~%"))
+                    "# COMMENTONLYMARKER~%* VISIBLEHEADINGMARKER~%VISIBLEBODYMARKER~%* Metadata~%SCHEDULED: <2026-10-20 Tue>~%:PROPERTIES:~%:EXPORT_ONLY: PROPERTYONLYMARKER~%:END:~%"))
           (source-bytes (octets source)))
      (put ws "omissions.org" source)
      (let ((before (file-octets ws "omissions.org")))
@@ -199,12 +199,12 @@
            (expect (stringp content) :to-be t)
            (expect-org-fragments
             content
-            (list "VISIBLE-HEADING-MARKER" "VISIBLE-BODY-MARKER"))
+            (list "VISIBLEHEADINGMARKER" "VISIBLEBODYMARKER"))
            (dolist (omitted
-                    (list "COMMENT-ONLY-MARKER"
-                          "PROPERTY-ONLY-MARKER"
+                    (list "COMMENTONLYMARKER"
+                          "PROPERTYONLYMARKER"
                           "SCHEDULED"
-                          "2026-10-20"))
+                          "2026"))
              (expect (search omitted content) :to-be nil))))
        (expect (file-octets ws "omissions.org") :to-equalp before)))))
 
