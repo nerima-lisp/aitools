@@ -36,48 +36,7 @@
            (gethash (list kind package :function
                           (format nil "(SETF ~A)" symbol))
                     references))))
-(defparameter *liveness-dead-code-allowlist*
-  (list
-   (list :kind :unused-definition
-         :package "AITOOLS.KERNEL.DOMAIN"
-         :symbol "%CHECK-FLOW-CONTINUATIONS"
-         :reason "DEFINE-FLOW calls this continuation in its generated function body.")
-   (list :kind :test-only-export
-         :package "AITOOLS.PROTOCOL.APPLICATION"
-         :symbol "MAKE-COMMAND-DECLARATION"
-         :reason "DEFINE-COMMAND emits this constructor in its generated registry entry.")
-   (list :kind :unused-definition
-         :package "AITOOLS.STORE.APPLICATION"
-         :symbol "CALL-WITH-TEMP-DIR"
-         :reason "WITH-TEMP-DIR emits a call to this helper.")
-   (list :kind :unused-definition
-         :package "AITOOLS.STORE.APPLICATION"
-         :symbol "CALL-WITH-TEMP-FILE"
-         :reason "WITH-TEMP-FILE emits a call to this helper.")
-   (list :kind :unused-definition
-         :package "AITOOLS.STORE.APPLICATION"
-         :symbol "CALL-WITH-PREPARED-INTENT/K"
-         :reason "WITH-PREPARED-INTENT emits a call to this continuation.")
-   (list :kind :test-only-export
-         :package "AITOOLS.TEXT.DOMAIN"
-         :symbol "MAP-LINES"
-         :reason "DO-LINES expands to a call to this helper.")
-   (list :kind :unused-definition
-         :package "AITOOLS.EDIT.APPLICATION"
-         :symbol "%FORMAT-COMMAND/K"
-         :reason "DEFINE-FORMAT-WRITE-COMMANDS emits calls to this continuation.")
-   (list :kind :unused-definition
-         :package "AITOOLS.INSPECT.PRESENTATION"
-         :symbol "%SCHEMA"
-         :reason "DEFINE-INSPECT-COMMAND emits this schema builder call.")
-   (list :kind :unused-definition
-         :package "AITOOLS.UTIL.DOMAIN"
-         :symbol "%PARSER-DEPTH"
-         :reason "WITH-DEPTH expands to reads and writes of this slot accessor.")
-   (list :kind :unused-definition
-         :package "AITOOLS/CLI"
-         :symbol "%TRACE-SESSION-PROVIDER"
-         :reason "The DEFSTRUCT slot is assigned through its generated SETF accessor.")))
+(defparameter *liveness-dead-code-allowlist* nil)
 (defun %liveness-filter-allowlisted-findings
     (findings &optional (allowlist *liveness-dead-code-allowlist*))
   (let ((patterns (list
