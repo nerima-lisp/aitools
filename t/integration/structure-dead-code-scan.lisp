@@ -57,7 +57,7 @@
                                           (search " is referenced only from tests"
                                                   tail)))
                                 (qualified (if end (subseq tail 0 end) tail))
-                                (separator (position #\\: qualified)))
+                                (separator (position #\: qualified)))
                            (list kind
                                  (if separator
                                      (subseq qualified 0 separator)
@@ -86,7 +86,7 @@
                      (eq (seventh entry) :reason)
                      (stringp (eighth entry))
                      (plusp (length (string-trim
-                                     (list #\\Space #\\Tab #\\Newline)
+                                     (list #\Space #\Tab #\Newline)
                                      (eighth entry)))))
           (error "Dead-code allowlist entries require kind, package, symbol, and reason: ~S"
                  entry))
@@ -101,6 +101,7 @@
       (remove-if (lambda (finding)
                    (member (finding-key finding) seen :test (function equal)))
                  findings))))
+
 
 
 (defun scan-dead-code-tree (root)
