@@ -21,7 +21,7 @@
    (define-command "quoted.command"
      (:command-builder (%quoted-command-builder) :schema nil)))
   (quote
-   (|define-command| "escaped.quoted"
+   (aitools.fixture.roots.api::|define-command| "escaped.quoted"
      (:command-builder (%escaped-command-builder) :schema nil)))
   (when t
     (aitools.protocol.application:define-command
