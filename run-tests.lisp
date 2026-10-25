@@ -166,7 +166,8 @@
                                    measured)))
             (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
                               (merge-pathnames "coverage.json" root)
-                              (merge-pathnames "coverage/cover-index.html" root))
+                              (merge-pathnames "coverage/cover-index.html" root)
+                              selected)
             (write-context-measurements root aggregate contexts exclusions)
             (assert-coverage-baseline statistics aggregate-baseline :aggregate)
             (dolist (entry measured)
