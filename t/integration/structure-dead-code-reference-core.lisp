@@ -221,6 +221,11 @@
                 (if (= current-depth 1)
                     (%liveness-walk-form (second object) values functions)
                     (walk (second object) (1- current-depth))))
+               ((member (%liveness-reference-name-of (first object))
+                        '("FUNCTION" "SETF") :test #'equal)
+                (%liveness-walk-common-form
+                 object (%liveness-reference-name-of (first object))
+                 values functions))
                (t
                 (let ((head (first object)))
                   (when (and (symbolp head)

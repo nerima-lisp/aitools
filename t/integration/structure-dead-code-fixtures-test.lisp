@@ -129,7 +129,7 @@
     (progn
       (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "distinguishes SETF function names from ordinary functions")
       (finish-output *error-output*)))
-  (it "counts helpers in macro templates and nested unquotes"
+  (it "counts macro-template designators, SETF slot writes, and nested unquotes"
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "macro-template-references")
       (expect (not (null records)) :to-equal t)
@@ -137,13 +137,13 @@
               :to-equal
               (list
                (format nil
-                       "~A:10: unused definition ~A:~A"
+                       "~A:13: unused definition ~A:~A"
                        "packages/feature/fixture-macro-template/src/domain/package.lisp"
                        "AITOOLS.FIXTURE.MACRO-TEMPLATE"
                        "%UNUSED-TEMPLATE-HELPER"))))
     (progn
       (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%"
-              "counts helpers in macro templates and nested unquotes")
+              "counts macro-template designators, SETF slot writes, and nested unquotes")
       (finish-output *error-output*)))
   (it "counts DEFSTRUCT slot accessors referenced by SETF"
     (multiple-value-bind (records violations)
