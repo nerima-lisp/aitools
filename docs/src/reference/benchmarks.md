@@ -122,7 +122,7 @@ it is a separate summary from the percentage change between the two arm-time
 medians. The paired median intervals use the same order-statistic calculation
 described for A/A.
 
-| Workload | A/A run | Paired median | 95%+ median interval |
+| Workload | A/A run | Paired median | Paired median 95% interval |
 |---|---:|---:|---:|
 | SHA-256 | 1 | −4.293825% | −12.348862% to +8.629288% |
 | SHA-256 | 2 | −1.644395% | −6.174052% to +0.771270% |
@@ -131,7 +131,7 @@ described for A/A.
 | inflate | 1 | +4.000696% | −4.780287% to +23.910535% |
 | inflate | 2 | +0.926170% | −1.572165% to +2.626213% |
 
-| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | Current faster |
+| Workload | Run | Old / current median (ms) | Paired median change | Paired median 95% interval | Current faster |
 |---|---:|---:|---:|---:|---:|
 | SHA-256 | 1 | 252.697995 / 245.552500 | +3.516982% | −1.350893% to +5.898093% | 32/80 |
 | SHA-256 | 2 | 239.638000 / 235.380495 | −0.663535% | −3.210751% to +3.869691% | 42/80 |
@@ -149,12 +149,11 @@ below zero.
 The host was under high load from another project's processing during every
 official run. The recorded one-minute load averages immediately before and
 after each process were 75.66 to 93.87 for A/A run 1, 90.58 to 60.04 for A/A
-run 2, 55.20 to 60.61 for A/B run 1, and 62.26 to 71.75 for A/B run 2. Each
-The raw paired samples and uptime records are retained on the measurement host;
-they are not included in the repository.
-The high-load condition is part of these results and
-contributes context for the per-pair spread above. These are advisory
-measurements, not a general performance guarantee or a CI timing gate.
+run 2, 55.20 to 60.61 for A/B run 1, and 62.26 to 71.75 for A/B run 2.
+The raw paired samples and uptime records remain on the measurement host and
+are not included in the repository. The high-load condition provides context
+for the per-pair spread above. These are advisory measurements, not a general
+performance guarantee or a CI timing gate.
 
 ## Known dependency issues
 
