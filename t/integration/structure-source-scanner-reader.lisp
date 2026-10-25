@@ -1,5 +1,7 @@
 (in-package #:aitools.integration.structure-test)
 
+(declaim (ftype function %handwritten-production-package-p %read-suppressed-form-at))
+
 (defvar *reader-package*
   (or (find-package "AITOOLS.STRUCTURE-TEST.READER")
       (make-package "AITOOLS.STRUCTURE-TEST.READER" :use '())))
@@ -18,19 +20,19 @@ package, or :UNREADABLE."
 (defun %liveness-read-form-at (text position)
   "Read one form with occurrence metadata for qualified symbols and FIND-SYMBOL calls."
   (let* ((cache
-           (or (gethash text *liveness-reader-view-cache*)
-               (setf (gethash text *liveness-reader-view-cache*)
-                     (%liveness-reader-view-cache-entry text))))
+          (or (gethash text *liveness-reader-view-cache*)
+              (setf (gethash text *liveness-reader-view-cache*)
+                    (%liveness-reader-view-cache-entry text))))
          (view (first cache))
          (replacements (second cache))
          (offset
-           (+ position
-              (loop for replacement in replacements
-                    for start = (first replacement)
-                    for end = (second replacement)
-                    for token = (third replacement)
-                    when (<= end position)
-                      sum (- (+ 2 (length token)) (- end start)))))
+          (+ position
+             (loop for replacement in replacements
+                   for start = (first replacement)
+                   for end = (second replacement)
+                   for token = (third replacement)
+                   when (<= end position)
+                   sum (- (+ 2 (length token)) (- end start)))))
          (origins (make-hash-table :test #'equal))
          (source-positions (make-hash-table :test #'equal))
          (source-names (make-hash-table :test #'equal)))
@@ -40,58 +42,69 @@ package, or :UNREADABLE."
             (gethash (third replacement) source-names) (fifth replacement)))
     (handler-case
         (with-standard-io-syntax
-          (let ((*read-eval* nil)
-                (*package* *reader-package*)
-                (quasiquote-depth 0)
-                (readtable (copy-readtable nil)))
-            (labels ((read-quasiquote (stream character)
-                       (declare (ignore character))
-                       (incf quasiquote-depth)
-                       (unwind-protect
-                            (list :u05-quasiquote (read stream t nil t))
-                         (decf quasiquote-depth)))
-                     (read-unquote (stream character)
-                       (declare (ignore character))
-                       (when (zerop quasiquote-depth)
-                         (error "Comma outside a quasiquote."))
-                       (let ((splicing-p
-                               (member (peek-char nil stream nil nil)
-                                       '(#\@ #\.))))
-                         (when splicing-p (read-char stream))
-                         (decf quasiquote-depth)
-                         (unwind-protect
-                              (list (if splicing-p
-                                        :u05-unquote-splicing
-                                        :u05-unquote)
-                                    (read stream t nil t))
-                           (incf quasiquote-depth)))))
-              (let ((*readtable* readtable))
-                (set-macro-character #\` #'read-quasiquote nil)
-                (set-macro-character #\, #'read-unquote nil)
-                (let ((form (read-from-string view t nil :start offset))
-                      (seen (make-hash-table :test #'eq)))
-                  (labels ((annotate (object)
-                             (cond
-                               ((symbolp object)
-                                (let* ((name (symbol-name object))
-                                       (origin (gethash name origins))
-                                       (source-name (gethash name source-names)))
-                                  (when (or origin source-name)
-                                    (setf (get object :u05-source-position)
-                                          (gethash name source-positions))
-                                    (when origin
-                                      (setf (get object :u05-qualified-reference) origin))
-                                    (when source-name
-                                      (setf (get object :u05-source-name) source-name)))))
-                               ((consp object)
-                                (unless (gethash object seen)
-                                  (setf (gethash object seen) t)
-                                  (annotate (car object))
-                                  (annotate (cdr object)))))))
-                    (annotate form))
-                  form)))))
-      (error () :unreadable)))
-)
+            (let ((*read-eval* nil)
+                  (*package* *reader-package*)
+                  (quasiquote-depth 0)
+                  (readtable (copy-readtable nil)))
+              (labels ((read-quasiquote (stream character)
+                                        (declare (ignore character))
+                                        (incf quasiquote-depth)
+                                        (unwind-protect
+                                            (list :u05-quasiquote (read stream t nil t))
+                                          (decf quasiquote-depth)))
+                       (read-unquote (stream character)
+                                     (declare (ignore character))
+                                     (when (zerop quasiquote-depth)
+                                       (error "Comma outside a quasiquote."))
+                                     (let ((splicing-p
+                                            (member (peek-char nil stream nil nil)
+                                                    '(#\@ #\.))))
+                                       (when splicing-p (read-char stream))
+                                       (decf quasiquote-depth)
+                                       (unwind-protect
+                                           (list (if splicing-p
+                                                     :u05-unquote-splicing
+                                                   :u05-unquote)
+                                                 (read stream t nil t))
+                                         (incf quasiquote-depth)))))
+                (let ((*readtable* readtable))
+                  (set-macro-character #\` #'read-quasiquote nil)
+                  (set-macro-character #\, #'read-unquote nil)
+                  (multiple-value-bind (form end)
+                      (read-from-string view t nil :start offset)
+                    (let ((seen (make-hash-table :test #'eq)))
+                      (labels ((annotate (object)
+                                         (cond
+                                          ((symbolp object)
+                                           (let* ((name (symbol-name object))
+                                                  (origin (gethash name origins))
+                                                  (source-name (gethash name source-names)))
+                                             (when (or origin source-name)
+                                               (setf (get object :u05-source-position)
+                                                     (gethash name source-positions))
+                                               (when origin
+                                                 (setf (get object :u05-qualified-reference) origin))
+                                               (when source-name
+                                                 (setf (get object :u05-source-name) source-name)))))
+                                          ((consp object)
+                                           (unless (gethash object seen)
+                                             (setf (gethash object seen) t)
+                                             (annotate (car object))
+                                             (annotate (cdr object)))))))
+                        (annotate form))
+                      (values
+                       form
+                       (loop with shift = 0
+                             for replacement in replacements
+                             for start = (first replacement)
+                             for old-end = (second replacement)
+                             for token = (third replacement)
+                             for view-end = (+ start shift 2 (length token))
+                             when (> view-end end) return (- end shift)
+                             do (incf shift
+                                      (- (+ 2 (length token)) (- old-end start)))
+                             finally (return (- end shift))))))))))
+      (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))))
 
 (defun %liveness-reader-view (text)
   "Return reader text and unique metadata for qualified symbols and call occurrences."
@@ -156,60 +169,75 @@ package, or :UNREADABLE."
                  (push start positions))))
     (nreverse positions)))
 
-(defun %liveness-form-positions (stripped operator)
-  (let ((positions (%form-positions stripped operator)))
-    (labels ((escaped-head (start)
-               (let ((position (1+ start))
-                     (length (length stripped))
-                     (bars nil)
-                     (escaped nil)
-                     (qualified nil)
-                     (had-escape nil))
-                 (loop while (and (< position length)
-                                  (find (char stripped position)
-                                        '(#\Space #\Tab #\Newline #\Return #\Page)))
-                       do (incf position))
-                 (values
-                  (with-output-to-string (output)
-                    (loop while (< position length)
-                          for char = (char stripped position)
-                          do (cond
-                               (escaped
-                                (write-char char output)
-                                (setf escaped nil)
-                                (incf position))
-                               ((char= char #\\)
-                                (setf escaped t
-                                      had-escape t)
-                                (incf position))
-                               ((char= char #\|)
-                                (setf bars (not bars)
-                                      had-escape t)
-                                (incf position))
-                               ((and (not bars) (char= char #\:))
-                                (setf qualified t)
-                                (return))
-                               ((and (not bars)
-                                     (member char
-                                             '(#\Space #\Tab #\Newline #\Return #\Page
-                                               #\( #\) #\' #\" #\` #\, #\; #\#)))
-                                (return))
-                               (t
-                                (write-char (if bars char (char-upcase char)) output)
-                                (incf position)))))
-                  qualified
-                  had-escape))))
-      (loop for start = (position #\( stripped)
-            then (position #\( stripped :start (1+ start))
-            while start
-            do (multiple-value-bind (head qualified escaped)
-                   (escaped-head start)
-                 (when (and escaped
-                            (not qualified)
-                            (string= head operator))
-                   (push start positions))))
-      (dolist (reference (%qualified-references stripped))
-        (when (string= (second reference) operator)
-          (let ((start (position #\( stripped :end (fifth reference) :from-end t)))
-            (when start (push start positions)))))
-      (sort (remove-duplicates positions :test (function =)) (function <)))))
+(defun %handwritten-whitespace-p (character) (find character '(#\Space #\Tab #\Newline #\Return #\Page)))
+
+(defun %strip-reader-comments (text)
+  (let* ((sentinel (code-char #xe000))
+         (protected (copy-seq text))
+         (unreadable nil)
+         (cursor 0))
+    (loop for marker = (search "#;" text :start2 cursor)
+          while marker
+          do (setf (char protected (1+ marker)) sentinel
+                   cursor (+ marker 2)))
+    (let ((stripped (%strip-prose protected))
+          (token (coerce (list #\# sentinel) 'string)))
+      (setf cursor 0)
+      (loop for marker = (search token stripped :start2 cursor)
+            while marker
+            do (multiple-value-bind (form end)
+                   (%read-suppressed-form-at text (+ marker 2))
+                 (if (or (eq form :unreadable)
+                         (not (integerp end))
+                         (<= end marker))
+                     (progn
+                       (push (list (%line-at text marker)
+                                   "unreadable #; comment form")
+                             unreadable)
+                       (setf cursor (+ marker 2)))
+                     (progn
+                       (loop for index from marker below end
+                             unless (char= (char stripped index) #\Newline)
+                               do (setf (char stripped index) #\Space))
+                       (setf cursor end)))))
+      (values stripped (nreverse unreadable)))))
+
+(defun %handwritten-form-head-p (form name)
+  (and (consp form)
+       (symbolp (first form))
+       (let* ((symbol (first form))
+              (origin (get symbol :u05-qualified-reference)))
+         (string-equal (if origin (second origin) (symbol-name symbol)) name))))
+
+(defun %handwritten-function-name-parts (name)
+  (cond
+    ((symbolp name) (values name nil t))
+    ((and (%handwritten-form-head-p name "SETF")
+          (= (length name) 2)
+          (symbolp (second name)))
+     (values (second name) t t))
+    (t (values nil nil nil))))
+
+(defun %handwritten-symbol-package (symbol current-package)
+  (let ((origin (get symbol :u05-qualified-reference))
+        (package (symbol-package symbol)))
+    (if origin
+        (let ((resolved (find-package (first origin))))
+          (if resolved (package-name resolved) (string-upcase (first origin))))
+        (if (or (null package) (eq package *reader-package*))
+            (let ((resolved (find-package current-package)))
+              (if resolved (package-name resolved) current-package))
+            (package-name package)))))
+
+(defun %handwritten-candidate (symbol setf-name current-package relative line)
+  (let* ((origin (get symbol :u05-qualified-reference))
+         (name (if origin (second origin) (symbol-name symbol)))
+         (package (%handwritten-symbol-package symbol current-package)))
+    (when (%handwritten-production-package-p package)
+      (list package (if setf-name (format nil "(SETF ~A)" name) name)
+            relative line))))
+
+(defun %handwritten-quoted-name-parts (designator)
+  (when (and (%handwritten-form-head-p designator "QUOTE")
+             (= (length designator) 2))
+    (%handwritten-function-name-parts (second designator))))

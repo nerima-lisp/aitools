@@ -1,5 +1,18 @@
 (in-package #:aitools.integration.structure-test)
 
+(defun %read-suppressed-form-at (text position)
+  "Read one form without evaluating it or interning its symbols."
+  (handler-case
+      (with-standard-io-syntax
+        (let ((*read-eval* nil)
+              (*read-suppress* t)
+              (*package* *reader-package*))
+          (read-from-string text t nil :start position)))
+    (error () (values :unreadable nil))))
+
+(declaim (ftype function %scan-handwritten-text %handwritten-results)
+         (special *handwritten-stub-allowances*))
+
 ;;; ------------------------------------------------------- text scanning
 
 (defun %strip-prose (text)
@@ -128,118 +141,73 @@ inside strings."
                        (setf position (max (1+ position) end)))
                      (incf position))))
       (nreverse references))))
-(defun %designator-name (designator)
-  (cond
-    ((stringp designator) (string-upcase designator))
-    ((symbolp designator) (%liveness-symbol-name designator))))
-(defun %liveness-symbol-name (object)
-  (when (symbolp object)
-    (or (second (get object :u05-qualified-reference))
-        (get object :u05-source-name)
-        (symbol-name object))))
-(defun %defpackage-dependencies (form)
-  "(values dependencies nicknames defined-name) of a DEFPACKAGE FORM.
-DEPENDENCIES is a list of (CLAUSE PACKAGE SYMBOLS), SYMBOLS being the
-imported names or NIL for :USE and :LOCAL-NICKNAMES; NICKNAMES is an alist of
-(NICKNAME . PACKAGE)."
-  (let ((dependencies '()) (nicknames '()))
-    (dolist (clause (cddr form))
-      (when (consp clause)
-        (let ((key (first clause)))
-          (cond
-            ((eq key :use)
-             (dolist (designator (rest clause))
-               (push (list :use (%designator-name designator) nil) dependencies)))
-            ((member key '(:import-from :shadowing-import-from))
-             (push (list key (%designator-name (second clause)) (mapcar #'%designator-name (cddr clause)))
-                   dependencies))
-            ((eq key :local-nicknames)
-             (dolist (pair (rest clause))
-               (when (consp pair)
-                 (push (cons (%designator-name (first pair)) (%designator-name (second pair))) nicknames)
-                 (push (list :local-nicknames (%designator-name (second pair)) nil) dependencies))))))))
-    (values (nreverse dependencies) nicknames (%designator-name (second form)))))
-(defun %context-layer-from-pathname (pathname)
-  "(VALUES CONTEXT LAYER CORE-OR-FEATURE), derived from a pathname matching
-packages/<core|feature>/<context>/src/<layer>/*.lisp, or NIL if PATHNAME
-does not match that shape. CONTEXT and LAYER are strings; CORE-OR-FEATURE is
-the keyword :CORE or :FEATURE."
-  (let ((parts (pathname-directory pathname)))
-    (loop for (a b c d e) on parts
-          when (and (equal a "packages") (member b '("core" "feature") :test #'string=)
-                    (equal d "src"))
-            return (values c e (if (string= b "core") :core :feature)))))
-(defun scan-file (pathname relative context layer core-or-feature nicknames)
-  "Violation strings for one context source file. NICKNAMES is the alist of
-(NICKNAME . PACKAGE) local nicknames its package declares."
-  (let* ((text (uiop:read-file-string pathname))
-         (stripped (%strip-prose text))
-         (own (context-package-name context layer))
-         (allowed (allowed-package-names context layer core-or-feature))
-         (violations '())
-         (defines-own nil))
-    (labels ((violation (line control &rest arguments)
-               (push (format nil "~A:~D: ~?" relative line control arguments) violations))
-             (allowed-p (package symbol)
-               (or (member package allowed :test #'string=)
-                   (and symbol (symbol-allowed-p context layer package symbol)))))
-      (dolist (start (%form-positions stripped "defpackage"))
-        (let ((form (%read-form-at text start)) (line (%line-at text start)))
-          (if (eq form :unreadable)
-              (violation line "unreadable defpackage form")
-              (multiple-value-bind (dependencies declared-nicknames defined) (%defpackage-dependencies form)
-                (declare (ignore declared-nicknames))
-                (if (string= defined own)
-                    (setf defines-own t)
-                    (violation line "defines package ~A, but a file in ~A/~(~A~) must define ~A"
-                               defined context layer own))
-                (loop for (clause package symbols) in dependencies
-                      do (if (and symbols (not (member package allowed :test #'string=)))
-                             (dolist (symbol symbols)
-                               (unless (allowed-p package symbol)
-                                 (violation line "~(~S~) ~A:~A, which ~A/~(~A~) may not depend on"
-                                            clause package symbol context layer)))
-                             (unless (allowed-p package nil)
-                               (violation line "~(~S~) ~A, which ~A/~(~A~) may not depend on"
-                                          clause package context layer))))))))
-      (dolist (start (%form-positions stripped "in-package"))
-        (let ((form (%read-form-at text start)) (line (%line-at text start)))
-          (let ((name (and (consp form) (%designator-name (second form)))))
-            (unless (or (equal name own) (and (equal name "CL-USER") defines-own))
-              (violation line "in-package ~A, but a file in ~A/~(~A~) must be in ~A" name context layer own)))))
-      (loop for (prefix symbol internal line position) in (%qualified-references stripped)
-            for package = (or (cdr (assoc prefix nicknames :test #'string=)) prefix)
-            do (cond
-                 ((and internal (%aitools-context package)
-                       (string/= (%aitools-context package) (string-upcase context)))
-                  (violation line "~A::~A is an internal symbol of another context" package symbol))
-                 ((not (allowed-p package symbol))
-                  (violation line "~A:~A, which ~A/~(~A~) may not depend on" package symbol context layer)))))
-    (nreverse violations)))
-(defun scan-source-tree (root)
-  "Violation strings, sorted, for every context source file under
-ROOT/packages/**/src/**/*.lisp, each prefixed by its ROOT-relative path and
-line."
-  (let ((pathnames (directory (merge-pathnames "packages/**/src/**/*.lisp" root)))
-        (nicknames (make-hash-table :test #'equal))
-        (violations '()))
-    ;; A package's local nicknames are declared in its package.lisp but used
-    ;; in every other file of the package.
-    (dolist (pathname pathnames)
-      (let ((text (uiop:read-file-string pathname)))
-        (dolist (start (%form-positions (%strip-prose text) "defpackage"))
-          (let ((form (%read-form-at text start)))
-            (unless (eq form :unreadable)
-              (multiple-value-bind (dependencies declared defined) (%defpackage-dependencies form)
-                (declare (ignore dependencies))
-                (setf (gethash defined nicknames) (append declared (gethash defined nicknames)))))))))
-    (dolist (pathname pathnames)
-      (multiple-value-bind (context layer-name core-or-feature) (%context-layer-from-pathname pathname)
-        (when (and context layer-name)
-          (let ((layer (intern (string-upcase layer-name) :keyword)))
-            (setf violations
-                  (append violations
-                          (scan-file pathname (enough-namestring pathname root) context layer core-or-feature
-                                     (gethash (context-package-name context layer) nicknames))))))))
-    (sort violations #'string<)))
 
+(defun %handwritten-form-positions (stripped operator)
+  (let ((prefixes (list "" "CL:" "CL::" "COMMON-LISP:" "COMMON-LISP::"))
+        (operator-length (length operator)))
+    (remove-if (lambda (position) (%handwritten-reader-data-p stripped position))
+               (loop for opening = (position #\( stripped)
+                     then (position #\( stripped :start (1+ opening))
+                     while opening
+                     for head = (position-if-not (function %handwritten-whitespace-p) stripped
+                                                 :start (1+ opening))
+                     when (and head
+                               (some (lambda (prefix)
+                                       (let* ((name-start (+ head (length prefix)))
+                                              (end (+ name-start operator-length)))
+                                         (and (<= end (length stripped))
+                                              (string-equal operator stripped :start2 name-start :end2 end)
+                                              (or (= end (length stripped))
+                                                  (not (%symbol-constituent-p (char stripped end)))))))
+                                     prefixes))
+                     collect opening))))
+
+(defun %handwritten-reader-data-p (text target)
+  (loop with start = 0
+        for marker = (position-if
+                      (lambda (character)
+                        (or (char= character #\')
+                            (= (char-code character) 96)))
+                      text :start start)
+        while (and marker (< marker target))
+        do (setf start (1+ marker))
+           (unless (and (char= (char text marker) #\')
+                        (plusp marker)
+                        (char= (char text (1- marker)) #\#))
+             (multiple-value-bind (form end)
+                 (%read-suppressed-form-at text marker)
+               (declare (ignore form))
+               (when (and (integerp end) (< target end))
+                 (return t))))
+        finally (return nil)))
+
+(defun scan-handwritten-stub-file (pathname &key relative
+                                             (allowances *handwritten-stub-allowances*))
+  (let* ((name (or relative (namestring pathname)))
+         (text (uiop:read-file-string pathname)))
+    (multiple-value-bind (candidates unresolved)
+        (%scan-handwritten-text text name)
+      (%handwritten-results candidates unresolved allowances))))
+
+(defun scan-handwritten-stub-tree (root &key (allowances *handwritten-stub-allowances*))
+  "Scan test code outside static integration fixtures; return violations, unresolved dynamics, and file count."
+  (let* ((root (uiop:ensure-directory-pathname root))
+         (pathnames
+          (sort (remove-if
+                (lambda (pathname)
+                  (search "t/integration/fixtures/"
+                          (enough-namestring pathname root)))
+                (directory (merge-pathnames "t/**/*.lisp" root)))
+               (function string<)
+               :key (function namestring)))
+         (candidates nil)
+         (unresolved nil))
+    (dolist (pathname pathnames)
+      (multiple-value-bind (found issues)
+          (%scan-handwritten-text (uiop:read-file-string pathname)
+                                  (enough-namestring pathname root))
+        (dolist (candidate found) (push candidate candidates))
+        (dolist (issue issues) (push issue unresolved))))
+    (multiple-value-bind (violations limitations)
+        (%handwritten-results (nreverse candidates) (nreverse unresolved) allowances)
+      (values violations limitations (length pathnames)))))

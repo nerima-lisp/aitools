@@ -156,3 +156,78 @@
           (setf (gethash "COMMON-LISP" packages) info
                 (gethash "CL" packages) info))))
     packages))
+
+(defun scan-file (pathname relative context layer core-or-feature nicknames)
+  "Violation strings for one context source file. NICKNAMES is the alist of
+(NICKNAME . PACKAGE) local nicknames its package declares."
+  (let* ((text (uiop:read-file-string pathname))
+         (stripped (%strip-prose text))
+         (own (context-package-name context layer))
+         (allowed (allowed-package-names context layer core-or-feature))
+         (violations '())
+         (defines-own nil))
+    (labels ((violation (line control &rest arguments)
+               (push (format nil "~A:~D: ~?" relative line control arguments) violations))
+             (allowed-p (package symbol)
+               (or (member package allowed :test #'string=)
+                   (and symbol (symbol-allowed-p context layer package symbol)))))
+      (dolist (start (%form-positions stripped "defpackage"))
+        (let ((form (%read-form-at text start)) (line (%line-at text start)))
+          (if (eq form :unreadable)
+              (violation line "unreadable defpackage form")
+              (multiple-value-bind (dependencies declared-nicknames defined) (%defpackage-dependencies form)
+                (declare (ignore declared-nicknames))
+                (if (string= defined own)
+                    (setf defines-own t)
+                    (violation line "defines package ~A, but a file in ~A/~(~A~) must define ~A"
+                               defined context layer own))
+                (loop for (clause package symbols) in dependencies
+                      do (if (and symbols (not (member package allowed :test #'string=)))
+                             (dolist (symbol symbols)
+                               (unless (allowed-p package symbol)
+                                 (violation line "~(~S~) ~A:~A, which ~A/~(~A~) may not depend on"
+                                            clause package symbol context layer)))
+                             (unless (allowed-p package nil)
+                               (violation line "~(~S~) ~A, which ~A/~(~A~) may not depend on"
+                                          clause package context layer))))))))
+      (dolist (start (%form-positions stripped "in-package"))
+        (let ((form (%read-form-at text start)) (line (%line-at text start)))
+          (let ((name (and (consp form) (%designator-name (second form)))))
+            (unless (or (equal name own) (and (equal name "CL-USER") defines-own))
+              (violation line "in-package ~A, but a file in ~A/~(~A~) must be in ~A" name context layer own)))))
+      (loop for (prefix symbol internal line position) in (%qualified-references stripped)
+            for package = (or (cdr (assoc prefix nicknames :test #'string=)) prefix)
+            do (cond
+                 ((and internal (%aitools-context package)
+                       (string/= (%aitools-context package) (string-upcase context)))
+                  (violation line "~A::~A is an internal symbol of another context" package symbol))
+                 ((not (allowed-p package symbol))
+                  (violation line "~A:~A, which ~A/~(~A~) may not depend on" package symbol context layer)))))
+    (nreverse violations)))
+
+(defun scan-source-tree (root)
+  "Violation strings, sorted, for every context source file under
+ROOT/packages/**/src/**/*.lisp, each prefixed by its ROOT-relative path and
+line."
+  (let ((pathnames (directory (merge-pathnames "packages/**/src/**/*.lisp" root)))
+        (nicknames (make-hash-table :test #'equal))
+        (violations '()))
+    ;; A package's local nicknames are declared in its package.lisp but used
+    ;; in every other file of the package.
+    (dolist (pathname pathnames)
+      (let ((text (uiop:read-file-string pathname)))
+        (dolist (start (%form-positions (%strip-prose text) "defpackage"))
+          (let ((form (%read-form-at text start)))
+            (unless (eq form :unreadable)
+              (multiple-value-bind (dependencies declared defined) (%defpackage-dependencies form)
+                (declare (ignore dependencies))
+                (setf (gethash defined nicknames) (append declared (gethash defined nicknames)))))))))
+    (dolist (pathname pathnames)
+      (multiple-value-bind (context layer-name core-or-feature) (%context-layer-from-pathname pathname)
+        (when (and context layer-name)
+          (let ((layer (intern (string-upcase layer-name) :keyword)))
+            (setf violations
+                  (append violations
+                          (scan-file pathname (enough-namestring pathname root) context layer core-or-feature
+                                     (gethash (context-package-name context layer) nicknames))))))))
+    (sort violations #'string<)))
