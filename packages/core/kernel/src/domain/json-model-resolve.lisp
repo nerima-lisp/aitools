@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/json-model-resolve.lisp
 ;;;; CPS JSON Pointer resolution over a value model.
 (in-package #:aitools.kernel.domain)
 

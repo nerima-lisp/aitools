@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/journal.lisp
 ;;;;
 ;;;; Reading and appending the journal (`journal/ops.jsonl`, one JSON
 ;;;; object per line). A normal write appends a single line with O_APPEND, so

@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/builtin-excludes.lisp
 ;;;;
 ;;;; The names every scan skips regardless of ignore files (`.git`,
 ;;;; which git itself never lists, and the write protocol's `.aitools-*.tmp` temporary

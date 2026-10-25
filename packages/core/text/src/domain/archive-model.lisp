@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/archive-model.lisp
 ;;;;
 ;;;; The format-neutral archive vocabulary: ARCHIVE-ENTRY is what the zip
 ;;;; and tar readers report (`archive list`'s `items`), ARCHIVE-MEMBER is what the

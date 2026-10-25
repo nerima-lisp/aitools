@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/application/source.lisp
 ;;;;
 ;;;; The TEXT-SOURCE port and the binary-before-read flow. The port works per file or
 ;;;; per chunk, never per line; line work happens in the

@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/selector.lisp
 ;;;;
 ;;;; The five selectors (docs/src/reference/commands/index.md, Conventions shared
 ;;;; by many commands), as one value type plus the data

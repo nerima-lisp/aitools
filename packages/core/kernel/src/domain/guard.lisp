@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/guard.lisp
 ;;;;
 ;;;; The two guards (docs/src/reference/commands/index.md), `--expect-hash` and `--expect-count`, as
 ;;;; parsing plus the selector-driven half of "when is this guard required".

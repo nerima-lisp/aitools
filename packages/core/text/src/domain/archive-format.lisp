@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/archive-format.lisp
 ;;;;
 ;;;; The one archive format detector `archive list`/`read` and `archive
 ;;;; extract` share, so both commands accept the same files. Loaded after

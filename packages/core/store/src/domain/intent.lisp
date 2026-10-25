@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/intent.lisp
 ;;;;
 ;;;; The write protocol's intent record, `commit/<op_id>.json`, is two newline-terminated
 ;;;; lines written in two phases:

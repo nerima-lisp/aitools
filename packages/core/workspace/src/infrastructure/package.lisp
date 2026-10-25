@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/infrastructure/package.lisp
 ;;;;
 ;;;; Production adapters for the workspace context's WORKSPACE-HOST port,
 ;;;; and their registration as a cl-boundary-kit boundary for the

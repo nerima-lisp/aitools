@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/archive-data.lisp
 ;;;;
 ;;;; Member content for `archive read` and `archive
 ;;;; extract`), dispatched on the entry's format.

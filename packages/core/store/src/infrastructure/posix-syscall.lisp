@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/infrastructure/posix-syscall.lisp
 ;;;;
 ;;;; The syscall layer under the POSIX store adapter: the *at(2) constants
 ;;;; sb-posix lacks, the macros that turn errno and stream failures into

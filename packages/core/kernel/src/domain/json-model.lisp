@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/json-model.lisp
 ;;;;
 ;;;; JSON value-model operations and JSON Pointer traversal.
 ;;;; The model supplies only type predicates, ordered object members, array

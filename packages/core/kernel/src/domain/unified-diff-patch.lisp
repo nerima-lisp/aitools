@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/unified-diff-patch.lisp
 ;;;;
 ;;;; The consuming side of unified diffs, for `apply`: parse a
 ;;;; `diff -u` or `git diff` document into FILE-PATCHes and apply their hunks

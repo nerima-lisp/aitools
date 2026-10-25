@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/host.lisp
 ;;;;
 ;;;; The WORKSPACE-HOST port: every effect the workspace flows need, as one
 ;;;; record of closures (ports are defined in application,

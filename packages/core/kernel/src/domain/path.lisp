@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/path.lisp
 ;;;;
 ;;;; A pure value type for the three path representations `info`
 ;;;; reports (absolute, real, relative) plus the string arithmetic the write

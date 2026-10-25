@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/envelope.lisp
 ;;;;
 ;;;; The two envelope shapes. Built directly as JSON-KIT ordered
 ;;;; JSON-OBJECTs (:DUPLICATE-KEY-POLICY :PRESERVE) rather than plain alists,

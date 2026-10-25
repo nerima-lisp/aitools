@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-gzip.lisp
 ;;;;
 ;;;; gzip compatibility wrappers over cl-deflate-kit. Reading accepts
 ;;;; concatenated members and trailing zero padding. FNAME is written as

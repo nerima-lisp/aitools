@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/utf8.lisp
 ;;;;
 ;;;; The two UTF-8 policies over cl-codec-kit: reads replace each
 ;;;; invalid byte with U+FFFD and report how many replacements happened

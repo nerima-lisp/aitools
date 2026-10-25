@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/package.lisp
 ;;;;
 ;;;; kernel is the only context with no application/infrastructure layer
 ;;;; (docs/src/reference/architecture.md): every value type here is a pure computation over

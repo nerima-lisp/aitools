@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/journal.lisp
 ;;;;
 ;;;; Journal entries (`journal/ops.jsonl`, one JSON object per line)
 ;;;; and the retention rule: keep the newest +RETAINED-GENERATIONS+ ops per

@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-zip.lisp
 ;;;;
 ;;;; zip archives (PKWARE APPNOTE): the central directory is authoritative
 ;;;; for reading; stored and deflated entries are supported. ZIP64,

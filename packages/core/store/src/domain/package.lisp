@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/package.lisp
 ;;;;
 ;;;; Pure models for the store context (the write protocol, journal, state layout, and
 ;;;; docs/src/reference/transactions.md): entry states, change requests and their planned results,

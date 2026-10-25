@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-conditions.lisp
 ;;;;
 ;;;; Conditions of the byte-format codecs. Archives and compressed streams
 ;;;; are untrusted input (trust-boundaries: every decoder is its own

@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/normalize.lisp
 ;;;;
 ;;;; Unicode normalization for `transform --op nfc|nfkc` over SBCL's own
 ;;;; sb-unicode (NFKC folds full-width letters and joins a

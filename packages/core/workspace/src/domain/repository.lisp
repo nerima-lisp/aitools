@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/repository.lisp
 ;;;;
 ;;;; Values describing where a workspace is rooted (`--root`, then
 ;;;; the git top level, then the working directory) and the git repository

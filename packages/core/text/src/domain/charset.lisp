@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/charset.lisp
 ;;;;
 ;;;; `transcode` and `--encoding`: the six supported encodings.
 ;;;; UTF-8, UTF-16LE/BE, and ISO-8859-1 go through cl-codec-kit; Shift_JIS

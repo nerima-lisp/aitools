@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/layout.lisp
 ;;;;
 ;;;; The three layout facts a write must preserve: a leading UTF-8 BOM,
 ;;;; the line ending (LF or CRLF), and whether the file ends with a newline.

@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.protocol.domain

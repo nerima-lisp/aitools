@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/layout.lisp
 ;;;;
 ;;;; The state directory layout, identifier formats, and the shape
 ;;;; rules for workspace-relative paths the store accepts. Paths are native

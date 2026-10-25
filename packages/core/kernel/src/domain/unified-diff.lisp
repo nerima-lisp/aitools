@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/unified-diff.lisp
 ;;;;
 ;;;; No kit in the org generates or applies unified diffs,
 ;;;; so `diff` and `apply` both build on this file. The LCS

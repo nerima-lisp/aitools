@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/infrastructure/ordered-mapper.lisp
 ;;;;
 ;;;; The scan uses one cl-concurrent-kit executor, sized to the online CPU
 ;;;; count, when multi-file work needs parallelism. It is created lazily for

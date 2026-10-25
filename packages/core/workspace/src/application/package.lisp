@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/package.lisp
 ;;;;
 ;;;; The workspace context's public boundary (other contexts reach
 ;;;; workspace only through this package). It defines the

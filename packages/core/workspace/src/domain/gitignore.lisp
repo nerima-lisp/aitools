@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/gitignore.lisp
 ;;;;
 ;;;; .gitignore parsing and matching with git's semantics (dir.c:
 ;;;; add_patterns_from_buffer, parse_path_pattern, match_basename,

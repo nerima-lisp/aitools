@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/infrastructure/package.lisp
 ;;;;
 ;;;; The production STORE-IO adapter: sb-posix for file primitives and fsync,
 ;;;; libc flock(2) through sb-alien (sb-posix binds lockf and fcntl record

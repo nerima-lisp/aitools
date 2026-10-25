@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/glob.lisp
 ;;;;
 ;;;; The `--glob <pattern>` filter. Globs use the same wildmatch
 ;;;; semantics as .gitignore: a glob without `/` matches the base name at any

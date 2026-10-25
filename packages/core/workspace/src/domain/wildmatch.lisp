@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/wildmatch.lisp
 ;;;;
 ;;;; A transcription of git's wildmatch.c (dowild), the matcher behind every
 ;;;; .gitignore pattern. Ignore decisions must give the same verdicts as

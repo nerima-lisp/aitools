@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/application/command-registry.lisp
 ;;;;
 ;;;; The registration API every feature context's presentation layer targets.
 ;;;; A context exports `register-<context>-commands (registry ports)`, which

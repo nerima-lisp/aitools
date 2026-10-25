@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/line-index.lisp
 ;;;;
 ;;;; The byte-level line model. Lines are found by scanning for LF in
 ;;;; the undecoded bytes; a line's content excludes its LF and a CR right
@@ -9,7 +8,6 @@
 
 (declaim (inline %content-end))
 (defun %content-end (octets line-start lf)
-  "The end of a line's content given the index of its LF."
   (declare (type octets octets) (type fixnum line-start lf))
   (if (and (> lf line-start) (= (aref octets (1- lf)) 13)) (1- lf) lf))
 

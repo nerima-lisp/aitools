@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/boundary.lisp
 ;;;;
 ;;;; The write boundary as a pure verdict over paths the application
 ;;;; layer has already resolved. The real (symlink-resolved) paths decide:

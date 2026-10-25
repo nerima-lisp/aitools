@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/blobs.lisp
 ;;;;
 ;;;; The content-addressed blobs, shared by the journal and every tx:
 ;;;; `blobs/<content-hash>`. A blob is written to a dot-prefixed temp name,

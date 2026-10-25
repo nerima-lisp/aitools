@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/redaction.lisp
 ;;;;
 (in-package #:aitools.protocol.domain)
 

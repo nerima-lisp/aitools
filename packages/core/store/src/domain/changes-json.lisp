@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/changes-json.lisp
 ;;;;
 ;;;; The write output (docs/src/reference/json-schema.md), shared by every write command, `undo`, `tx
 ;;;; diff` and `tx commit`: CHANGE-RESULTs rendered as `changes[]` with a

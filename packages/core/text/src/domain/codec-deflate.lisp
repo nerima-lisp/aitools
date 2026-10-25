@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-deflate.lisp
 ;;;;
 ;;;; Raw DEFLATE compatibility wrappers over cl-deflate-kit.
 (in-package #:aitools.text.domain)

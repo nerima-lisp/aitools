@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/infrastructure/boundaries.lisp
 ;;;;
 ;;;; The composition root keeps every production port in one
 ;;;; cl-boundary-kit boundary context; this file adds and looks up the

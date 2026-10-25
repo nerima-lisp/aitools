@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/scan.lisp
 ;;;;
 ;;;; The ignore-aware workspace walk, shared by search, find, overview,
 ;;;; snapshot, and archive create. Ignore decisions happen during the walk,

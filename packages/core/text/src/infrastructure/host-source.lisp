@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/infrastructure/host-source.lisp
 ;;;;
 ;;;; The production TEXT-SOURCE: reads of regular files. Each read opens with
 ;;;; O_NONBLOCK and checks the type with fstat on the open descriptor, so a

@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/infrastructure/boundaries.lisp
 ;;;;
 ;;;; Registration of the TEXT-SOURCE in the composition root's
 ;;;; cl-boundary-kit boundary context. Flows still take the source

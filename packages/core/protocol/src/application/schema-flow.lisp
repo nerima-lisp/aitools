@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/application/schema-flow.lisp
 ;;;;
 ;;;; `schema` rendering: the no-argument summary list ({name, summary} only,
 ;;;; so `schema` alone stays cheap to read) and the full per-command detail.

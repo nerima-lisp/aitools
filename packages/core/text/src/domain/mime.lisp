@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/mime.lisp
 ;;;;
 ;;;; The `mime` field: magic signatures first (data/domain/text/
 ;;;; mime-data.lisp), then binary content is application/octet-stream, and

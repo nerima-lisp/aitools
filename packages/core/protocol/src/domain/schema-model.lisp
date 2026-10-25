@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/schema-model.lisp
 ;;;;
 ;;;; The per-command `schema` value. Deliberately loose on ARGS/OUTPUT-
 ;;;; FIELDS: each presentation layer knows its own command's arguments and

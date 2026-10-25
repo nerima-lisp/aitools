@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/application/command-result.lisp
 ;;;;
 ;;;; The command handler contract (docs/src/reference/architecture.md,
 ;;;; "Command handler contract"): a flow calls exactly one of three continuations

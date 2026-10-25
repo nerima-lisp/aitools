@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/real-path.lisp
 ;;;;
 ;;;; realpath(3) over the WORKSPACE-HOST port, one lstat per component. The
 ;;;; nonexistent tail of a path is kept lexically, so the boundary check can

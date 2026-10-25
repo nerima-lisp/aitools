@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/package.lisp
 ;;;;
 ;;;; Pure byte and text rules shared by every reading and writing context:
 ;;;; binary sniffing, BOM /

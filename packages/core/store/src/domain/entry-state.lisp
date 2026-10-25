@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/domain/entry-state.lisp
 ;;;;
 ;;;; ENTRY-STATE is what a path looks like at one moment: absent, a regular
 ;;;; file (content hash, permission bits, and after a `touch` its mtime), a directory, or a symlink

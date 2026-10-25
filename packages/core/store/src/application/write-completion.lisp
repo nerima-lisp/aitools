@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/write-completion.lisp
 ;;;;
 ;;;; The write protocol after the commit point: apply each intent step, append the
 ;;;; journal entry, remove the tx directory and the intent record, and

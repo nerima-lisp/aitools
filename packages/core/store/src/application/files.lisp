@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/files.lisp
 ;;;;
 ;;;; Compositions of STORE-IO primitives shared by the rest of the context:
 ;;;; reading a path's ENTRY-STATE, replacing a state file by rename, and

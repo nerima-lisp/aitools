@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/git-index.lisp
 ;;;;
 ;;;; The path list of a git index file (index-format.txt, versions 2 to 4).
 ;;;; Ignore decisions compare against `git ls-files --cached --others

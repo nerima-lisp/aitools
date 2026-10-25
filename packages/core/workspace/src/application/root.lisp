@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/root.lisp
 ;;;;
 ;;;; Root resolution: `--root`, else the git top level found by
 ;;;; walking up from the working directory, else the working directory. The

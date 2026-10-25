@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/binary.lisp
 ;;;;
 ;;;; A file is binary when its first 8 KiB contain a NUL
 ;;;; byte. Callers pass only that prefix when they can, so the decision is

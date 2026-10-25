@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/application/redaction-flow.lisp
 ;;;;
 ;;;; Streaming output and redaction together: json-kit's WRITE-JSON has no per-string
 ;;;; hook to mask a string as it is written, so

@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/ignore-context.lisp
 ;;;;
 ;;;; Everything the ignore decision needs besides per-directory
 ;;;; .gitignore files, read once per scan: git config (system, global, local,

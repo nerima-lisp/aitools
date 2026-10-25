@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/infrastructure/posix-io.lisp
 ;;;;
 ;;;; Every path is a native namestring handed straight to the syscall, never
 ;;;; parsed as a CL pathname (`*`, `?` and `[` are ordinary file name

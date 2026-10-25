@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-crc32.lisp
 ;;;;
 ;;;; CRC-32 (ISO 3309 / ITU-T V.42, reflected polynomial #xEDB88320) as used
 ;;;; by gzip (RFC 1952) and zip.

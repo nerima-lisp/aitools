@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/infrastructure/json-writer.lisp
 ;;;;
 ;;;; Streaming output: write directly to a buffered stream, never assemble the whole
 ;;;; output as a string first. This is why WRITE-ENVELOPE takes an actual

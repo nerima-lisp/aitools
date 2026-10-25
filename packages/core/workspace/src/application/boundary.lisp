@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/application/boundary.lisp
 ;;;;
 ;;;; The write boundary as a two-exit flow (inside, outside; see the CPS
 ;;;; audit in docs/src/reference/architecture.md). Reads are never checked; only callers about to write

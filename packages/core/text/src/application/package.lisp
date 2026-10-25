@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/application/package.lisp
 ;;;;
 ;;;; The text context's public flow boundary: the TEXT-SOURCE port (bytes
 ;;;; of one file, read whole, by prefix, by range, or in chunks) and the

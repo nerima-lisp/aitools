@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/codec-tar.lisp
 ;;;;
 ;;;; tar archives. Reading accepts POSIX ustar (with the 155-byte prefix),
 ;;;; pax extended headers (`x` per entry, `g` global: path, linkpath, size,

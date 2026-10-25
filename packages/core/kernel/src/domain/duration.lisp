@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/duration.lisp
 ;;;;
 ;;;; Durations (docs/src/reference/commands/index.md): `<number>ms|s|m|h|d`. Negative durations are rejected
 ;;;; by construction -- a leading `-` can never parse as the numeric prefix

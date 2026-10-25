@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/infrastructure/host.lisp
 ;;;;
 ;;;; The production WORKSPACE-HOST. Paths stay native strings all the way to
 ;;;; the system call (sb-posix), never CL pathnames, so names containing `*`,

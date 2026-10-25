@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/json.lisp
 ;;;;
 ;;;; RFC 6901 JSON pointers and JSON value equality, shared by the read side
 ;;;; (`json get`/`query`/`diff`, which holds json-kit values with numbers

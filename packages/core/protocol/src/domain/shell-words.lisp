@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/shell-words.lisp
 ;;;;
 ;;;; `repairs[].command` and `next_commands` hold a complete command line an
 ;;;; agent can paste back into a POSIX shell, so every argument echoed into

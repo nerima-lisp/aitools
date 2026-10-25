@@ -1,4 +1,3 @@
-;;;; packages/core/kernel/src/domain/token-estimate.lisp
 ;;;;
 ;;;; `approx_tokens` is a character-count approximation, not tied to
 ;;;; any model's real tokenizer. The formula -- one token

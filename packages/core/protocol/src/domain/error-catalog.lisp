@@ -1,4 +1,3 @@
-;;;; packages/core/protocol/src/domain/error-catalog.lisp
 ;;;;
 ;;;; Logic over the data table in data/domain/protocol/error-catalog-data.lisp.
 (in-package #:aitools.protocol.domain)

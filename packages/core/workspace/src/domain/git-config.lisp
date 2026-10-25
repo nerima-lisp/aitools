@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/git-config.lisp
 ;;;;
 ;;;; A reader for git's config file syntax, enough to answer the ignore decision's
 ;;;; questions without starting git: core.excludesFile, core.ignoreCase,

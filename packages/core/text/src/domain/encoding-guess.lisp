@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/encoding-guess.lisp
 ;;;;
 ;;;; `info`'s `encoding_guess`: one of utf-8, shift_jis, euc-jp, utf-16le,
 ;;;; utf-16be, or unknown. The decision uses, in order: a byte-order mark,

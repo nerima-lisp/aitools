@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/entry.lisp
 ;;;;
 ;;;; One directory entry as the WORKSPACE-HOST port reports it (lstat
 ;;;; semantics: a symlink is reported as :SYMLINK, never as its target), and

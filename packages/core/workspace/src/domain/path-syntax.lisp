@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/path-syntax.lisp
 ;;;;
 ;;;; Lexical POSIX path arithmetic on plain strings. Paths never go through
 ;;;; CL pathname parsing here: SBCL's namestring syntax treats `*`, `?`, `[`

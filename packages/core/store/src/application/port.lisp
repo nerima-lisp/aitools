@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/application/port.lisp
 ;;;;
 ;;;; STORE-IO is the store's file, clock, and retry port. cl-boundary-kit's
 ;;;; filesystem shape (read/store/rename/delete whole files) cannot express

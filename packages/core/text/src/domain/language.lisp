@@ -1,4 +1,3 @@
-;;;; packages/core/text/src/domain/language.lisp
 ;;;;
 ;;;; Lookup over the language table in data/domain/text/language-data.lisp.
 ;;;; The definition patterns stay strings here; the search and edit contexts

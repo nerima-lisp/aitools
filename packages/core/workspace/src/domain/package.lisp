@@ -1,4 +1,3 @@
-;;;; packages/core/workspace/src/domain/package.lisp
 ;;;;
 ;;;; Pure rules for the workspace boundary and ignore
 ;;;; decisions: lexical path arithmetic, git's wildmatch, .gitignore

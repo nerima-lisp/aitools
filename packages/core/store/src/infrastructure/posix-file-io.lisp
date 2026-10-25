@@ -1,4 +1,3 @@
-;;;; packages/core/store/src/infrastructure/posix-file-io.lisp
 ;;;;
 ;;;; Whole-file reads and writes through file descriptors, and in-place mode
 ;;;; and modification-time changes that refuse a symlink or a regular file
