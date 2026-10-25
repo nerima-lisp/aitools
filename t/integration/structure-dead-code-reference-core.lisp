@@ -125,10 +125,9 @@
                                 (t (walk-parameter-spec item mode)))
                            finally
                              (unless (null tail)
-                               (bind-pattern tail)))))
+                               (bind-pattern tail))))))
           (when (listp source-lambda-list) (walk-lambda-list source-lambda-list))
           (nreverse names)))))
-)
 
 (defun %liveness-walk-type (object)
   (cond
