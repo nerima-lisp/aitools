@@ -12,8 +12,8 @@ state is an error; scanned files in that state are skipped."
           ;; the pattern's literal is skipped without decoding. Sound only
           ;; where a miss means zero replacements and no error, so it is
           ;; applied only to scanned (non-explicit) files and dropped when a
-          ;; selector restricts the lines. A file that clears it is still
-          ;; A literal-prefilter hit still uses the replacement matcher.
+          ;; selector restricts the lines. A prefilter match still goes
+          ;; through the replacement matcher.
           (literal (and (null selector) (replacer-required-literal replacer))))
       (labels ((reject-or-skip (path code message
                  &key candidates diagnostics conflicts repairs)

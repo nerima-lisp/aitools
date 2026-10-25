@@ -8,9 +8,8 @@
 ;;; ------------------------------------------------------------ pointers
 
 ;;; RFC 6901 pointers and array-index resolution live in
-;;; AITOOLS.KERNEL.DOMAIN (one canonical implementation shared with the
-;;; write side). These forward to it under the names the inspect domain and
-;;; The inspect domain exports these names for its callers.
+;;; AITOOLS.KERNEL.DOMAIN, the canonical implementation shared with the
+;;; write side. This package exports forwarding functions for its callers.
 
 (defun parse-json-pointer (text)
   "The reference tokens of pointer TEXT (\"\" is the whole document), or
