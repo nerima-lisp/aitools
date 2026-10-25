@@ -36,8 +36,29 @@
            (gethash (list kind package :function
                           (format nil "(SETF ~A)" symbol))
                     references))))
-(defparameter *liveness-dead-code-allowlist* nil
-  "Exact findings accepted with an explanation of the analyzer's limitation.")
+(defparameter *liveness-dead-code-allowlist*
+  (list
+   (list :finding "packages/core/kernel/src/domain/flow.lisp:68: unused definition AITOOLS.KERNEL.DOMAIN:%CHECK-FLOW-CONTINUATIONS"
+         :reason "DEFINE-FLOW emits this call at packages/core/kernel/src/domain/flow.lisp:103; the static walker excludes quasiquoted generated forms.")
+   (list :finding "packages/core/protocol/src/application/package.lisp:3: exported symbol AITOOLS.PROTOCOL.APPLICATION:MAKE-COMMAND-DECLARATION is referenced only from tests"
+         :reason "DEFINE-COMMAND emits this constructor call at packages/core/protocol/src/application/command-registry.lisp:125; its quasiquote hides the production reference.")
+   (list :finding "packages/core/store/src/application/files.lisp:110: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-TEMP-DIR"
+         :reason "WITH-TEMP-DIR emits this call at packages/core/store/src/application/files.lisp:124; production code uses the macro.")
+   (list :finding "packages/core/store/src/application/files.lisp:94: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-TEMP-FILE"
+         :reason "WITH-TEMP-FILE emits this call at packages/core/store/src/application/files.lisp:108; production code uses the macro.")
+   (list :finding "packages/core/store/src/application/write-preparation.lisp:39: unused definition AITOOLS.STORE.APPLICATION:CALL-WITH-PREPARED-INTENT/K"
+         :reason "WITH-PREPARED-INTENT emits this call at packages/core/store/src/application/write-preparation.lisp:78; production write planning invokes the macro.")
+   (list :finding "packages/core/text/src/domain/package.lisp:14: exported symbol AITOOLS.TEXT.DOMAIN:MAP-LINES is referenced only from tests"
+         :reason "DO-LINES emits this call at packages/core/text/src/domain/line-index.lisp:49; production BUILD-LINE-INDEX uses the macro.")
+   (list :finding "packages/feature/edit/src/application/yaml-toml-command-flows.lisp:141: unused definition AITOOLS.EDIT.APPLICATION:%FORMAT-COMMAND/K"
+         :reason "DEFINE-FORMAT-WRITE-COMMANDS emits this call at packages/feature/edit/src/application/yaml-toml-command-flows.lisp:197; production YAML and TOML flows invoke that macro.")
+   (list :finding "packages/feature/inspect/src/presentation/registry.lisp:50: unused definition AITOOLS.INSPECT.PRESENTATION:%SCHEMA"
+         :reason "DEFINE-INSPECT-COMMAND emits this call at packages/feature/inspect/src/presentation/registry.lisp:24; production command declarations invoke the macro.")
+   (list :finding "packages/feature/util/src/domain/calc-parser.lisp:3: unused definition AITOOLS.UTIL.DOMAIN:%PARSER-DEPTH"
+         :reason "%WITH-DEPTH emits these accessor calls at packages/feature/util/src/domain/calc-parser.lisp:25 and 27; production parser forms use the macro.")
+   (list :finding "src/trace-context.lisp:4: unused definition AITOOLS/CLI:%TRACE-SESSION-PROVIDER"
+         :reason "The DEFSTRUCT slot is written through SETF at src/trace-context.lisp:45; the analyzer separates the generated reader from its live setter."))
+  "Exact findings accepted with an explanation of the analyzer limitation.")
 (defun %liveness-filter-allowlisted-findings
     (findings &optional (allowlist *liveness-dead-code-allowlist*))
   (dolist (entry allowlist)
