@@ -25,7 +25,6 @@
    #:make-match-selector
    #:selector-kind
    #:selector-p
-   #:selector-old
    #:selector-range-start
    #:selector-range-end
    #:selector-symbol-name

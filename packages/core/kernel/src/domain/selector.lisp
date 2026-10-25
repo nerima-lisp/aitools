@@ -10,13 +10,12 @@
 
 (defstruct (selector
             (:constructor %make-selector
-                (kind &key old range-start range-end symbol-name symbol-kind
+                (kind &key range-start range-end symbol-name symbol-kind
                    between-start between-end exclusive match-pattern invert))
             (:copier nil))
   "KIND is one of :OLD :RANGE :SYMBOL :BETWEEN :MATCH. Only the slots that
 KIND uses are meaningful; the rest stay NIL."
   (kind nil :type (member :old :range :symbol :between :match) :read-only t)
-  (old nil :type (or null string) :read-only t)
   (range-start nil :type (or null (integer 1)) :read-only t)
   (range-end nil :type (or null (integer 1)) :read-only t)
   (symbol-name nil :type (or null string) :read-only t)
@@ -26,14 +25,6 @@ KIND uses are meaningful; the rest stay NIL."
   (exclusive nil :type boolean :read-only t)
   (match-pattern nil :type (or null string) :read-only t)
   (invert nil :type boolean :read-only t))
-
-(defun make-old-selector (old)
-  "OLD must be non-empty; `edit --old ''` is rejected as
-ARGUMENT.INVALID before a selector is ever built, so this signals a plain
-error rather than modeling the empty case."
-  (when (zerop (length old))
-    (error "an --old selector requires a non-empty string"))
-  (%make-selector :old :old old))
 
 (defun %ascii-digit-char-p (char)
   "True for `0`-`9` only. DIGIT-CHAR-P also accepts other scripts' decimal

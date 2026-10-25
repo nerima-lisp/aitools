@@ -22,14 +22,6 @@
   (it "rejects a line number below 1"
     (signals error (parse-range-spec "0")))
 
-  (it "rejects an empty --old selector"
-    (signals error (aitools.kernel.domain::make-old-selector "")))
-
-  (it "reports --old as content-basis and ambiguous on multiple matches"
-    (let ((selector (aitools.kernel.domain::make-old-selector "x")))
-      (expect (selector-basis selector) :to-be :content)
-      (expect (aitools.kernel.domain::selector-uniqueness selector) :to-be :ambiguous)))
-
   (it "reports --range as position-basis and never ambiguous"
     (let ((selector (make-range-selector "1:2")))
       (expect (selector-basis selector) :to-be :position)
