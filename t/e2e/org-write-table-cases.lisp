@@ -85,14 +85,14 @@
 
   (define-org-table-write-case ("org table sort is stable and honors explicit row bounds" ws)
     (put ws "sort.org"
-         (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| Z | 2 |~%| A | 1 |~%"))
+         (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| Z | 3 |~%| A | second |~%| A | first |~%| 0 | outside |~%"))
     (let* ((before (file-octets ws "sort.org"))
            (sorted (org-ok ws '("org" "table" "sort" "sort.org" "--table" "1"
                                 "--column" "1" "--type" "lexical" "--order" "ascending"
-                                "--start" "1" "--end" "2")
+                                "--start" "1" "--end" "3")
                            "org.table.sort"))
            (expected
-             (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| A | 1 |~%| Z | 2 |~%")))
+             (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| A | second |~%| A | first |~%| Z | 3 |~%| 0 | outside |~%")))
       (expect (jget sorted "table") :to-be 1)
       (expect (jget sorted "changed") :to-be t)
       (expect-org-write-and-undo ws "sort.org" before expected sorted))
