@@ -190,8 +190,6 @@
     (append (and (%slash-k-name-p name)
                  ;; This adapter converts whichever flow callback fires into
                  ;; COMMAND-RESULT; the design keeps that conversion at the
-                 ;; command boundary. See f0-core-design.md, "Existing /k
-                 ;; contract migration", lines 73-75.
                  (not (and (string= relative-path "packages/core/protocol/src/application/command-result.lisp")
                            (equal package-name "AITOOLS.PROTOCOL.APPLICATION")
                            (eq symbol-package (find-package "AITOOLS.PROTOCOL.APPLICATION"))
@@ -207,6 +205,8 @@
          (name (%function-name-string (first lambda-list)))
          (variables (%continuation-variables (rest lambda-list))))
     (mapcar (lambda (kind) (list relative-path name kind)) (%flow-body-kinds (cddr form) variables))))
+
+(defvar *legacy-cps-allowlist*)
 
 (defun %allowlist-keys ()
   (loop for (kind . entries) in *legacy-cps-allowlist*
