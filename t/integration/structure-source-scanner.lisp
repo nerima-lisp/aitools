@@ -333,7 +333,7 @@ package, or :UNREADABLE."
                             (string= head operator))
                    (push start positions))))
       (dolist (reference (%qualified-references stripped))
-        (when (string-equal (second reference) operator)
+        (when (string= (second reference) operator)
           (let ((start (position #\( stripped :end (fifth reference) :from-end t)))
             (when start (push start positions)))))
       (sort (remove-duplicates positions :test (function =)) (function <)))))
