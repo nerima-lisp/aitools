@@ -184,7 +184,7 @@
    ("org export omits comments, properties, and planning metadata" ws)
    (let* ((source
             (format nil
-                    "# COMMENT-ONLY-MARKER~%* VISIBLE-HEADING-MARKER~%SCHEDULED: <2026-10-20 Tue>~%:PROPERTIES:~%:EXPORT_ONLY: PROPERTY-ONLY-MARKER~%:END:~%VISIBLE-BODY-MARKER~%"))
+                    "# COMMENT-ONLY-MARKER~%* VISIBLE-HEADING-MARKER~%VISIBLE-BODY-MARKER~%* Metadata~%SCHEDULED: <2026-10-20 Tue>~%:PROPERTIES:~%:EXPORT_ONLY: PROPERTY-ONLY-MARKER~%:END:~%"))
           (source-bytes (octets source)))
      (put ws "omissions.org" source)
      (let ((before (file-octets ws "omissions.org")))
