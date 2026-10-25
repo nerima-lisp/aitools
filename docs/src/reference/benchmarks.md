@@ -122,7 +122,7 @@ it is a separate summary from the percentage change between the two arm-time
 medians. The paired median intervals use the same order-statistic calculation
 described for A/A.
 
-| Workload | A/A run | Paired median | Paired median 95% interval |
+| Workload | A/A run | Paired median | Paired median interval (≥95% coverage) |
 |---|---:|---:|---:|
 | SHA-256 | 1 | −4.293825% | −12.348862% to +8.629288% |
 | SHA-256 | 2 | −1.644395% | −6.174052% to +0.771270% |
@@ -131,7 +131,7 @@ described for A/A.
 | inflate | 1 | +4.000696% | −4.780287% to +23.910535% |
 | inflate | 2 | +0.926170% | −1.572165% to +2.626213% |
 
-| Workload | Run | Old / current median (ms) | Paired median change | Paired median 95% interval | Current faster |
+| Workload | Run | Old / current median (ms) | Paired median change | Paired median interval (≥95% coverage) | Current faster |
 |---|---:|---:|---:|---:|---:|
 | SHA-256 | 1 | 252.697995 / 245.552500 | +3.516982% | −1.350893% to +5.898093% | 32/80 |
 | SHA-256 | 2 | 239.638000 / 235.380495 | −0.663535% | −3.210751% to +3.869691% | 42/80 |
