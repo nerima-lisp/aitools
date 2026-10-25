@@ -134,4 +134,16 @@
                 (expect (reference-p package namespace symbol) :to-equal nil))))))
     (progn
       (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "keeps reader-resolved roots in their source namespaces")
-      (finish-output *error-output*))))
+      (finish-output *error-output*)))
+  (it "treats unrecognized forms conservatively with dotted arguments"
+    (let* ((form (list (intern "UNKNOWN-FORM" *reader-package*)
+                       (cons "LC_ALL" "C")
+                       (intern "CONSERVATIVE-ARGUMENT" *reader-package*)))
+           (references (%liveness-reference-p form)))
+      (expect (length references) :to-equal 2)
+      (expect (not (null (member (list :function "UNKNOWN-FORM" :local)
+                                 references :test #'equal)))
+              :to-equal t)
+      (expect (not (null (member (list :value "CONSERVATIVE-ARGUMENT" :local)
+                                 references :test #'equal)))
+              :to-equal t))))

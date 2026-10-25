@@ -36,6 +36,26 @@
            (gethash (list kind package :function
                           (format nil "(SETF ~A)" symbol))
                     references))))
+(defparameter *liveness-dead-code-allowlist* nil
+  "Exact findings accepted with an explanation of the analyzer's limitation.")
+(defun %liveness-filter-allowlisted-findings
+    (findings &optional (allowlist *liveness-dead-code-allowlist*))
+  (dolist (entry allowlist)
+    (unless (and (listp entry)
+                 (= (length entry) 4)
+                 (eq (first entry) :finding)
+                 (stringp (second entry))
+                 (eq (third entry) :reason)
+                 (stringp (fourth entry))
+                 (plusp (length (string-trim '(#\Space #\Tab #\Newline)
+                                             (fourth entry)))))
+      (error "Dead-code allowlist entries require :finding and non-empty :reason: ~S"
+             entry)))
+  (remove-if (lambda (finding)
+               (some (lambda (entry)
+                       (string= finding (second entry)))
+                     allowlist))
+             findings))
 
 (defun scan-dead-code-tree (root)
   "Sorted dead definitions and package violations under ROOT.
@@ -137,4 +157,5 @@ Exported definitions are public roots; test-only exports remain violations."
                                    (getf info :file) (second use) (first use))
                            violations))))))
            packages)
-          (sort (remove-duplicates violations :test #'string=) #'string<))))))
+          (%liveness-filter-allowlisted-findings
+ (sort (remove-duplicates violations :test #'string=) #'string<)))))))

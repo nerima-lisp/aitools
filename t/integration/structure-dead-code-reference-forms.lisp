@@ -138,29 +138,30 @@
    (t nil)))
 
 (defun %liveness-walk-compound-function-bindings (object operator values functions)
-  (let ((definitions (second object)))
-    (when (and (member operator '("FLET" "LABELS") :test #'equal)
-               (some (lambda (definition)
-                       (%liveness-reference-setf-function-name-p
-                        (first definition)))
-                     definitions))
-      (let* ((names (remove nil
-                            (mapcar (lambda (definition)
-                                      (%liveness-reference-function-name
-                                       (first definition)))
-                                    definitions)))
-             (local-functions (if (equal operator "LABELS")
-                                  (append names functions)
-                                  functions)))
-        (dolist (definition definitions)
-          (let ((locals (%liveness-walk-lambda-vars (second definition) values
-                                                    local-functions nil)))
-            (%liveness-walk-sequence (cddr definition)
-                                     (append values locals)
-                                     local-functions)))
-        (%liveness-walk-sequence (cddr object) values
-                                 (append names functions)))
-      t)))
+  (when (member operator '("FLET" "LABELS") :test #'equal)
+    (let ((definitions (second object)))
+      (when (some (lambda (definition)
+                    (%liveness-reference-setf-function-name-p
+                     (first definition)))
+                  definitions)
+        (let* ((names
+                 (remove nil
+                         (mapcar (lambda (definition)
+                                   (%liveness-reference-function-name
+                                    (first definition)))
+                                 definitions)))
+               (local-functions (if (equal operator "LABELS")
+                                    (append names functions)
+                                    functions)))
+          (dolist (definition definitions)
+            (let ((locals (%liveness-walk-lambda-vars
+                           (second definition) values local-functions nil)))
+              (%liveness-walk-sequence (cddr definition)
+                                       (append values locals)
+                                       local-functions)))
+          (%liveness-walk-sequence (cddr object) values
+                                   (append names functions)))
+        t))))
 
 (defun %liveness-walk-dispatched-form (object operator values functions)
   (or (%liveness-walk-common-form object operator values functions)

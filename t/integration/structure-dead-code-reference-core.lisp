@@ -230,6 +230,4 @@
     (t nil)))
 
 (defun %liveness-walk-quasiquote (object values functions)
-  (%liveness-walk-form
-   (%liveness-walk-quasiquote-template (second object) 1 t values functions)
-   values functions))
+  (%liveness-walk-quasiquote-template (second object) 1 t values functions))
