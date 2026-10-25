@@ -14,7 +14,7 @@
 
 
 (describe "aitools handwritten-stub gate"
-  (it "ignores comments, strings, reader comments, and production constructor callbacks"
+  (it "ignores comments, strings, reader comments, constructors, and nested unquotes that remain data"
     (multiple-value-bind (violations unresolved)
         (%scan-handwritten-stub-fixture "pass" "pass/cases.lisp")
       (expect violations :to-equal nil)
@@ -22,18 +22,23 @@
                                unresolved)))
               :to-equal t)))
 
-  (it "detects static fdefinition, symbol-function, and defun replacements"
+  (it "detects direct replacements, setter names, and active unquotes"
     (multiple-value-bind (violations unresolved)
         (%scan-handwritten-stub-fixture "fail" "fail/cases.lisp")
       (expect unresolved :to-equal nil)
       (expect violations
               :to-equal
-              '("fail/cases.lisp:3: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-EQUAL"
-                "fail/cases.lisp:4: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-POINTER-GET"
-                "fail/cases.lisp:5: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-STUB-FIXTURE"
-                "fail/cases.lisp:6: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-POINTER-PUT"
-                "fail/cases.lisp:7: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-CL-DEFUN-FIXTURE"
-                "fail/cases.lisp:8: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-AFTER-READER-STRING"))))
+              (list
+               "fail/cases.lisp:3: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-EQUAL"
+               "fail/cases.lisp:4: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-POINTER-GET"
+               "fail/cases.lisp:5: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-STUB-FIXTURE"
+               "fail/cases.lisp:6: hand-written replacement of AITOOLS.KERNEL.DOMAIN:JSON-MODEL-POINTER-PUT"
+               "fail/cases.lisp:7: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-CL-DEFUN-FIXTURE"
+               "fail/cases.lisp:8: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-AFTER-READER-STRING"
+               "fail/cases.lisp:9: hand-written replacement of AITOOLS.KERNEL.DOMAIN:(SETF JSON-MODEL-EQUAL)"
+               "fail/cases.lisp:11: hand-written replacement of AITOOLS.KERNEL.DOMAIN:(SETF JSON-MODEL-POINTER-PUT)"
+               "fail/cases.lisp:12: hand-written replacement of AITOOLS.KERNEL.DOMAIN:(SETF HANDWRITTEN-DEFUN-POINTER)"
+               "fail/cases.lisp:13: hand-written replacement of AITOOLS.KERNEL.DOMAIN:HANDWRITTEN-FUNCTION-QUOTED-TARGET"))))
 
   (it "requires a reason for each used allowance and rejects stale entries"
     (multiple-value-bind (violations unresolved)
@@ -49,8 +54,10 @@
          "fail" "fail/cases.lisp"
          (list (list "AITOOLS.KERNEL.DOMAIN" "JSON-MODEL-EQUAL" "approved reason")))
       (declare (ignore unresolved))
-      (expect (length violations) :to-equal 5)
-      (expect (notany (lambda (entry) (search "JSON-MODEL-EQUAL" entry)) violations)
+      (expect (length violations) :to-equal 9)
+      (expect (notany (lambda (entry)
+                        (search "AITOOLS.KERNEL.DOMAIN:JSON-MODEL-EQUAL" entry))
+                      violations)
               :to-equal t))
     (multiple-value-bind (violations unresolved)
         (%scan-handwritten-stub-fixture
@@ -68,6 +75,7 @@
       (expect violations :to-equal nil)
       (expect unresolved
               :to-equal
-              '("t/perf/search-allocation-timing-runner.lisp:13: dynamic SYMBOL-FUNCTION target AITOOLS.STRUCTURE-TEST.READER::SPAWN-SYMBOL"
-                "t/perf/search-allocation-timing-runner.lisp:18: dynamic SYMBOL-FUNCTION target AITOOLS.STRUCTURE-TEST.READER::WAIT-SYMBOL")))))
+              (list
+               "t/perf/search-allocation-timing-runner.lisp:13: dynamic SYMBOL-FUNCTION target AITOOLS.STRUCTURE-TEST.READER::SPAWN-SYMBOL"
+               "t/perf/search-allocation-timing-runner.lisp:18: dynamic SYMBOL-FUNCTION target AITOOLS.STRUCTURE-TEST.READER::WAIT-SYMBOL")))))
 

@@ -11,4 +11,5 @@
  :read-octets (lambda (path) (declare (ignore path)) #()))
 (defun instrument-by-variable (target replacement)
   (setf (symbol-function target) replacement)
+``(,(setf (fdefinition 'aitools.kernel.domain::json-model-equal) #'identity))
 "
