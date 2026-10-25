@@ -52,7 +52,7 @@
          :reason "DO-LINES emits this call at packages/core/text/src/domain/line-index.lisp:49; production BUILD-LINE-INDEX uses the macro.")
    (list :finding "packages/feature/edit/src/application/yaml-toml-command-flows.lisp:141: unused definition AITOOLS.EDIT.APPLICATION:%FORMAT-COMMAND/K"
          :reason "DEFINE-FORMAT-WRITE-COMMANDS emits this call at packages/feature/edit/src/application/yaml-toml-command-flows.lisp:197; production YAML and TOML flows invoke that macro.")
-   (list :finding "packages/feature/inspect/src/presentation/registry.lisp:50: unused definition AITOOLS.INSPECT.PRESENTATION:%SCHEMA"
+   (list :finding "packages/feature/inspect/src/presentation/registry.lisp:49: unused definition AITOOLS.INSPECT.PRESENTATION:%SCHEMA"
          :reason "DEFINE-INSPECT-COMMAND emits this call at packages/feature/inspect/src/presentation/registry.lisp:24; production command declarations invoke the macro.")
    (list :finding "packages/feature/util/src/domain/calc-parser.lisp:3: unused definition AITOOLS.UTIL.DOMAIN:%PARSER-DEPTH"
          :reason "%WITH-DEPTH emits these accessor calls at packages/feature/util/src/domain/calc-parser.lisp:25 and 27; production parser forms use the macro.")
