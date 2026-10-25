@@ -12,9 +12,10 @@ completion.
   carries the command that reads the next part.
 - **Guarded writes.** A guarded edit names the text it replaces or the hash and
   count it expects, and writes nothing when the file differs.
-- **Crash-safe writes with undo.** Journaled writes go through a protocol that
-  finishes or discards an interrupted operation on the next run, and is
-  journaled so `aitools undo <op_id>` can revert it.
+- **Journaled writes with recovery and undo.** On a later run, recovery finishes
+  or discards an interrupted write when safe. If a checkpoint cannot be
+  reopened safely, it retains the intent for operator recovery. Use
+  `aitools undo <op_id>` to revert a completed operation.
 - **Transactions.** Writes from several calls can be staged, inspected, and
   committed as one operation.
 - **Secret masking.** Known secret formats are replaced with
