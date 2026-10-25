@@ -1,7 +1,7 @@
 (in-package #:aitools.e2e.test)
 
 (describe "aitools e2e org read error envelopes"
-  (define-org-read-case ("org outline rejects missing, malformed, and non-UTF-8 inputs" ws)
+  (define-org-case ("org outline rejects missing, malformed, and non-UTF-8 inputs" ws)
     (let ((envelope (org-error ws '("org" "outline" "MISSING.org")
                                "org.outline" "input.not-found")))
       (dolist (field '("entries" "total" "truncated"))

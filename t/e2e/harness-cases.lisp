@@ -221,3 +221,10 @@ table data), GIT makes WORKSPACE a fresh repository."
                (aitools-binary)
                (call-with-workspace (lambda (,workspace) (declare (ignorable ,workspace)) ,@body)
                                     :git ,git))))))))
+
+(defmacro define-org-case ((name workspace) &body body)
+  `(it ,name
+     (with-progress (,name)
+       (let ((*current-case* (list 0 ,name)))
+         (aitools-binary)
+         (call-with-workspace (lambda (,workspace) ,@body))))))

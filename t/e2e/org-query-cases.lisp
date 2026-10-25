@@ -1,6 +1,6 @@
 (in-package #:aitools.e2e.test)
 (describe "aitools e2e org read results and boundaries"
-  (define-org-read-case ("org query reports sibling indices and nullable metadata" ws)
+  (define-org-case ("org query reports sibling indices and nullable metadata" ws)
     (put ws "siblings.org"
          (format nil "~{~A~%~}"
                  (list "* Parent"
@@ -53,7 +53,7 @@
         (expect (jget none "count") :to-be 0)
         (expect (jlist (jget none "matches")) :to-equal (list)))
       (expect (file-octets ws "siblings.org") :to-equalp before)))
-  (define-org-read-case ("org outline names unnamed source blocks by language" ws)
+  (define-org-case ("org outline names unnamed source blocks by language" ws)
     (put ws "unnamed.org"
          (format nil
                  "#+BEGIN_SRC lisp~%(+ 1 2)~%#+END_SRC~%#+BEGIN_EXAMPLE~%plain text~%#+END_EXAMPLE~%"))
@@ -66,7 +66,7 @@
               :to-equal '(("src-block" "lisp" nil 1)
                           ("example-block" "" nil 4)))
       (expect (file-octets ws "unnamed.org") :to-equalp before)))
-  (define-org-read-case ("org outline rejects NUL and UTF-16/UTF-32 inputs" ws)
+  (define-org-case ("org outline rejects NUL and UTF-16/UTF-32 inputs" ws)
     (dolist (fixture
              '(("nul.org" . #(#x2A #x20 #x54 #x69 #x74 #x6C #x65 #x00 #x0A))
                ("utf16be.org" . #(#xFE #xFF #x00 #x2A #x00 #x20 #x00 #x54))

@@ -1,12 +1,5 @@
 (in-package #:aitools.e2e.test)
 
-(defmacro define-org-read-case ((name workspace) &body body)
-  `(it ,name
-     (with-progress (,name)
-       (let ((*current-case* (list 0 ,name)))
-         (aitools-binary)
-         (call-with-workspace (lambda (,workspace) ,@body))))))
-
 (defun org-ok (workspace arguments command)
   (let ((envelope (run-ok workspace arguments)))
     (expect envelope :to-match-envelope "command" command "status" "ok")
@@ -70,7 +63,7 @@
     ("diary" . ,(format nil "* Diary~%%%(diary-float t 4 2)~%"))))
 
 (describe "aitools e2e org read commands"
-  (define-org-read-case ("org outline returns ordered entries and applies entry limits" ws)
+  (define-org-case ("org outline returns ordered entries and applies entry limits" ws)
     (put ws "outline.org" +org-outline-query-fixture+)
     (let ((before (file-octets ws "outline.org")))
       (expect (plusp (length before)) :to-be t)
@@ -93,7 +86,7 @@
                             ("headline" "Test" 2 3)
                             ("headline" "Ship" 1 4))))
       (expect (file-octets ws "outline.org") :to-equalp before)))
-  (define-org-read-case ("org outline returns named source and unnamed example blocks in document order" ws)
+  (define-org-case ("org outline returns named source and unnamed example blocks in document order" ws)
     (put ws "blocks.org"
          (format nil "~{~A~%~}"
                  (list "#+NAME: code-sample"
@@ -111,7 +104,7 @@
               :to-equal '(("src-block" "code-sample" nil 1)
                              ("example-block" "" nil 5)))))
 
-  (define-org-read-case ("org query filters TODO headings and accepts the documented regex subset" ws)
+  (define-org-case ("org query filters TODO headings and accepts the documented regex subset" ws)
     (put ws "query.org" +org-outline-query-fixture+)
     (let ((before (file-octets ws "query.org")))
       (dolist (match '("work/TODO" "{w.*}/TODO"))
@@ -137,7 +130,7 @@
                   :to-equal '((("Build" 1)) (("Build" 1) ("Test" 1))))))
       (expect (file-octets ws "query.org") :to-equalp before)))
 
-  (define-org-read-case ("org query errors include a repair and source position" ws)
+  (define-org-case ("org query errors include a repair and source position" ws)
     (put ws "query.org" +org-outline-query-fixture+)
     (let* ((before (file-octets ws "query.org"))
            (envelope (org-error ws
@@ -156,7 +149,7 @@
               :to-be t)
       (expect (file-octets ws "query.org") :to-equalp before)))
 
-  (define-org-read-case ("org query validates explicit time and applies DST policy" ws)
+  (define-org-case ("org query validates explicit time and applies DST policy" ws)
     (put ws "query.org" (format nil "* Scheduled~%SCHEDULED: <2026-03-08 Sun 02:00>~%"))
     (let ((before (file-octets ws "query.org")))
       (dolist (arguments
@@ -189,7 +182,7 @@
                      "org.query" "argument.invalid")
           (expect (file-octets ws "overlap.org") :to-equalp overlap-before)))
       (expect (file-octets ws "query.org") :to-equalp before)))
-  (define-org-read-case ("org export returns HTML, GFM, and ASCII strings" ws)
+  (define-org-case ("org export returns HTML, GFM, and ASCII strings" ws)
     (put ws "export.org" +org-export-basic-fixture+)
     (let ((before (file-octets ws "export.org")))
       (dolist (backend '("html" "gfm" "ascii"))
@@ -205,7 +198,7 @@
                  (t '("A *bold*." "bold"))))))
       (expect (file-octets ws "export.org") :to-equalp before)))
 
-  (define-org-read-case ("org export preserves supported document elements in each backend" ws)
+  (define-org-case ("org export preserves supported document elements in each backend" ws)
     (put ws "coverage.org" +org-export-coverage-fixture+)
     (let ((before (file-octets ws "coverage.org")))
       (dolist (backend '("html" "gfm" "ascii"))
@@ -231,7 +224,7 @@
             (expect-org-one-fragment content '("[x] checked" "[X] checked")))))
       (expect (file-octets ws "coverage.org") :to-equalp before)))
 
-  (define-org-read-case ("org export rejects links and Diary syntax without partial content" ws)
+  (define-org-case ("org export rejects links and Diary syntax without partial content" ws)
     (dolist (fixture +org-export-refusal-fixtures+)
       (put ws "links.org" (cdr fixture))
       (let ((before (file-octets ws "links.org")))

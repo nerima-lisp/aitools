@@ -13,7 +13,7 @@
          "Missing :exports source block value")))
 
 (describe "aitools e2e org export"
-  (define-org-read-case
+  (define-org-case
     ("org export rejects malformed source :exports arguments without content" ws)
     (dolist (fixture +org-export-invalid-source-mode-fixtures+)
       (let* ((relative (format nil "~A.org" (first fixture)))
@@ -36,7 +36,7 @@
               (expect (jget diagnostic "message") :to-equal expected-message)))
           (expect (file-octets ws relative) :to-equalp before)))))
 
-  (define-org-read-case ("org export preserves ordered lists in every backend" ws)
+  (define-org-case ("org export preserves ordered lists in every backend" ws)
     (put ws "ordered.org" (format nil "1. ordered~%"))
     (let ((before (file-octets ws "ordered.org")))
       (dolist (backend (list "html" "gfm" "ascii"))
@@ -50,7 +50,7 @@
               (expect (search "<ol" content) :to-be-truthy)
               (expect (search "1. ordered" content) :to-be-truthy))))
       (expect (file-octets ws "ordered.org") :to-equalp before)))
-  (define-org-read-case
+  (define-org-case
    ("org export preserves mailto links in every backend" ws)
    (put ws "mailto.org"
         (format nil "* Contact~%[[mailto:ops@example.test][mail]]~%"))
@@ -73,7 +73,7 @@
            (expect-org-fragments
             content (list "[mail]" "[mail] <mailto:ops@example.test>"))))))
      (expect (file-octets ws "mailto.org") :to-equalp before)))
-  (define-org-read-case
+  (define-org-case
    ("org export rejects unknown link schemes without partial content" ws)
    (put ws "unsafe.org"
         (format nil "* Link~%[[javascript:alert(1)][unsafe]]~%"))
@@ -91,7 +91,7 @@
          (expect (jget diagnostic "message")
                  :to-equal "export does not support Org link type fuzzy")))
      (expect (file-octets ws "unsafe.org") :to-equalp before)))
-  (define-org-read-case ("org export includes metadata in the documented backends" ws)
+  (define-org-case ("org export includes metadata in the documented backends" ws)
     (put ws "metadata.org"
          (format nil "#+TITLE: ~A~%#+AUTHOR: ~A~%#+DATE: ~A~%#+LANGUAGE: en~%* Content~%"
                 "Quarterly Report" "Ada Lovelace" "2026-10-19"))
@@ -114,7 +114,7 @@
                   content '("QUARTERLY REPORT" "Ada Lovelace" "2026-10-19"))))))
       (expect (file-octets ws "metadata.org") :to-equalp before))))
 (describe "aitools e2e org export modes"
-  (define-org-read-case ("org export applies all source :exports modes across backends" ws)
+  (define-org-case ("org export applies all source :exports modes across backends" ws)
     (dolist (fixture
              (list (list "omitted" nil t nil)
                    (list "code" "code" t nil)
@@ -146,7 +146,7 @@
                         :to-equal (list label backend expected-results-p))))
             (expect (file-octets ws relative) :to-equalp before)))))))
 (describe "aitools e2e org export acceptance"
-  (define-org-read-case
+  (define-org-case
    ("org export matches pinned cl-org-kit output and is deterministic" ws)
    (let* ((source +org-export-coverage-fixture+)
           (source-bytes (octets source))
@@ -180,7 +180,7 @@
            (expect second-content :to-equal first-content)
            (expect first-content :to-equal expected)))
        (expect (file-octets ws "coverage.org") :to-equalp before))))
-  (define-org-read-case
+  (define-org-case
    ("org export omits comments, properties, and planning metadata" ws)
    (let* ((source
             (format nil

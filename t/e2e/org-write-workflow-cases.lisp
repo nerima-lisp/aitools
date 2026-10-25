@@ -1,7 +1,7 @@
 (in-package #:aitools.e2e.test)
 
 (describe "aitools e2e org write workflows"
-  (define-org-write-case ("org tx dry-run plans against the staged overlay without changing it" ws)
+  (define-org-case ("org tx dry-run plans against the staged overlay without changing it" ws)
     (let* ((original (format nil "* TODO Build :work:~%"))
            (property-only (format nil "* TODO Build :work:~%:PROPERTIES:~%:OWNER: 高橋~%:END:~%")))
       (put ws "tx-dry.org" original)
@@ -34,7 +34,7 @@
         (run-ok ws (list "tx" "commit" tx))
         (expect (file-octets ws "tx-dry.org") :to-equalp (octets property-only)))))
 
-  (define-org-write-case ("org todo note follows configured logging markers byte for byte" ws)
+  (define-org-case ("org todo note follows configured logging markers byte for byte" ws)
     (put ws "todo-note.org" (format nil "#+TODO: TODO(t!) | DONE(d@)~%* TODO Close~%"))
     (let* ((original (file-octets ws "todo-note.org"))
            (result (org-ok ws
@@ -49,7 +49,7 @@
       (expect (jget result "changed") :to-be t)
       (expect-org-write-and-undo ws "todo-note.org" original expected result)))
 
-  (define-org-write-case ("org planning rejects duplicate timestamps on indented lines" ws)
+  (define-org-case ("org planning rejects duplicate timestamps on indented lines" ws)
     (put ws "duplicate-planning.org"
          (format nil "* TODO Release~%   SCHEDULED: <2026-10-20> SCHEDULED: <2026-10-22>~%"))
     (let ((before (file-octets ws "duplicate-planning.org")))

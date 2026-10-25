@@ -1,12 +1,5 @@
 (in-package #:aitools.e2e.test)
 
-(defmacro define-org-table-write-case ((name workspace) &body body)
-  `(it ,name
-     (with-progress (,name)
-       (let ((*current-case* (list 0 ,name)))
-         (aitools-binary)
-         (call-with-workspace (lambda (,workspace) ,@body))))))
-
 (defparameter +org-table-byte-fixture+
   (concatenate 'string
                "#+TODO: TODO | DONE" (string #\Newline)
@@ -32,7 +25,7 @@
              (terpri stream))))
 
 (describe "aitools e2e org table writes"
-  (define-org-table-write-case ("org table align and recalculate preserve F-BYTE spans" ws)
+  (define-org-case ("org table align and recalculate preserve F-BYTE spans" ws)
     (put ws "byte-table.org" +org-table-byte-fixture+)
     (let ((before (file-octets ws "byte-table.org")))
       (let ((aligned (org-ok ws '("org" "table" "align" "byte-table.org" "--table" "1")
@@ -59,7 +52,7 @@
         (expect (jget recalculated "changed") :to-be t)
         (expect-org-write-and-undo ws "byte-table.org" before expected recalculated))))
 
-  (define-org-table-write-case ("org table align normalizes mixed tables without touching surrounding text" ws)
+  (define-org-case ("org table align normalizes mixed tables without touching surrounding text" ws)
     (put ws "align.org"
          (format nil
                  (concatenate 'string
@@ -82,7 +75,7 @@
       (expect (jget aligned "changed") :to-be t)
       (expect-org-write-and-undo ws "align.org" before expected aligned)))
 
-  (define-org-table-write-case ("org table sort is stable and honors explicit row bounds" ws)
+  (define-org-case ("org table sort is stable and honors explicit row bounds" ws)
     (put ws "sort.org"
          (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| Z | 3 |~%| A | second |~%| A | first |~%| 0 | outside |~%"))
     (let* ((before (file-octets ws "sort.org"))
@@ -104,8 +97,7 @@
                  "org.table.sort" "argument.invalid")
       (expect (file-octets ws "bad-table.org") :to-equalp before)))
 
-  (define-org-table-write-case
-    ("org table sort supports numeric descending and undoes exactly" ws)
+  (define-org-case ("org table sort supports numeric descending and undoes exactly" ws)
     (put ws "numeric-sort.org"
          (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| 2 | two |~%| 10 | ten |~%"))
     (let* ((before (file-octets ws "numeric-sort.org"))
@@ -119,7 +111,7 @@
       (expect (jget sorted "changed") :to-be t)
       (expect-org-write-and-undo ws "numeric-sort.org" before expected sorted)))
 
-  (define-org-table-write-case ("org table formula recalculate evaluates and rejects the documented subset" ws)
+  (define-org-case ("org table formula recalculate evaluates and rejects the documented subset" ws)
     (put ws "formula.org"
          (format nil "| Input | Total |~%|-------+-------|~%| 2 | 0 |~%#+TBLFM: @2$2=$1+1~%"))
     (let ((result (org-ok ws '("org" "table" "recalculate" "formula.org" "--table" "1")
@@ -154,7 +146,7 @@
                      "org.table.recalculate" code)
           (expect (file-octets ws path) :to-equalp before)))))
 
-  (define-org-table-write-case ("org table formulas preserve precedence and first-directive behavior" ws)
+  (define-org-case ("org table formulas preserve precedence and first-directive behavior" ws)
     (put ws "precedence.org"
          (format nil "| Input | Result |~%|-------+--------|~%| 12 | 0 |~%| 12 | 0 |~%#+TBLFM: @2$2=12/3*2::@3$2=12/3/2~%"))
     (let ((result (org-ok ws '("org" "table" "recalculate" "precedence.org" "--table" "1")
@@ -170,7 +162,7 @@
       (expect (file-text ws "multiple.org")
               :to-equal (format nil "| Input | Total |~%|-------+-------|~%| 2 | 3 |~%#+TBLFM: @2$2=$1+1~%#+TBLFM: @2$2=$1+2~%"))))
 
-  (define-org-table-write-case ("org table diff truncation exposes commit, dry-run, and tx results" ws)
+  (define-org-case ("org table diff truncation exposes commit, dry-run, and tx results" ws)
     (let ((fixture (org-diff-cut-fixture)))
       (put ws "large.org" fixture)
       (let* ((committed

@@ -1,7 +1,7 @@
 (in-package #:aitools.e2e.test)
 
 (describe "aitools e2e org agenda"
-  (define-org-read-case ("org agenda returns inclusive deadline entries" ws)
+  (define-org-case ("org agenda returns inclusive deadline entries" ws)
     (put ws "agenda.org" (format nil "* TODO Ship~%DEADLINE: <2026-10-19 Mon>~%"))
     (let* ((before (file-octets ws "agenda.org"))
            (envelope (org-ok ws

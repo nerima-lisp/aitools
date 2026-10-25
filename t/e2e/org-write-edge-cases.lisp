@@ -1,6 +1,6 @@
 (in-package #:aitools.e2e.test)
 (describe "aitools e2e org command edge cases"
-  (define-org-write-case ("org planning accepts a time range with repeater and warning" ws)
+  (define-org-case ("org planning accepts a time range with repeater and warning" ws)
     (put ws "planning-range.org" (format nil "* TODO Release~%"))
     (let* ((timestamp "<2026-10-20 09:00-10:00 +1w -2d>")
            (result
@@ -13,7 +13,7 @@
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "planning-range.org")
               :to-equal (format nil "* TODO Release~%SCHEDULED: ~A~%" timestamp))))
-  (define-org-write-case
+  (define-org-case
     ("org property set adds an unregistered property and preserves surrounding bytes" ws)
     (let* ((source
              (format nil
@@ -33,7 +33,7 @@
         (expect (jget result "changed") :to-be t)
         (expect-org-write-and-undo ws "new-property.org" before expected result))))
 
-  (define-org-write-case ("org agenda distinguishes next and disabled future repeats" ws)
+  (define-org-case ("org agenda distinguishes next and disabled future repeats" ws)
     (put ws "repeat.org"
          (format nil "* TODO Weekly~%<2026-10-16 Fri +1w>~%"))
     (let* ((base '("org" "agenda" "repeat.org" "--from" "2026-10-19"
@@ -48,7 +48,7 @@
       (expect (jget none "count") :to-be 0)
       (expect (jlist (jget none "entries")) :to-equal nil)))
 
-  (define-org-write-case ("org clock rejects a second running clock and an earlier end time" ws)
+  (define-org-case ("org clock rejects a second running clock and an earlier end time" ws)
     (put ws "already-running.org" (format nil "* TODO Work~%"))
     (org-ok ws (org-write-time-args '("org" "clock" "in" "already-running.org" "--match" "/!"))
             "org.clock.in")
@@ -67,7 +67,7 @@
                  "org.clock.out" "argument.invalid")
       (expect (file-octets ws "earlier-clock-out.org") :to-equalp before)))
 
-  (define-org-write-case ("org clock report validates both range endpoints" ws)
+  (define-org-case ("org clock report validates both range endpoints" ws)
     (let ((source (format nil "* TODO Work~%")))
       (put ws "bad-clock-range.org" source)
       (dolist (arguments
@@ -81,7 +81,7 @@
           (org-error ws arguments "org.clock.report" "argument.invalid")
           (expect (file-octets ws "bad-clock-range.org") :to-equalp before)))))
 
-  (define-org-write-case ("org table sort validates paired positive bounds and table selection" ws)
+  (define-org-case ("org table sort validates paired positive bounds and table selection" ws)
     (put ws "sort-bounds.org"
          (format nil "| Name | Score |~%|------+-------|~%| Beta | 2 |~%| Alpha | 1 |~%"))
     (let ((before (file-octets ws "sort-bounds.org")))
@@ -96,7 +96,7 @@
                  "org.table.sort" "argument.invalid")
       (expect (file-octets ws "sort-bounds.org") :to-equalp before)))
 
-  (define-org-write-case ("org numeric table sort rejects a nonnumeric cell without editing" ws)
+  (define-org-case ("org numeric table sort rejects a nonnumeric cell without editing" ws)
     (put ws "numeric-sort.org"
          (format nil "| 10 |~%| unknown |~%"))
     (let ((before (file-octets ws "numeric-sort.org")))

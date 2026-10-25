@@ -1,12 +1,5 @@
 (in-package #:aitools.e2e.test)
 
-(defmacro define-org-write-case ((name workspace) &body body)
-  `(it ,name
-     (with-progress (,name)
-       (let ((*current-case* (list 0 ,name)))
-         (aitools-binary)
-         (call-with-workspace (lambda (,workspace) ,@body))))))
-
 (defparameter +org-write-time-context+
   '("--at" "2026-10-19T09:00:00" "--tz" "UTC"))
 
@@ -44,7 +37,7 @@
                "#+TBLFM: @2$2=2+1"))
 
 (describe "aitools e2e org write commands"
-  (define-org-write-case ("org todo and property edits preserve unrelated bytes" ws)
+  (define-org-case ("org todo and property edits preserve unrelated bytes" ws)
     (put ws "byte.org" +org-byte-fixture+)
     (let* ((todo (org-ok ws
                          (org-write-time-args
@@ -78,7 +71,7 @@
       (expect (jget delete "changed") :to-be t)
       (expect-org-write-and-undo ws "byte.org" (octets +org-byte-fixture+) expected delete)))
 
-  (define-org-write-case ("org selector errors and delete no-ops preserve the file" ws)
+  (define-org-case ("org selector errors and delete no-ops preserve the file" ws)
     (put ws "no-match.org" (format nil "#+TODO: TODO | DONE~%* DONE Release~%"))
     (let ((before (file-octets ws "no-match.org")))
       (org-error ws (org-write-time-args
@@ -115,7 +108,7 @@
       (expect (jget planning "changed") :to-be nil)
       (expect (file-octets ws "noop.org") :to-equalp before)))
 
-  (define-org-write-case ("org planning set, update, and delete use the timestamp subset" ws)
+  (define-org-case ("org planning set, update, and delete use the timestamp subset" ws)
     (put ws "planning.org" (format nil "* TODO Release~%"))
     (let* ((set (org-ok ws (org-write-time-args
                             '("org" "planning" "set" "planning.org" "--match" "/TODO"
@@ -146,7 +139,7 @@
                                  (octets (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
                                  (format nil "* TODO Release~%") deleted)))
 
-  (define-org-write-case ("org planning rejects timestamps outside the CLI contract" ws)
+  (define-org-case ("org planning rejects timestamps outside the CLI contract" ws)
     (put ws "invalid-plan.org" (format nil "* TODO Release~%"))
     (let ((before (file-octets ws "invalid-plan.org")))
       (dolist (timestamp
@@ -169,7 +162,7 @@
                    "org.planning.set" "argument.invalid")
         (expect (file-octets ws "invalid-plan.org") :to-equalp before))))
 
-  (define-org-write-case ("org writes honor dry-run, tx staging, commit, and undo" ws)
+  (define-org-case ("org writes honor dry-run, tx staging, commit, and undo" ws)
     (put ws "write.org" (format nil "#+TODO: TODO | DONE~%* TODO Release~%"))
     (let* ((before (file-octets ws "write.org"))
            (expected (octets (format nil "#+TODO: TODO | DONE~%* DONE Release~%")))
@@ -199,7 +192,7 @@
           (run-ok ws (list "undo" op-id))
           (expect (file-octets ws "write.org") :to-equalp before)))))
 
-  (define-org-write-case ("org clock in and out write the documented intervals" ws)
+  (define-org-case ("org clock in and out write the documented intervals" ws)
     (put ws "clock-in.org" (format nil "* TODO Work~%"))
     (let ((clock-in
             (org-ok ws
@@ -228,7 +221,7 @@
                                  (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%:END:~%")
                                  clock-out)))
 
-  (define-org-write-case ("org clock report aggregates closed clocks and omits running clocks" ws)
+  (define-org-case ("org clock report aggregates closed clocks and omits running clocks" ws)
     (put ws "clock-report.org"
          (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] =>  0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
     (let* ((before (file-octets ws "clock-report.org"))
