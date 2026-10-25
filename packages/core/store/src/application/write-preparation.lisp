@@ -38,17 +38,12 @@ including one outside the workspace."
 
 (aitools.kernel.domain:define-flow
     (call-with-prepared-intent/k store intent-path steps &key on-prepared)
-  "Run ON-PREPARED, which prepares the write protocol's temp files and (when INTENT-PATH
-names one) the intent record for STEPS and then reaches the commit point.
-
-An ERROR out of ON-PREPARED is a pre-commit I/O failure: the temp files and,
-best effort, the incomplete record are removed and the error propagates. The
-workspace was never touched; a record whose own removal fails is left for the
-next recovery to discard. A non-error unwind is the in-process model of a
-crash (the fault injector's :throw): the prepared state is left exactly as a
-dead process would leave it, for the next recovery to discard. ON-PREPARED
-returning normally is the commit: nothing is discarded, so a committed record
-survives for recovery to roll forward."
+  "Run ON-PREPARED to prepare the temp files for STEPS and, when INTENT-PATH
+is non-NIL, its intent record. If ON-PREPARED signals an ERROR, the temp
+files and any intent record are removed on a best-effort basis before the
+error propagates. A non-error unwind leaves the prepared state in place;
+without an intent path, there is no record for recovery to inspect. A normal
+return resumes the caller after preparation."
   (declare (type function on-prepared))
   (flet ((discard ()
            ;; Best-effort removal of what prepare created: the `.aitools-*.tmp`

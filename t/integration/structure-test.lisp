@@ -1,4 +1,3 @@
-;;;; t/integration/structure-test.lisp
 ;;;;
 ;;;; The dependency-direction check (docs/src/reference/architecture.md):
 ;;;; scans every context's source for the

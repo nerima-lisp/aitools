@@ -92,10 +92,9 @@ garbage collection skip."
     (store-io-error () nil)))
 
 (defun call-with-temp-file (store path octets on-temp &key sync)
-  "The store's atomic publish through a temp file: create PATH holding OCTETS
-(fsynced when SYNC), call ON-TEMP with PATH so it can rename PATH over its
-target, and remove PATH afterwards. A rename into place leaves nothing to
-remove; a failure before or during the rename never leaves the temp behind."
+  "Create PATH with OCTETS (fsyncing when SYNC), then call ON-TEMP with PATH.
+Cleanup runs on return or unwind. A successful rename leaves nothing to
+remove; a store I/O error during cleanup is ignored and may leave PATH behind."
   (declare (type function on-temp))
   (%io store create-file path octets :sync sync)
   (unwind-protect (funcall on-temp path)
@@ -108,10 +107,10 @@ remove; a failure before or during the rename never leaves the temp behind."
        (call-with-temp-file ,store ,path ,octets #',on-temp :sync ,sync))))
 
 (defun call-with-temp-dir (store path on-dir &key (mode #o700))
-  "The atomic publish of a directory built entry by entry before it is named:
-create PATH (MODE 0700 by default), call ON-DIR with PATH so it can fill and
-then rename PATH into place, and delete PATH's tree afterwards. A rename into
-place leaves nothing to delete; a failure never leaves the temp tree behind."
+  "Create PATH (MODE 0700 by default), call ON-DIR with PATH to fill it,
+then attempt to remove its tree on return or unwind. A successful rename
+leaves nothing to remove; a store I/O error during cleanup is ignored and
+may leave the temporary tree behind."
   (declare (type function on-dir))
   (%io store mkdir path :mode mode)
   (unwind-protect (funcall on-dir path)

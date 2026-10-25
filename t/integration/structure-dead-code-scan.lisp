@@ -19,14 +19,11 @@
   "Architecture documents these public APIs without in-tree callers."
   (and (eq namespace :function)
        (member (list package symbol)
-               (quote (;; architecture.md:320 documents the public diff-generation API.
+               (quote (
                        ("AITOOLS.KERNEL.DOMAIN" "GENERATE-UNIFIED-DIFF")
-                       ;; architecture.md:251 documents the transaction lock macros.
                        ("AITOOLS.STORE.APPLICATION" "WITH-TX-LOCK")
                        ("AITOOLS.STORE.APPLICATION" "WITH-WORKSPACE-LOCK")
-                       ;; architecture.md:250 documents the text boundary macro.
                        ("AITOOLS.TEXT.INFRASTRUCTURE" "WITH-TEXT-BOUNDARIES")
-                       ;; architecture.md:249 documents the workspace boundary macro.
                        ("AITOOLS.WORKSPACE.INFRASTRUCTURE" "WITH-WORKSPACE-BOUNDARIES")))
                :test (function equal))))
 
