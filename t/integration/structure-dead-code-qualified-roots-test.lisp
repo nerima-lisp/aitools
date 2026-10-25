@@ -75,6 +75,7 @@
         "packages/feature/fixture-roots/src/domain/macro-lambda-list-scope.lisp")
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:4: unresolved dynamic find-symbol"
  "packages/feature/fixture-roots/src/domain/commands.lisp:27: unresolved command builder"
+ "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:16: unresolved dynamic find-symbol"
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:17: unresolved dynamic find-symbol"
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:25: unused definition AITOOLS.FIXTURE.ROOTS.API:EXPLICIT-NIL-PACKAGE-TARGET"
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:22: unused definition AITOOLS.FIXTURE.ROOTS.API:INACTIVE-BACKQUOTE-TARGET")
@@ -179,4 +180,7 @@
   (expect (not (null unified-diff-api)) :to-equal t)
   (expect (getf unified-diff-api :root) :to-equal t)
   (expect (not (null diff-hunks-api)) :to-equal t)
-  (expect (getf diff-hunks-api :root) :to-equal nil))))
+  (expect (getf diff-hunks-api :root) :to-equal nil))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "distinguishes qualified references, roots, and imports")
+      (finish-output *error-output*))))

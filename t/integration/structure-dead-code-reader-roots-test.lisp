@@ -2,7 +2,7 @@
 
 (describe "aitools structure test (dead code)"
   (it "keeps reader-resolved roots in their source namespaces"
-      (let* ((records (%liveness-files
+    (let* ((records (%liveness-files
                        (merge-pathnames "t/integration/fixtures/u05-dead-code-roots/"
                                         (repository-root))))
              (definitions (%liveness-definitions records))
@@ -131,4 +131,7 @@
  ("AITOOLS.FIXTURE.ROOTS" :type "%UNUSED-NEGATIVE-CONDITION")
  ("AITOOLS.FIXTURE.ROOTS" :function "%LOOP-GENERATED-MODEL-P"))))
               (destructuring-bind (package namespace symbol) entry
-                (expect (reference-p package namespace symbol) :to-equal nil))))))))
+                (expect (reference-p package namespace symbol) :to-equal nil))))))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "keeps reader-resolved roots in their source namespaces")
+      (finish-output *error-output*))))

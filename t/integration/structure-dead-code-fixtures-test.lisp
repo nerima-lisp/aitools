@@ -16,7 +16,10 @@
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "u05-dead-code-definition-passes")
       (expect (not (null records)) :to-equal t)
-      (expect violations :to-equal nil)))
+      (expect violations :to-equal nil))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds an unused private definition and ignores its string mention")
+      (finish-output *error-output*)))
 
   (it "finds an export used only by tests"
     (multiple-value-bind (records violations)
@@ -38,7 +41,10 @@
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "u05-dead-code-test-export-passes")
       (expect (not (null records)) :to-equal t)
-      (expect violations :to-equal nil)))
+      (expect violations :to-equal nil))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds an export used only by tests")
+      (finish-output *error-output*)))
 
   (it "finds unused imports and preserves a used import"
     (multiple-value-bind (records violations)
@@ -70,7 +76,10 @@
                  (string= (getf definition :name)
                           "(SETF LIBRARY-SETF-PLACE)")))
           (%liveness-definitions records))))
-       :to-equal t)))
+       :to-equal t))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds unused imports and preserves a used import")
+      (finish-output *error-output*)))
   (it "distinguishes SETF function names from ordinary functions"
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "u05-dead-code-setf-name-fails")
@@ -116,4 +125,7 @@
                          "(SETF %LIVE-SETF-PLACE)")
                 :to-equal t)
         (expect (string= (getf ordinary :name) "%LIVE-SETF-PLACE")
-                :to-equal t)))))
+                :to-equal t)))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "distinguishes SETF function names from ordinary functions")
+      (finish-output *error-output*))))
