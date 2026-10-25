@@ -48,58 +48,60 @@
                    (list :unused-use "unused :use ")))
         (seen nil))
     (labels ((finding-key (finding)
-                          (loop for (kind marker) in patterns
-                                for start = (search marker finding)
-                                when start
-                                return
-                                (let* ((tail (subseq finding (+ start (length marker))))
-                                       (end (and (eq kind :test-only-export)
-                                                 (search " is referenced only from tests"
-                                                         tail)))
-                                       (qualified (if end (subseq tail 0 end) tail))
-                                       (separator (position #\: qualified)))
-                                  (list kind
-                                        (if separator (subseq qualified 0 separator)
-                                          qualified)
-                                        (and separator
-                                             (subseq qualified (1+ separator))))))
-                          (entry-key (entry)
-                                     (list (getf entry :kind)
-                                           (getf entry :package)
-                                           (getf entry :symbol))))
-             (dolist (entry allowlist)
-               (unless (and (listp entry)
-                            (= (length entry) 8)
-                            (eq (first entry) :kind)
-                            (member (second entry)
-                                    (list :unused-definition :test-only-export
-                                          :unused-import :unused-shadowing-import
-                                          :unused-use))
-                            (eq (third entry) :package)
-                            (stringp (fourth entry))
-                            (eq (fifth entry) :symbol)
-                            (or (and (eq (second entry) :unused-use)
-                                     (null (sixth entry)))
-                                (and (not (eq (second entry) :unused-use))
-                                     (stringp (sixth entry))))
-                            (eq (seventh entry) :reason)
-                            (stringp (eighth entry))
-                            (plusp (length (string-trim
-                                            (list #\Space #\Tab #\Newline)
-                                            (eighth entry)))))
-                 (error "Dead-code allowlist entries require kind, package, symbol, and reason: ~S"
-                        entry))
-               (let ((key (entry-key entry)))
-                 (when (member key seen :test (function equal))
-                   (error "Duplicate dead-code allowlist key: ~S" key))
-                 (push key seen)
-                 (unless (some (lambda (finding)
-                                 (equal key (finding-key finding)))
-                               findings)
-                   (error "Stale dead-code allowlist key: ~S" key))))
-             (remove-if (lambda (finding)
-                          (member (finding-key finding) seen :test (function equal)))
-                        findings)))))
+               (loop for (kind marker) in patterns
+                     for start = (search marker finding)
+                     when start
+                       return
+                         (let* ((tail (subseq finding (+ start (length marker))))
+                                (end (and (eq kind :test-only-export)
+                                          (search " is referenced only from tests"
+                                                  tail)))
+                                (qualified (if end (subseq tail 0 end) tail))
+                                (separator (position #\\: qualified)))
+                           (list kind
+                                 (if separator
+                                     (subseq qualified 0 separator)
+                                     qualified)
+                                 (and separator
+                                      (subseq qualified (1+ separator)))))))
+             (entry-key (entry)
+               (list (getf entry :kind)
+                     (getf entry :package)
+                     (getf entry :symbol))))
+      (dolist (entry allowlist)
+        (unless (and (listp entry)
+                     (= (length entry) 8)
+                     (eq (first entry) :kind)
+                     (member (second entry)
+                             (list :unused-definition :test-only-export
+                                   :unused-import :unused-shadowing-import
+                                   :unused-use))
+                     (eq (third entry) :package)
+                     (stringp (fourth entry))
+                     (eq (fifth entry) :symbol)
+                     (or (and (eq (second entry) :unused-use)
+                              (null (sixth entry)))
+                         (and (not (eq (second entry) :unused-use))
+                              (stringp (sixth entry))))
+                     (eq (seventh entry) :reason)
+                     (stringp (eighth entry))
+                     (plusp (length (string-trim
+                                     (list #\\Space #\\Tab #\\Newline)
+                                     (eighth entry)))))
+          (error "Dead-code allowlist entries require kind, package, symbol, and reason: ~S"
+                 entry))
+        (let ((key (entry-key entry)))
+          (when (member key seen :test (function equal))
+            (error "Duplicate dead-code allowlist key: ~S" key))
+          (push key seen)
+          (unless (some (lambda (finding)
+                          (equal key (finding-key finding)))
+                        findings)
+            (error "Stale dead-code allowlist key: ~S" key))))
+      (remove-if (lambda (finding)
+                   (member (finding-key finding) seen :test (function equal)))
+                 findings))))
+
 
 (defun scan-dead-code-tree (root)
   "Sorted dead definitions and package violations under ROOT.
