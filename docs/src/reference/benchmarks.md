@@ -5,8 +5,7 @@ they were taken under. The repository has no CI timing benchmark suite; the
 test suite includes one allocation check, described under
 [Allocation](#allocation), and the manual adapter comparison below. No
 `sb-sprof` profile was taken for the startup, search, or adapter runs described
-here. The journal overhead for a one-file `edit` operation has not been
-measured.
+here.
 
 ## Startup
 
@@ -79,14 +78,15 @@ deflater from the same 2 MiB input, so both decoders receive identical bytes.
 Each workload discards six warmup pairs and measures 80 pairs. In comparison
 mode, each pair runs both the baseline and current implementation, alternating
 which runs first. In self mode, both arms run the current implementation with
-the same alternating order. A full GC runs before every invocation. The harness
+the same alternating order. A full GC runs before each arm invocation. The harness
 prints paired times to six decimal places, relative changes, output signatures,
 medians, second-arm win counts, and a distribution-free median interval. Every pair
 checks its workload's correctness: SHA-256 parity against the current digest,
 deflate round trips through both decoders, or inflate output and consumed
-length. Before measurement, the harness registers this workspace with ASDF, directs compiled
-outputs into a temporary workspace directory, and checks that the resolved
-source and compiled output paths stay inside the workspace. These checks
+length. Before measurement, the harness registers this workspace with ASDF,
+directs compiled outputs into a temporary workspace directory, and confirms that
+the resolved source and compiled output paths for `digest-kit` and
+`codec-deflate` stay inside the workspace. These checks
 validate results but impose no timing threshold; the harness is manual and is
 not part of CI.
 
@@ -101,67 +101,66 @@ workload passed their correctness checks. SHA-256 and inflate output signatures
 matched across the A/B arms; deflate outputs were validated by both decoders
 but had different compressed-byte signatures.
 
-An A/A pair difference is `100 × (time_b − time_a) / time_a`. The A/A noise
-width is the nearest-rank 95th percentile of the absolute paired differences
-within the two processes, pooled across 160 current/current pairs (rank 152).
-For SHA-256, recalculation from the six-decimal TSV values gives run 1 and run 2
-widths of 82.561810% and 54.610420%; its pooled within-process noise width is
-69.013770%. The SHA-256 A/A processes' medians across their 160 timed calls
-were 316.764500 ms and 248.665500 ms. The run 2 median was 21.498306% lower
-than run 1; this is a separate run-to-run reference, not the A/A noise
-threshold.
+An A/A pair difference is `100 × (time_b − time_a) / time_a`. For every A/A
+run and workload, the table reports the paired median and the same
+distribution-free median interval used for A/B, from the 31st and 50th ordered
+pair differences. Its binomial coverage is 96.700738%. All six A/A intervals
+include zero, so the current/current control detects no directional bias. The
+intervals assume independent paired differences and do not adjust for temporal
+correlation in system load.
+
+As a high-load reference, the nearest-rank 95th percentile of absolute A/A
+pair differences pooled across the two runs (160 pairs, rank 152) is 69.013762%
+for SHA-256, 70.810413% for deflate, and 113.286804% for inflate. These values
+describe per-pair spread; they are not intervals for the paired median and are
+not used to decide whether A/B detects a slowdown.
 
 The A/B table reports old/current arm medians and the median of 80 values of
 `100 × (current − old) / old` for each run; positive values mean current was
 slower. The paired median is the median of the 80 per-pair percentage changes;
 it is a separate summary from the percentage change between the two arm-time
-medians. The interval is the distribution-free median interval from the 31st
-and 50th ordered pair differences. Its binomial coverage is 96.700738%. These
-order-statistic intervals assume independent paired differences and do not
-adjust for temporal correlation in system load.
+medians. The paired median intervals use the same order-statistic calculation
+described for A/A.
 
-| Workload | Payload | Same-process A/A noise width (p95) |
-|---|---:|---:|
-| SHA-256 | 16 MiB | ±69.013770% |
-| deflate | 2 MiB input | ±70.810410% |
-| inflate | 2 MiB decoded | ±113.286804% |
+| Workload | A/A run | Paired median | 95%+ median interval |
+|---|---:|---:|---:|
+| SHA-256 | 1 | −4.293825% | −12.348862% to +8.629288% |
+| SHA-256 | 2 | −1.644395% | −6.174052% to +0.771270% |
+| deflate | 1 | −0.503101% | −8.338833% to +7.824227% |
+| deflate | 2 | +0.196808% | −7.286527% to +6.685719% |
+| inflate | 1 | +4.000696% | −4.780287% to +23.910535% |
+| inflate | 2 | +0.926170% | −1.572165% to +2.626213% |
 
-| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | A/A noise width | Current faster |
-|---|---:|---:|---:|---:|---:|---:|
-| SHA-256 | 1 | 252.697995 / 245.552500 | +3.516981% | −1.350889% to +5.898088% | ±69.013770% | 32/80 |
-| SHA-256 | 2 | 239.638000 / 235.380495 | −0.663536% | −3.210751% to +3.869692% | ±69.013770% | 42/80 |
-| deflate | 1 | 490.143010 / 185.922500 | −60.222820% | −63.529198% to −57.141010% | ±70.810410% | 80/80 |
-| deflate | 2 | 355.699000 / 147.624495 | −57.826468% | −59.288727% to −56.175167% | ±70.810410% | 80/80 |
-| inflate | 1 | 140.536005 / 74.548500 | −47.002579% | −48.325900% to −45.224113% | ±113.286804% | 78/80 |
-| inflate | 2 | 174.507010 / 87.870500 | −47.208155% | −50.088413% to −43.256756% | ±113.286804% | 74/80 |
+| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | Current faster |
+|---|---:|---:|---:|---:|---:|
+| SHA-256 | 1 | 252.697995 / 245.552500 | +3.516982% | −1.350893% to +5.898093% | 32/80 |
+| SHA-256 | 2 | 239.638000 / 235.380495 | −0.663535% | −3.210751% to +3.869691% | 42/80 |
+| deflate | 1 | 490.143010 / 185.922500 | −60.222820% | −63.529202% to −57.141015% | 80/80 |
+| deflate | 2 | 355.699000 / 147.624495 | −57.826465% | −59.288730% to −56.175170% | 80/80 |
+| inflate | 1 | 140.536005 / 74.548500 | −47.002578% | −48.325899% to −45.224114% | 78/80 |
+| inflate | 2 | 174.507010 / 87.870500 | −47.208156% | −50.088415% to −43.256759% | 74/80 |
 
-For SHA-256, both A/B interval upper bounds (+5.898088% and +3.869692%) are
-below the same-process A/A noise width (±69.013770%). At this measurement's
-resolution, the A/B results do not resolve a slowdown. The run 1 interval
-allows a slowdown up to +5.898088%, and run 2 allows up to +3.869692%. Among
-these two upper bounds, run 1 leaves the larger slowdown (+5.898088%)
-unexcluded. Deflate and inflate were faster with the current adapters in both
-runs, with both intervals entirely below zero.
+For SHA-256, both A/B paired median intervals include zero. No statistically
+detectable slowdown was observed; however, the upper bounds allow slowdowns of
+up to +5.898093% in run 1 and +3.869691% in run 2. Deflate and inflate were
+faster with the current adapters in both runs, with both intervals entirely
+below zero.
 
 The host was under high load from another project's processing during every
 official run. The recorded one-minute load averages immediately before and
 after each process were 75.66 to 93.87 for A/A run 1, 90.58 to 60.04 for A/A
 run 2, 55.20 to 60.61 for A/B run 1, and 62.26 to 71.75 for A/B run 2. Each
-run's `uptime` output
-and all raw paired samples were retained with the local measurement logs under
-`~/.local/state/aitools-phase2/logs/`: `sha256-perf-aa-current-run1.log`,
-`sha256-perf-aa-current-run2.log`, `sha256-perf-ab-run1.log`, and
-`sha256-perf-ab-run2.log`. The high-load condition is part of these results and
-makes the measured noise widths poor thresholds for detecting small
-regressions. These are advisory measurements, not a general performance
-guarantee or a CI timing gate.
+The raw paired samples and uptime records are retained on the measurement host;
+they are not included in the repository.
+The high-load condition is part of these results and
+contributes context for the per-pair spread above. These are advisory
+measurements, not a general performance guarantee or a CI timing gate.
 
 ## Known dependency issues
 
 These are issues aitools met in its dependencies. Current `flake.nix` pins
 cl-regex-kit v2.2.0, cl-process-kit v3.4.0, cl-cli v1.4.0, and
-cl-nix-forge v0.6.1. The last column summarizes how the current source
-handles each issue.
+cl-nix-forge v0.6.1.
 
 | Dependency | Issue | Effect on aitools | Current behavior |
 |---|---|---|---|
