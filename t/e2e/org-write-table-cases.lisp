@@ -58,28 +58,44 @@
                             "#+TBLFM: @2$2=2+1")))
         (expect (jget recalculated "table") :to-be 1)
         (expect (jget recalculated "changed") :to-be t)
-        (expect (file-octets ws "byte-table.org") :to-equalp (octets expected)))))
+        (expect-org-write-and-undo ws "byte-table.org" before expected recalculated))))
 
   (define-org-table-write-case ("org table align normalizes mixed tables without touching surrounding text" ws)
     (put ws "align.org"
-         (format nil "Before~%  | key | value~%|--+-------~%| a | 1~%  |-----+-------~%  | bb~% |---+--+--~%| ccc | 22 | z~%After~%"))
-    (let ((aligned (org-ok ws '("org" "table" "align" "align.org" "--table" "1")
-                           "org.table.align")))
+         (format nil
+                 (concatenate 'string
+                              "Before~%# keep this comment~%#+FR-013-UNKNOWN: retained~%"
+                              "  | key | value~%|--+-------~%| a | 1~%"
+                              "  |-----+-------~%  | bb~% |---+--+--~%"
+                              "| ccc | 22 | z~%After~%")))
+    (let* ((before (file-octets ws "align.org"))
+           (aligned (org-ok ws '("org" "table" "align" "align.org" "--table" "1")
+                            "org.table.align"))
+           (expected
+             (format nil
+                     (concatenate 'string
+                                  "Before~%# keep this comment~%#+FR-013-UNKNOWN: retained~%"
+                                  "  | key | value |   |~%  |-----+-------+---|~%"
+                                  "  | a   |     1 |   |~%  |-----+-------+---|~%"
+                                  "  | bb  |       |   |~%  |-----+-------+---|~%"
+                                  "  | ccc |    22 | z |~%After~%"))))
       (expect (jget aligned "table") :to-be 1)
       (expect (jget aligned "changed") :to-be t)
-      (expect (file-text ws "align.org")
-              :to-equal
-              (format nil "Before~%  | key | value |   |~%  |-----+-------+---|~%  | a   |     1 |   |~%  |-----+-------+---|~%  | bb  |       |   |~%  |-----+-------+---|~%  | ccc |    22 | z |~%After~%"))))
+      (expect-org-write-and-undo ws "align.org" before expected aligned)))
 
   (define-org-table-write-case ("org table sort is stable and honors explicit row bounds" ws)
-    (put ws "sort.org" (format nil "| Z | 2 |~%| A | 1 |~%"))
-    (let ((sorted (org-ok ws '("org" "table" "sort" "sort.org" "--table" "1"
-                               "--column" "1" "--type" "lexical" "--order" "ascending"
-                               "--start" "1" "--end" "2")
-                           "org.table.sort")))
+    (put ws "sort.org"
+         (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| Z | 2 |~%| A | 1 |~%"))
+    (let* ((before (file-octets ws "sort.org"))
+           (sorted (org-ok ws '("org" "table" "sort" "sort.org" "--table" "1"
+                                "--column" "1" "--type" "lexical" "--order" "ascending"
+                                "--start" "1" "--end" "2")
+                           "org.table.sort"))
+           (expected
+             (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| A | 1 |~%| Z | 2 |~%")))
       (expect (jget sorted "table") :to-be 1)
       (expect (jget sorted "changed") :to-be t)
-      (expect (file-text ws "sort.org") :to-equal (format nil "| A | 1 |~%| Z | 2 |~%")))
+      (expect-org-write-and-undo ws "sort.org" before expected sorted))
     (put ws "bad-table.org" (format nil "| A | B |~%"))
     (let ((before (file-octets ws "bad-table.org")))
       (org-error ws '("org" "table" "align" "bad-table.org" "--table" "0")

@@ -13,6 +13,25 @@
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "planning-range.org")
               :to-equal (format nil "* TODO Release~%SCHEDULED: ~A~%" timestamp))))
+  (define-org-write-case
+    ("org property set adds an unregistered property and preserves surrounding bytes" ws)
+    (let* ((source
+             (format nil
+                     "# preserved Org comment~%#+VENDOR-FIELD: opaque~%* TODO Task~%"))
+           (expected
+             (format nil
+                     "# preserved Org comment~%#+VENDOR-FIELD: opaque~%* TODO Task~%:PROPERTIES:~%:OWNER: A~%:END:~%")))
+      (put ws "new-property.org" source)
+      (let* ((before (file-octets ws "new-property.org"))
+             (result
+               (org-ok ws
+                       (org-write-time-args
+                        (list "org" "property" "set" "new-property.org"
+                              "--match" "/TODO" "--name" "OWNER" "--value" "A"))
+                       "org.property.set")))
+        (expect (jget result "property") :to-equal "OWNER")
+        (expect (jget result "changed") :to-be t)
+        (expect-org-write-and-undo ws "new-property.org" before expected result))))
 
   (define-org-write-case ("org agenda distinguishes next and disabled future repeats" ws)
     (put ws "repeat.org"

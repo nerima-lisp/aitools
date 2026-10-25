@@ -13,6 +13,15 @@
 
 (defun org-write-time-args (arguments &optional at) (append arguments (if at (list "--at" at "--tz" "UTC") +org-write-time-context+)))
 
+(defun expect-org-write-and-undo (workspace relative-path original-octets expected-text write-envelope)
+  (let ((op-id (jget write-envelope "op_id")))
+    (expect (stringp op-id) :to-be t)
+    (expect (file-octets workspace relative-path)
+            :to-equalp (octets expected-text))
+    (run-ok workspace (list "undo" op-id))
+    (expect (file-octets workspace relative-path)
+            :to-equalp original-octets)))
+
 (defun org-replace-first (source old new)
   (let ((start (search old source)))
     (unless start (error "fixture does not contain ~A" old))
@@ -22,6 +31,8 @@
 (defparameter +org-byte-fixture+
   (concatenate 'string
                "#+TODO: TODO | DONE" (string #\Newline)
+               "# preserved Org comment" (format nil "~C~C" #\Return #\Newline)
+               "#+VENDOR-FIELD: opaque" (string #\Newline)
                "* TODO 設計" (string #\Tab) "roadmap" (format nil "~C~C" #\Return #\Newline)
                "SCHEDULED: <2026-10-20>" (string #\Newline)
                ":PROPERTIES:" (format nil "~C~C" #\Return #\Newline)
@@ -45,7 +56,7 @@
       (expect (jget todo "previous_state") :to-equal "TODO")
       (expect (jget todo "new_state") :to-equal "DONE")
       (expect (jget todo "changed") :to-be t)
-      (expect (file-octets ws "byte.org") :to-equalp (octets todo-expected)))
+      (expect-org-write-and-undo ws "byte.org" (octets +org-byte-fixture+) todo-expected todo))
     (put ws "byte.org" +org-byte-fixture+)
     (let* ((set (org-ok ws
                         (org-write-time-args
@@ -55,7 +66,7 @@
            (expected (org-replace-first +org-byte-fixture+ (format nil "佐藤~Cqa" #\Tab) "高橋")))
       (expect (jget set "property") :to-equal "OWNER")
       (expect (jget set "changed") :to-be t)
-      (expect (file-octets ws "byte.org") :to-equalp (octets expected)))
+      (expect-org-write-and-undo ws "byte.org" (octets +org-byte-fixture+) expected set))
     (put ws "byte.org" +org-byte-fixture+)
     (let* ((delete (org-ok ws
                            (org-write-time-args
@@ -66,7 +77,7 @@
            (expected (org-replace-first +org-byte-fixture+ owner-line "")))
       (expect (jget delete "property") :to-equal "OWNER")
       (expect (jget delete "changed") :to-be t)
-      (expect (file-octets ws "byte.org") :to-equalp (octets expected))))
+      (expect-org-write-and-undo ws "byte.org" (octets +org-byte-fixture+) expected delete)))
 
   (define-org-write-case ("org selector errors and delete no-ops preserve the file" ws)
     (put ws "no-match.org" (format nil "#+TODO: TODO | DONE~%* DONE Release~%"))
@@ -115,21 +126,26 @@
       (expect (jget set "kind") :to-equal "scheduled")
       (expect (jget set "timestamp") :to-equal "<2026-10-20>")
       (expect (jget set "changed") :to-be t)
-      (expect (file-text ws "planning.org") :to-equal expected))
+      (expect-org-write-and-undo ws "planning.org"
+                                 (octets (format nil "* TODO Release~%")) expected set))
     (put ws "update.org" (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
     (let ((updated (org-ok ws (org-write-time-args
                                '("org" "planning" "set" "update.org" "--match" "/TODO"
                                  "--kind" "scheduled" "--timestamp" "<2026-10-22>"))
                            "org.planning.set")))
       (expect (jget updated "changed") :to-be t)
-      (expect (file-text ws "update.org")
-              :to-equal (format nil "* TODO Release~%SCHEDULED: <2026-10-22>~%")))
+      (expect-org-write-and-undo ws "update.org"
+                                 (octets (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
+                                 (format nil "* TODO Release~%SCHEDULED: <2026-10-22>~%") updated))
+    (put ws "planning.org" (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
     (let ((deleted (org-ok ws (org-write-time-args
                                '("org" "planning" "delete" "planning.org" "--match" "/TODO"
                                  "--kind" "scheduled"))
                            "org.planning.delete")))
       (expect (jget deleted "changed") :to-be t)
-      (expect (file-text ws "planning.org") :to-equal (format nil "* TODO Release~%"))))
+      (expect-org-write-and-undo ws "planning.org"
+                                 (octets (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
+                                 (format nil "* TODO Release~%") deleted)))
 
   (define-org-write-case ("org planning rejects timestamps outside the CLI contract" ws)
     (put ws "invalid-plan.org" (format nil "* TODO Release~%"))
@@ -185,36 +201,39 @@
           (expect (file-octets ws "write.org") :to-equalp before)))))
 
   (define-org-write-case ("org clock in and out write the documented intervals" ws)
-  (put ws "clock-in.org" (format nil "* TODO Work~%"))
-  (let ((clock-in
-          (org-ok ws
-                  (org-write-time-args
-                   (list "org" "clock" "in" "clock-in.org" "--match" "/!"))
-                  "org.clock.in")))
-    (expect (jget clock-in "timestamp") :to-equal "[2026-10-19 Mon 09:00]")
-    (expect (jget clock-in "changed") :to-be t)
-    (expect (file-text ws "clock-in.org")
-            :to-equal
-            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%")))
-  (put ws "clock-out.org"
-       (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%"))
-  (let ((clock-out
-          (org-ok ws
-                  (org-write-time-args
-                   (list "org" "clock" "out" "clock-out.org" "--match" "/!")
-                   "2026-10-19T09:30:00")
-                  "org.clock.out")))
-    (expect (jget clock-out "interval")
-            :to-equal "[2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] => 0:30")
-    (expect (jget clock-out "changed") :to-be t)
-    (expect (file-text ws "clock-out.org")
-            :to-equal
-            (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%:END:~%"))))
+    (put ws "clock-in.org" (format nil "* TODO Work~%"))
+    (let ((clock-in
+            (org-ok ws
+                    (org-write-time-args
+                     (list "org" "clock" "in" "clock-in.org" "--match" "/!"))
+                    "org.clock.in")))
+      (expect (jget clock-in "timestamp") :to-equal "[2026-10-19 Mon 09:00]")
+      (expect (jget clock-in "changed") :to-be t)
+      (expect-org-write-and-undo ws "clock-in.org"
+                                 (octets (format nil "* TODO Work~%"))
+                                 (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%")
+                                 clock-in))
+    (put ws "clock-out.org"
+         (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%"))
+    (let ((clock-out
+            (org-ok ws
+                    (org-write-time-args
+                     (list "org" "clock" "out" "clock-out.org" "--match" "/!")
+                     "2026-10-19T09:30:00")
+                    "org.clock.out")))
+      (expect (jget clock-out "interval")
+              :to-equal "[2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] => 0:30")
+      (expect (jget clock-out "changed") :to-be t)
+      (expect-org-write-and-undo ws "clock-out.org"
+                                 (octets (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]~%:END:~%"))
+                                 (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%:END:~%")
+                                 clock-out)))
 
   (define-org-write-case ("org clock report aggregates closed clocks and omits running clocks" ws)
     (put ws "clock-report.org"
          (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] =>  0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
-    (let* ((report (org-ok ws
+    (let* ((before (file-octets ws "clock-report.org"))
+           (report (org-ok ws
                            '("org" "clock" "report" "clock-report.org" "--match" "/!"
                              "--from" "2026-10-19T09:00:00" "--through" "2026-10-19T10:00:00"
                              "--at" "2026-10-19T10:00:00" "--tz" "UTC")
@@ -224,6 +243,7 @@
       (expect (jget row "level") :to-be 1)
       (expect (jget row "title") :to-equal "Work")
       (expect (jget row "minutes") :to-be 30)
+      (expect (file-octets ws "clock-report.org") :to-equalp before)
       (org-error ws '("org" "clock" "report" "clock-report.org" "--match" "/!"
                       "--from" "2026-10-19T10:00:00" "--through" "2026-10-19T09:00:00"
                       "--at" "2026-10-19T10:00:00" "--tz" "UTC")

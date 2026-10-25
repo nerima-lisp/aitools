@@ -145,4 +145,66 @@
                               (not (null (search "AITOOLS-ORG-EXPORT-RESULT-MARKER" content))))
                         :to-equal (list label backend expected-results-p))))
             (expect (file-octets ws relative) :to-equalp before)))))))
+(describe "aitools e2e org export acceptance"
+  (define-org-read-case
+   ("org export matches pinned cl-org-kit output and is deterministic" ws)
+   (let* ((source +org-export-coverage-fixture+)
+          (source-bytes (octets source))
+          (parsed (org-kit:parse-org source-bytes
+                                     :source-name "coverage.org"
+                                     :encoding :utf-8)))
+     (put ws "coverage.org" source)
+     (let ((before (file-octets ws "coverage.org")))
+       (expect before :to-equalp source-bytes)
+       (dolist (backend-entry
+                (list (cons "html" :html)
+                      (cons "gfm" :gfm)
+                      (cons "ascii" :ascii)))
+         (let* ((backend (car backend-entry))
+                (kit-backend (cdr backend-entry))
+                (expected (org-kit:export-org parsed kit-backend))
+                (first-envelope
+                  (org-ok ws (list "org" "export" "coverage.org"
+                                   "--backend" backend)
+                          "org.export"))
+                (second-envelope
+                  (org-ok ws (list "org" "export" "coverage.org"
+                                   "--backend" backend)
+                          "org.export"))
+                (first-content (jget first-envelope "content"))
+                (second-content (jget second-envelope "content")))
+           (expect (jget first-envelope "backend") :to-equal backend)
+           (expect (jget second-envelope "backend") :to-equal backend)
+           (expect (stringp expected) :to-be t)
+           (expect (stringp first-content) :to-be t)
+           (expect second-content :to-equal first-content)
+           (expect first-content :to-equal expected)))
+       (expect (file-octets ws "coverage.org") :to-equalp before))))
+  (define-org-read-case
+   ("org export omits comments, properties, and planning metadata" ws)
+   (let* ((source
+            (format nil
+                    "# COMMENT-ONLY-MARKER~%* VISIBLE-HEADING-MARKER~%:PROPERTIES:~%:EXPORT_ONLY: PROPERTY-ONLY-MARKER~%:END:~%SCHEDULED: <2026-10-20 Tue>~%VISIBLE-BODY-MARKER~%"))
+          (source-bytes (octets source)))
+     (put ws "omissions.org" source)
+     (let ((before (file-octets ws "omissions.org")))
+       (expect before :to-equalp source-bytes)
+       (dolist (backend (list "html" "gfm" "ascii"))
+         (let* ((envelope
+                  (org-ok ws (list "org" "export" "omissions.org"
+                                   "--backend" backend)
+                          "org.export"))
+                (content (jget envelope "content")))
+           (expect (jget envelope "backend") :to-equal backend)
+           (expect (stringp content) :to-be t)
+           (expect-org-fragments
+            content
+            (list "VISIBLE-HEADING-MARKER" "VISIBLE-BODY-MARKER"))
+           (dolist (omitted
+                    (list "COMMENT-ONLY-MARKER"
+                          "PROPERTY-ONLY-MARKER"
+                          "SCHEDULED"
+                          "2026-10-20"))
+             (expect (search omitted content) :to-be nil))))
+       (expect (file-octets ws "omissions.org") :to-equalp before)))))
 

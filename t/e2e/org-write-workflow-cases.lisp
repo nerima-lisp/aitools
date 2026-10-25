@@ -37,17 +37,18 @@
 
   (define-org-write-case ("org todo note follows configured logging markers byte for byte" ws)
     (put ws "todo-note.org" (format nil "#+TODO: TODO(t!) | DONE(d@)~%* TODO Close~%"))
-    (let* ((result (org-ok ws
+    (let* ((original (file-octets ws "todo-note.org"))
+           (result (org-ok ws
                            (org-write-time-args
                             (list "org" "todo" "set" "todo-note.org" "--match" "/TODO"
                                   "--state" "DONE" "--note" "closing note"))
                            "org.todo.set"))
-           (expected (octets
-                      (format nil "#+TODO: TODO(t!) | DONE(d@)~%* DONE Close~%:LOGBOOK:~%- State \"DONE\"       from \"TODO\"       [2026-10-19 Mon 09:00] \\\\~%  closing note~%:END:~%"))))
+           (expected
+             (format nil "#+TODO: TODO(t!) | DONE(d@)~%* DONE Close~%:LOGBOOK:~%- State \"DONE\"       from \"TODO\"       [2026-10-19 Mon 09:00] \\\\~%  closing note~%:END:~%")))
       (expect (jget result "previous_state") :to-equal "TODO")
       (expect (jget result "new_state") :to-equal "DONE")
       (expect (jget result "changed") :to-be t)
-      (expect (file-octets ws "todo-note.org") :to-equalp expected)))
+      (expect-org-write-and-undo ws "todo-note.org" original expected result)))
 
   (define-org-write-case ("org planning rejects duplicate timestamps on indented lines" ws)
     (put ws "duplicate-planning.org"
