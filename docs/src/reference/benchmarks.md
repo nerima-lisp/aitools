@@ -95,40 +95,53 @@ not part of CI.
 The measurements below used Darwin ARM64 / Apple M4 Max and SBCL 2.6.8. Each
 comparison run loaded baseline revision
 `1b20c3abdea1d95a049cdb0481afcfd72072b2a4` and the current adapter in the same
-process. Both A/A runs used the current adapter in both arms. All 80 measured
-pairs per workload passed their correctness checks. SHA-256 and inflate output
-signatures matched across the A/B arms; deflate outputs were validated by both
-decoders but had different compressed-byte signatures. An A/A pair difference
-is `100 × (time_b − time_a) / time_a`. The A/A noise width is the 95th
-percentile of the absolute differences pooled across 160 current/current pairs,
-using the 152nd ordered value. The A/B table reports old/current arm medians
-and the median of 80 values of `100 × (current − old) / old` for each run;
-positive values mean current was slower. It also reports current wins and the
-distribution-free median interval from the 31st and 50th ordered pair
-differences. These order-statistic intervals assume independent paired
-differences and do not adjust for temporal correlation in system load.
+process. Each A/A run also used one SBCL process, with the current adapter in
+both arms and 80 measured pairs whose order alternated. All measured pairs per
+workload passed their correctness checks. SHA-256 and inflate output signatures
+matched across the A/B arms; deflate outputs were validated by both decoders
+but had different compressed-byte signatures.
 
-| Workload | Payload | A/A noise width, 160 pairs |
+An A/A pair difference is `100 × (time_b − time_a) / time_a`. The A/A noise
+width is the nearest-rank 95th percentile of the absolute paired differences
+within the two processes, pooled across 160 current/current pairs (rank 152).
+For SHA-256, recalculation from the six-decimal TSV values gives run 1 and run 2
+widths of 82.561810% and 54.610420%; its pooled within-process noise width is
+69.013770%. The SHA-256 A/A processes' medians across their 160 timed calls
+were 316.764500 ms and 248.665500 ms. The run 2 median was 21.498306% lower
+than run 1; this is a separate run-to-run reference, not the A/A noise
+threshold.
+
+The A/B table reports old/current arm medians and the median of 80 values of
+`100 × (current − old) / old` for each run; positive values mean current was
+slower. The paired median is the median of the 80 per-pair percentage changes;
+it is a separate summary from the percentage change between the two arm-time
+medians. The interval is the distribution-free median interval from the 31st
+and 50th ordered pair differences. Its binomial coverage is 96.700738%. These
+order-statistic intervals assume independent paired differences and do not
+adjust for temporal correlation in system load.
+
+| Workload | Payload | Same-process A/A noise width (p95) |
 |---|---:|---:|
-| SHA-256 | 16 MiB | 69.013762% |
-| deflate | 2 MiB input | 70.810413% |
-| inflate | 2 MiB decoded | 113.286804% |
+| SHA-256 | 16 MiB | ±69.013770% |
+| deflate | 2 MiB input | ±70.810410% |
+| inflate | 2 MiB decoded | ±113.286804% |
 
-| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | Current faster |
-|---|---:|---:|---:|---:|---:|
-| SHA-256 | 1 | 252.697995 / 245.552500 | +3.516982% | −1.350893% to +5.898093% | 32/80 |
-| SHA-256 | 2 | 239.638000 / 235.380495 | −0.663535% | −3.210751% to +3.869691% | 42/80 |
-| deflate | 1 | 490.143010 / 185.922500 | −60.222820% | −63.529202% to −57.141015% | 80/80 |
-| deflate | 2 | 355.699000 / 147.624495 | −57.826465% | −59.288730% to −56.175170% | 80/80 |
-| inflate | 1 | 140.536005 / 74.548500 | −47.002578% | −48.325899% to −45.224114% | 78/80 |
-| inflate | 2 | 174.507010 / 87.870500 | −47.208156% | −50.088415% to −43.256759% | 74/80 |
+| Workload | Run | Old / current median (ms) | Paired median change | 95%+ interval | A/A noise width | Current faster |
+|---|---:|---:|---:|---:|---:|---:|
+| SHA-256 | 1 | 252.697995 / 245.552500 | +3.516981% | −1.350889% to +5.898088% | ±69.013770% | 32/80 |
+| SHA-256 | 2 | 239.638000 / 235.380495 | −0.663536% | −3.210751% to +3.869692% | ±69.013770% | 42/80 |
+| deflate | 1 | 490.143010 / 185.922500 | −60.222820% | −63.529198% to −57.141010% | ±70.810410% | 80/80 |
+| deflate | 2 | 355.699000 / 147.624495 | −57.826468% | −59.288727% to −56.175167% | ±70.810410% | 80/80 |
+| inflate | 1 | 140.536005 / 74.548500 | −47.002579% | −48.325900% to −45.224113% | ±113.286804% | 78/80 |
+| inflate | 2 | 174.507010 / 87.870500 | −47.208155% | −50.088413% to −43.256756% | ±113.286804% | 74/80 |
 
-For SHA-256, both A/B interval upper bounds are inside the measured A/A noise
-width, so these runs support the conclusion that the current adapter was not
-slower than the baseline within the resolution of this measurement. The A/A
-noise width is large, so this is not evidence of tight performance equivalence.
-Deflate and inflate were faster with the current adapters in both runs, with
-both intervals below zero.
+For SHA-256, both A/B interval upper bounds (+5.898088% and +3.869692%) are
+below the same-process A/A noise width (±69.013770%). At this measurement's
+resolution, the A/B results do not resolve a slowdown. The run 1 interval
+allows a slowdown up to +5.898088%, and run 2 allows up to +3.869692%. Among
+these two upper bounds, run 1 leaves the larger slowdown (+5.898088%)
+unexcluded. Deflate and inflate were faster with the current adapters in both
+runs, with both intervals entirely below zero.
 
 The host was under high load from another project's processing during every
 official run. The recorded one-minute load averages immediately before and
