@@ -18,7 +18,7 @@
      (setf *last-test-outcomes* nil)
      (let* ((json (make-string-output-stream))
             (events
-              (cl-weave:run nil
+              (cl-weave:run nil :timeout-ms 60000
                             :name-filter "runner failure report fixture"
                             :reporter :json
                             :stream json)))
