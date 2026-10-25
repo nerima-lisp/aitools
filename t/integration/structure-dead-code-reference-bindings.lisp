@@ -9,11 +9,11 @@
                     (when (and name
                                (not (keywordp pattern))
                                (not (member name
-                                            '("&WHOLE" "&ENVIRONMENT" "&OPTIONAL" "&REST"
-                                              "&BODY" "&KEY" "&ALLOW-OTHER-KEYS" "&AUX")
-                                            :test #'equal)))
-                      (pushnew name names :test #'equal)))
-                 ((consp pattern) (parse-pattern pattern))))
+                                            (quote ("&WHOLE" "&ENVIRONMENT" "&OPTIONAL" "&REST"
+                                                    "&BODY" "&KEY" "&ALLOW-OTHER-KEYS" "&AUX"))
+                                            :test (function equal))))
+                      (pushnew name names :test (function equal)))))
+                 ((consp pattern) (parse-pattern pattern)))
              (parse-pattern (lambda-list)
                (let ((mode :required))
                  (loop while (consp lambda-list)
