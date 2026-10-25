@@ -1,0 +1,55 @@
+(in-package #:aitools.e2e.test)
+
+(describe "aitools e2e trace byte parity"
+  (it "compares raw command output in every supported path"
+    (:tags (quote (:trace-positive)))
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "trace specs require a binary with --trace"))
+    (let ((binary (native (aitools-binary))))
+      (call-with-workspace
+       (lambda (plain-ws)
+         (call-with-workspace
+          (lambda (traced-ws)
+            (put plain-ws "trace-parity-read.txt" "read fixture")
+            (put traced-ws "trace-parity-read.txt" "read fixture")
+            (flet ((compare (arguments &optional input)
+                     (let* ((plain
+                              (run-process binary arguments
+                                           :directory (ws-path plain-ws "")
+                                           :environment (workspace-environment plain-ws)
+                                           :input (and input (octets input))))
+                            (traced
+                              (run-process binary (cons "--trace" arguments)
+                                           :directory (ws-path traced-ws "")
+                                           :environment (workspace-environment traced-ws)
+                                           :input (and input (octets input)))))
+                       (expect (%trace-byte-parity-same-output-p plain traced) :to-be t)
+                       (list plain traced))))
+              (let* ((read-pair (compare '("read" "trace-parity-read.txt")))
+                     (write-pair (compare '("write" "trace-parity-write.txt" "--stdin")
+                                          "write fixture"))
+                     (run-pair (compare '("run" "--" "sh" "-c"
+                                          "printf trace-parity-child")))
+                     (error-pair (compare '("read" "trace-parity-missing.txt")))
+                     (read-plain (first read-pair))
+                     (write-plain (first write-pair))
+                     (run-plain (first run-pair))
+                     (error-plain (first error-pair)))
+                (expect (result-exit-code read-plain) :to-be 0)
+                (expect (result-exit-code write-plain) :to-be 0)
+                (expect (result-exit-code run-plain) :to-be 0)
+                (expect (not (zerop (result-exit-code error-plain))) :to-be t)
+                (expect (equalp (read-octets (ws-path plain-ws "trace-parity-write.txt"))
+                                (octets "write fixture"))
+                        :to-be t)
+                (expect (equalp (read-octets (ws-path traced-ws "trace-parity-write.txt"))
+                                (octets "write fixture"))
+                        :to-be t)
+                (expect (%trace-byte-parity-same-output-p
+                         (%trace-byte-parity-mutate-output-key read-plain)
+                         (second read-pair))
+                        :to-be nil)
+                (format t "TRACE_BYTE_PARITY_CASES=read,write,run,error~%")
+                (format t "TRACE_BYTE_PARITY_PROBE=one compared octet mutation rejected~%")))))))))
+)

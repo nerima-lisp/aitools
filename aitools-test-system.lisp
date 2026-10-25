@@ -112,6 +112,7 @@
                                                                     (:file "process-env-host-cases")
                                                                     (:file "process-env-util-cases")
                                                                     (:file "store-trace-cases")
+                                                                    (:file "trace-byte-parity-cases")
                                                                     (:file "byte-gate")
                                                                     (:file "byte-gate-inventory-reader" :depends-on ("byte-gate"))
                                                                     (:file "byte-gate-report" :depends-on ("byte-gate"))
