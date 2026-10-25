@@ -11,7 +11,7 @@
              (declare (ignore condition))
              (sb-debug:print-backtrace :stream *error-output*))))
       (let* ((root (merge-pathnames
-                    "t/integration/fixtures/u05-dead-code-roots/"
+                    "t/integration/fixtures/reference-roots/"
                     (repository-root)))
              (records (%liveness-files root))
              (packages (%liveness-all-package-metadata records)))

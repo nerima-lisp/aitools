@@ -1,2 +1,2 @@
-(asdf:defsystem "u05-dead-code-fixture"
+(asdf:defsystem "reference-roots-fixture"
   :entry-point "aitools/cli::image-entry-point")

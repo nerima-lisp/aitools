@@ -3,7 +3,7 @@
 (describe "aitools structure test (dead code)"
   (it "finds an unused private definition and ignores its string mention"
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-definition-fails")
+        (dead-code-fixture-scan "private-definition-fails")
       (expect (not (null records)) :to-equal t)
       (expect violations
               :to-equal
@@ -14,7 +14,7 @@
                        "AITOOLS.FIXTURE.DEAD"
                        "DEAD-DEFINITION"))))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-definition-passes")
+        (dead-code-fixture-scan "live-definition-passes")
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil))
     (progn
@@ -23,7 +23,7 @@
 
   (it "finds an export used only by tests"
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-test-export-fails")
+        (dead-code-fixture-scan "test-only-export-fails")
       (expect (not (null records)) :to-equal t)
       (expect violations
               :to-equal
@@ -39,7 +39,7 @@
                        "AITOOLS.FIXTURE.TEST-EXPORT"
                        "TEST-SETF-PLACE"))))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-test-export-passes")
+        (dead-code-fixture-scan "production-export-passes")
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil))
     (progn
@@ -48,7 +48,7 @@
 
   (it "finds unused imports and preserves a used import"
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-import-fails")
+        (dead-code-fixture-scan "unused-imports-fail")
       (expect (not (null records)) :to-equal t)
       (expect violations
               :to-equal
@@ -62,7 +62,7 @@
                        "AITOOLS.FIXTURE.IMPORT-LIBRARY"
                        "LIBRARY-CALL"))))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-import-passes")
+        (dead-code-fixture-scan "used-imports-pass")
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil)
       (expect
@@ -82,7 +82,7 @@
       (finish-output *error-output*)))
   (it "distinguishes SETF function names from ordinary functions"
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-setf-name-fails")
+        (dead-code-fixture-scan "unused-setf-function-fails")
       (expect (not (null records)) :to-equal t)
       (expect violations
               :to-equal
@@ -93,7 +93,7 @@
                        "AITOOLS.FIXTURE.SETF-FAIL"
                        "(SETF %DEAD-SETF-PLACE)"))))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-setf-name-passes")
+        (dead-code-fixture-scan "referenced-setf-function-passes")
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil)
       (let* ((definitions (%liveness-definitions records))
@@ -128,4 +128,36 @@
                 :to-equal t)))
     (progn
       (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "distinguishes SETF function names from ordinary functions")
+      (finish-output *error-output*)))
+  (it "counts helpers in macro templates and nested unquotes"
+    (multiple-value-bind (records violations)
+        (dead-code-fixture-scan "macro-template-references")
+      (expect (not (null records)) :to-equal t)
+      (expect violations
+              :to-equal
+              (list
+               (format nil
+                       "~A:10: unused definition ~A:~A"
+                       "packages/feature/fixture-macro-template/src/domain/package.lisp"
+                       "AITOOLS.FIXTURE.MACRO-TEMPLATE"
+                       "%UNUSED-TEMPLATE-HELPER"))))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%"
+              "counts helpers in macro templates and nested unquotes")
+      (finish-output *error-output*)))
+  (it "counts DEFSTRUCT slot accessors referenced by SETF"
+    (multiple-value-bind (records violations)
+        (dead-code-fixture-scan "defstruct-slot-references")
+      (expect (not (null records)) :to-equal t)
+      (expect violations
+              :to-equal
+              (list
+               (format nil
+                       "~A:5: unused definition ~A:~A"
+                       "packages/feature/fixture-struct-slots/src/domain/package.lisp"
+                       "AITOOLS.FIXTURE.STRUCT-SLOTS"
+                       "ORPHAN-RECORD"))))
+    (progn
+      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%"
+              "counts DEFSTRUCT slot accessors referenced by SETF")
       (finish-output *error-output*))))

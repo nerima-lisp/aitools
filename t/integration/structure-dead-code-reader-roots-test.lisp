@@ -3,7 +3,7 @@
 (describe "aitools structure test (dead code)"
   (it "keeps reader-resolved roots in their source namespaces"
     (let* ((records (%liveness-files
-                       (merge-pathnames "t/integration/fixtures/u05-dead-code-roots/"
+                       (merge-pathnames "t/integration/fixtures/reference-roots/"
                                         (repository-root))))
              (definitions (%liveness-definitions records))
              (packages (%liveness-all-package-metadata records)))

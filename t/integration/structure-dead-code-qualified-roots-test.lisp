@@ -2,7 +2,7 @@
 (describe "aitools structure test (dead code)"
   (it "distinguishes qualified references, roots, and imports"
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-use-fails")
+        (dead-code-fixture-scan "unused-package-use-fails")
       (expect (not (null records)) :to-equal t)
       (expect violations
               :to-equal
@@ -12,7 +12,7 @@
                        "packages/feature/fixture-use-consumer/src/domain/package.lisp"
                        "AITOOLS.FIXTURE.USE-LIBRARY"))))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-use-passes")
+        (dead-code-fixture-scan "referenced-package-use-passes")
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil)
       (expect
@@ -28,7 +28,7 @@
           (%liveness-definitions records))))
        :to-equal t))
     (multiple-value-bind (records violations)
-        (dead-code-fixture-scan "u05-dead-code-roots")
+        (dead-code-fixture-scan "reference-roots")
       (expect (not (null records)) :to-equal t)
       (expect
        violations
