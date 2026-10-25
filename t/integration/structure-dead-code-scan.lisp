@@ -90,11 +90,19 @@ Exported definitions are public roots; test-only exports remain violations."
       (let ((live-structs (make-hash-table :test #'equal))
             (reported-structs (make-hash-table :test #'equal)))
         (labels ((referenced-p (definition kind)
-                   (gethash (list kind
-                                  (getf definition :package)
-                                  (getf definition :namespace)
-                                  (getf definition :name))
-                            references))
+                               (or (gethash (list kind
+                                                  (getf definition :package)
+                                                  (getf definition :namespace)
+                                                  (getf definition :name))
+                                            references)
+                                   (and (getf definition :group)
+                                        (eq (getf definition :namespace) :function)
+                                        (gethash (list kind
+                                                       (getf definition :package)
+                                                       :function
+                                                       (format nil "(SETF ~A)"
+                                                               (getf definition :name)))
+                                                 references))))
                  (exported-p (definition)
                    (member (%liveness-index-function-symbol-name
                             (getf definition :namespace)

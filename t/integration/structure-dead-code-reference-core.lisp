@@ -201,33 +201,8 @@
       (%liveness-walk-slot-options slot values functions))))
 
 (defun %liveness-walk-quasiquote-template (template depth visible-p values functions)
-  (cond
-    ((consp template)
-     (let ((marker (first template)))
-       (cond
-         ((eq marker :u05-quasiquote)
-          (%liveness-walk-quasiquote-template (second template) (1+ depth)
-                                              nil values functions))
-         ((member marker '(:u05-unquote :u05-unquote-splicing))
-          (if (= depth 1)
-              (progn
-                (%liveness-walk-form (second template) values functions)
-                nil)
-              (%liveness-walk-quasiquote-template (second template) (1- depth)
-                                                  nil values functions)))
-         (visible-p
-          (cons (%liveness-walk-quasiquote-template (car template) depth t
-                                                    values functions)
-                (%liveness-walk-quasiquote-template (cdr template) depth t
-                                                    values functions)))
-         (t
-          (%liveness-walk-quasiquote-template (car template) depth nil
-                                              values functions)
-          (%liveness-walk-quasiquote-template (cdr template) depth nil
-                                              values functions)
-          nil))))
-    (visible-p template)
-    (t nil)))
+  (declare (ignore depth visible-p))
+  (%liveness-walk-form template values functions))
 
 (defun %liveness-walk-quasiquote (object values functions)
   (%liveness-walk-quasiquote-template (second object) 1 t values functions))
