@@ -1,4 +1,3 @@
-;;;;
 (in-package #:aitools.vcs.test)
 
 (defun lines-text (&rest lines)
