@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/context-test.lisp
 (in-package #:aitools.inspect.test)
 
 (describe "inspect context boundary"

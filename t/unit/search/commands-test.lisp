@@ -1,4 +1,3 @@
-;;;; t/unit/search/commands-test.lisp
 ;;;;
 ;;;; The search context's commands through cl-cli parsing and the
 ;;;; composition root's dispatch, against the in-memory filesystem: argv in,

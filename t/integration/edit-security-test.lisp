@@ -1,4 +1,3 @@
-;;;; t/integration/edit-security-test.lisp
 ;;;;
 ;;;; Regressions for the edit context's fix pass: the redaction-marker
 ;;;; refusal on decoded/expanded/transcoded bytes, chmod/touch hard-link
@@ -81,7 +80,6 @@ checksum alone."
                     (list (member-file "world.sh" "x" :mode #o777)
                           (member-file "group.txt" "y" :mode #o666))))
       (expect (run "archive.extract" '("a.tar") :to "out") :to-be :ok)
-      ;; Before the fix these were 0777 and 0666 (masked only by #o777).
       (expect (mode "out/world.sh") :to-be #o755)
       (expect (mode "out/group.txt") :to-be #o644)
       ;; No group/other write and no setuid/setgid/sticky on either file.

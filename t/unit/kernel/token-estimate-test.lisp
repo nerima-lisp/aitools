@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/token-estimate-test.lisp
 (in-package #:aitools.kernel.test)
 
 (describe "aitools.kernel.domain approx-token-count"

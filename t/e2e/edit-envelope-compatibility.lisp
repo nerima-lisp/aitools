@@ -1,4 +1,3 @@
-;;;; t/e2e/edit-envelope-compatibility.lisp
 (in-package #:aitools.e2e.test)
 
 (describe "aitools edit e2e envelope compatibility"

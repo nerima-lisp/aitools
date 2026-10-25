@@ -1,4 +1,3 @@
-;;;; t/unit/journal/changes-json-test.lisp
 ;;;;
 ;;;; The shared write-output renderer in AITOOLS.STORE.DOMAIN (changes-json.lisp),
 ;;;; which the journal writer owns: `changes[]`, per-change diff truncation,

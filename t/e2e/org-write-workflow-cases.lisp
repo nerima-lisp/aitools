@@ -1,4 +1,3 @@
-;;;; t/e2e/org-write-workflow-cases.lisp
 (in-package #:aitools.e2e.test)
 
 (describe "aitools e2e org write workflows"

@@ -1,4 +1,3 @@
-;;;; t/e2e/correspondence-rows.lisp
 ;;;;
 ;;;; The rows of the table of shell operations and their aitools
 ;;;; replacements, one string per row in table order (row N is element N-1).

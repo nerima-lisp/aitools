@@ -1,4 +1,3 @@
-;;;; t/unit/text/charset-test.lisp
 ;;;;
 ;;;; UTF-8 policies and `transcode`'s encodings. Byte vectors for
 ;;;; Shift_JIS and EUC-JP are the JIS code points of the characters (e.g.

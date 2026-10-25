@@ -1,4 +1,3 @@
-;;;; t/e2e/package.lisp
 ;;;;
 ;;;; The end-to-end suite: every row of the correspondence table
 ;;;; (docs/src/guide/agents.md) runs the real aitools executable in a fresh workspace and compares

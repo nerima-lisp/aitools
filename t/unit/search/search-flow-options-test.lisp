@@ -1,4 +1,3 @@
-;;;; t/unit/search/search-flow-options-test.lisp
 ;;;;
 ;;;; search/k over standard input and patterns, its next commands, and its
 ;;;; read, skip and scan options.

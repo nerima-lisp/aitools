@@ -1,4 +1,3 @@
-;;;; t/integration/edit-files-test.lisp
 ;;;;
 ;;;; File operations, rm safety, and undo behavior.
 (in-package #:aitools.edit.test)

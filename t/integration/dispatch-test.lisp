@@ -1,4 +1,3 @@
-;;;; t/integration/dispatch-test.lisp
 ;;;;
 ;;;; The composition root's DISPATCH (failure envelopes, exit codes, unknown names):
 ;;;; every failure, including a Lisp condition no command handled and a

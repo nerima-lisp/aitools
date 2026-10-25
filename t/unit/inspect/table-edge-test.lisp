@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/table-edge-test.lisp
 ;;;;
 ;;;; `table read` and `table agg` beyond the basic cases: option validation,
 ;;;; decoding and row windows, format detection without a known extension,

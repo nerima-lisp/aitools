@@ -1,4 +1,3 @@
-;;;; t/integration/workspace-host-test.lisp
 ;;;;
 ;;;; The production WORKSPACE-HOST against a real filesystem: odd file
 ;;;; names, symlinks, FIFOs, the workspace boundary with real symlinks, the

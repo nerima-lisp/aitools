@@ -1,4 +1,3 @@
-;;;; t/integration/cli-schema-drift-test.lisp
 ;;;;
 ;;;; The `schema` command's output must describe what the parser accepts. For every command
 ;;;; in the finalized cl-cli app, the options (by name, a negatable flag

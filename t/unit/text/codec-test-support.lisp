@@ -1,4 +1,3 @@
-;;;; t/unit/text/codec-test-support.lisp
 (in-package #:aitools.text.test)
 
 (defun only-archive-errors-p (function input)

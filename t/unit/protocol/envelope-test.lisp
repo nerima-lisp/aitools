@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/envelope-test.lisp
 (in-package #:aitools.protocol.test)
 
 (describe "aitools.protocol.domain envelope"

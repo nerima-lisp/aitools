@@ -1,4 +1,3 @@
-;;;; t/e2e/search-find-cases.lisp
 ;;;;
 ;;;; Correspondence table rows 6-11: searching, finding, code navigation, and comparing.
 (in-package #:aitools.e2e.test)

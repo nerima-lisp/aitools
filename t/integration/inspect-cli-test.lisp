@@ -1,4 +1,3 @@
-;;;; t/integration/inspect-cli-test.lisp
 ;;;;
 ;;;; `read`, `info`, `check`, and `diff` end to end through the composition
 ;;;; root and the production adapters, in a real temporary workspace: argv

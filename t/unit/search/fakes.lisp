@@ -1,4 +1,3 @@
-;;;; t/unit/search/fakes.lisp
 ;;;;
 ;;;; An in-memory filesystem behind both ports the search flows read
 ;;;; through: the workspace context's WORKSPACE-HOST (listing, lstat, the

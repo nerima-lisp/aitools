@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/info-check-diff-test.lisp
 ;;;;
 ;;;; `info`, `check`, and `diff` through fake ports
 ;;;; Real symlinks, digests of

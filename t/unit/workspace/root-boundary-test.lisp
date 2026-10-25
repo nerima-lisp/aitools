@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/root-boundary-test.lisp
 ;;;;
 ;;;; Root resolution and the write boundary, over the in-memory host.
 (in-package #:aitools.workspace.test)

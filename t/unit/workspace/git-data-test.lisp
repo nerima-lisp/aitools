@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/git-data-test.lisp
 ;;;;
 ;;;; git config syntax (git-config(1) "CONFIGURATION FILE") and index
 ;;;; format (gitformat-index(5)) readers. Index bytes are built here from the

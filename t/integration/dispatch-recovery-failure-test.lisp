@@ -1,4 +1,3 @@
-;;;; t/integration/dispatch-recovery-failure-test.lisp
 ;;;;
 ;;;; DISPATCH when store recovery cannot finish: the envelope names
 ;;;; the committed op and the record that blocked it, and the op completes

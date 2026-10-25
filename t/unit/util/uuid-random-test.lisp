@@ -1,4 +1,3 @@
-;;;; t/unit/util/uuid-random-test.lisp
 (in-package #:aitools.util.test)
 
 (defun octet-run (count value)

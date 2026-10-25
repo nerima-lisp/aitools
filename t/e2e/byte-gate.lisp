@@ -1,4 +1,3 @@
-;;;; t/e2e/byte-gate.lisp
 (in-package #:aitools.e2e.test)
 
 (defparameter +byte-gate-allowed-determinism-drop+ 0.0)

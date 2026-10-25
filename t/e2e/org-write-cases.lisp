@@ -1,4 +1,3 @@
-;;;; t/e2e/org-write-cases.lisp
 (in-package #:aitools.e2e.test)
 
 (defmacro define-org-write-case ((name workspace) &body body)

@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/yaml-values-test.lisp
 (in-package #:aitools.inspect.test)
 
 (defun %assert-yaml-unsupported (text reason pointer)

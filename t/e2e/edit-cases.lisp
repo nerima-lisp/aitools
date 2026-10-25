@@ -1,4 +1,3 @@
-;;;; t/e2e/edit-cases.lisp
 ;;;;
 ;;;; Correspondence table rows 12-21: text edits, inserts, writes, and patches. An in-place
 ;;;; edit runs aitools on a.txt and the shell command on o.txt, both written

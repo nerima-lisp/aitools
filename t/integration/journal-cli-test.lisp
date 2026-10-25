@@ -1,4 +1,3 @@
-;;;; t/integration/journal-cli-test.lisp
 ;;;;
 ;;;; `history`, `undo` and `tx` end to end through the composition root:
 ;;;; argv parsing with the global `--root`, the production ports and store,

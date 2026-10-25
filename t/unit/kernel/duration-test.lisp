@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/duration-test.lisp
 (in-package #:aitools.kernel.test)
 
 (describe "aitools.kernel.domain duration"

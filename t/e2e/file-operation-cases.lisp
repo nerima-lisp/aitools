@@ -1,4 +1,3 @@
-;;;; t/e2e/file-operation-cases.lisp
 ;;;;
 ;;;; Correspondence table rows 28-30: file operations and metadata.
 (in-package #:aitools.e2e.test)

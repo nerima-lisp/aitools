@@ -1,4 +1,3 @@
-;;;; t/integration/skill-contract-test.lisp
 ;;;;
 ;;;; skills/aitools/SKILL.md is what an agent copies invocations from, so every
 ;;;; example in it must name a command the parser registers and only options

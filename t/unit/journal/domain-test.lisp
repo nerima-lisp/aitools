@@ -1,4 +1,3 @@
-;;;; t/unit/journal/domain-test.lisp
 ;;;;
 ;;;; Pure rendering: command lines, history items, tx path actions,
 ;;;; commit-conflict repairs, and the replay registry lookup.

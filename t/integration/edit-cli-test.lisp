@@ -1,4 +1,3 @@
-;;;; t/integration/edit-cli-test.lisp
 ;;;;
 ;;;; The edit commands end to end through the composition root: cl-cli
 ;;;; parsing of the options built from the command table, the production

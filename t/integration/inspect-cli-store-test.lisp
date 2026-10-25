@@ -1,4 +1,3 @@
-;;;; t/integration/inspect-cli-store-test.lisp
 ;;;;
 ;;;; Inspect commands against a real store: `--tx` reads that cannot record
 ;;;; the read set, `--tx` reads of staged kinds and modes, `diff --op` when a

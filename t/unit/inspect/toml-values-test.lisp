@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/toml-values-test.lisp
 (in-package #:aitools.inspect.test)
 
 (defun %assert-toml-unsupported (text reason pointer)

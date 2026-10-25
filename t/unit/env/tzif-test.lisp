@@ -1,4 +1,3 @@
-;;;; t/unit/env/tzif-test.lisp
 (in-package #:aitools.env.test)
 
 (progn

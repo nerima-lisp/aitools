@@ -1,4 +1,3 @@
-;;;; t/unit/text/archive-zip-test.lisp
 (in-package #:aitools.text.test)
 
 (describe "aitools.text.domain zip on crafted archives"

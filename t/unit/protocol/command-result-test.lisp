@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/command-result-test.lisp
 (in-package #:aitools.protocol.test)
 
 (describe "aitools.protocol.application call-with-command-result/k"

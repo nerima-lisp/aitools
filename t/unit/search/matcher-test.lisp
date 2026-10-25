@@ -1,4 +1,3 @@
-;;;; t/unit/search/matcher-test.lisp
 ;;;;
 ;;;; The byte-level matcher (regex semantics, literal prefilter): which
 ;;;; lines are selected, and where matches start, for single files.

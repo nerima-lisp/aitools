@@ -1,4 +1,3 @@
-;;;; t/integration/store-mtime-test.lisp
 ;;;;
 ;;;; MTIME-REQUEST, the change `touch` makes to an existing file (undoing a
 ;;;; `touch` restores the original mtime): journaled with the old and new

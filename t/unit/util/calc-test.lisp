@@ -1,4 +1,3 @@
-;;;; t/unit/util/calc-test.lisp
 (in-package #:aitools.util.test)
 
 (describe "aitools.util.domain evaluate-expression"

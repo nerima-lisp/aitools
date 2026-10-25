@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/guard-test.lisp
 (in-package #:aitools.kernel.test)
 
 (describe "aitools.kernel.domain guard"

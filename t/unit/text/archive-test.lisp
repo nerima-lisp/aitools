@@ -1,4 +1,3 @@
-;;;; t/unit/text/archive-test.lisp
 ;;;;
 ;;;; Shared archive fixtures and construction helpers for text unit tests.
 (in-package #:aitools.text.test)

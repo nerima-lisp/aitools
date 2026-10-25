@@ -1,4 +1,3 @@
-;;;; t/unit/search/search-flow-test.lisp
 ;;;;
 ;;;; `search` through the flow, over the in-memory filesystem, with the
 ;;;; ignore-rule and regex cases. Standard

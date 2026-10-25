@@ -1,4 +1,3 @@
-;;;; t/support/json-assertions.lisp
 ;;;;
 ;;;; Small helpers for asserting on a json-kit value tree in tests, without
 ;;;; every test file re-deriving "walk a JSON-OBJECT's members" by hand.

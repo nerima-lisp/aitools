@@ -1,4 +1,3 @@
-;;;; t/unit/env/time-input-test.lisp
 (in-package #:aitools.env.test)
 
 (defun parsed (text)

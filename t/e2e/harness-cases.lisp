@@ -1,4 +1,3 @@
-;;;; t/e2e/harness-cases.lisp
 ;;;;
 ;;;; Case-side harness: per-case workspaces, the checked aitools invocation,
 ;;;; JSON helpers, shell oracles, and define-row-case registration.

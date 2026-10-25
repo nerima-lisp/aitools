@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/command-placement-test.lisp
 (in-package #:aitools.protocol.test)
 
 (describe "aitools.protocol.domain unknown-name repairs"

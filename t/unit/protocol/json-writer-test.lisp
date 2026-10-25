@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/json-writer-test.lisp
 ;;;;
 ;;;; Redaction: the written envelope carries the number of masked regions as a
 ;;;; top-level `redactions`, and carries nothing extra when nothing was masked.

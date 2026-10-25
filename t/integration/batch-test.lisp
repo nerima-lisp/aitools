@@ -1,4 +1,3 @@
-;;;; t/integration/batch-test.lisp
 ;;;;
 ;;;; `batch` end to end through the composition root: elements run
 ;;;; through the same dispatch as standalone calls, stop at the first

@@ -1,4 +1,3 @@
-;;;; t/e2e/org-cases.lisp
 (in-package #:aitools.e2e.test)
 
 (defmacro define-org-read-case ((name workspace) &body body)

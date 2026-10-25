@@ -1,4 +1,3 @@
-;;;; t/unit/text/codec-gzip-test.lisp
 (in-package #:aitools.text.test)
 
 (defun gzip-reason (function)

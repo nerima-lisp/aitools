@@ -1,4 +1,3 @@
-;;;; t/support/tools.lisp
 (in-package #:aitools.test.support)
 
 (defun tool-path (name)

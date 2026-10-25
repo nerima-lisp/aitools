@@ -1,4 +1,3 @@
-;;;; t/package.lisp
 ;;;;
 ;;;; The root test package. Every unit-test package (AITOOLS.<CONTEXT>.TEST)
 ;;;; re-exports these same cl-weave imports rather than importing cl-weave

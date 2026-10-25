@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.workspace.test

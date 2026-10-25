@@ -1,4 +1,3 @@
-;;;; t/integration/text-archive-interop-test.lisp
 ;;;;
 ;;;; Interoperability of the text context's zip, tar, and gzip codecs with
 ;;;; real archivers. Archives made by Info-ZIP, GNU tar, and bsdtar are read

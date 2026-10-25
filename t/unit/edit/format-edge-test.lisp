@@ -1,4 +1,3 @@
-;;;; t/unit/edit/format-edge-test.lisp
 ;;;;
 ;;;; Edge cases and remaining branches of the JSON, table-cell and
 ;;;; archive-extraction models.

@@ -1,4 +1,3 @@
-;;;; t/support/envelope-matchers.lisp
 (in-package #:aitools.test.support)
 
 (defun %envelope-mismatch (actual expected)

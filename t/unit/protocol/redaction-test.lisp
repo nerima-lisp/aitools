@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/redaction-test.lisp
 ;;;;
 ;;;; Positive cases cover every masked secret format; negative cases are the
 ;;;; explicit non-goals: a git SHA, a UUID, and a

@@ -1,4 +1,3 @@
-;;;; t/unit/util/codec-test.lisp
 (in-package #:aitools.util.test)
 
 (defparameter *all-octets*

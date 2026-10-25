@@ -1,4 +1,3 @@
-;;;; t/unit/text/guess-test.lisp
 ;;;;
 ;;;; `info`'s encoding_guess and mime, Unicode normalization, and the
 ;;;; language table.

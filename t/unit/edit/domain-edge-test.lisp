@@ -1,4 +1,3 @@
-;;;; t/unit/edit/domain-edge-test.lisp
 ;;;;
 ;;;; Edge cases of the text rules: layout, --old matching, templates, regex
 ;;;; use, transform ops and split.

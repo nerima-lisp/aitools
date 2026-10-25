@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/selection-test.lisp
 ;;;;
 ;;;; The public selector API (the selector rules in
 ;;;; docs/src/reference/commands/index.md, "Conventions shared by many commands") and the

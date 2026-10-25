@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/json-test.lisp
 ;;;;
 ;;;; The JSON pointer and equality rules shared by the inspect and edit
 ;;;; contexts. The test-json-equal cases use a representation private to this test

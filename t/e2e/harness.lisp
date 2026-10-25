@@ -1,4 +1,3 @@
-;;;; t/e2e/harness.lisp
 ;;;;
 ;;;; Process-level harness for the correspondence-table e2e cases. Every
 ;;;; aitools invocation runs the real executable as a child process: the one

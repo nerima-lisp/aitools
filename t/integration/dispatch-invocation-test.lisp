@@ -1,4 +1,3 @@
-;;;; t/integration/dispatch-invocation-test.lisp
 ;;;;
 ;;;; DISPATCH for invocations that name no runnable command, `--version` and
 ;;;; `--help`, and a standard output that fails. Helpers come from

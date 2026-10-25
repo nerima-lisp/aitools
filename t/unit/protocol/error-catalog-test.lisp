@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/error-catalog-test.lisp
 (in-package #:aitools.protocol.test)
 
 (describe "aitools.protocol.domain error-catalog"

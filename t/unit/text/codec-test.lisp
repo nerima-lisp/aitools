@@ -1,4 +1,3 @@
-;;;; t/unit/text/codec-test.lisp
 ;;;;
 ;;;; CRC-32 and raw DEFLATE. Known vectors: the CRC-32 check value from
 ;;;; the CRC catalogue ("123456789" -> CBF43926), RFC 1951 stored block, and

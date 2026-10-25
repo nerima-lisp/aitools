@@ -1,4 +1,3 @@
-;;;; t/integration/journal-tx-test.lisp
 ;;;;
 ;;;; The `tx` group (docs/src/reference/transactions.md) through the
 ;;;; journal flows against a real temporary workspace and store. Writes into

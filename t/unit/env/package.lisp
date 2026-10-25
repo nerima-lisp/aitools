@@ -1,4 +1,3 @@
-;;;; t/unit/env/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.env.test

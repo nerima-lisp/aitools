@@ -1,4 +1,3 @@
-;;;; t/unit/text/source-test.lisp
 ;;;;
 ;;;; The text read flow over an in-memory TEXT-SOURCE: binary decided from
 ;;;; the first 8 KiB, before the rest of the file is read.

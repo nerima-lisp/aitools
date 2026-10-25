@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-test.lisp
 ;;;;
 ;;;; The text-editing commands against a real temporary workspace through the write pipeline: `edit`,
 ;;;; guards, inputs, output shape, and the workspace boundary and text

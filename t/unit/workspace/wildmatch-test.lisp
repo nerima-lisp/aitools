@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/wildmatch-test.lisp
 ;;;;
 ;;;; Cases from git's t/t3070-wildmatch.sh. Each row is (pattern text
 ;;;; with-pathname without-pathname); the gitignore parity integration test

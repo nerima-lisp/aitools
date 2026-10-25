@@ -1,4 +1,3 @@
-;;;; t/integration/org-dispatch-test.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.integration.org-dispatch-test

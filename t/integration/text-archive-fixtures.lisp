@@ -1,4 +1,3 @@
-;;;; t/integration/text-archive-fixtures.lisp
 ;;;;
 ;;;; Archives produced by real archivers, checked in as hex so the
 ;;;; interoperability test also runs where those tools are absent (the Nix

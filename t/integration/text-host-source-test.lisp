@@ -1,4 +1,3 @@
-;;;; t/integration/text-host-source-test.lisp
 ;;;;
 ;;;; The production TEXT-SOURCE against a real filesystem, and the text read
 ;;;; flow over it.

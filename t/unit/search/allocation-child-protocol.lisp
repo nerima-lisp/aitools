@@ -1,4 +1,3 @@
-;;;; t/unit/search/allocation-child-protocol.lisp
 (in-package #:aitools.search.test)
 
 (defparameter +allocation-child-ready-marker+ "@@aitools-search-allocation-ready@@")

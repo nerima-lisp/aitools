@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/scan-test.lisp
 ;;;;
 ;;;; Ignore-rule and pruning behavior of CALL-WITH-WORKSPACE-SCAN/K over the
 ;;;; in-memory host. Real-git parity lives in the integration test.

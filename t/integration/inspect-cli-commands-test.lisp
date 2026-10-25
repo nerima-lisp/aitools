@@ -1,4 +1,3 @@
-;;;; t/integration/inspect-cli-commands-test.lisp
 ;;;;
 ;;;; The `json`, `table`, `archive`, and `snapshot` groups end to end through
 ;;;; dispatch, and `read` of a path that is neither a file nor a directory.

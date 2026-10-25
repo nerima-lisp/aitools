@@ -1,4 +1,3 @@
-;;;; t/integration/env-host-test.lisp
 ;;;;
 ;;;; The env flows over the production ports on the machine running the
 ;;;; suite: real uname(2), statfs(2), /proc or sysctl/vm_stat/ps/lsof, and the

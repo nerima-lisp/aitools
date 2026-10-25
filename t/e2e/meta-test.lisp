@@ -1,4 +1,3 @@
-;;;; t/e2e/meta-test.lisp
 ;;;;
 ;;;; Coverage and integrity of the e2e suite itself. Loaded after every case
 ;;;; file, so its specs run after the cases and see the complete registry.

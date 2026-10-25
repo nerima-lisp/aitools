@@ -1,4 +1,3 @@
-;;;; t/unit/util/flows-test.lisp
 ;;;;
 ;;;; Application flows over cl-boundary-kit fakes, adapted by the production
 ;;;; MAKE-UTIL-PORTS-FROM-BOUNDARIES. TEST-PORTS makes both input readers

@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/unified-diff-test.lisp
 (in-package #:aitools.kernel.test)
 
 (describe "aitools.kernel.domain unified diff"

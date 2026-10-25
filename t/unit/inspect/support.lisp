@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/support.lisp
 ;;;;
 ;;;; Fakes for inspect flow tests (unit tests inject fake ports): an in-memory filesystem behind both the WORKSPACE-HOST and the
 ;;;; TEXT-SOURCE ports, and a flow runner returning the command result.

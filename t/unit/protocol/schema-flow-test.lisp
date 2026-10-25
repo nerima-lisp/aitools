@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/schema-flow-test.lisp
 (in-package #:aitools.protocol.test)
 
 (describe "aitools.protocol.application schema rendering"

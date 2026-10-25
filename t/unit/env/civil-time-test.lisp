@@ -1,4 +1,3 @@
-;;;; t/unit/env/civil-time-test.lisp
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.domain civil time"

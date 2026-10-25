@@ -1,4 +1,3 @@
-;;;; t/support/files.lisp
 (in-package #:aitools.test.support)
 
 (defun read-bytes (path)

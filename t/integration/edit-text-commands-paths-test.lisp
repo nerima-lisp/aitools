@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-commands-paths-test.lisp
 ;;;;
 ;;;; Text command path and selection cases.
 (in-package #:aitools.edit.test)

@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-commands-test.lisp
 ;;;;
 ;;;; Insert, replace, apply, transform, and move-lines integration cases.
 (in-package #:aitools.edit.test)

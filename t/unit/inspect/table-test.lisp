@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/table-test.lisp
 ;;;;
 ;;;; `table read` and `table agg` (each format, column
 ;;;; type inference, each --where operator; grouping, each aggregate,

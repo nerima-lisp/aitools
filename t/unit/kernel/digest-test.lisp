@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/digest-test.lisp
 ;;;;
 ;;;; Standard test vectors from FIPS 180-4 (SHA-256/SHA-1) and RFC 1321 (MD5).
 (in-package #:aitools.kernel.test)

@@ -1,4 +1,3 @@
-;;;; t/support/workspace.lisp
 (in-package #:aitools.test.support)
 
 (defun %temporary-directory (prefix)

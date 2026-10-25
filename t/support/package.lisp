@@ -1,4 +1,3 @@
-;;;; t/support/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.test.support

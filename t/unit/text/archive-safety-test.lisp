@@ -1,4 +1,3 @@
-;;;; t/unit/text/archive-safety-test.lisp
 (in-package #:aitools.text.test)
 
 (describe "aitools.text.domain archive format detection on odd input"

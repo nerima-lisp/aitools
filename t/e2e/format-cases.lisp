@@ -1,4 +1,3 @@
-;;;; t/e2e/format-cases.lisp
 ;;;;
 ;;;; Correspondence table rows 31-37: JSON, tabular text, and archives. JSON results are
 ;;;; compared structurally with jq's output parsed by json-kit; archives are

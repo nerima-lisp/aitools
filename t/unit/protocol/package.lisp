@@ -1,4 +1,3 @@
-;;;; t/unit/protocol/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.protocol.test

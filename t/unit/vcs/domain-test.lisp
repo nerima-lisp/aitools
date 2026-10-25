@@ -1,7 +1,4 @@
-;;;; t/unit/vcs/domain-test.lisp
 ;;;;
-;;;; Parser inputs are shaped after real git 2.x output (porcelain blame,
-;;;; `log -z`, `diff` patches) captured while writing the parsers.
 (in-package #:aitools.vcs.test)
 
 (defun lines-text (&rest lines)

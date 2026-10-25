@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-pipeline-test.lisp
 ;;;;
 ;;;; The write pipeline's argument, root, target, hash and archive checks,
 ;;;; and --stdin failures.

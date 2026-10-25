@@ -1,4 +1,3 @@
-;;;; t/unit/env/env-commands-test.lisp
 ;;;;
 ;;;; The `sys` and `time` commands through cl-cli parsing and the composition
 ;;;; root's dispatch, against fake ports: argv in, one JSON envelope and an

@@ -1,4 +1,3 @@
-;;;; t/integration/workspace-gitignore-parity-test.lisp
 ;;;;
 ;;;; The scan's ignore decisions must equal
 ;;;; `git ls-files --cached --others --exclude-standard` on fixture

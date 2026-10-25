@@ -1,4 +1,3 @@
-;;;; t/perf/search-allocation-test.lisp
 ;;;;
 ;;;; Searching a file whose N lines do
 ;;;; not match allocates the same amount whatever N is. Lines are never
@@ -223,8 +222,8 @@ cons cell per line would already add 1.6 MB.")
               :to-be-less-than 4096)))
 
   ;; A pattern with no required literal has nothing to prefilter on, so every
-  ;; line reaches the engine; cl-regex-kit v2.1.1's Pike VM no longer allocates
-  ;; per input byte, so the scan stays flat in N even though no line is decoded.
+  ;; line reaches the Pike VM; this test checks full-scan allocation growth as
+  ;; N increases.
   (it "stays flat in N for a pattern without a required literal ([0-9]{5})"
     (let ((measurement (assoc "no-literal" (%allocation-measurements)
                               :test #'string=)))

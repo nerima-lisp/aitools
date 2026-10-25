@@ -1,4 +1,3 @@
-;;;; t/unit/kernel/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.kernel.test

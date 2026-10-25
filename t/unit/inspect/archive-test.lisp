@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/archive-test.lisp
 ;;;;
 ;;;; `archive list` and `archive read` through fake ports, for zip, tar,
 ;;;; tar.gz, and gz.

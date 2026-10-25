@@ -1,4 +1,3 @@
-;;;; t/e2e/byte-gate-test.lisp
 (in-package #:aitools.e2e.test)
 
 (defun byte-gate-test-octets (octets)

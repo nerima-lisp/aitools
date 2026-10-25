@@ -1,4 +1,3 @@
-;;;; t/unit/vcs/flows-test.lisp
 ;;;;
 ;;;; The git group's flows against a GIT-PORT built from closures over canned
 ;;;; git output, so every exit (ok, partial, each error code) is reachable

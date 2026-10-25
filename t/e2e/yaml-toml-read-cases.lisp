@@ -1,4 +1,3 @@
-;;;; t/e2e/yaml-toml-read-cases.lisp
 ;;;; Process-level checks for the read-only YAML and TOML command groups.
 (in-package #:aitools.e2e.test)
 

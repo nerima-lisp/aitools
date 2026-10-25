@@ -1,4 +1,3 @@
-;;;; t/unit/edit/domain-test.lisp
 ;;;;
 ;;;; The edit context's pure rules: layout preservation, `--old`
 ;;;; matching, replacement templates and filters, transform ops, and `split`.

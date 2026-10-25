@@ -1,4 +1,3 @@
-;;;; t/unit/search/package.lisp
 (in-package #:cl-user)
 (defpackage #:aitools.search.test
   (:use #:cl #:aitools.search.domain #:aitools.search.application)

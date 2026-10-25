@@ -1,4 +1,3 @@
-;;;; t/unit/text/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.text.test

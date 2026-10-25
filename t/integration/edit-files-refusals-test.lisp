@@ -1,4 +1,3 @@
-;;;; t/integration/edit-files-refusals-test.lisp
 ;;;;
 ;;;; File command argument and path refusals.
 (in-package #:aitools.edit.test)

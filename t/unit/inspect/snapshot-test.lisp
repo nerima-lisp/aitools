@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/snapshot-test.lisp
 ;;;;
 ;;;; Snapshot records and comparison rules (the flows run
 ;;;; against a real directory in t/integration/inspect-snapshot-test.lisp).

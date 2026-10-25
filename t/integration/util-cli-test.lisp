@@ -1,4 +1,3 @@
-;;;; t/integration/util-cli-test.lisp
 ;;;;
 ;;;; `util` end to end through the composition root: argv parsing, the
 ;;;; production ports (OS random source, real file reads), the envelope, and

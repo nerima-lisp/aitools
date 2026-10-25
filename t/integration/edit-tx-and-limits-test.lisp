@@ -1,4 +1,3 @@
-;;;; t/integration/edit-tx-and-limits-test.lisp
 ;;;;
 ;;;; Edit transaction staging, undo, and command limit cases.
 (in-package #:aitools.edit.test)

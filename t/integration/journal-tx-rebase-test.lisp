@@ -1,4 +1,3 @@
-;;;; t/integration/journal-tx-rebase-test.lisp
 (in-package #:aitools.journal.test)
 
 (describe "aitools.journal tx rebase"

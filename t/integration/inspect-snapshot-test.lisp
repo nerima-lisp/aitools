@@ -1,4 +1,3 @@
-;;;; t/integration/inspect-snapshot-test.lisp
 ;;;;
 ;;;; `snapshot create` and `snapshot diff` over a real temporary workspace
 ;;;; with the production workspace host, text source, and store adapters

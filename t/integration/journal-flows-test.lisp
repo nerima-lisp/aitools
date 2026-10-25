@@ -1,4 +1,3 @@
-;;;; t/integration/journal-flows-test.lisp
 ;;;;
 ;;;; `history` and `undo`
 ;;;; through the journal flows against a real temporary workspace and store:

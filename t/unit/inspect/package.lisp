@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.inspect.test

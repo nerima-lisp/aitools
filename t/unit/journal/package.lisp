@@ -1,4 +1,3 @@
-;;;; t/unit/journal/package.lisp
 ;;;;
 ;;;; One test package for the journal context's unit tests (t/unit/journal/)
 ;;;; and its integration tests (t/integration/journal-*.lisp), with the

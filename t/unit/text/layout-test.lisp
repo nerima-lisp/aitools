@@ -1,4 +1,3 @@
-;;;; t/unit/text/layout-test.lisp
 ;;;;
 ;;;; Byte-level text facts: binary sniffing, BOM, line endings, final
 ;;;; newline, and the line model that keeps a BOM out of line 1.

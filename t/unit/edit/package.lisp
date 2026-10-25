@@ -1,4 +1,3 @@
-;;;; t/unit/edit/package.lisp
 ;;;;
 ;;;; The edit context's test package (t/unit/edit/ and
 ;;;; t/integration/edit-*.lisp) and the helpers the flow tests share: a real

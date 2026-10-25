@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/fake-host.lisp
 ;;;;
 ;;;; An in-memory WORKSPACE-HOST: the unit tests' fake for the workspace
 ;;;; port. Nodes are keyed by absolute path; parents of

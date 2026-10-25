@@ -1,4 +1,3 @@
-;;;; t/unit/workspace/gitignore-test.lisp
 ;;;;
 ;;;; .gitignore syntax and precedence (gitignore(5)); expected verdicts come
 ;;;; from gitignore(5)'s own examples and git's dir.c rules.

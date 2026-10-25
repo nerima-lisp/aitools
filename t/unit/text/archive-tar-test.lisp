@@ -1,4 +1,3 @@
-;;;; t/unit/text/archive-tar-test.lisp
 (in-package #:aitools.text.test)
 
 (describe "aitools.text.domain tar on crafted archives"

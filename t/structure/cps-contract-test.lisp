@@ -12,7 +12,7 @@
         (expect (count :slash-k-defun actual :key #'third) :to-equal 0)
         (expect (count :on-key-defun actual :key #'third) :to-equal 0)
         (expect (count :positional-continuation-defun actual :key #'third) :to-equal 0)
-        ;; RUN-COMMAND/K is a migrated DEFINE-FLOW, not a legacy /k DEFUN.
+        ;; RUN-COMMAND/K is a DEFINE-FLOW and must not be reported as a /k DEFUN.
         (expect
          (member '("packages/feature/process/src/application/run-flow.lisp"
                    "RUN-COMMAND/K" :slash-k-defun)

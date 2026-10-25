@@ -1,4 +1,3 @@
-;;;; t/support/cli.lisp
 (in-package #:aitools.test.support)
 
 (defun envelope-value (envelope &rest keys)

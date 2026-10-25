@@ -1,4 +1,3 @@
-;;;; t/integration/workspace-test-support.lisp
 ;;;;
 ;;;; Scratch directories and external commands for the workspace and text
 ;;;; integration tests. Paths are native strings end to end (no CL pathname

@@ -1,4 +1,3 @@
-;;;; t/e2e/transform-file-cases.lisp
 ;;;;
 ;;;; Correspondence table rows 22-27: text transforms, normalization, encodings, and split.
 (in-package #:aitools.e2e.test)

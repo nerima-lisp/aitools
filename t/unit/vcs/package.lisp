@@ -1,4 +1,3 @@
-;;;; t/unit/vcs/package.lisp
 (in-package #:cl-user)
 
 (defpackage #:aitools.vcs.test

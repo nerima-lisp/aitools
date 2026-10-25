@@ -1,4 +1,3 @@
-;;;; t/unit/vcs/flows-options-test.lisp
 ;;;;
 ;;;; The git group's flows' shared options and edges against the fake
 ;;;; GIT-PORT: --root, selectors, paths relative to the working directory,

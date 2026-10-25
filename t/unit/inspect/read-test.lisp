@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/read-test.lisp
 ;;;;
 ;;;; `read` through fake ports.
 (in-package #:aitools.inspect.test)

@@ -1,4 +1,3 @@
-;;;; t/unit/env/host-parsers-test.lisp
 ;;;;
 ;;;; Fixture text follows the formats documented in proc(5) (Linux) and the
 ;;;; output captured from Darwin 25 `vm_stat`, `ps`, and `lsof`.

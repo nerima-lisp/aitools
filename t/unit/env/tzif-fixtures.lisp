@@ -1,4 +1,3 @@
-;;;; t/unit/env/tzif-fixtures.lisp
 ;;;;
 ;;;; Real TZif files from the IANA time zone database (public domain),
 ;;;; captured as hex so the tests need no /usr/share/zoneinfo: the Nix build

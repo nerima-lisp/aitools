@@ -1,4 +1,3 @@
-;;;; t/unit/edit/format-test.lisp
 ;;;;
 ;;;; JSON (RFC 6901, 6902, 7386, key order and indentation), table cells, and
 ;;;; archive extraction plans (zip slip, bombs, collisions). Their edge cases

@@ -1,4 +1,3 @@
-;;;; t/integration/vcs-git-test.lisp
 ;;;;
 ;;;; `git`: the production port and the dispatched CLI
 ;;;; against throwaway repositories built with the real git. Fixture git

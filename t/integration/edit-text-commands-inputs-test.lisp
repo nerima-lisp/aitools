@@ -1,4 +1,3 @@
-;;;; t/integration/edit-text-commands-inputs-test.lisp
 ;;;;
 ;;;; The text commands' stdin edits, missing targets, and replace scan
 ;;;; options.

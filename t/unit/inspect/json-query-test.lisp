@@ -1,4 +1,3 @@
-;;;; t/unit/inspect/json-query-test.lisp
 ;;;;
 ;;;; `json get`, `json select`, `json diff` (pointers with
 ;;;; ~0/~1, --keys, --raw, length, each --where operator, several

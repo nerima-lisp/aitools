@@ -1,5 +1,3 @@
-;;;; t/integration/vcs-git-port-test.lisp
-
 (in-package #:aitools.vcs.integration-test)
 
 (defun call-with-path (value thunk)
@@ -50,8 +48,7 @@
             :to-equal (list kind message exit-code)))
 
   (it "treats a git that exits 0 without `true` from rev-parse as outside a work tree"
-    ;; git before 2.25 printed `false` and exited 0 for --show-toplevel
-    ;; outside a work tree instead of failing.
+    ;; A zero exit status is insufficient; the first output line must be `true`.
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((fake (merge-pathnames "git" directory)))
         (with-open-file (out fake :direction :output)

@@ -1,4 +1,3 @@
-;;;; t/integration/inspect-yaml-toml-read-test.lisp
 ;;;; YAML and TOML inspection commands through dispatch and their published schemas.
 (in-package #:aitools.integration.inspect-cli-test)
 

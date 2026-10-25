@@ -1,4 +1,3 @@
-;;;; t/integration/search-host-test.lisp
 ;;;;
 ;;;; The search context over the real filesystem: the production workspace
 ;;;; host (a CPU-sized worker pool) and text source, a real store for
