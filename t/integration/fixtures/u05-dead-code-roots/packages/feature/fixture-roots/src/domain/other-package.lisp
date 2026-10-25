@@ -1,4 +1,5 @@
 (defpackage #:aitools.fixture.other
+  (:use)
   (:shadow #:find-symbol)
   (:export #:relay-target))
 (defpackage #:aitools.fixture.relay

@@ -15,4 +15,16 @@
 (define-command "literal.command"
                 (:command-builder #'%command-builder :schema nil))
 
-(define-inspect-command "literal.inspect" nil '%inspect-builder nil)
+(progn
+  (define-inspect-command "literal.inspect" nil (quote %inspect-builder) nil)
+  (quote
+   (define-command "quoted.command"
+     (:command-builder (%quoted-command-builder) :schema nil)))
+  (quote
+   (|define-command| "escaped.quoted"
+     (:command-builder (%escaped-command-builder) :schema nil)))
+  (when t
+    (aitools.protocol.application:define-command
+     "dynamic.command"
+     (:command-builder (%dynamic-command-builder)
+      :schema nil))))
