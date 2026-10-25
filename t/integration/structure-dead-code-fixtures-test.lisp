@@ -18,7 +18,7 @@
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds an unused private definition and ignores its string mention")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "finds an unused private definition and ignores its string mention")
       (finish-output *error-output*)))
 
   (it "finds an export used only by tests"
@@ -43,7 +43,7 @@
       (expect (not (null records)) :to-equal t)
       (expect violations :to-equal nil))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds an export used only by tests")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "finds an export used only by tests")
       (finish-output *error-output*)))
 
   (it "finds unused imports and preserves a used import"
@@ -78,7 +78,7 @@
           (%liveness-definitions records))))
        :to-equal t))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "finds unused imports and preserves a used import")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "finds unused imports and preserves a used import")
       (finish-output *error-output*)))
   (it "distinguishes SETF function names from ordinary functions"
     (multiple-value-bind (records violations)
@@ -127,7 +127,7 @@
         (expect (string= (getf ordinary :name) "%LIVE-SETF-PLACE")
                 :to-equal t)))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "distinguishes SETF function names from ordinary functions")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "distinguishes SETF function names from ordinary functions")
       (finish-output *error-output*)))
   (it "counts helpers in macro templates and nested unquotes"
     (multiple-value-bind (records violations)
@@ -142,7 +142,7 @@
                        "AITOOLS.FIXTURE.MACRO-TEMPLATE"
                        "%UNUSED-TEMPLATE-HELPER"))))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%"
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%"
               "counts helpers in macro templates and nested unquotes")
       (finish-output *error-output*)))
   (it "counts DEFSTRUCT slot accessors referenced by SETF"
@@ -158,6 +158,6 @@
                        "AITOOLS.FIXTURE.STRUCT-SLOTS"
                        "ORPHAN-RECORD"))))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%"
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%"
               "counts DEFSTRUCT slot accessors referenced by SETF")
       (finish-output *error-output*))))

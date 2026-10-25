@@ -133,7 +133,7 @@
               (destructuring-bind (package namespace symbol) entry
                 (expect (reference-p package namespace symbol) :to-equal nil))))))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "keeps reader-resolved roots in their source namespaces")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "keeps reader-resolved roots in their source namespaces")
       (finish-output *error-output*)))
   (it "treats unrecognized forms conservatively with dotted arguments"
     (let* ((form (list (intern "UNKNOWN-FORM" *reader-package*)

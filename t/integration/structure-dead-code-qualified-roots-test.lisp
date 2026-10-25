@@ -194,5 +194,5 @@
   (expect (not (null diff-hunks-api)) :to-equal t)
   (expect (getf diff-hunks-api :root) :to-equal nil))
     (progn
-      (format *error-output* "~&U05_FAIL_FIXTURE_SPEC_PASS: ~A~%" "distinguishes qualified references, roots, and imports")
+      (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "distinguishes qualified references, roots, and imports")
       (finish-output *error-output*))))
