@@ -1,3 +1,11 @@
-(defpackage #:aitools.fixture.test-export.tests (:use #:cl) (:import-from #:aitools.fixture.test-export #:public-entry))
+(defpackage #:aitools.fixture.test-export.tests
+  (:use #:cl)
+  (:import-from #:aitools.fixture.test-export
+                 #:public-entry
+                 #:test-setf-place))
 
-(defun test-entry () (public-entry))
+(in-package #:aitools.fixture.test-export.tests)
+
+(defun test-entry ()
+  (public-entry)
+  (funcall #'(setf test-setf-place) :test-value nil))

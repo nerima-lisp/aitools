@@ -29,30 +29,39 @@
           (loop for symbol being the external-symbols of found
                 collect (string-upcase (symbol-name symbol)))))))
 
+(defun %liveness-index-function-symbol-name (namespace name)
+  (if (and (eq namespace :function)
+           (>= (length name) 8)
+           (string= (subseq name 0 6) "(SETF ")
+           (char= (char name (1- (length name))) #\)))
+      (subseq name 6 (1- (length name)))
+      name))
+
 (defun %liveness-index-mark-local (kind record namespace symbol packages
                                   &optional (local-p t) visited)
   (let* ((own (if (stringp record) record (getf record :package)))
          (info (and own (gethash own packages)))
          (seen (or visited (make-hash-table :test #'equal)))
          (key (list kind own namespace symbol))
+         (package-symbol (%liveness-index-function-symbol-name namespace symbol))
          (imports (remove-if-not
-                   (lambda (import) (string= (second import) symbol))
+                   (lambda (import) (string= (second import) package-symbol))
                    (getf info :imports)))
          (uses (if (getf info :uses-declared-p)
                    (getf info :uses)
                    (list (list "COMMON-LISP" nil)))))
     (when (and own local-p)
-      (setf (gethash (list kind own symbol)
+      (setf (gethash (list kind own package-symbol)
                      *liveness-index-local-references*)
             t))
     (when own
       (unless (gethash key seen)
         (setf (gethash key seen) t)
         (unless (and (null imports)
-                     (not (member symbol (getf info :shadows)
+                     (not (member package-symbol (getf info :shadows)
                                   :test #'string=))
                      (some (lambda (use)
-                             (member symbol
+                             (member package-symbol
                                      (%liveness-index-exports
                                       (%liveness-index-alias own (first use)
                                                              packages)
@@ -62,19 +71,20 @@
           (%liveness-index-mark kind own namespace symbol))
         (if imports
             (dolist (import imports)
-              (setf (gethash (list kind own symbol)
+              (setf (gethash (list kind own package-symbol)
                              *liveness-index-local-references*)
                     t)
               (%liveness-index-mark-local
                kind (list :package
                           (%liveness-index-alias own (first import) packages))
-               namespace (second import) packages t seen))
-            (unless (member symbol (getf info :shadows) :test #'string=)
+               namespace symbol packages t seen))
+            (unless (member package-symbol (getf info :shadows) :test #'string=)
               (dolist (use uses)
                 (let ((package (%liveness-index-alias own (first use) packages)))
-                  (when (member symbol (%liveness-index-exports package packages)
+                  (when (member package-symbol
+                                (%liveness-index-exports package packages)
                                 :test #'string=)
-                    (setf (gethash (list kind own symbol)
+                    (setf (gethash (list kind own package-symbol)
                                    *liveness-index-local-references*)
                           t)
                     (%liveness-index-mark-local
@@ -118,7 +128,8 @@
     (t nil)))
 
 (defun %liveness-index-literal-package (object)
-  (or (%liveness-index-literal-name object)
+  (or (and (null object) "NIL")
+      (%liveness-index-literal-name object)
       (and (consp object)
            (symbolp (first object))
            (string= (%liveness-symbol-name (first object)) "FIND-PACKAGE")
@@ -129,7 +140,7 @@
                     (%liveness-index-literal-name (second form))))
          (package (if (cddr form)
                       (%liveness-index-literal-package (third form))
-                      nil)))
+                      (getf record :package))))
     (if (and name package)
         (%liveness-index-mark-symbol
          (if (eq (getf record :kind) :test) :test :production)

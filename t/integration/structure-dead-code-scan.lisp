@@ -30,6 +30,13 @@
                        ("AITOOLS.WORKSPACE.INFRASTRUCTURE" "WITH-WORKSPACE-BOUNDARIES")))
                :test (function equal))))
 
+(defun %liveness-export-reference-p (references kind package namespace symbol)
+  (or (gethash (list kind package namespace symbol) references)
+      (and (eq namespace :function)
+           (gethash (list kind package :function
+                          (format nil "(SETF ~A)" symbol))
+                    references))))
+
 (defun scan-dead-code-tree (root)
   "Sorted dead definitions and package violations under ROOT.
 Exported definitions are public roots; test-only exports remain violations."
@@ -48,7 +55,9 @@ Exported definitions are public roots; test-only exports remain violations."
                                   (getf definition :name))
                             references))
                  (exported-p (definition)
-                   (member (getf definition :name)
+                   (member (%liveness-index-function-symbol-name
+                            (getf definition :namespace)
+                            (getf definition :name))
                            (getf (gethash (getf definition :package) packages)
                                  :exports)
                            :test #'string=))
@@ -100,12 +109,10 @@ Exported definitions are public roots; test-only exports remain violations."
                (dolist (symbol (getf info :exports))
                  (when (and (not (%liveness-documented-api-root-p package :function symbol))
                             (some (lambda (namespace)
-                                    (gethash (list :test package namespace symbol)
-                                             references))
+                                    (%liveness-export-reference-p references :test package namespace symbol))
                                   '(:function :value :type))
                             (not (some (lambda (namespace)
-                                         (gethash (list :production package namespace symbol)
-                                                  references))
+                                         (%liveness-export-reference-p references :production package namespace symbol))
                                        '(:function :value :type))))
                    (push (format nil
                                  "~A:~D: exported symbol ~A:~A is referenced only from tests"

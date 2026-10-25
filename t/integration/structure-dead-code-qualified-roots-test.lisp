@@ -1,5 +1,4 @@
 (in-package #:aitools.integration.structure-test)
-
 (describe "aitools structure test (dead code)"
   (it "distinguishes qualified references, roots, and imports"
     (multiple-value-bind (records violations)
@@ -15,7 +14,19 @@
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "u05-dead-code-use-passes")
       (expect (not (null records)) :to-equal t)
-      (expect violations :to-equal nil))
+      (expect violations :to-equal nil)
+      (expect
+       (not
+        (null
+         (find-if
+          (lambda (definition)
+            (and (eq (getf definition :namespace) :function)
+                 (string= (getf definition :package)
+                          "AITOOLS.FIXTURE.USE-LIBRARY-LIVE")
+                 (string= (getf definition :name)
+                          "(SETF LIBRARY-SETF-PLACE)")))
+          (%liveness-definitions records))))
+       :to-equal t))
     (multiple-value-bind (records violations)
         (dead-code-fixture-scan "u05-dead-code-roots")
       (expect (not (null records)) :to-equal t)
@@ -56,9 +67,17 @@
          "packages/feature/fixture-roots/src/domain/lookups.lisp")
  (format nil "~A:9: unused definition AITOOLS.FIXTURE.ROOTS:%UNUSED-METHOD-HELPER"
          "packages/feature/fixture-roots/src/domain/methods.lisp")
+ (format nil
+        "~A:12: unused definition AITOOLS.FIXTURE.ROOTS:USE-ERROR-VALUES"
+        "packages/feature/fixture-roots/src/domain/macro-lambda-list-scope.lisp")
+ (format nil
+        "~A:3: unused definition AITOOLS.FIXTURE.ROOTS:ON-ERROR"
+        "packages/feature/fixture-roots/src/domain/macro-lambda-list-scope.lisp")
  "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:4: unresolved dynamic find-symbol"
  "packages/feature/fixture-roots/src/domain/commands.lisp:27: unresolved command builder"
- "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:8: unresolved dynamic find-symbol")
+ "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:17: unresolved dynamic find-symbol"
+ "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:25: unused definition AITOOLS.FIXTURE.ROOTS.API:EXPLICIT-NIL-PACKAGE-TARGET"
+ "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp:22: unused definition AITOOLS.FIXTURE.ROOTS.API:INACTIVE-BACKQUOTE-TARGET")
        (function string<)))
       (let* ((definitions (%liveness-definitions records))
        (calc-function
@@ -82,7 +101,30 @@
   (expect (not (null calc-function)) :to-equal t)
   (expect (getf calc-function :root) :to-equal t)
   (expect (not (null string-key-target)) :to-equal t)
-  (expect (getf string-key-target :root) :to-equal nil)))
+  (progn
+    (expect (getf string-key-target :root) :to-equal nil)
+    (flet ((api-target (name)
+             (find-if
+              (lambda (definition)
+                (and (eq (getf definition :namespace) :function)
+                     (string= (getf definition :package)
+                              "AITOOLS.FIXTURE.ROOTS.API")
+                     (string= (getf definition :file)
+                              "packages/feature/fixture-roots/src/domain/dynamic-find-symbol.lisp")
+                     (string= (getf definition :name) name)))
+              definitions)))
+      (let ((inactive-backquote-target (api-target "INACTIVE-BACKQUOTE-TARGET"))
+            (active-unquote-target (api-target "ACTIVE-UNQUOTE-TARGET"))
+            (omitted-package-target (api-target "OMITTED-PACKAGE-TARGET"))
+            (explicit-nil-package-target (api-target "EXPLICIT-NIL-PACKAGE-TARGET")))
+        (expect (not (null inactive-backquote-target)) :to-equal t)
+        (expect (getf inactive-backquote-target :root) :to-equal nil)
+        (expect (not (null active-unquote-target)) :to-equal t)
+        (expect (getf active-unquote-target :root) :to-equal t)
+        (expect (not (null omitted-package-target)) :to-equal t)
+        (expect (getf omitted-package-target :root) :to-equal t)
+        (expect (not (null explicit-nil-package-target)) :to-equal t)
+        (expect (getf explicit-nil-package-target :root) :to-equal nil))))))
     (let* ((records (%liveness-files (repository-root)))
        (definitions (%liveness-definitions records))
        (unified-diff-api

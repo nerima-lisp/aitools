@@ -25,13 +25,13 @@
         (loop for options on (rest slot) by #'cddr
               while (cdr options)
               when (member (first options) '(:reader :writer :accessor))
-                do (push (%designator-name (second options)) names))))
+                do (push (%liveness-defined-function-name (second options)) names))))
     (nreverse names)))
 
 (defun %liveness-struct-defined-names (form)
   "Generated type and function names from a DEFSTRUCT form."
   (labels ((optional-name (object)
-             (let ((name (%designator-name object)))
+             (let ((name (%liveness-defined-function-name object)))
                (unless (equal name "NIL") name))))
     (let* ((spec (second form))
            (name (%designator-name (if (consp spec) (first spec) spec)))
@@ -76,15 +76,18 @@
   "Names defined by a supported top-level form as (NAMESPACE NAME ROOT-MARKER)."
   (let* ((operator (and (consp form) (%liveness-symbol-name (first form))))
          (name (and (consp form) (second form)))
-         (operator operator)
          (simple-name (%designator-name name)))
     (cond
-      ((member operator '("DEFUN" "DEFMACRO" "DEFGENERIC") :test #'string=)
+      ((member operator '("DEFUN" "DEFGENERIC") :test #'string=)
+       (list (list :function (%liveness-defined-function-name name) nil)))
+      ((equal operator "DEFMACRO")
        (list (list :function simple-name nil)))
-      ((member operator '("DEFVAR" "DEFPARAMETER" "DEFCONSTANT") :test #'string=)
+      ((member operator '("DEFVAR" "DEFPARAMETER" "DEFCONSTANT")
+               :test #'string=)
        (list (list :value simple-name nil)))
       ((equal operator "DEFINE-FLOW")
-       (list (list :function (%designator-name (first name)) nil)))
+       (list (list :function
+                   (%liveness-defined-function-name (first name)) nil)))
       ((equal operator "DEFINE-WRITE-COMMAND")
        (list (list :function
                    (format nil "PREPARE-~A/K"
@@ -105,7 +108,8 @@
               (struct-name (second (first names))))
          (loop for (namespace symbol) in names
                when symbol
-                 collect (list namespace symbol (list :generated-struct struct-name)))))
+                 collect (list namespace symbol
+                               (list :generated-struct struct-name)))))
       ((member operator '("DEFCLASS" "DEFINE-CONDITION") :test #'string=)
        (append (list (list :type simple-name nil))
                (loop for symbol in (%liveness-slot-function-names (fourth form))
@@ -120,19 +124,17 @@
              (eq (third form) :calc-functions))
     (loop for entry in (fourth form)
           for designator = (third entry)
-          for origin = (and (symbolp designator)
-                            (get designator :u05-qualified-reference))
-          for home = (and (symbolp designator) (symbol-package designator))
-          when (and (symbolp designator)
-                    (not (keywordp designator))
-                    (or origin home))
-            collect
-              (or origin
-                  (if (eq home *reader-package*)
-                      (list (getf record :package)
-                            (%liveness-symbol-name designator))
-                      (list (package-name home)
-                            (%liveness-symbol-name designator)))))))
+          for symbol = (%liveness-defined-function-symbol designator)
+          for name = (%liveness-defined-function-name designator)
+          for origin = (and symbol (get symbol :u05-qualified-reference))
+          for home = (and symbol (symbol-package symbol))
+          for package = (or (and origin (first origin))
+                            (and (eq home *reader-package*)
+                                 (getf record :package))
+                            (and home (package-name home)))
+          when (and symbol name package (not (keywordp symbol)))
+            collect (list package name)))
+)
 
 (defun %liveness-definitions (records)
   "Definitions from production files and the roots registered for dynamic dispatch."
@@ -223,3 +225,21 @@
                                               start (second marker))))
                             definitions)))))))))
       (nreverse definitions))))
+
+(defun %liveness-defined-setf-function-name-p (designator)
+  (and (consp designator)
+       (null (cddr designator))
+       (symbolp (first designator))
+       (string-equal (%liveness-symbol-name (first designator)) "SETF")
+       (symbolp (second designator))
+       (not (keywordp (second designator)))))
+
+(defun %liveness-defined-function-name (designator)
+  (if (%liveness-defined-setf-function-name-p designator)
+      (format nil "(SETF ~A)" (%designator-name (second designator)))
+      (%designator-name designator)))
+
+(defun %liveness-defined-function-symbol (designator)
+  (if (%liveness-defined-setf-function-name-p designator)
+      (second designator)
+      (and (symbolp designator) designator)))
