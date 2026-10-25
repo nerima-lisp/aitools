@@ -315,8 +315,8 @@ Use `run -- sh -c '...'` only when shell syntax is needed, and keep untrusted da
 `run` keeps the first --head and last
 --tail lines of each stream; --timeout (default 120s) sends SIGTERM to the process group, then SIGKILL.
 `bg` starts detached processes whose logs live in the state directory; `wait`
-blocks on one condition for up to 60 seconds by default. If it expires, the
-result has status `environment.timeout`.
+blocks on one condition for up to 60 seconds by default. On timeout it returns
+an error with code `environment.timeout` and exit code 1.
 
 `run` defaults to closed stdin, the current directory, and the inherited environment.
 Use mutually exclusive `--stdin`, `--stdin-data TEXT`, or `--stdin-file PATH` for input.
