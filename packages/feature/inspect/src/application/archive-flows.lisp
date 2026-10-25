@@ -1,6 +1,6 @@
 ;;;;
-;;;; The list flow returns archive members; the read flow returns the `read`
-;;;; text view with the same shape and selectors.
+;;;; `archive list` returns archive members; `archive read` returns the text
+;;;; view of one selected member with line selectors.
 (in-package #:aitools.inspect.application)
 
 (defun %archive-list-command (context path)

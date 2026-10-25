@@ -70,8 +70,8 @@ disk's."
               (values nil nil))))))
 
 (defun %content-fields (octets target digest)
-  ;; Text counts are computed in one pass over decoded bytes. For binary files,
-  ;; LINE-COUNT/WORD-COUNT/MAX-CHARS/CHARACTERS are null.
+  ;; Valid UTF-8 text counts directly from its bytes; invalid UTF-8 falls back
+  ;; to decoding once. Binary files have no text counts.
   (let* ((binary (binary-octets-p octets))
          (layout (detect-text-layout octets)))
     (multiple-value-bind (line-count word-count max-chars characters)

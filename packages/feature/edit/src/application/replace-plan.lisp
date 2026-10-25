@@ -8,12 +8,10 @@ state is an error; scanned files in that state are skipped."
           (per-change '())
           (total 0)
           (failure nil)
-          ;; A byte-level required-literal check, so a file lacking
-          ;; the pattern's literal is skipped without decoding. Sound only
-          ;; where a miss means zero replacements and no error, so it is
-          ;; applied only to scanned (non-explicit) files and dropped when a
-          ;; selector restricts the lines. A prefilter match still goes
-          ;; through the replacement matcher.
+          ;; The byte-level prefilter skips scanned files without the required
+          ;; literal before decoding. It is safe only when a miss means no
+          ;; replacement and no error, so explicit files bypass it and a line
+          ;; selector disables it. Hits still go through the replacement matcher.
           (literal (and (null selector) (replacer-required-literal replacer))))
       (labels ((reject-or-skip (path code message
                  &key candidates diagnostics conflicts repairs)
