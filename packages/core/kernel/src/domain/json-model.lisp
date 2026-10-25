@@ -4,12 +4,11 @@
 ;;;; elements, constructors, null detection, string handling, and equality.
 (in-package #:aitools.kernel.domain)
 
-(defstruct (json-value-model
-            (:constructor make-json-value-model
+(defstruct (json-value-model (:constructor make-json-value-model
                 (&key object-p object-members object-from-members
                       array-p array-elements array-from-elements array-insert array-remove
                       null-p string-p string-text string-length equal))
-            (:copier nil))
+            (:copier nil) (:predicate nil))
   (object-p nil :type function :read-only t)
   ;; OBJECT-MEMBERS returns ordered (KEY . VALUE) pairs as the model's
   ;; traversal view; the value itself need not be an alist.

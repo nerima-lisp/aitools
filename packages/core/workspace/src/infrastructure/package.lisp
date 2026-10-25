@@ -19,5 +19,4 @@
    #:call-with-ordered-mapper
    ;; boundaries.lisp
    #:+workspace-host-boundary+
-   #:with-workspace-boundaries
-   #:workspace-host-from-context))
+   #:with-workspace-boundaries))

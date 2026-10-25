@@ -7,7 +7,7 @@
 ;;;; `candidates` (docs/src/reference/errors.md).
 (in-package #:aitools.inspect.application)
 
-(defstruct (file-target (:constructor %make-file-target) (:copier nil))
+(defstruct (file-target (:constructor %make-file-target) (:copier nil) (:predicate nil))
   "ARGUMENT is the path as typed; ABSOLUTE its lexical absolute form; REAL
 the symlink-resolved path (NIL on a symlink loop); RELATIVE the real path
 relative to the real root when inside the workspace, else NIL; KIND

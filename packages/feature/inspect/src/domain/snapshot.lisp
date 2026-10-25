@@ -11,15 +11,14 @@
 
 (defstruct
     (snapshot-file (:constructor make-snapshot-file (path size mtime hash))
-                   (:copier nil))
+                   (:copier nil) (:predicate nil))
   (path "" :type string :read-only t)
   (size 0 :type (integer 0) :read-only t)
   (mtime 0 :type integer :read-only t)
   (hash "" :type string :read-only t))
 
 (defstruct
-    (snapshot
-     (:constructor make-snapshot
+    (snapshot (:constructor make-snapshot
                    (id created
                        files
                        &key
@@ -28,7 +27,7 @@
                        no-ignore
                        skip-larger-than
                        newer))
-     (:copier nil))
+     (:copier nil) (:predicate nil))
   "FILES is a list of SNAPSHOT-FILEs sorted by path. The option slots are
 the `snapshot create` scan options (NEWER in Unix seconds)."
   (id "" :type string :read-only t)
@@ -167,8 +166,7 @@ SNAPSHOT-ID-FROM-TIME makes; anything else (a path, `..`) is not an id."
     (declare (ignore message line column))
     (aitools.kernel.domain:flow-continue :on-invalid))
   (:on-value (value)
-    (let ((snapshot
-           (handler-case (%decode-snapshot-value value id)
+    (let ((snapshot (handler-case (%decode-snapshot-value value id)
              (error () nil))))
       (if snapshot
           (aitools.kernel.domain:flow-continue

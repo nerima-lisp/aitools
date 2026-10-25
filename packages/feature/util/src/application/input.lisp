@@ -7,7 +7,7 @@
 (in-package #:aitools.util.application)
 
 (defstruct (input-request (:constructor make-input-request (&key content content-file stdin))
-                          (:copier nil))
+                          (:copier nil) (:predicate nil))
   (content nil :type (or null string) :read-only t)
   (content-file nil :type (or null string) :read-only t)
   (stdin nil :type boolean :read-only t))

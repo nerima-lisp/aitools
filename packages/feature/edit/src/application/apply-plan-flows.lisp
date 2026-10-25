@@ -52,7 +52,7 @@ marker when the last hunk reaches the end of the file, else DEFAULT."
       ((and old-side (aitools.kernel.domain:diff-line-no-newline (car (last old-side)))) t)
       (t default))))
 
-(defstruct (%file-patch (:constructor %make-file-patch (source target hunks)) (:copier nil))
+(defstruct (%file-patch (:constructor %make-file-patch (source target hunks)) (:copier nil) (:predicate nil))
   ;; SOURCE: the path whose content the hunks apply to (NIL: created);
   ;; TARGET: where the result goes (NIL: deleted)
   source target hunks)

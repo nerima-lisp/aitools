@@ -1,7 +1,7 @@
 (in-package #:aitools.process.domain)
 
 (defstruct (process-identity (:constructor make-process-identity
-                               (&key pid ppid pgid uid ruid start command-line)))
+                               (&key pid ppid pgid uid ruid start command-line)) (:copier nil) (:predicate nil))
   pid ppid pgid uid ruid start command-line)
 
 (defun same-process-p (expected actual)

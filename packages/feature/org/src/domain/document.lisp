@@ -18,7 +18,7 @@
 
 (defstruct (org-outline-entry (:constructor make-org-outline-entry
                                   (&key kind name level line))
-                              (:copier nil))
+                              (:copier nil) (:predicate nil))
   (kind nil :read-only t)
   (name "" :type string :read-only t)
   (level nil :type (or null integer) :read-only t)
@@ -26,13 +26,13 @@
 
 (defstruct (org-heading-path-entry (:constructor make-org-heading-path-entry
                                          (&key title index))
-                                   (:copier nil))
+                                   (:copier nil) (:predicate nil))
   (title "" :type string :read-only t)
   (index 1 :type integer :read-only t))
 
 (defstruct (org-query-match (:constructor make-org-query-match
                                  (&key line level title todo tags heading-path))
-                            (:copier nil))
+                            (:copier nil) (:predicate nil))
   (line 1 :type integer :read-only t)
   (level 1 :type integer :read-only t)
   (title "" :type string :read-only t)

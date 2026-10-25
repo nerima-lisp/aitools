@@ -12,14 +12,13 @@
                 #:make-app #:make-command #:make-option #:make-positional
                 #:parse-argv #:current-process-argv
                 #:invocation-action #:invocation-command #:invocation-command-path #:invocation-app
-                #:invocation-positionals #:invocation-global-options #:invocation-command-options
                 #:option-value #:positional-value
                 #:app-version #:app-handler #:command-handler #:command-name
-                #:cli-error #:cli-error-message
+                #:cli-error-message
                 #:cli-usage-error #:cli-usage-error-command
                 #:cli-unknown-command #:cli-unknown-command-name)
   (:import-from #:aitools.protocol.application
-                #:command-registry #:make-command-registry
+                #:make-command-registry
                 #:command-registry-top-level #:command-registry-group-commands
                 #:find-command-schema #:all-command-schemas)
   (:import-from #:aitools.protocol.domain

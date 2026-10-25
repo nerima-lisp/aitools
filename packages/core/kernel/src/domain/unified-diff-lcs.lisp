@@ -7,7 +7,7 @@
 ;;; positions by walking the merged script once, which is simpler than
 ;;; keeping backtracking and position bookkeeping consistent with each other.
 
-(defstruct (%edit-op (:constructor %make-edit-op (kind count))) kind count)
+(defstruct (%edit-op (:constructor %make-edit-op (kind count)) (:copier nil) (:predicate nil)) kind count)
 
 (defparameter *default-max-lcs-cells* 4000000
   "Bounds the cost of GENERATE-DIFF-HUNKS: a (LENGTH A + 1) * (LENGTH B + 1)

@@ -14,7 +14,7 @@
 
 (defstruct (language-index (:constructor %make-language-index (language matcher kinds name-groups
                                                                         level-groups identifier))
-                           (:copier nil))
+                           (:copier nil) (:predicate nil))
   (language nil :read-only t)
   (matcher nil :type matcher :read-only t)
   ;; Per definition pattern: its kind string, the index of its `name`
@@ -25,7 +25,7 @@
   ;; A byte regex matching one identifier character.
   (identifier nil :read-only t))
 
-(defstruct (definition (:constructor %make-definition (line end-line kind name)) (:copier nil))
+(defstruct (definition (:constructor %make-definition (line end-line kind name)) (:copier nil) (:predicate nil))
   (line 0 :type fixnum :read-only t)
   (end-line 0 :type fixnum :read-only t)
   (kind "" :type string :read-only t)

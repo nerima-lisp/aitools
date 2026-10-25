@@ -149,7 +149,7 @@ end" "r.md" "Setup")
 
   (it "finds UTF-8 runs with extract-strings"
     (let ((found '()))
-      (extract-strings (coerce (concatenate '(vector (unsigned-byte 8)) #(1) (string-bytes (string (code-char #x3042))) (string-bytes "bcd") #(0))
+      (aitools.inspect.domain::extract-strings (coerce (concatenate '(vector (unsigned-byte 8)) #(1) (string-bytes (string (code-char #x3042))) (string-bytes "bcd") #(0))
                                '(simple-array (unsigned-byte 8) (*)))
                        :min-length 4 :emit (lambda (offset text) (push (cons offset text) found) nil))
       (expect found :to-equal (list (cons 1 (concatenate 'string (string (code-char #x3042)) "bcd")))))))

@@ -17,7 +17,6 @@
    #:text-source-p
    #:make-text-source
    #:source-file-size
-   #:source-read-prefix
    #:source-read-octets
    #:source-call-with-chunks
    #:source-read-sniffed

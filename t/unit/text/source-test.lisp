@@ -78,7 +78,7 @@ call and (:rest path) when it goes on past the prefix."
   (let ((base (fake-source files)))
     (make-text-source
      :file-size (lambda (path) (source-file-size base path))
-     :read-prefix (lambda (path count) (source-read-prefix base path count))
+     :read-prefix (lambda (path count) (aitools.text.application::source-read-prefix base path count))
      :read-octets (lambda (path) (source-read-octets base path))
      :call-with-chunks (lambda (path size function) (source-call-with-chunks base path size function))
      :read-sniffed (lambda (path count continue-p)

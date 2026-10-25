@@ -6,9 +6,8 @@
 ;;;; MAKE-PRODUCTION-VCS-PORTS.
 (in-package #:aitools.vcs.application)
 
-(defstruct (git-port
-            (:constructor make-git-port (&key probe run status numstat at))
-            (:copier nil))
+(defstruct (git-port (:constructor make-git-port (&key probe run status numstat at))
+            (:copier nil) (:predicate nil))
   "PROBE: (funcall probe &key on-repository on-outside on-missing
 on-no-directory on-failure) -- probe the directory. ON-REPOSITORY receives
 the absolute repository top and the absolute, symlink-resolved process

@@ -12,7 +12,7 @@
 ;;;; `--where` queries in table-query.lisp.
 (in-package #:aitools.inspect.domain)
 
-(defstruct (table (:constructor %make-table (format columns types rows)) (:copier nil))
+(defstruct (table (:constructor %make-table (format columns types rows)) (:copier nil) (:predicate nil))
   "FORMAT a keyword; COLUMNS a list of names; TYPES the matching list of
 type names; ROWS a list of simple-vectors of JSON values, one per column."
   (format :csv :read-only t)

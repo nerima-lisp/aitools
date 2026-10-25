@@ -7,7 +7,7 @@
 
 (defstruct (search-ports (:constructor make-search-ports
                              (&key workspace-host text-source open-store unix-now read-stdin-octets))
-                         (:copier nil))
+                         (:copier nil) (:predicate nil))
   "WORKSPACE-HOST supplies listing, stat, and ordered mapping. TEXT-SOURCE
 is used through CALL-WITH-CHUNKS(path, chunk-size, function): it calls FUNCTION
 with successive octet chunks until :STOP, returning T when PATH is readable or

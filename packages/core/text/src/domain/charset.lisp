@@ -24,7 +24,7 @@
     (:utf-8 "utf-8") (:shift_jis "shift_jis") (:euc-jp "euc-jp")
     (:iso-8859-1 "iso-8859-1") (:utf-16le "utf-16le") (:utf-16be "utf-16be")))
 
-(defstruct (%charmap (:constructor %make-charmap (decode encode)) (:copier nil))
+(defstruct (%charmap (:constructor %make-charmap (decode encode)) (:copier nil) (:predicate nil))
   (decode nil :type hash-table :read-only t)
   (encode nil :type hash-table :read-only t))
 

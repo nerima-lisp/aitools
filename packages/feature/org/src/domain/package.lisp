@@ -5,9 +5,6 @@
   (:export
    #:make-org-document
    #:org-document
-   #:org-document-p
-   #:org-document-source-name
-   #:org-document-octets
    #:org-document-engine-value
    #:make-org-failure
    #:org-failure

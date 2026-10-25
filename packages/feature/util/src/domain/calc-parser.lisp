@@ -1,6 +1,6 @@
 (in-package #:aitools.util.domain)
 
-(defstruct (%parser (:constructor %make-parser (tokens)) (:copier nil))
+(defstruct (%parser (:constructor %make-parser (tokens)) (:copier nil) (:predicate nil))
   (tokens #() :type simple-vector :read-only t)
   (position 0 :type fixnum)
   (depth 0 :type fixnum))

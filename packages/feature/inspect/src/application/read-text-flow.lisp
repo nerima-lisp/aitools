@@ -12,7 +12,7 @@ is known.")
   (approx-token-count (+ (length strings) (reduce #'+ strings :key #'length))))
 
 (defstruct
-    (text-view-options (:constructor make-text-view-options) (:copier nil))
+    (text-view-options (:constructor make-text-view-options) (:copier nil) (:predicate nil))
   "The text-mode knobs shared by `read` and `archive read`. COMMAND-WORDS
 rebuild the command for `next_commands` (without selectors and limits);
 EXTRA-WORDS follow the selector (e.g. `--encoding X`). HEX-WORDS, given

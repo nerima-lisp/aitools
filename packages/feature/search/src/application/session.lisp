@@ -6,7 +6,7 @@
 ;;;; options, and file reads with the binary check.
 (in-package #:aitools.search.application)
 
-(defstruct (session (:constructor %make-session (ports root overlay view staged)) (:copier nil))
+(defstruct (session (:constructor %make-session (ports root overlay view staged)) (:copier nil) (:predicate nil))
   (ports nil :type search-ports :read-only t)
   (root nil :read-only t)
   (overlay nil :read-only t)

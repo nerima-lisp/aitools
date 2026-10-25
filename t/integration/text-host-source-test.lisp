@@ -12,7 +12,7 @@
       (let ((path (concatenate 'string scratch "/a*[b].txt")))
         (write-file path "0123456789")
         (expect (aitools.text.application:source-file-size (source) path) :to-be 10)
-        (expect (text (aitools.text.application:source-read-prefix (source) path 4)) :to-equal "0123")
+        (expect (text (aitools.text.application::source-read-prefix (source) path 4)) :to-equal "0123")
         (expect (text (aitools.text.application:source-read-octets (source) path)) :to-equal "0123456789")
         (let ((chunks '()))
           (expect (aitools.text.application:source-call-with-chunks
@@ -41,7 +41,7 @@
                        :to-equal '(nil :unreadable))
                (expect (multiple-value-list (aitools.text.application:source-read-octets (source) path))
                        :to-equal '(nil :unreadable))
-               (expect (multiple-value-list (aitools.text.application:source-read-prefix (source) path 4))
+               (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) path 4))
                        :to-equal '(nil :unreadable))
                (expect (multiple-value-list (aitools.text.application:source-call-with-chunks
                                              (source) path 4 (lambda (chunk) (declare (ignore chunk)) nil)))
@@ -50,7 +50,7 @@
                                       (concatenate 'string scratch "/locked/below")))
                  (expect (multiple-value-list (aitools.text.application:source-file-size (source) missing))
                          :to-equal '(nil))
-                 (expect (multiple-value-list (aitools.text.application:source-read-prefix (source) missing 4))
+                 (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) missing 4))
                          :to-equal '(nil))
                  (expect (multiple-value-list (aitools.text.application:source-read-octets (source) missing))
                          :to-equal '(nil)))
@@ -132,7 +132,7 @@
         (dolist (path (list (format nil "~A~Csuffix" target (code-char 0))
                             (format nil "~A~C" target (code-char #xD800))))
           (expect (multiple-value-list (aitools.text.application:source-file-size (source) path)) :to-equal '(nil))
-          (expect (multiple-value-list (aitools.text.application:source-read-prefix (source) path 2)) :to-equal '(nil))
+          (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) path 2)) :to-equal '(nil))
           (expect (multiple-value-list (aitools.text.application:source-read-octets (source) path)) :to-equal '(nil))
           (expect (multiple-value-list (aitools.text.application:source-read-sniffed (source) path 2 (constantly t)))
                   :to-equal '(nil)))))))
@@ -236,5 +236,5 @@
     (let* ((source (source))
            (context (aitools.text.infrastructure:with-text-boundaries
                      (cl-boundary-kit:make-boundary-context) :source source)))
-      (expect (aitools.text.infrastructure:text-source-from-context context) :to-be source))))
+      (expect (aitools.text.infrastructure::text-source-from-context context) :to-be source))))
 

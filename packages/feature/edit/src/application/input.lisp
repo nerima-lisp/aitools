@@ -113,7 +113,7 @@ text) with TEXT the raw input, recorded as --stdin-data."
     (setf (getf copy :stdin-data) text)
     copy))
 
-(defstruct (command-env (:constructor make-command-env (host root ports)) (:copier nil))
+(defstruct (command-env (:constructor make-command-env (host root ports)) (:copier nil) (:predicate nil))
   "The live invocation's workspace host and resolved WORKSPACE-ROOT, for the
 few preparations that look at the workspace before the write (scans). A
 `tx rebase` replay has no env: its recorded paths are already resolved."

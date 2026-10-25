@@ -19,7 +19,6 @@
    #:path-relative-to
    ;; selector.lisp
    #:selector
-   #:make-old-selector
    #:make-range-selector
    #:make-symbol-selector
    #:make-between-selector
@@ -38,7 +37,6 @@
    #:selector-invert
    #:parse-range-spec
    #:selector-basis
-   #:selector-uniqueness
    #:selector-accepts-command-p
    #:*selector-catalog*
    ;; guard.lisp
@@ -122,7 +120,6 @@
    #:json-model-merge-patch
    #:json-model-apply-patch
    #:json-model-child
-   #:json-model-resolve/k
    #:json-model-child-names
    #:json-model-value-length
    #:json-model-diff-ops

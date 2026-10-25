@@ -89,7 +89,6 @@
    #:format-json-pointer
    #:json-add
    #:json-remove
-   #:json-equal
    #:json-merge-patch
    #:json-apply-patch
    ;; regex.lisp and mtime.lisp

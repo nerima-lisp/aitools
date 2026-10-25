@@ -49,7 +49,7 @@
 (defun %ascii-letter-p (char)
   (or (char<= #\a char #\z) (char<= #\A char #\Z) (char= char #\_)))
 
-(defstruct (%token (:constructor %make-token (kind value offset)) (:copier nil))
+(defstruct (%token (:constructor %make-token (kind value offset)) (:copier nil) (:predicate nil))
   (kind nil :type keyword :read-only t)
   (value nil :read-only t)
   (offset 0 :type fixnum :read-only t))

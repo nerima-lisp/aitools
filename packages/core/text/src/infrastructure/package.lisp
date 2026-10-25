@@ -11,5 +11,4 @@
    #:make-host-text-source
    ;; boundaries.lisp
    #:+text-source-boundary+
-   #:with-text-boundaries
-   #:text-source-from-context))
+   #:with-text-boundaries))

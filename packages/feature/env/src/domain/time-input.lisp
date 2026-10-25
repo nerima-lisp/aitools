@@ -27,7 +27,7 @@
              (time-syntax-error-text condition)
              (time-syntax-error-reason condition)))))
 
-(defstruct (time-input (:constructor make-time-input (kind format milliseconds)) (:copier nil))
+(defstruct (time-input (:constructor make-time-input (kind format milliseconds)) (:copier nil) (:predicate nil))
   "KIND is :INSTANT (MILLISECONDS is Unix epoch milliseconds) or :LOCAL
 (MILLISECONDS is the wall-clock fields encoded as if they were UTC, still to
 be resolved against a zone). FORMAT is \"epoch_s\", \"epoch_ms\", or

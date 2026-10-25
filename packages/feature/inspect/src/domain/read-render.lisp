@@ -127,7 +127,7 @@ each offset is BASE plus the row's index."
       (and (not (invisible-char-p char)) (graphic-char-p char))))
 
 (defstruct (strings-scan (:constructor make-strings-scan (&key (min-length 4) max-text-length emit))
-                         (:copier nil))
+                         (:copier nil) (:predicate nil))
   "An `--as strings` walk carried across successive chunks of one file. EMIT
 is called with (offset text cut-offset) for each run of at least MIN-LENGTH
 printable characters; a run longer than MAX-TEXT-LENGTH characters keeps only

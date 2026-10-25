@@ -5,13 +5,12 @@
 ;;;; `--limit`, so non-matching lines allocate no strings.
 (in-package #:aitools.search.domain)
 
-(defstruct (selected-line (:constructor %make-selected-line (number start end)) (:copier nil))
+(defstruct (selected-line (:constructor %make-selected-line (number start)) (:copier nil) (:predicate nil))
   (number 0 :type fixnum :read-only t)
-  (start 0 :type fixnum :read-only t)
-  (end 0 :type fixnum :read-only t))
+  (start 0 :type fixnum :read-only t))
 
 (defstruct (found-match (:constructor %make-found-match (pattern-index line line-start start end groups))
-                        (:copier nil))
+                        (:copier nil) (:predicate nil))
   (pattern-index 0 :type fixnum :read-only t)
   (line 0 :type fixnum :read-only t)
   (line-start 0 :type fixnum :read-only t)
@@ -21,7 +20,7 @@
   (groups #() :type simple-vector :read-only t))
 
 (defstruct (file-outcome (:constructor %make-file-outcome (octets selected selected-count match-count matches))
-                         (:copier nil))
+                         (:copier nil) (:predicate nil))
   "OCTETS is the file without its BOM; offsets below index into it.
 SELECTED lists the SELECTED-LINEs (blocks mode only), MATCHES the
 FOUND-MATCHes (matches mode only); the counts are always exact."
@@ -66,8 +65,10 @@ contribute more than `--limit` of them), while the counts stay exact."
            (let ((selected '()) (count 0))
              (declare (type fixnum count))
              (flet ((on-line (line start end)
+                      (declare (ignore end))
                       (incf count)
-                      (when (<= count keep) (push (%make-selected-line line start end) selected))
+                      (when (<= count keep)
+                        (push (%make-selected-line line start) selected))
                       nil))
                (declare (dynamic-extent #'on-line))
                (map-selected-lines #'on-line matcher octets))

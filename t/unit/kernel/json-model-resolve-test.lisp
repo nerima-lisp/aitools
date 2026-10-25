@@ -6,7 +6,7 @@
            (profile (json-object-with (cons "name" "Ada")))
            (document (json-object-with (cons "profile" profile)))
            (result nil))
-      (json-model-resolve/k
+      (aitools.kernel.domain::json-model-resolve/k
        model document (quote ("profile" "name"))
        :on-found (lambda (value) (setf result value))
        :on-missing (lambda (&rest values) (setf result values)))
@@ -16,7 +16,7 @@
            (profile (json-object-with (cons "name" "Ada")))
            (document (json-object-with (cons "profile" profile)))
            (result nil))
-      (json-model-resolve/k
+      (aitools.kernel.domain::json-model-resolve/k
        model document (quote ("profile" "age"))
        :on-found (lambda (value) (setf result (list :found value)))
        :on-missing (lambda (path value token)

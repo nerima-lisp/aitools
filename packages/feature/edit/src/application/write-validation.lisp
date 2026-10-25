@@ -76,8 +76,6 @@
                                      workspace-root
                                      :host
                                      host
-                                     :ports
-                                     ports
                                      :paths
                                      paths
                                      :command

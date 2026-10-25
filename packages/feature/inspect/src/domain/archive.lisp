@@ -16,9 +16,8 @@
   "Largest member content `archive read` will decode.")
 
 (defstruct
-    (archive-item
-     (:constructor make-archive-item (name kind size mode mtime entry))
-     (:copier nil))
+    (archive-item (:constructor make-archive-item (name kind size mode mtime entry))
+     (:copier nil) (:predicate nil))
   "One listed member. ENTRY is the codec's ARCHIVE-ENTRY, or NIL for the
 single member of a plain `.gz`."
   (name "" :type string :read-only t)
@@ -29,7 +28,7 @@ single member of a plain `.gz`."
   (entry nil :read-only t))
 
 (defstruct
-    (archive (:constructor make-archive (format items data)) (:copier nil))
+    (archive (:constructor make-archive (format items data)) (:copier nil) (:predicate nil))
   "FORMAT is :ZIP, :TAR, :TAR.GZ, or :GZ; DATA the bytes the entries index
 (the decompressed stream for the gzip formats)."
   (format :zip :read-only t)

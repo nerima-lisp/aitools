@@ -35,7 +35,7 @@ REGEX-BUDGET-EXHAUSTED, or NIL for no cap.")
 (defun %regex-deadline-passed-p ()
   (and *regex-run-deadline* (> (get-internal-real-time) *regex-run-deadline*)))
 
-(defstruct (program (:constructor %make-program (regex literal fold names group-count)) (:copier nil))
+(defstruct (program (:constructor %make-program (regex literal fold names group-count)) (:copier nil) (:predicate nil))
   (regex nil :read-only t)
   ;; A byte sequence every match contains, or NIL.
   (literal nil :type (or null octets) :read-only t)
@@ -45,7 +45,7 @@ REGEX-BUDGET-EXHAUSTED, or NIL for no cap.")
   (names #() :type simple-vector :read-only t)
   (group-count 0 :type fixnum :read-only t))
 
-(defstruct (matcher (:constructor %make-matcher (programs multiline-p invert-p)) (:copier nil))
+(defstruct (matcher (:constructor %make-matcher (programs multiline-p invert-p)) (:copier nil) (:predicate nil))
   (programs #() :type simple-vector :read-only t)
   (multiline-p nil :type boolean :read-only t)
   (invert-p nil :type boolean :read-only t))

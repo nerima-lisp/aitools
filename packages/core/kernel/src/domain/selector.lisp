@@ -84,18 +84,17 @@ layer that owns ARGUMENT.INVALID formatting catches it."
 (defun make-match-selector (pattern &key invert)
   (%make-selector :match :match-pattern pattern :invert (and invert t)))
 
-(defstruct (selector-catalog-entry (:copier nil))
+(defstruct (selector-catalog-entry (:copier nil) (:predicate nil))
   (kind nil :read-only t)
   (basis nil :type (member :content :position) :read-only t)
-  (uniqueness nil :type (member :ambiguous :select-all :fixed) :read-only t)
-  (phase nil :type (member 1 2) :read-only t))
+  (uniqueness nil :type (member :ambiguous :select-all :fixed) :read-only t))
 
 (defparameter *selector-catalog*
-  (list (make-selector-catalog-entry :kind :old :basis :content :uniqueness :ambiguous :phase 1)
-        (make-selector-catalog-entry :kind :range :basis :position :uniqueness :fixed :phase 1)
-        (make-selector-catalog-entry :kind :symbol :basis :position :uniqueness :ambiguous :phase 2)
-        (make-selector-catalog-entry :kind :between :basis :content :uniqueness :ambiguous :phase 2)
-        (make-selector-catalog-entry :kind :match :basis :content :uniqueness :select-all :phase 2))
+  (list (make-selector-catalog-entry :kind :old :basis :content :uniqueness :ambiguous)
+        (make-selector-catalog-entry :kind :range :basis :position :uniqueness :fixed)
+        (make-selector-catalog-entry :kind :symbol :basis :position :uniqueness :ambiguous)
+        (make-selector-catalog-entry :kind :between :basis :content :uniqueness :ambiguous)
+        (make-selector-catalog-entry :kind :match :basis :content :uniqueness :select-all))
   "One entry per selector, in the order --old, --range, --symbol, --between,
 --match.")
 

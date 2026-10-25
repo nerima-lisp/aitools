@@ -4,7 +4,7 @@
 ;;;; of the original, so the concatenation of the pieces is the file.
 (in-package #:aitools.edit.domain)
 
-(defstruct (split-piece (:constructor make-split-piece (start end start-line lines)) (:copier nil))
+(defstruct (split-piece (:constructor make-split-piece (start end start-line lines)) (:copier nil) (:predicate nil))
   ;; byte range [START, END) of the source, its first line (1-based), and
   ;; the number of lines it starts (a piece cut mid-line counts that line)
   (start 0 :type (integer 0) :read-only t)

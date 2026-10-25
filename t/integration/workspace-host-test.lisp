@@ -97,7 +97,7 @@
     (let* ((host (host-for "/"))
            (context (aitools.workspace.infrastructure:with-workspace-boundaries
                      (cl-boundary-kit:make-boundary-context) :host host)))
-      (expect (aitools.workspace.infrastructure:workspace-host-from-context context) :to-be host))))
+      (expect (aitools.workspace.infrastructure::workspace-host-from-context context) :to-be host))))
 
 (describe "aitools workspace production host ports"
   (it "answers NIL for what each reader cannot read"

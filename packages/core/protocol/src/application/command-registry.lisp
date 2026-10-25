@@ -127,7 +127,7 @@ the protocol application layer."
           :command-builder ,builder-var :schema ,schema-var)))))
 
 (defstruct (command-registry (:constructor make-command-registry ())
-                             (:copier nil))
+                             (:copier nil) (:predicate nil))
   "TOP-LEVEL accumulates ungrouped commands' cli-command values.
 GROUP-COMMANDS maps each dot-separated group path, including implicit parent
 paths, to its direct subcommands' cli-command values. SCHEMAS maps a full

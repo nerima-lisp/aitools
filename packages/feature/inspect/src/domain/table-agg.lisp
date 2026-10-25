@@ -5,7 +5,7 @@
 ;;;; (docs/src/reference/commands/inspect.md#table-agg); NON-NUMERIC-CELLS names the rows that break that.
 (in-package #:aitools.inspect.domain)
 
-(defstruct (table-group (:constructor %make-table-group (key)) (:copier nil))
+(defstruct (table-group (:constructor %make-table-group (key)) (:copier nil) (:predicate nil))
   "KEY is the list of group-by cell values; the rest accumulate."
   (key '() :read-only t)
   (count 0)

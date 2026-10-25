@@ -5,7 +5,7 @@
 ;;;; leading `/` is dropped). A glob starting with `!` excludes.
 (in-package #:aitools.workspace.domain)
 
-(defstruct (glob-filter (:constructor %make-glob-filter (include exclude casefold)) (:copier nil))
+(defstruct (glob-filter (:constructor %make-glob-filter (include exclude casefold)) (:copier nil) (:predicate nil))
   (include '() :type list :read-only t)
   (exclude '() :type list :read-only t)
   (casefold nil :type boolean :read-only t))

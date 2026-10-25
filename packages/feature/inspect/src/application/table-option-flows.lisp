@@ -1,5 +1,5 @@
 (in-package #:aitools.inspect.application)
-(defstruct (table-options (:constructor make-table-options) (:copier nil))
+(defstruct (table-options (:constructor make-table-options) (:copier nil) (:predicate nil))
   "The reading options for table read and table agg are shared."
   (format nil :read-only t)
   (delimiter nil :read-only t)

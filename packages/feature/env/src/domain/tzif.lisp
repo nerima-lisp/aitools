@@ -10,7 +10,7 @@
 
 ;; Keep NAME for output when the TZif data has no abbreviation.
 (defstruct (zone (:constructor %make-zone (name kit-zone))
-                      (:copier nil))
+                      (:copier nil) (:predicate nil))
   (name "" :type string :read-only t)
   (kit-zone nil
             :type (or cl-date-kit:time-zone cl-date-kit:zone-offset)

@@ -1,14 +1,12 @@
 (in-package #:aitools/cli)
 (defvar *trace-session* nil)
 (defvar *trace-envelope-owner-p* nil)
-(defstruct (%trace-session
-            (:constructor %make-trace-session-record
+(defstruct (%trace-session (:constructor %make-trace-session-record
                           (&key provider tracer root-span root-span-id records kinds outcomes
-                                registry counters meta)))
+                                registry counters meta)) (:copier nil) (:predicate nil))
            provider tracer root-span root-span-id records kinds outcomes registry counters meta)
-(defstruct (%projected-span
-            (:constructor %make-projected-span
-                          (&key kit-id parent-kit-id kind name start-ns duration-ns outcome)))
+(defstruct (%projected-span (:constructor %make-projected-span
+                          (&key kit-id parent-kit-id kind name start-ns duration-ns outcome)) (:copier nil) (:predicate nil))
            kit-id parent-kit-id kind name start-ns duration-ns outcome)
 (defun %make-trace-session (&key clock id-generator monotonic-units-per-second)
   (let* ((registry (observability-kit:make-metric-registry :scope-name "aitools.cli"))

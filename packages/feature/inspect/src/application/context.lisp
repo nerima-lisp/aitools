@@ -6,10 +6,9 @@
 ;;;; flow shares, so each error carries a complete `repairs[].command`.
 (in-package #:aitools.inspect.application)
 
-(defstruct (inspect-context (:constructor %make-inspect-context) (:copier nil))
+(defstruct (inspect-context (:constructor %make-inspect-context) (:copier nil) (:predicate nil))
   (ports nil :type inspect-ports :read-only t)
   (root nil :read-only t)
-  (cwd "" :type string :read-only t)
   ;; The `--root` argument as typed, repeated in generated commands.
   (root-argument nil :read-only t)
   (tx nil :type (or null string) :read-only t)
@@ -72,27 +71,29 @@ report the failure through ON-ERROR (the command-result error continuation)."
                                              "aitools info ."))))
          :on-resolved
          (lambda (resolved)
-           (let ((cwd (normalize-path (host-current-directory host))))
-             (flet ((ready (store view)
-                      (aitools.kernel.domain:flow-continue
-                       :on-ready
-                       (%make-inspect-context :ports ports :root resolved :cwd cwd
-                                              :root-argument root :tx tx :store store
-                                              :view view :lock-timeout-ms timeout))))
-               (if (null tx)
-                   (ready nil nil)
-                   (let ((store (funcall (inspect-ports-open-store ports) (workspace-root-real resolved))))
-                     (call-with-tx-view/k
-                      store tx
-                      :on-view (lambda (view) (ready store view))
-                      :on-not-found
-                      (lambda ()
-                        (aitools.kernel.domain:flow-continue
+           (flet ((ready (store view)
+                    (aitools.kernel.domain:flow-continue
+                      :on-ready
+                      (%make-inspect-context :ports ports :root resolved
+                                             :root-argument root :tx tx :store store
+                                             :view view :lock-timeout-ms timeout))))
+             (if (null tx)
+                 (ready nil nil)
+                 (let ((store (funcall (inspect-ports-open-store ports)
+                                       (workspace-root-real resolved))))
+                   (call-with-tx-view/k
+                     store tx
+                     :on-view (lambda (view) (ready store view))
+                     :on-not-found
+                     (lambda ()
+                       (aitools.kernel.domain:flow-continue
                          :on-error
                          "input.not-found"
                          (format nil "tx ~A does not exist" tx)
-                         :repairs (list (repair "list-tx" "List the open transactions."
-                                                "aitools tx status"))))))))))))))
+                         :repairs (list (repair "list-tx"
+                                                "List the open transactions."
+                                                "aitools tx status")))))))))
+))))
 
 (defun context-store (context)
   "The workspace's STORE, opened on first use."

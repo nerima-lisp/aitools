@@ -22,13 +22,13 @@
     (expect (guard-required-p :expect-hash (make-range-selector "1:2")) :to-be-truthy))
 
   (it "does not require --expect-hash for a content-based selector"
-    (expect (guard-required-p :expect-hash (make-old-selector "x")) :to-be-falsy))
+    (expect (guard-required-p :expect-hash (aitools.kernel.domain::make-old-selector "x")) :to-be-falsy))
 
   (it "requires --expect-count for --match"
     (expect (guard-required-p :expect-count (make-match-selector "re")) :to-be-truthy))
 
   (it "does not require --expect-count for --old"
-    (expect (guard-required-p :expect-count (make-old-selector "x")) :to-be-falsy))
+    (expect (guard-required-p :expect-count (aitools.kernel.domain::make-old-selector "x")) :to-be-falsy))
 
   (it "requires neither guard with no selector at all"
     (expect (guard-required-p :expect-hash nil) :to-be-falsy)

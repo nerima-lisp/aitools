@@ -24,21 +24,21 @@
     (signals error (parse-range-spec "0")))
 
   (it "rejects an empty --old selector"
-    (signals error (make-old-selector "")))
+    (signals error (aitools.kernel.domain::make-old-selector "")))
 
   (it "reports --old as content-basis and ambiguous on multiple matches"
-    (let ((selector (make-old-selector "x")))
+    (let ((selector (aitools.kernel.domain::make-old-selector "x")))
       (expect (selector-basis selector) :to-be :content)
-      (expect (selector-uniqueness selector) :to-be :ambiguous)))
+      (expect (aitools.kernel.domain::selector-uniqueness selector) :to-be :ambiguous)))
 
   (it "reports --range as position-basis and never ambiguous"
     (let ((selector (make-range-selector "1:2")))
       (expect (selector-basis selector) :to-be :position)
-      (expect (selector-uniqueness selector) :to-be :fixed)))
+      (expect (aitools.kernel.domain::selector-uniqueness selector) :to-be :fixed)))
 
   (it "reports --match as content-basis and selects all matches"
     (let ((selector (make-match-selector "re")))
-      (expect (selector-uniqueness selector) :to-be :select-all)))
+      (expect (aitools.kernel.domain::selector-uniqueness selector) :to-be :select-all)))
 
   (it "lets edit accept every selector kind"
     (dolist (kind '(:old :range :symbol :between :match))
@@ -82,15 +82,15 @@
       "reports ~S as ~S-basis with ~S uniqueness"
       (kind basis uniqueness)
     (expect (selector-basis kind) :to-be basis)
-    (expect (selector-uniqueness kind) :to-be uniqueness))
+    (expect (aitools.kernel.domain::selector-uniqueness kind) :to-be uniqueness))
 
   (it "reports a built selector the same as its kind"
     (expect (selector-basis (make-symbol-selector "f" :kind "defun")) :to-be :position)
-    (expect (selector-uniqueness (make-between-selector "a" "b")) :to-be :ambiguous))
+    (expect (aitools.kernel.domain::selector-uniqueness (make-between-selector "a" "b")) :to-be :ambiguous))
 
   (it "signals for a kind outside the catalog"
     (signals simple-error (selector-basis :regex))
-    (signals simple-error (selector-uniqueness :regex)))
+    (signals simple-error (aitools.kernel.domain::selector-uniqueness :regex)))
 
   (it "accepts no selector for a command absent from the acceptance table"
     (dolist (kind '(:old :range :symbol :between :match))

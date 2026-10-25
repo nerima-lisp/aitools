@@ -91,7 +91,7 @@
            (sb-ext:string-to-octets (format nil "* Task~%")
                                     :external-format :utf-8))
         (expect (null parse-failure) :to-be t)
-        (expect (aitools.org.domain:org-document-p document) :to-be t)
+        (expect (aitools.org.domain::org-document-p document) :to-be t)
         (labels ((expect-failure (at tz dst-policy message)
                                  (multiple-value-bind (matches failure)
                                      (aitools.org.infrastructure::query-org-document

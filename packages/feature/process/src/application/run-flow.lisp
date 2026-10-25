@@ -7,7 +7,7 @@
 (defstruct (run-request (:constructor make-run-request
                             (&key argv (timeout "120s") (head 50) (tail 150) grep (grep-limit 50)
                                   (strip-ansi t) stdout-to root stdin stdin-data stdin-file cwd env))
-                        (:copier nil))
+                        (:copier nil) (:predicate nil))
   (argv nil :type list :read-only t)
   (timeout "120s" :type string :read-only t)
   (head 50 :type (integer 0) :read-only t)

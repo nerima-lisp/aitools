@@ -4,7 +4,7 @@
 ;;;; entries into FOUND-ENTRY values and hands them here in path order.
 (in-package #:aitools.search.domain)
 
-(defstruct (found-entry (:constructor make-found-entry (path kind size mode mtime)) (:copier nil))
+(defstruct (found-entry (:constructor make-found-entry (path kind size mode mtime)) (:copier nil) (:predicate nil))
   "PATH is workspace-relative; KIND is :FILE, :DIRECTORY, :SYMLINK, or
 :OTHER; SIZE is NIL for a directory whose size was not summed."
   (path "" :type string :read-only t)
@@ -58,7 +58,7 @@ order, so the result is deterministic."
 
 ;;; Tree
 
-(defstruct (tree-node (:constructor %make-tree-node (name kind size)) (:copier nil))
+(defstruct (tree-node (:constructor %make-tree-node (name kind size)) (:copier nil) (:predicate nil))
   (name "" :type string :read-only t)
   (kind :directory :type keyword :read-only t)
   (size nil :read-only t)

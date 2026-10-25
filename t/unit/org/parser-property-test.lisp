@@ -15,16 +15,16 @@
                                                :source-name
                                                "generated.org")
                            (expect failure :to-be nil)
-                           (expect (aitools.org.domain:org-document-p document)
+                           (expect (aitools.org.domain::org-document-p document)
                                    :to-be
                                    t)
                            (expect
-                            (aitools.org.domain:org-document-source-name
+                            (aitools.org.domain::org-document-source-name
                              document)
                             :to-equal
                             "generated.org")
                            (expect
-                            (aitools.org.domain:org-document-octets document)
+                            (aitools.org.domain::org-document-octets document)
                             :to-equalp
                             octets)))))
 

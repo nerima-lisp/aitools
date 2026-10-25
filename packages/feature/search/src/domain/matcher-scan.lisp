@@ -1,6 +1,6 @@
 (in-package #:aitools.search.domain)
 
-(defstruct (hit (:constructor %make-hit (starts ends)) (:copier nil))
+(defstruct (hit (:constructor %make-hit (starts ends)) (:copier nil) (:predicate nil))
   "One match: STARTS and ENDS hold the offsets (into the file's buffer) of
 the whole match at index 0 and of each explicit group after it, NIL for a
 group that did not participate."

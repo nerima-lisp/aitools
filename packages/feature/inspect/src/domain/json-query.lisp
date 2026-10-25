@@ -109,7 +109,7 @@ read as `<`.")
     (declare (ignore message line column))
     (aitools.kernel.domain:flow-continue :on-value text))))
 
-(defstruct (comparison (:constructor %make-comparison (key operator value regex)) (:copier nil))
+(defstruct (comparison (:constructor %make-comparison (key operator value regex)) (:copier nil) (:predicate nil))
   "KEY is what the left side names (pointer tokens or a column name);
 OPERATOR a keyword; VALUE the right side; REGEX the compiled `~` pattern."
   (key nil :read-only t)

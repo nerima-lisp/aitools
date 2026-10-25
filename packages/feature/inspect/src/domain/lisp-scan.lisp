@@ -32,8 +32,7 @@ when NAME is not a Lisp family language."
         (or (member previous '(#\Space #\Tab #\( #\[ #\{ #\' #\` #\,))
             (char= previous #\Return)))))
 
-(defstruct (%lisp-scan-state
-            (:constructor %make-lisp-scan-state ()))
+(defstruct (%lisp-scan-state (:constructor %make-lisp-scan-state ()) (:copier nil) (:predicate nil))
   (mode :code)
   (line 0)
   (col 0)

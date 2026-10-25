@@ -37,7 +37,7 @@
     (setf name (subseq name 2)))
   name)
 
-(defstruct (extract-step (:constructor make-extract-step (kind path &key data mode target)) (:copier nil))
+(defstruct (extract-step (:constructor make-extract-step (kind path &key data mode target)) (:copier nil) (:predicate nil))
   "One write of a validated extraction: KIND is :DIRECTORY, :FILE (DATA,
 MODE) or :SYMLINK (TARGET); PATH is workspace-relative."
   (kind :file :type (member :directory :file :symlink) :read-only t)

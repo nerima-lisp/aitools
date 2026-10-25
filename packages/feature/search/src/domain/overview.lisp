@@ -36,7 +36,7 @@ name to resolve; a detached HEAD gives only the sha."
   (some (lambda (pattern) (aitools.workspace.domain:wildmatch pattern name))
         aitools.data:*search-build-file-patterns*))
 
-(defstruct (language-tally (:constructor make-language-tally ()) (:copier nil))
+(defstruct (language-tally (:constructor make-language-tally ()) (:copier nil) (:predicate nil))
   (table (make-hash-table :test 'equal) :type hash-table :read-only t))
 
 (defun tally-file (tally language lines bytes)

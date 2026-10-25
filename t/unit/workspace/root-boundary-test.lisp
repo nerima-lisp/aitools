@@ -35,7 +35,7 @@
     (let* ((host (make-fake-host :directories '("/w/project") :cwd "/w"))
            (root (resolved-root host :root "project")))
       (expect (workspace-root-path root) :to-equal "/w/project")
-      (expect (workspace-root-source root) :to-be :option)))
+      (expect (aitools.workspace.domain::workspace-root-source root) :to-be :option)))
 
   (it "reports a missing or non-directory --root"
     (let ((host (make-fake-host :files '(("/w/file" . "x")) :cwd "/w")))
@@ -53,7 +53,7 @@
                                  :directories '("/repo/a/b") :cwd "/repo/a/b"))
            (root (resolved-root host)))
       (expect (workspace-root-path root) :to-equal "/repo")
-      (expect (workspace-root-source root) :to-be :git)
+      (expect (aitools.workspace.domain::workspace-root-source root) :to-be :git)
       (expect (git-repository-git-dir (workspace-root-repository root)) :to-equal "/repo/.git")))
 
   (it "follows a linked worktree's gitdir file and commondir"
@@ -70,12 +70,12 @@
 
   (it "falls back to the working directory outside git"
     (let ((root (resolved-root (make-fake-host :directories '("/plain") :cwd "/plain"))))
-      (expect (workspace-root-source root) :to-be :cwd)
+      (expect (aitools.workspace.domain::workspace-root-source root) :to-be :cwd)
       (expect (workspace-root-repository root) :to-be-falsy)))
 
   (it "ignores a .git directory without HEAD"
     (let ((root (resolved-root (make-fake-host :directories '("/x/.git" "/x/sub") :cwd "/x/sub"))))
-      (expect (workspace-root-source root) :to-be :cwd))))
+      (expect (aitools.workspace.domain::workspace-root-source root) :to-be :cwd))))
 
 (describe "aitools.workspace.application write boundary"
   (it "accepts a path inside the root and reports its relative form"

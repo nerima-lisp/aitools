@@ -25,7 +25,6 @@
    #:workspace-root-p
    #:workspace-root-path
    #:workspace-root-real
-   #:workspace-root-source
    #:workspace-root-repository
    #:git-repository
    #:git-repository-p

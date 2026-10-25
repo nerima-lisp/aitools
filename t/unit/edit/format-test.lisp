@@ -100,8 +100,8 @@
     (expect (refusal-code (lambda () (json-apply-patch (j document) (j patch)))) :to-equal code))
 
   (it "compares numbers by value and objects regardless of order in test"
-    (expect (json-equal (j "{\"a\":1.0,\"b\":[1e2]}") (j "{\"b\":[100],\"a\":1}")) :to-be t)
-    (expect (json-equal (j "[1,2]") (j "[2,1]")) :to-be nil)))
+    (expect (aitools.edit.domain::json-equal (j "{\"a\":1.0,\"b\":[1e2]}") (j "{\"b\":[100],\"a\":1}")) :to-be t)
+    (expect (aitools.edit.domain::json-equal (j "[1,2]") (j "[2,1]")) :to-be nil)))
 
 (describe "aitools.edit.domain table cells"
   (it "rewrites only the addressed cell, quoting when needed"

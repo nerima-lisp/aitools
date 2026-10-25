@@ -14,11 +14,10 @@
    ((and (not explicit) (not (glob-filter-accepts-p filter path)))
     :glob)))
 
-(defstruct (scan-run
-              (:constructor %make-scan-run
+(defstruct (scan-run (:constructor %make-scan-run
                   (host root context overlay filter lang skip-larger-than newer
                    work emit skip complete source starts))
-              (:copier nil))
+              (:copier nil) (:predicate nil))
     host root context overlay filter lang skip-larger-than newer
     work emit skip complete source starts
     (batch nil)

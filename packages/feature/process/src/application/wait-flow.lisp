@@ -8,7 +8,7 @@
 
 (defstruct (wait-request (:constructor make-wait-request
                              (&key file pattern port bg exit duration (timeout "60s")))
-                         (:copier nil))
+                         (:copier nil) (:predicate nil))
   (file nil :type (or null string) :read-only t)
   (pattern nil :type (or null string) :read-only t)
   (port nil :type (or null (integer 1 65535)) :read-only t)

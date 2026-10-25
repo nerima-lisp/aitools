@@ -24,16 +24,15 @@
   (:import-from #:aitools.text.application
                 #:source-read-octets #:source-read-range #:source-file-size #:source-call-with-chunks)
   (:import-from #:aitools.workspace.domain
-                #:normalize-path #:join-path #:path-basename #:aitools-temporary-name-p)
+                #:join-path #:path-basename #:aitools-temporary-name-p)
   (:import-from #:aitools.workspace.application
                 #:workspace-root-path #:workspace-root-real #:workspace-entry-kind #:workspace-entry-size
                 #:workspace-entry-mtime #:workspace-entry-mode #:workspace-entry-name
-                #:host-current-directory #:host-stat #:host-list-directory #:host-read-link #:host-read-octets
-                #:resolve-real-path
+                #:host-stat #:host-list-directory #:resolve-real-path
                 #:call-with-resolved-root/k #:user-path-absolute #:call-with-workspace-scan/k #:workspace-path-ignored-p
                 #:scan-entry-path #:scan-entry-kind #:scan-entry-size #:scan-entry-mtime #:scan-entry-absolute)
   (:import-from #:aitools.store.domain
-                #:entry-state-kind #:entry-state-hash #:entry-state-mode #:entry-state-target #:entry-state-mtime #:entry-state-equal
+                #:entry-state-kind #:entry-state-hash #:entry-state-mode #:entry-state-mtime #:entry-state-equal
                 #:journal-entry-changes #:journal-entry-op-id #:journal-entry-argv
                 #:change-result-path #:change-result-action #:change-result-from
                 #:change-result-before #:change-result-after #:make-change-result #:action-name
@@ -41,8 +40,7 @@
   (:import-from #:aitools.store.application
                 #:+default-lock-timeout-ms+ #:call-with-tx-view/k #:tx-record-read/k
                 #:path-hash
-                #:view-path-state #:view-read-file #:view-directory-entries
-                #:find-journal-entry #:read-journal #:read-blob #:workspace-state
+                #:view-path-state #:view-read-file #:find-journal-entry #:read-blob #:workspace-state
                 #:store-io-port #:store-io-read-file #:store-io-create-file #:store-io-rename
                 #:store-io-mkdir #:store-io-list-directory #:store-io-lstat #:store-io-now
                 #:store-io-random-hex)
@@ -50,7 +48,6 @@
   (:import-from #:aitools.store.application #:store-state-directory)
   (:import-from #:aitools.kernel.domain #:parse-size #:size-bytes)
   (:import-from #:aitools.text.domain #:language-path-predicate)
-  (:import-from #:aitools.workspace.application #:+default-skip-larger-than+)
   (:export
    ;; ports.lisp
    #:inspect-ports

@@ -38,7 +38,7 @@ input.syntax-error EDIT-REFUSAL."
 (defun regex-group-count (regex)
   (cl-regex-kit:regex-capture-count regex))
 
-(defstruct (replacer (:constructor make-replacer (regex expand &key nth)) (:copier nil))
+(defstruct (replacer (:constructor make-replacer (regex expand &key nth)) (:copier nil) (:predicate nil))
   "REGEX's matches are replaced by (EXPAND match text), or only the NTH
 match counted from the last RESET-REPLACER."
   (regex nil :read-only t)

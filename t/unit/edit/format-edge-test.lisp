@@ -69,11 +69,11 @@
             :to-equal "{\"a\":[1,3]}"))
 
   (it "compares strings and literals by kind in test"
-    (expect (json-equal "x" "x") :to-be t)
-    (expect (json-equal (j "true") (j "true")) :to-be t)
-    (expect (json-equal (j "false") (j "null")) :to-be nil)
-    (expect (json-equal (j "null") (j "null")) :to-be t)
-    (expect (json-equal (j "null") (j "0")) :to-be nil)))
+    (expect (aitools.edit.domain::json-equal "x" "x") :to-be t)
+    (expect (aitools.edit.domain::json-equal (j "true") (j "true")) :to-be t)
+    (expect (aitools.edit.domain::json-equal (j "false") (j "null")) :to-be nil)
+    (expect (aitools.edit.domain::json-equal (j "null") (j "null")) :to-be t)
+    (expect (aitools.edit.domain::json-equal (j "null") (j "0")) :to-be nil)))
 
 (describe "aitools.edit.domain table cell edge cases"
   ;; The tables are FORMAT templates, with | standing for a carriage return.

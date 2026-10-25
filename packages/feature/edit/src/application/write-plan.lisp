@@ -6,9 +6,8 @@
 (in-package #:aitools.edit.application)
 
 (defstruct
-    (write-target
-     (:constructor make-write-target (path &key (follow t) (base :cwd)))
-     (:copier nil))
+    (write-target (:constructor make-write-target (path &key (follow t) (base :cwd)))
+     (:copier nil) (:predicate nil))
   "PATH as the user wrote it: absolute, or with BASE :CWD (the default)
 relative to the working directory (AITOOLS.WORKSPACE.APPLICATION:
 USER-PATH-ABSOLUTE); BASE :ROOT marks a workspace-relative path a flow
@@ -29,8 +28,7 @@ on a symlink rather than what it points at (delete, move, link)."
        path)))))
 
 (defstruct
-    (write-plan
-     (:constructor make-write-plan
+    (write-plan (:constructor make-write-plan
                    (&key command
                          targets
                          inputs
@@ -41,7 +39,7 @@ on a symlink rather than what it points at (delete, move, link)."
                          plan
                          record-options
                          record-positionals))
-     (:copier nil))
+     (:copier nil) (:predicate nil))
   "What one write command wants, independent of how it runs.
 
 COMMAND: dispatch name (\"edit\", \"json.set\").
@@ -72,14 +70,13 @@ RECORD-OPTIONS / RECORD-POSITIONALS: the option plist (or a function of the
   (record-options '() :read-only t)
   (record-positionals (constantly '()) :type function :read-only t))
 
-(defstruct (write-context (:copier nil))
+(defstruct (write-context (:copier nil) (:predicate nil))
   "What a PLAN function sees. VIEW reads the state the write applies to;
 PATHS are the resolved targets. ROOT and HOST are NIL during `tx rebase`,
 where recorded paths are already workspace-relative."
   (view nil :read-only t)
   (root nil :read-only t)
   (host nil :read-only t)
-  (ports nil :read-only t)
   (paths '() :type list :read-only t)
   (command "" :type string :read-only t)
   (command-line "" :type string :read-only t)

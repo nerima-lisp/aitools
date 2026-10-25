@@ -17,9 +17,9 @@
                 #:selector-match-pattern #:selector-invert
                 #:generate-diff-hunks #:make-diff-hunk #:make-diff-line
                 #:diff-hunk-old-start #:diff-hunk-old-count #:diff-hunk-new-start #:diff-hunk-new-count
-                #:diff-hunk-lines #:diff-line-op #:diff-line-text #:diff-line-no-newline)
+                #:diff-hunk-lines #:diff-line-op #:diff-line-no-newline)
   (:import-from #:aitools.text.domain
-                #:decode-utf8 #:utf8-bom-length #:detect-text-layout #:decode-octets/k
+                #:decode-utf8 #:utf8-bom-length #:decode-octets/k
                 #:split-text-lines #:decode-text-lines
                 #:line-index-bounds
                 #:language-name #:language-extent #:language-definitions
@@ -93,7 +93,6 @@
    #:escape-invisible
    #:hex-rows
    #:redact-hex-octets
-   #:extract-strings
    #:make-strings-scan
    #:scan-strings-chunk
    ;; file-facts.lisp

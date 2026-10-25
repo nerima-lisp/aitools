@@ -81,7 +81,6 @@
    #:workspace-root-p
    #:workspace-root-path
    #:workspace-root-real
-   #:workspace-root-source
    #:workspace-root-repository
    ;; boundary.lisp
    #:write-target-verdict))
