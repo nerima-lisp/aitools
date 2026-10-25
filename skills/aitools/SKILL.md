@@ -60,7 +60,7 @@ choose only one input source.
 **Discovery.** `aitools schema` lists every command; `aitools schema <command>` returns its arguments, output
 fields, and declared error codes. Treat that output as the reference when this file and the binary differ.
 
-For complete arguments and options, see the [generated command reference](../../docs/src/reference/commands/index.md).
+For complete arguments and options, see the [generated command reference](https://nerima-lisp.github.io/aitools/reference/commands/).
 
 Pass `--trace` before or after a command to include command, child-process, and store IO spans under `meta.trace`.
 
