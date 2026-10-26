@@ -11,7 +11,7 @@ export PATH="$PWD/result/bin:$PATH"
 ```
 
 ```json
-{"schema_version":2,"status":"ok","command":"version","name":"aitools","version":"0.2.0"}
+{"schema_version":2,"status":"ok","command":"version","name":"aitools","version":"0.3.0"}
 ```
 
 `nix run . -- --version` runs it without creating the `result` link. The

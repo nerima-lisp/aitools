@@ -2,7 +2,7 @@
 name: aitools
 description: Use when the aitools binary is available for workspace file and text operations, guarded edits and transactions, or running external programs with JSON exit status and bounded output. Prefer built-in commands for structured inspection and journaled writes; use run for installed programs whose exact behavior is needed. External programs are not sandboxed and their writes are not journaled.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # aitools
