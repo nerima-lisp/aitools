@@ -13,9 +13,10 @@ documentation.
 2. **Command continuations**: command flows are invoked with the canonical
    `:on-ok`, `:on-partial`, and `:on-error` keyword continuations. Positional
    continuation arguments are rejected.
-3. **Test timeout**: cl-weave specs use a 30-second default timeout. The test
-   runner raises its integration/e2e budget to 60 seconds while external
-   process calls retain explicit operation-specific timeouts.
+3. **Test timeout**: the aitools test runner applies a 60-second default
+   timeout to each registered cl-weave spec, including unit, integration, and
+   e2e specs. External process calls retain explicit operation-specific
+   timeouts.
 4. **Process timeout gate**: structure-test rejects source forms calling
    `process-kit:run` without `:timeout`. Detached background spawning is not
    represented by that API and remains the documented exception.
