@@ -37,6 +37,7 @@
            :serial t
            :components ((:file "unit/store/package")
                         (:file "unit/store/domain-test")
+                        (:file "unit/store/serialization-test")
                         (:file "unit/store/domain-record-test")
                         (:file "unit/store/record-codec-test")
                         (:file "unit/store/tx-model-test")
