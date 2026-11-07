@@ -151,8 +151,8 @@
           (write-file (concatenate 'string worktree "/" file) file))
         (let* ((boundaries
                (aitools.workspace.infrastructure:make-host-workspace-boundaries
-                :getenv (lambda (name) (cdr (assoc name (%environment scratch) :test string=)))
-                :home-directory (lambda () (cdr (assoc "HOME" (%environment scratch) :test string=)))
+                :getenv (lambda (name) (cdr (assoc name (%environment scratch) :test (function string=))))
+                :home-directory (lambda () (cdr (assoc "HOME" (%environment scratch) :test (function string=))))
                 :current-directory (lambda () worktree)))
                (root
                 (aitools.workspace.application:call-with-resolved-root/k
