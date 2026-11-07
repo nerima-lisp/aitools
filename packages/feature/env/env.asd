@@ -42,3 +42,32 @@
                  (:file "env-time-command-builders")
                  (:file "env-commands")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/env"
+  :description "Environment context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/env" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/env/package")
+     (:file "unit/env/tzif-fixtures")
+     (:file "unit/env/support")
+     (:file "unit/env/civil-time-test")
+     (:file "unit/env/time-input-test")
+     (:file "unit/env/tzif-test")
+     (:file "unit/env/host-parsers-test")
+     (:file "unit/env/host-values-test")
+     (:file "unit/env/host-system-parsers-test")
+     (:file "unit/env/time-flows-test")
+     (:file "unit/env/sys-flows-test")
+     (:file "unit/env/sys-snapshot-flow-test")
+     (:file "unit/env/sys-flow-edge-test")
+     (:file "unit/env/sys-host-flows-test")
+     (:file "unit/env/env-commands-test")
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "env-host-test")
+                   (:file "env-host-trace-test")))
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components ((:file "time-cases")
+                   (:file "sys-info-cases")))))))

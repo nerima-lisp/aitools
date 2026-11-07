@@ -37,3 +37,33 @@
     :components ((:file "package")
                  (:file "commands")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/process"
+  :description "Process context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/process" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/process/package")
+     (:file "unit/process/fakes")
+     (:file "unit/process/domain-test")
+     (:file "unit/process/domain-records-test")
+     (:file "unit/process/flows-test")
+     (:file "unit/process/flows-bg-control-test")
+     (:file "unit/process/flows-bg-wait-control-test")
+     (:file "unit/process/flows-bg-error-test")
+     (:file "unit/process/signal-flow-test")
+     (:file "unit/process/host-clock-test")
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "process-test")
+                   (:file "process-run-test")
+                   (:file "process-bg-test")
+                   (:file "process-bg-ended-test")
+                   (:file "process-signal-test")
+                   (:file "process-ports-test")
+                   (:file "process-ports-state-test")
+                   (:file "process-ports-launch-test")
+                   (:file "process-ports-launch-trace-test")))
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components ((:file "process-env-cases")))))))

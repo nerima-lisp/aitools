@@ -28,3 +28,20 @@
     :components ((:file "package")
                  (:file "commands")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/journal"
+  :description "Journal context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/journal" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/journal/package")
+     (:file "unit/journal/domain-test")
+     (:file "unit/journal/changes-json-test")
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "journal-flows-test")
+                   (:file "journal-tx-test")
+                   (:file "journal-tx-rebase-test")
+                   (:file "journal-tx-failure-test")
+                   (:file "journal-cli-test")))))))

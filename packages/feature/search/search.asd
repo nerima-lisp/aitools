@@ -33,3 +33,31 @@
                  (:file "commands")
                  (:file "command-registration")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/search"
+  :description "Search context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/search" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/search/package")
+     (:file "unit/search/fakes")
+     (:file "unit/search/matcher-test")
+     (:file "unit/search/search-flow-test")
+     (:file "unit/search/search-flow-options-test")
+     (:file "unit/search/find-flow-test")
+     (:file "unit/search/code-flow-test")
+     (:file "unit/search/code-extents-test")
+     (:file "unit/search/overview-flow-test")
+     (:file "unit/search/domain-contract-test")
+     (:file "unit/search/commands-test")
+     (:file "unit/search/allocation-child-protocol")
+     (:file "unit/search/allocation-child-protocol-test")
+     (:module "perf" :pathname "perf/" :serial t
+      :components ((:file "search-allocation-cache")
+                   (:file "search-allocation-test")))
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "search-host-test")))
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components ((:file "search-find-cases")))))))

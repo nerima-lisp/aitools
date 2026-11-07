@@ -228,3 +228,91 @@ table data), GIT makes WORKSPACE a fresh repository."
        (let ((*current-case* (list 0 ,name)))
          (aitools-binary)
          (call-with-workspace (lambda (,workspace) ,@body))))))
+
+(defun sorted (strings)
+  (sort (copy-list strings) #'string<))
+
+(defun strip-dot-slash (path)
+  (if (and (>= (length path) 2) (string= "./" path :end2 2)) (subseq path 2) path))
+
+(defun oracle-lines (workspace tools script fixed)
+  "The oracle's output lines with a leading ./ removed, sorted."
+  (sorted (mapcar #'strip-dot-slash (text-lines (oracle workspace tools script fixed)))))
+
+(defun trimmed (text)
+  (string-trim '(#\Newline #\Space) text))
+
+(defun tree-snapshot (workspace directory)
+  "Every entry under DIRECTORY as (relative kind mode content-or-target),
+sorted: an observer independent of both aitools and the shell tools."
+  (let ((root (ws-path workspace directory)))
+    (labels ((walk (path prefix)
+               (loop for entry in (sorted (mapcar (lambda (p)
+                                                     (let ((name (if (uiop:directory-pathname-p p)
+                                                                     (car (last (pathname-directory p)))
+                                                                     (file-namestring p))))
+                                                       name))
+                                                   (append (uiop:subdirectories path)
+                                                           (uiop:directory-files path))))
+                     for relative = (if prefix (format nil "~A/~A" prefix entry) entry)
+                     for native-path = (format nil "~A~A" (native path) entry)
+                     for stat = (sb-posix:lstat native-path)
+                     for mode = (sb-posix:stat-mode stat)
+                     for kind = (cond ((= (logand mode #o170000) #o120000) :symlink)
+                                      ((= (logand mode #o170000) #o040000) :dir)
+                                      (t :file))
+                     collect (list relative kind (logand mode #o7777)
+                                   (case kind
+                                     (:symlink (sb-posix:readlink native-path))
+                                     (:file (read-octets native-path))))
+                     when (eq kind :dir)
+                       append (walk (uiop:ensure-directory-pathname native-path) relative))))
+      (if (probe-file root) (walk root nil) :absent))))
+
+(defun put-diff-pair (workspace)
+  (put workspace "x.txt" (format nil "a~%b~%c~%e~%"))
+  (put workspace "y.txt" (format nil "a~%B~%c~%d~%e~%")))
+
+(defparameter +json-fixture+
+  (format nil "{\"b\":{\"c\":\"hi\\n\",\"d\":[1,2]},\"a\":[1,2,3],\"name\":\"x\"}~%"))
+
+(defun parse-json-text (text)
+  (json-kit:parse text :false-value nil :null-value nil))
+
+(defun jq (workspace filter file fixed &rest flags)
+  "jq -c FILTER FILE's single output value, parsed."
+  (parse-json-text (oracle workspace '("jq") (format nil "jq -c~{ ~A~} '~A' ~A" flags filter file) fixed)))
+
+(defun put-archive-sources (workspace)
+  (put workspace "src/a.txt" (format nil "hello~%"))
+  (put workspace "src/sub/b.txt" (format nil "world~%second~%")))
+
+(defun make-archives (workspace)
+  "Build t.tar, t.tgz, z.zip, and a.gz from src/ with the real tools."
+  (put-archive-sources workspace)
+  (shell workspace "tar -cf t.tar src && tar -czf t.tgz src && zip -qr z.zip src && gzip -c src/a.txt > a.gz"))
+
+(defun expect-same-json-edit (workspace filter arguments &key stdin)
+  "Apply jq FILTER to o.json and aitools ARGUMENTS to a.json (both
++JSON-FIXTURE+) and compare the documents structurally."
+  (put workspace "a.json" +json-fixture+)
+  (put workspace "o.json" +json-fixture+)
+  (let ((expected (jq workspace filter "o.json" nil)))
+    (run-ok workspace arguments :stdin stdin)
+    (expect (json= (parse-json-text (file-text workspace "a.json")) expected) :to-be t)))
+
+(defun expect-child-process-span (envelope name outcome)
+  (let* ((spans (jlist (jget envelope "meta" "trace" "spans")))
+         (command (find-if (lambda (span)
+                             (and (string= (jget span "kind") "command")
+                                  (null (jget span "parent_span_id"))))
+                           spans))
+         (child (find name spans :key (lambda (span) (jget span "name")) :test #'string=)))
+    (expect command :to-be-truthy)
+    (expect child :to-be-truthy)
+    (multiple-value-bind (parent present-p) (gethash "parent_span_id" command)
+      (expect present-p :to-be t)
+      (expect parent :to-be nil))
+    (expect (jget child "kind") :to-equal "child_process")
+    (expect (jget child "outcome") :to-equal outcome)
+    (expect (jget child "parent_span_id") :to-be (jget command "span_id"))))

@@ -37,3 +37,22 @@
     :components ((:file "package")
                  (:file "util-commands")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/util"
+  :description "Utility context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/util" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/util/package")
+     (:file "unit/util/codec-test")
+     (:file "unit/util/data-tables-test")
+     (:file "unit/util/calc-test")
+     (:file "unit/util/uuid-random-test")
+     (:file "unit/util/flows-test")
+     (:file "unit/util/flow-errors-test")
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "util-cli-test")))
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components ((:file "process-env-util-cases")))))))
