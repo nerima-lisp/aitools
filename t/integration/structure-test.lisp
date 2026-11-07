@@ -190,5 +190,5 @@ is in neither context list)."
                 (format nil "t/integration/fixtures/~A/" name)
                 (repository-root)))
          (records (%liveness-files root)))
-    (values records (scan-dead-code-tree root))))
+    (values records (scan-dead-code-tree root records))))
 

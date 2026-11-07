@@ -1,6 +1,6 @@
 (in-package #:aitools.integration.structure-test)
 
-(declaim (ftype function %handwritten-production-package-p %read-suppressed-form-at))
+(declaim (ftype function %handwritten-production-package-p %read-suppressed-form-at %liveness-reader-view-cache-entry))
 
 (defvar *reader-package*
   (or (find-package "AITOOLS.STRUCTURE-TEST.READER")
@@ -24,23 +24,16 @@ package, or :UNREADABLE."
               (setf (gethash text *liveness-reader-view-cache*)
                     (%liveness-reader-view-cache-entry text))))
          (view (first cache))
-         (replacements (second cache))
-         (offset
-          (+ position
-             (loop for replacement in replacements
-                   for start = (first replacement)
-                   for end = (second replacement)
-                   for token = (third replacement)
-                   when (<= end position)
-                   sum (- (+ 2 (length token)) (- end start)))))
-         (origins (make-hash-table :test #'equal))
-         (source-positions (make-hash-table :test #'equal))
-         (source-names (make-hash-table :test #'equal)))
-    (dolist (replacement replacements)
-      (setf (gethash (third replacement) origins) (fourth replacement)
-            (gethash (third replacement) source-positions) (first replacement)
-            (gethash (third replacement) source-names) (fifth replacement)))
-    (handler-case
+         (offset (+ position (funcall (sixth cache) position 1)))
+         (origins (third cache))
+         (source-positions (fourth cache))
+         (source-names (fifth cache))
+         (forms (seventh cache)))
+    (multiple-value-bind (cached present-p) (gethash position forms)
+  (if present-p
+      (values (car cached) (cdr cached))
+      (multiple-value-bind (form end)
+          (handler-case
         (with-standard-io-syntax
             (let ((*read-eval* nil)
                   (*package* *reader-package*)
@@ -95,17 +88,10 @@ package, or :UNREADABLE."
                         (annotate form))
                       (values
                        form
-                       (loop with shift = 0
-                             for replacement in replacements
-                             for start = (first replacement)
-                             for old-end = (second replacement)
-                             for token = (third replacement)
-                             for view-end = (+ start shift 2 (length token))
-                             when (> view-end end) return (- end shift)
-                             do (incf shift
-                                      (- (+ 2 (length token)) (- old-end start)))
-                             finally (return (- end shift))))))))))
-      (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))))
+                       (- end (funcall (sixth cache) end 6)))))))))
+      (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))
+        (setf (gethash position forms) (cons form end))
+        (values form end))))))
 
 (defun %liveness-reader-view (text)
   "Return reader text and unique metadata for qualified symbols and call occurrences."
@@ -144,11 +130,6 @@ package, or :UNREADABLE."
                 (setf cursor end)
              finally (write-string (subseq text cursor) output)))
      replacements)))
-
-(defun %liveness-reader-view-cache-entry (text)
-  (multiple-value-bind (view replacements)
-      (%liveness-reader-view text)
-    (list view replacements)))
 
 (defun %form-positions (stripped operator)
   "Start positions of every operator form or exact keyword token in STRIPPED."

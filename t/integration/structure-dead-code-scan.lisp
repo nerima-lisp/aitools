@@ -101,10 +101,14 @@
 
 
 
-(defun scan-dead-code-tree (root)
+(defun scan-dead-code-tree (root &optional supplied-records)
   "Sorted dead definitions and package violations under ROOT.
-Exported definitions are public roots; test-only exports remain violations."
-  (let* ((records (progn (clrhash *liveness-reader-view-cache*) (%liveness-files root)))
+Exported definitions are public roots; test-only exports remain violations.
+SUPPLIED-RECORDS reuses records already read from ROOT."
+  (let* ((records (or supplied-records
+                 (progn
+                   (clrhash *liveness-reader-view-cache*)
+                   (%liveness-files root))))
          (packages (%liveness-all-package-metadata records))
          (definitions (%liveness-definitions records))
          (violations '()))

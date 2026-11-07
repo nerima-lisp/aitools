@@ -88,6 +88,7 @@
                                                             (:file "search")
                                                             (:file "store")))
                                                           (:file "structure-source-scanner-reader" :depends-on ("structure-context-allowances"))
+                                                          (:file "structure-source-scanner-reader-cache" :depends-on ("structure-source-scanner-reader"))
                                                           (:file "structure-dead-code-source" :depends-on ("structure-source-scanner" "structure-source-scanner-reader"))
                                                           (:file "structure-dead-code-definitions" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
                                                           (:file "structure-dead-code-symbols" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
