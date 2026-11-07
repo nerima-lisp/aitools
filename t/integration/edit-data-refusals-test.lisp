@@ -20,10 +20,10 @@
       (setf *stdin* (bytes "[{\"op\":\"test\",\"path\":\"/a/b\",\"value\":2}]"))
       (with-error (code message keys) (run "json.patch" '("c.json") :stdin t)
         (expect code :to-equal "selection.no-match")
-        (expect (repair-commands keys) :to-equal '("aitools json get c.json")))
+        (expect (repair-commands keys) :to-equal '("aitools doc get c.json")))
       (with-error (code message keys) (run "json.set" '("c.json" "/a/b/c" "1"))
         (expect code :to-equal "input.not-found")
-        (expect (repair-commands keys) :to-equal '("aitools json get c.json /a/b")))))))
+        (expect (repair-commands keys) :to-equal '("aitools doc get c.json /a/b")))))))
 
 (describe "aitools archive extract and create: formats, sources and refusals"
   (it "round-trips one file through .gz under its own name"

@@ -10,9 +10,7 @@
         (expect (value envelope "error" "code") :to-equal "argument.invalid")
         (expect (repair-commands envelope)
                 :to-equal
-                (list (format nil "aitools --root ~A json get /a f.json" *root*)
-                      (format nil "aitools --root ~A toml get /a f.json" *root*)
-                      (format nil "aitools --root ~A yaml get /a f.json" *root*))))
+                (list (format nil "aitools --root ~A doc get /a f.json" *root*))))
       (multiple-value-bind (code envelope) (run-plain "status")
         (expect code :to-be 1)
         (expect (repair-commands envelope) :to-equal (quote ("aitools bg status" "aitools tx status"))))

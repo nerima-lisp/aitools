@@ -17,7 +17,7 @@
             ("a value option at the end" ("edit" "a.txt" "--old") "argument.invalid" "--old needs a value")
             ("a repeatable option at the end" ("edit" "--old" "a" "--new" "b" "a.txt" "--expect-hash") "argument.invalid" "--expect-hash needs a value")
             ("a two-value option with one value" ("edit" "a.txt" "--between" "x") "argument.invalid" "--between needs two values")
-            ("a damaged record asking for stdin" ("json" "set" "--stdin" "c.json") "environment.unavailable" "standard input")
+            ("a damaged record asking for stdin" ("doc" "set" "--stdin" "c.json") "environment.unavailable" "standard input")
             ("a bare command word" ("edit") "argument.invalid" "edit takes exactly one path")
             ("a hash-guarded edit" ("edit" "--old" "a" "--new" "b" "--expect-hash" "h" "a.txt") "refusal.target-changed" "edit is position-based")
             ("a hash-guarded insert" ("insert" "--match" "a" "--after" "--content" "x" "--expect-hash" "h" "a.txt") "refusal.target-changed" "insert is position-based")
@@ -30,10 +30,10 @@
 " "--expect-hash" "h") "refusal.target-changed" "apply is position-based")
             ("a hash-guarded transform" ("transform" "--op" "sort" "--expect-hash" "h" "a.txt") "refusal.target-changed" "transform is position-based")
             ("a hash-guarded move-lines" ("move-lines" "--match" "a" "--to-position" "end" "--expect-hash" "h" "a.txt") "refusal.target-changed" "move-lines is position-based")
-            ("a hash-guarded json set" ("json" "set" "--expect-hash" "h" "c.json" "/a" "1") "refusal.target-changed" "json.set is position-based")
-            ("a hash-guarded json delete" ("json" "delete" "--expect-hash" "h" "c.json" "/a") "refusal.target-changed" "json.delete is position-based")
-            ("a hash-guarded json merge" ("json" "merge" "--stdin-data" "{}" "--expect-hash" "h" "c.json") "refusal.target-changed" "json.merge is position-based")
-            ("a hash-guarded json fmt" ("json" "fmt" "--expect-hash" "h" "c.json") "refusal.target-changed" "json.fmt is position-based")
+            ("a hash-guarded doc set" ("doc" "set" "--expect-hash" "h" "c.json" "/a" "1") "refusal.target-changed" "doc.set is position-based")
+            ("a hash-guarded doc delete" ("doc" "delete" "--expect-hash" "h" "c.json" "/a") "refusal.target-changed" "doc.delete is position-based")
+            ("a hash-guarded doc merge" ("doc" "merge" "--stdin-data" "{}" "--expect-hash" "h" "c.json") "refusal.target-changed" "doc.merge is position-based")
+            ("a hash-guarded doc fmt" ("doc" "fmt" "--expect-hash" "h" "c.json") "refusal.target-changed" "doc.fmt is position-based")
             ("a transform by line range" ("transform" "--op" "sort" "--range" "1" "a.txt") "refusal.target-changed" "transform is position-based"))
       "rejects ~A"
       (name argv code fragment)
@@ -47,7 +47,7 @@
 
   (it "re-runs a content-based op against the view, reading its recorded stdin input"
     (call-with-edit-workspace (lambda () (put "c.json" "{\"a\":1}")
-      (expect (replay-argv '("json" "set" "--stdin-data" "{\"pointer\":\"/a\",\"value\":2}" "c.json"))
+      (expect (replay-argv '("doc" "set" "--stdin-data" "{\"pointer\":\"/a\",\"value\":2}" "c.json"))
               :to-equal '(:commit ("c.json")))
       (expect (replay-argv '("edit" "--between" "^a$" "^c$" "--exclusive" "--new" "B" "x.txt"))
               :to-equal (list :reject "input.not-found" "x.txt does not exist")))))
@@ -83,3 +83,21 @@
                 :to-equal '("a.txt"))
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal (format nil "head~%x = 2~%")))))))
+(describe "aitools tx rebase replays doc write commands"
+  (it "replays doc.set against the moved JSON base"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "c.json" "{\"a\":1}")
+       (let ((tx (begin-tx)))
+         (expect (run-in tx "doc.set" (list "c.json" "/a" "2")) :to-be :ok)
+         (put "c.json" "{\"a\":1,\"head\":true}")
+         (expect
+          (aitools.store.application:tx-rebase/k
+           (open-store *root*) tx (function replay-record)
+           :on-rebased (lambda (paths) paths)
+           :on-conflict (lambda (conflicts) (declare (ignore conflicts)) :conflict)
+           :on-not-found (lambda () :not-found)
+           :on-busy (lambda () :busy))
+          :to-equal (list "c.json"))
+         (expect (commit-tx tx) :to-be :committed)
+         (expect (text "c.json") :to-equal "{\"a\":2,\"head\":true}"))))))

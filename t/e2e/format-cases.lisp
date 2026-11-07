@@ -24,50 +24,50 @@
 
 ;;; Row 31
 
-(define-row-case (31 "jq '.b.d' is json get" :foreign ("jq")) (ws)
+(define-row-case (31 "jq '.b.d' is doc get" :foreign ("jq")) (ws)
   (put ws "f.json" +json-fixture+)
-  (expect (json= (jget (run-ok ws '("json" "get" "f.json" "/b/d")) "value")
+  (expect (json= (jget (run-ok ws '("doc" "get" "f.json" "/b/d")) "value")
                  (jq ws ".b.d" "f.json" (format nil "[1,2]~%")))
           :to-be t))
 
-(define-row-case (31 "jq 'keys_unsorted' is json get --keys, and jq 'keys' is the same set" :foreign ("jq")) (ws)
+(define-row-case (31 "jq 'keys_unsorted' is doc get --keys, and jq 'keys' is the same set" :foreign ("jq")) (ws)
   (put ws "f.json" +json-fixture+)
-  (let ((keys (jlist (jget (run-ok ws '("json" "get" "f.json" "" "--keys")) "keys"))))
+  (let ((keys (jlist (jget (run-ok ws '("doc" "get" "f.json" "" "--keys")) "keys"))))
     (expect (json= (coerce keys 'vector) (jq ws "keys_unsorted" "f.json" (format nil "[\"b\",\"a\",\"name\"]~%")))
             :to-be t)
     (expect (json= (coerce (sorted keys) 'vector) (jq ws "keys" "f.json" (format nil "[\"a\",\"b\",\"name\"]~%")))
             :to-be t)))
 
-(define-row-case (31 "jq 'length' is json get's length" :foreign ("jq")) (ws)
+(define-row-case (31 "jq 'length' is doc get's length" :foreign ("jq")) (ws)
   (put ws "f.json" +json-fixture+)
   (dolist (pair '(("" . "") ("/a" . ".a") ("/name" . ".name")))
-    (expect (jget (run-ok ws (list "json" "get" "f.json" (car pair))) "length")
+    (expect (jget (run-ok ws (list "doc" "get" "f.json" (car pair))) "length")
             :to-be (jq ws (format nil "~A | length" (if (string= (cdr pair) "") "." (cdr pair))) "f.json" nil))))
 
-(define-row-case (31 "jq -r is json get --raw" :foreign ("jq")) (ws)
+(define-row-case (31 "jq -r is doc get --raw" :foreign ("jq")) (ws)
   (put ws "f.json" +json-fixture+)
-  (expect (format nil "~A~%" (jget (run-ok ws '("json" "get" "f.json" "/b/c" "--raw")) "text"))
+  (expect (format nil "~A~%" (jget (run-ok ws '("doc" "get" "f.json" "/b/c" "--raw")) "text"))
           :to-equal (oracle ws '("jq") "jq -r '.b.c' f.json" (format nil "hi~%~%"))))
 
 ;;; Row 32
 
-(define-row-case (32 "jq '.[] | select(.x == 1)' is json select --where" :foreign ("jq")) (ws)
+(define-row-case (32 "jq '.[] | select(.x == 1)' is doc select --where" :foreign ("jq")) (ws)
   (put ws "f.json" +json-array-fixture+)
   (let ((items (mapcar (lambda (item) (jget item "value"))
-                       (jlist (jget (run-ok ws '("json" "select" "f.json" "" "--where" "/x=1")) "items")))))
+                       (jlist (jget (run-ok ws '("doc" "select" "f.json" "" "--where" "/x=1")) "items")))))
     (expect (json= (coerce items 'vector)
                    (coerce (jq-stream ws ".[] | select(.x == 1)" "f.json" nil) 'vector))
             :to-be t)))
 
-(define-row-case (32 "jq 'sort_by(.x)' is json select --sort-by" :foreign ("jq")) (ws)
+(define-row-case (32 "jq 'sort_by(.x)' is doc select --sort-by" :foreign ("jq")) (ws)
   (put ws "f.json" +json-array-fixture+)
   (let ((items (mapcar (lambda (item) (jget item "value"))
-                       (jlist (jget (run-ok ws '("json" "select" "f.json" "" "--sort-by" "/x")) "items")))))
+                       (jlist (jget (run-ok ws '("doc" "select" "f.json" "" "--sort-by" "/x")) "items")))))
     (expect (json= (coerce items 'vector) (jq ws "sort_by(.x)" "f.json" nil)) :to-be t)))
 
-(define-row-case (32 "jq 'map(select(...)) | length' is json select --output count" :foreign ("jq")) (ws)
+(define-row-case (32 "jq 'map(select(...)) | length' is doc select --output count" :foreign ("jq")) (ws)
   (put ws "f.json" +json-array-fixture+)
-  (expect (jget (run-ok ws '("json" "select" "f.json" "" "--where" "/x=1" "--output" "count")) "count")
+  (expect (jget (run-ok ws '("doc" "select" "f.json" "" "--where" "/x=1" "--output" "count")) "count")
           :to-be (jq ws "map(select(.x == 1)) | length" "f.json" (format nil "2~%"))))
 
 ;;; Row 33
@@ -81,26 +81,26 @@
     (run-ok workspace arguments :stdin stdin)
     (expect (json= (parse-json-text (file-text workspace "a.json")) expected) :to-be t)))
 
-(define-row-case (33 "jq '.a = 1' is json set" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ".a = 1" '("json" "set" "a.json" "/a" "1")))
+(define-row-case (33 "jq '.a = 1' is doc set" :foreign ("jq")) (ws)
+  (expect-same-json-edit ws ".a = 1" '("doc" "set" "a.json" "/a" "1")))
 
-(define-row-case (33 "jq '.a += [4]' is json set /a/-" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ".a += [4]" '("json" "set" "a.json" "/a/-" "4")))
+(define-row-case (33 "jq '.a += [4]' is doc set /a/-" :foreign ("jq")) (ws)
+  (expect-same-json-edit ws ".a += [4]" '("doc" "set" "a.json" "/a/-" "4")))
 
-(define-row-case (33 "jq 'del(.b)' is json delete" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws "del(.b)" '("json" "delete" "a.json" "/b")))
+(define-row-case (33 "jq 'del(.b)' is doc delete" :foreign ("jq")) (ws)
+  (expect-same-json-edit ws "del(.b)" '("doc" "delete" "a.json" "/b")))
 
-(define-row-case (33 "jq '. * {...}' is json merge" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ". * {\"b\":{\"e\":true},\"z\":\"new\"}" '("json" "merge" "a.json" "--stdin")
+(define-row-case (33 "jq '. * {...}' is doc merge" :foreign ("jq")) (ws)
+  (expect-same-json-edit ws ". * {\"b\":{\"e\":true},\"z\":\"new\"}" '("doc" "merge" "a.json" "--stdin")
                          :stdin "{\"b\":{\"e\":true},\"z\":\"new\"}"))
 
-(define-row-case (33 "jq . is json fmt, byte for byte" :foreign ("jq")) (ws)
+(define-row-case (33 "jq . is doc fmt, byte for byte" :foreign ("jq")) (ws)
   (let ((compact (format nil "{\"b\":1,\"a\":{\"c\":[1,2],\"s\":\"x\"}}~%")))
     (put ws "a.json" compact)
     (put ws "o.json" compact)
     (let ((expected (oracle ws '("jq") "jq . o.json"
                             (format nil "{~%  \"b\": 1,~%  \"a\": {~%    \"c\": [~%      1,~%      2~%    ],~%    \"s\": \"x\"~%  }~%}~%"))))
-      (run-ok ws '("json" "fmt" "a.json"))
+      (run-ok ws '("doc" "fmt" "a.json"))
       (expect (file-text ws "a.json") :to-equal expected))))
 
 ;;; Row 34

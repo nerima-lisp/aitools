@@ -63,7 +63,7 @@
      (lambda ()
        (put "c.json" "{\"a\": 1}")
        (put "l.txt" (format nil "s~%x~%e~%"))
-       (expect (run-aitools "json" "set" "c.json" "/b" "[1]") :to-be 0)
+       (expect (run-aitools "doc" "set" "c.json" "/b" "[1]") :to-be 0)
        (expect (text "c.json") :to-equal "{\"a\":1,\"b\":[1]}")
        (expect (run-aitools "write" "w.txt" "--content" "a" "--content" "b" "--separator" "+") :to-be 0)
        (expect (text "w.txt") :to-equal "a+b")

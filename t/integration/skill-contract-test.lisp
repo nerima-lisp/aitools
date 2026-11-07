@@ -65,7 +65,7 @@ to aitools."
     (nreverse words)))
 
 (defun %leaf-commands (app)
-  "Hash table: typed name (`read`, `json get`) -> cl-cli command, for every runnable command."
+  "Hash table: typed name (`read`, `doc get`) -> cl-cli command, for every runnable command."
   (let ((table (make-hash-table :test #'equal)))
     (labels ((walk (command prefix)
                (let ((name (if prefix (format nil "~A ~A" prefix (cl-cli:command-name command)) (cl-cli:command-name command))))
@@ -224,7 +224,7 @@ Each problem reads \"LINE: problem (example)\"."
                                               aitools frobnicate x~%~
                                               aitools read a.txt --no-such-flag~%~
                                               aitools search x --output nonsense~%~
-                                              aitools json get a.json /k --raw~%~
+                                              aitools doc get a.json /k --raw~%~
                                               aitools edit a.txt --between '^a' '^b' --new ''~%~
                                               aitools run --timeout 5s -- make --no-such-flag~%~
                                               ```~%"))))
