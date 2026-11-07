@@ -79,18 +79,21 @@
         (setf (cdr group) (nreverse (cdr group))))
       (values groups (nreverse excluded))))
   (defun assert-coverage-baseline (statistics baseline context)
-    (dolist (metric '(:expression :branch))
-      (multiple-value-bind (covered total)
-          (require-positive-coverage-counts statistics context metric)
-        (multiple-value-bind (base-covered base-total)
-            (require-positive-coverage-counts baseline context metric)
-          (unless (>= (* covered base-total) (* base-covered total))
-            (error "~A ~A coverage ~D/~D fell below baseline ~D/~D"
-                   context metric covered total base-covered base-total))
-          (format t
-                  "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
-                  context metric covered total base-covered base-total))))
-    t)
+    (let ((failures nil))
+      (dolist (metric '(:expression :branch))
+        (multiple-value-bind (covered total)
+            (require-positive-coverage-counts statistics context metric)
+          (multiple-value-bind (base-covered base-total)
+              (require-positive-coverage-counts baseline context metric)
+            (let ((passes (>= (* covered base-total) (* base-covered total))))
+              (format t
+                      "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (~A)~%"
+                      context metric covered total base-covered base-total
+                      (if passes "pass" "fail"))
+              (unless passes
+                (push (list context metric covered total base-covered base-total)
+                      failures))))))
+      (nreverse failures)))
   (defun coverage-statistics-for (pathnames &optional context baseline &key new-baseline-p)
     (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
                                          :include-pathnames pathnames))
@@ -169,12 +172,6 @@
                               (merge-pathnames "coverage/cover-index.html" root)
                               selected)
             (write-context-measurements root aggregate contexts exclusions)
-            (assert-coverage-baseline statistics aggregate-baseline :aggregate)
-            (dolist (entry measured)
-              (when (fourth entry)
-                (assert-coverage-baseline
-                 (third entry) (fourth entry) (first entry))))
-            (unless passed (error "aitools coverage suite failed"))
             (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
                     (getf statistics :expression-covered)
                     (getf statistics :expression-total)
@@ -189,14 +186,24 @@
                   (format t "  ~A via ~A: ~A~%"
                           (getf entry :path) (getf entry :rule) (getf entry :reason)))
               (format t "  none~%"))
-            (progn
-              (dolist (entry measured)
-                (let ((stats (third entry)))
-                  (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
-                          (first entry) (getf stats :expression-covered)
-                          (getf stats :expression-total) (getf stats :branch-covered)
-                          (getf stats :branch-total))))
-              (require-context-coverage-baselines measured)))))))
+            (dolist (entry measured)
+              (let ((stats (third entry)))
+                (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
+                        (first entry) (getf stats :expression-covered)
+                        (getf stats :expression-total) (getf stats :branch-covered)
+                        (getf stats :branch-total))))
+            (require-context-coverage-baselines measured)
+            (let ((failures
+                    (append
+                     (assert-coverage-baseline statistics aggregate-baseline :aggregate)
+                     (loop for entry in measured
+                           when (fourth entry)
+                             append (assert-coverage-baseline
+                                     (third entry) (fourth entry) (first entry))))))
+              (unless (null failures)
+                (error "Coverage baseline comparison failed for ~D metric(s); see comparison rows above"
+                       (length failures))))
+            (unless passed (error "aitools coverage suite failed")))))))
 
 
 (handler-case
