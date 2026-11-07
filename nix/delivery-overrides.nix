@@ -59,6 +59,7 @@ let
   hostTestRunner = ctx.pkgs.writeShellApplication {
     name = "aitools-host-tests";
     text = ''
+      unset AITOOLS_TEST_CONTEXT
       # Prefer native Darwin ps/top for host process visibility; grep -P
       # uses GNU grep.
       export PATH=${
