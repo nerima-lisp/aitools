@@ -45,7 +45,7 @@
 
 (describe "aitools.env.application sys metrics"
   (it "rejects malformed Linux load-average data"
-    (expect (%load-average (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42"))) :linux)
+    (expect (aitools.env.application::%load-average (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42"))) :linux)
            :to-be nil))
   (it-each (("/fixture/bin/ps" :ok 30 30d0 1000)
             ("/fixture/bin/ps" :ok 9 37.5d0 1000)
