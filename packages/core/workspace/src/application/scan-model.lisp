@@ -14,13 +14,11 @@ workspace-root-relative, \"\" naming the root. Either slot may be NIL."
   (list-directory nil :type (or null function) :read-only t)
   (read-octets nil :type (or null function) :read-only t))
 
-(defstruct (scan-entry (:constructor %make-scan-entry (path absolute entry tracked-p)) (:copier nil))
-  "PATH is workspace-root-relative; ABSOLUTE is lexical (below the root's
-path). TRACKED-P is true when the git index lists the path."
+(defstruct (scan-entry (:constructor %make-scan-entry (path absolute entry)) (:copier nil))
+  "PATH is workspace-root-relative; ABSOLUTE is lexical and below the workspace root."
   (path "" :type string :read-only t)
   (absolute "" :type string :read-only t)
-  (entry nil :type workspace-entry :read-only t)
-  (tracked-p nil :type boolean :read-only t))
+  (entry nil :type workspace-entry :read-only t))
 
 (defun scan-entry-name (entry) (workspace-entry-name (scan-entry-entry entry)))
 

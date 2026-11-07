@@ -4,7 +4,7 @@
 ;;;; regexes, no allocation for non-matching lines, a per-file literal
 ;;;; prefilter), block merging and match rendering, `find` filtering, sorting,
 ;;;; and trees, the `code` definition index over the text context's language
-;;;; table, and `overview`'s git and language summaries. Nothing here performs
+;;;; table, and `overview`'s language summary. Nothing here performs
 ;;;; I/O.
 (in-package #:cl-user)
 
@@ -72,8 +72,6 @@
    #:line-definition
    #:map-word-occurrences
    ;; overview.lisp
-   #:parse-head-file
-   #:packed-ref-sha
    #:build-file-name-p
    #:make-language-tally
    #:tally-file

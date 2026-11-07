@@ -1,16 +1,6 @@
 (in-package #:aitools.search.test)
 
 (describe "aitools.search.domain parser and entry-depth contracts"
-  (it-property "parses generated symbolic and detached HEAD values"
-      ((id (gen-integer :min 0 :max #xffffffff)))
-    (let* ((branch (format nil "branch-~D" id))
-           (ref (format nil "refs/heads/~A" branch))
-           (sha (format nil "~(~40,'0X~)" id)))
-      (expect (multiple-value-list
-               (parse-head-file (format nil "ref: ~A~%" ref)))
-              :to-equal (list branch nil ref))
-      (expect (multiple-value-list (parse-head-file sha))
-              :to-equal (list nil sha nil))))
   (it "checks entry-depth and gates a nonempty mutation set"
     (let* ((source-form
              (or (function-lambda-expression (function entry-depth))

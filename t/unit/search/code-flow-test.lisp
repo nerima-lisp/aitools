@@ -101,11 +101,9 @@
       (expect (jfield (first (field fields "refs")) "text") :to-equal "(defun parse (x)"))))
 
 (describe "aitools.search.application overview/k"
-  (it "summarizes languages, build files, entries, and git state read from .git"
+  (it "summarizes languages, build files, and entries"
     (let ((ports (make-fake-ports
-                  :files (list (list "/w/.git/HEAD" (format nil "ref: refs/heads/main~%"))
-                               (list "/w/.git/refs/heads/main" (format nil "0123abcd~%"))
-                               (list "/w/flake.nix" (lines "{" "}"))
+                  :files (list (list "/w/flake.nix" (lines "{" "}"))
                                (list "/w/demo.asd" (lines "(defsystem \"demo\")"))
                                (list "/w/src/a.lisp" (lines "(defun a ())" "(defun b ())" ""))
                                (list "/w/src/b.py" (lines "x = 1"))
@@ -113,23 +111,18 @@
       (multiple-value-bind (kind fields) (run-flow #'overview/k ports)
         (expect kind :to-be :ok)
         (expect (field fields "root") :to-equal "/w")
-        (expect (field fields "ignore_source") :to-equal "gitignore")
+        (expect (field fields "ignore_source") :to-equal "builtin")
         (expect (mapcar (lambda (row) (list (jfield row "lang") (jfield row "files") (jfield row "lines")))
                         (field fields "languages"))
                 :to-equal '(("common-lisp" 2 4) ("nix" 1 2) ("python" 1 1)))
         (expect (field fields "build_files") :to-equal '("demo.asd" "flake.nix"))
         (expect (mapcar (lambda (entry) (jfield entry "name")) (field fields "entries"))
-                :to-equal '("demo.asd" "flake.nix" "logo.png" "src"))
-        (let ((git (field fields "git")))
-          (expect (jfield git "branch") :to-equal "main")
-          (expect (jfield git "head") :to-equal "0123abcd")
-          (expect (jfield git "untracked") :to-be 5)))))
+                :to-equal '("demo.asd" "flake.nix" "logo.png" "src")))))
 
-  (it "reports git as null outside a repository and cuts languages at --limit"
+  (it "cuts the language list at --limit"
     (multiple-value-bind (kind fields)
         (run-flow #'overview/k (make-fake-ports :files '(("/w/a.lisp" "x") ("/w/b.py" "y"))) :limit 1)
       (expect kind :to-be :partial)
-      (expect (field fields "git") :to-be json-kit:+json-null+)
       (expect (field fields "languages_total") :to-be 2))))
 
 (describe "aitools.search.application code-outline/k errors"

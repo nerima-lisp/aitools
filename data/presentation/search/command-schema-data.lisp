@@ -106,7 +106,7 @@
                      (:name "approx_tokens" :description "ceil(characters of returned text / 4)."))
      :error-codes ("argument.invalid" "input.not-found" "internal.unexpected"))
     (:name "overview"
-     :summary "Summarize the workspace: root, git state, languages, build files, and top-level entries."
+     :summary "Summarize the workspace: root, languages, build files, and top-level entries."
      :args ((:name "path" :kind "positional" :type "string" :description "Summarize below this directory; default the root.")
             (:name "--limit" :type "integer" :default 30 :description "Languages returned.")
             (:name "--no-ignore" :type "flag" :description "Include ignored files.")
@@ -114,7 +114,6 @@
      :output-fields ((:name "root" :description "The workspace root.")
                      (:name "path" :description "The summarized directory, workspace-relative (\"\" for the root).")
                      (:name "ignore_source" :description "gitignore, builtin, or none.")
-                     (:name "git" :description "{branch,head,untracked,deleted} read from .git without running git, or null outside a repository. branch is null on a detached HEAD. untracked and deleted count files below path; files modified in place are not counted.")
                      (:name "languages" :description "[{lang,files,lines,bytes}], most lines first.")
                      (:name "languages_total" :description "Languages before --limit.")
                      (:name "build_files" :description "Workspace-relative paths of build and project files (flake.nix, *.asd, Cargo.toml, package.json, ...).")

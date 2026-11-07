@@ -73,7 +73,6 @@
    #:scan-entry-size
    #:scan-entry-mtime
    #:scan-entry-mode
-   #:scan-entry-tracked-p
    #:+default-skip-larger-than+
    #:call-with-scan-options/k
    #:scan-filter-reason

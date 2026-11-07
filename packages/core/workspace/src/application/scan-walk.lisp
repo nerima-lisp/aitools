@@ -88,14 +88,14 @@
              (unless ignored
                (%scan-offer
                 run mapper
-                (%make-scan-entry child-root child-absolute entry nil) nil))
+                (%make-scan-entry child-root child-absolute entry) nil))
              (unless (scan-run-stopped-p run)
                (%scan-walk-directory
                 run mapper child-absolute child-root child-top stack ignored))))
           ((or (not ignored) tracked)
            (%scan-offer
             run mapper
-            (%make-scan-entry child-root child-absolute entry tracked)
+            (%make-scan-entry child-root child-absolute entry)
             nil)))))))
 
 (defun %scan-walk-directory (run mapper absolute root-relative top-relative
@@ -106,9 +106,11 @@
       (funcall
        (scan-run-skip run)
        (%make-scan-entry
-        root-relative absolute
-        (make-workspace-entry :name (path-basename root-relative) :kind :directory)
-        nil)
+        root-relative
+        absolute
+        (make-workspace-entry
+         :name (path-basename root-relative)
+         :kind :directory))
        :unreadable))
     (let ((own
            (and (not inside-ignored)
@@ -139,9 +141,7 @@
                   nil)
                (%scan-offer
                 run mapper
-                (%make-scan-entry
-                 start absolute entry
-                 (%tracked-p (scan-run-context run) top-relative nil))
+                (%make-scan-entry start absolute entry)
                 t))))
   (unless (scan-run-stopped-p run)
     (%scan-flush run mapper))
