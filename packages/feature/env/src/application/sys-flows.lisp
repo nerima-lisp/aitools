@@ -154,15 +154,18 @@ would turn load into environment.unavailable.")
                  (and vm-stat (aitools.env.domain:parse-vm-stat vm-stat :strict strict))))))
     (t (values nil nil nil))))
 (defun %uptime-seconds (ports os)
-  (case os
-    (:linux
-     (aitools.env.domain:parse-proc-uptime (%read-text ports "/proc/uptime")))
-    (:darwin
-     (let ((boot-seconds (funcall (env-ports-sysctl-mib ports) :kern-boottime)))
-       (when (realp boot-seconds)
-         (let ((uptime (- (/ (%now ports) 1000d0) boot-seconds)))
-           uptime))))
-    (t nil)))
+  #+linux
+  (when (eq os :linux)
+    (aitools.env.domain:parse-proc-uptime (%read-text ports "/proc/uptime")))
+  #+darwin
+  (when (eq os :darwin)
+    (let ((boot-seconds (funcall (env-ports-sysctl-mib ports) :kern-boottime)))
+      (when (realp boot-seconds)
+        (let ((uptime (- (/ (%now ports) 1000d0) boot-seconds)))
+          (when (>= uptime 0)
+            uptime)))))
+  #-(or linux darwin)
+  nil)
 
 (aitools.kernel.domain:define-flow
     (sys-info/k ports &key on-ok on-error)
@@ -170,7 +173,7 @@ would turn load into environment.unavailable.")
       (funcall (env-ports-system-identity ports))
     (let* ((os (%os-kind sysname))
            (uptime-seconds (%uptime-seconds ports os)))
-      (if (not (and (realp uptime-seconds) (>= uptime-seconds 0)))
+      (if (not (realp uptime-seconds))
           (aitools.kernel.domain:flow-continue
            :on-error
            "environment.unavailable"

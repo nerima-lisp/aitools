@@ -114,11 +114,14 @@ userspace tick (USER_HZ) at 100."
          (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))))
 (defun %load-average (ports os)
   (let ((values
-          (case os
-            (:linux (aitools.env.domain:parse-proc-load-average
-                     (%read-text ports "/proc/loadavg")))
-            (:darwin (funcall (env-ports-sysctl-mib ports) :vm-loadavg))
-            (t nil))))
+          #+linux
+          (when (eq os :linux)
+            (aitools.env.domain:parse-proc-load-average
+             (%read-text ports "/proc/loadavg")))
+          #+darwin
+          (when (eq os :darwin)
+            (funcall (env-ports-sysctl-mib ports) :vm-loadavg))
+          #-(or linux darwin) nil))
     (when (and (listp values) (= (length values) 3)
                (every (lambda (value) (and (realp value) (>= value 0))) values))
       (mapcar (lambda (value) (float value 1d0)) values))))

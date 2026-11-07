@@ -27,6 +27,7 @@
       (expect (first error) :to-equal "environment.unavailable")
       (expect (getf (first (getf (cddr error) :repairs)) :command) :to-equal repair)))
 
+  #+linux
   (it "reports null CPUs and memory on Linux while requiring uptime"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-info/k)

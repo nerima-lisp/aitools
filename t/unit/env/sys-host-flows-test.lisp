@@ -37,6 +37,7 @@
    :host host))
 
 (describe "aitools.env.application sys info"
+  #+darwin
   (it "fills every field from Darwin sysctl and vm_stat, including uptime"
     (let ((host (darwin-host)))
       (multiple-value-bind (kind fields)
@@ -58,6 +59,7 @@
                 :to-be (* 16384 (+ 2508908 2336582 97304)))
         (expect (object-field (field fields "disk") "available") :to-be 400))))
 
+  #+linux
   (it "fills the same fields from Linux /proc"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-info/k) (linux-proc-ports))
@@ -70,7 +72,14 @@
               :to-be (* 11240304 1024))))
 
   (it "reports unknown values as null instead of failing"
-    (multiple-value-bind (kind fields) (run-flow #'sys-info/k (make-fake-ports :environment nil))
+    (multiple-value-bind (kind fields)
+        (run-flow (function sys-info/k)
+                  (make-fake-ports
+                   :identity #+darwin '("Darwin" "25.6.0" "arm64")
+                             #+linux *linux-identity*
+                   :files #+darwin *zoneinfo-files*
+                          #+linux (list (cons "/proc/uptime" "1.0 0.0"))
+                   :environment nil))
       (expect kind :to-be :ok)
       (expect (json-null-p (field fields "cpus")) :to-be-truthy)
       (expect (json-null-p (field fields "shell")) :to-be-truthy)))
@@ -83,7 +92,16 @@
       (multiple-value-bind (kind error)
           (run-flow (function sys-info/k) ports)
         (expect kind :to-be :error)
-        (expect (first error) :to-equal "environment.unavailable")))))
+        (expect (first error) :to-equal "environment.unavailable"))))
+  #+darwin
+  (it "rejects a Darwin uptime derived from a future boot time"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-info/k)
+                  (make-fake-ports
+                   :now 0
+                   :sysctl-mibs (list (cons :kern-boottime 1d0))))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable"))))
 
 (describe "aitools.env.application sys env"
   (it "masks values of secret-named variables and counts them"

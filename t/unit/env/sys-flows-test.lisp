@@ -44,9 +44,11 @@
     host))
 
 (describe "aitools.env.application sys metrics"
+  #+linux
   (it "rejects malformed Linux load-average data"
     (expect (aitools.env.application::%load-average (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42"))) :linux)
            :to-be nil))
+  #+linux
   (it-each (("/fixture/bin/ps" :ok 30 30d0 1000)
             ("/fixture/bin/ps" :ok 9 37.5d0 1000)
             (nil :error 30 nil 1000)
@@ -95,6 +97,7 @@
                 (expect (mapcar (lambda (name) (object-field (field fields "load_average") name)) (list "one_minute" "five_minutes" "fifteen_minutes")) :to-equal (list 0.75d0 1d0 2.5d0))
                 (expect (field fields "process_cpu_basis") :to-equal "lifetime_average"))
               (expect (first fields) :to-equal "environment.unavailable"))))))
+  #+darwin
   (it "bounds sampling and process output with deterministic CPU ordering"
     (let ((host (metrics-host)))
       (multiple-value-bind (kind fields)
@@ -113,6 +116,7 @@
         (expect (assoc "/usr/bin/top" (fake-host-runs host) :test #'equal) :to-be nil)
         (expect (second (assoc "/bin/ps" (fake-host-runs host) :test #'equal))
                 :to-equal '("-ax" "-o" "pid=,pcpu=,rss=,comm=")))))
+  #+darwin
   (it "returns success when all process rows fit"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-metrics/k)
@@ -124,6 +128,7 @@
                         (object-field (field fields "load_average") name))
                       (list "one_minute" "five_minutes" "fifteen_minutes"))
               :to-equal (list 0.5d0 0.25d0 0.125d0))))
+  #+darwin
   (it-each (("/bin/ps") ("/usr/bin/vm_stat") ("/usr/sbin/sysctl"))
       "fails when metrics source ~S fails" (program)
     (let ((host (metrics-host)))
@@ -131,6 +136,7 @@
       (multiple-value-bind (kind error) (run-flow #'sys-metrics/k (make-fake-ports :host host))
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable"))))
+  #+darwin
   (it "samples Darwin counters twice with exactly one requested second"
     (let ((reads 0) (sleeps nil))
       (multiple-value-bind (kind fields)
@@ -142,6 +148,7 @@
         (expect reads :to-be 2)
         (expect sleeps :to-equal '(1))
         (expect (object-field (field fields "cpu") "busy_percent") :to-equal 50d0))))
+  #+darwin
   (it-each ((nil) (((0 0 0 0 0 0 0 0)))
             (((0 0 0 0 0 0 0 0) (0 0 0 0 0 0 0 0)))
             (((4294967295 0 0 0 0 0 0 0) (0 0 0 10 0 0 0 0))))
@@ -158,6 +165,7 @@
                    :identity (list "Other" "1" "generic")))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")))
+  #+darwin
   (it "fails when Darwin load averages are unavailable"
     (multiple-value-bind (kind error)
         (run-flow (function sys-metrics/k)
@@ -165,6 +173,7 @@
                                   :host (metrics-host)))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")))
+  #+darwin
   (it "rejects negative Darwin load averages"
     (multiple-value-bind (kind error)
         (run-flow (function sys-metrics/k)
