@@ -348,16 +348,16 @@
     "cl-yaml-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1792406792,
-        "narHash": "sha256-T/4U/6Wok3oEVfd/2gitbxkxGDodWkrqN8MHqS3IeUo=",
+        "lastModified": 1792520113,
+        "narHash": "sha256-qFcCSoo015r7MszJKUMImiMU7A/9nI4HKZpxNQn2Yhw=",
         "owner": "nerima-lisp",
         "repo": "cl-yaml-kit",
-        "rev": "91ea1ea94de590eb6521e9c2d4ccd6b2619ba57e",
+        "rev": "81b1f549a052686cf01d5e151c9e0626feccd215",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v0.2.1",
+        "ref": "v0.3.0",
         "repo": "cl-yaml-kit",
         "type": "github"
       }

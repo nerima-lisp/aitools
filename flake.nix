@@ -97,7 +97,7 @@
     };
 
     cl-yaml-kit = {
-      url = "github:nerima-lisp/cl-yaml-kit/v0.2.1";
+      url = "github:nerima-lisp/cl-yaml-kit/v0.3.0";
       flake = false;
     };
 
