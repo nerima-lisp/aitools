@@ -93,14 +93,20 @@
                    (format nil "PREPARE-~A/K"
                            (substitute #\- #\. (string-upcase name)))
                    (list :write-command name))))
-      ((equal operator "DEFINE-FORMAT-WRITE-COMMANDS")
-       (when (stringp name)
-         (loop for verb in '("set" "delete" "merge" "patch" "fmt")
-               for command = (format nil "~A.~A" (string-downcase name) verb)
-               collect (list :function
-                             (format nil "PREPARE-~A/K"
-                                     (substitute #\- #\. (string-upcase command)))
-                             (list :format-write-command command)))))
+      ((or (equal operator "DEFINE-DOC-WRITE-COMMANDS")
+           (and (equal operator "PROGN")
+                (some (lambda (nested)
+                        (and (consp nested)
+                             (equal (%liveness-symbol-name (first nested))
+                                    "DEFINE-DOC-WRITE-COMMANDS")))
+                      (rest form))))
+       (loop for verb in '("set" "delete" "merge" "patch" "fmt")
+             for command = (format nil "doc.~A" verb)
+             collect
+             (list :function
+                   (format nil "PREPARE-~A/K"
+                           (substitute #\- #\. (string-upcase command)))
+                   (list :format-write-command command))))
       ((equal operator "DEFINE-DATA-TABLE")
        (list (list :value simple-name nil)))
       ((equal operator "DEFSTRUCT")

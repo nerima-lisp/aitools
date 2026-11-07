@@ -157,26 +157,17 @@
                          (string= (getf definition :name) "GENERATE-DIFF-HUNKS")))
                   definitions))
        (generated
-         (quote (("packages/feature/edit/src/application/yaml-flows.lisp"
-                  "PREPARE-YAML-SET/K")
-                 ("packages/feature/edit/src/application/yaml-flows.lisp"
-                  "PREPARE-YAML-DELETE/K")
-                 ("packages/feature/edit/src/application/yaml-flows.lisp"
-                  "PREPARE-YAML-MERGE/K")
-                 ("packages/feature/edit/src/application/yaml-flows.lisp"
-                  "PREPARE-YAML-PATCH/K")
-                 ("packages/feature/edit/src/application/yaml-flows.lisp"
-                  "PREPARE-YAML-FMT/K")
-                 ("packages/feature/edit/src/application/toml-flows.lisp"
-                  "PREPARE-TOML-SET/K")
-                 ("packages/feature/edit/src/application/toml-flows.lisp"
-                  "PREPARE-TOML-DELETE/K")
-                 ("packages/feature/edit/src/application/toml-flows.lisp"
-                  "PREPARE-TOML-MERGE/K")
-                 ("packages/feature/edit/src/application/toml-flows.lisp"
-                  "PREPARE-TOML-PATCH/K")
-                 ("packages/feature/edit/src/application/toml-flows.lisp"
-                  "PREPARE-TOML-FMT/K")))))
+         (list
+           (list "packages/feature/edit/src/application/yaml-toml-command-flows.lisp"
+                 "PREPARE-DOC-SET/K")
+           (list "packages/feature/edit/src/application/yaml-toml-command-flows.lisp"
+                 "PREPARE-DOC-DELETE/K")
+           (list "packages/feature/edit/src/application/yaml-toml-command-flows.lisp"
+                 "PREPARE-DOC-MERGE/K")
+           (list "packages/feature/edit/src/application/yaml-toml-command-flows.lisp"
+                 "PREPARE-DOC-PATCH/K")
+           (list "packages/feature/edit/src/application/yaml-toml-command-flows.lisp"
+                 "PREPARE-DOC-FMT/K"))))
   (dolist (entry generated)
     (expect
      (not
