@@ -49,7 +49,8 @@
 (defun linux-metrics-ports (&key (space '(1000 400))
       (load-average-text "0.75 1.0 2.5 3/100 42")
       (process-output-text
-       (format nil "10 120.0 100 worker~%")))
+       (format nil
+               "20 25.0 200 /usr/bin/worker~%10 25.0 100 /usr/bin/worker~%30 0.0 0 idle~%")))
   (let ((stat-reads 0)
         (files
           (list (cons "/proc/uptime" "1234.5 600.0")
