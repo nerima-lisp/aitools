@@ -311,23 +311,6 @@
         "type": "github"
       }
     },
-    "cl-vcs-kit": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1786359167,
-        "narHash": "sha256-CXbyJBaB36mOSsAXh4AgVag47JaLz2WXCxQjjgfzXmY=",
-        "owner": "nerima-lisp",
-        "repo": "cl-vcs-kit",
-        "rev": "ceca9962b105c98c763e2f6fac178c4537bb2497",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nerima-lisp",
-        "ref": "v0.2.0",
-        "repo": "cl-vcs-kit",
-        "type": "github"
-      }
-    },
     "cl-weave": {
       "flake": false,
       "locked": {
@@ -437,7 +420,6 @@
         "cl-regex-kit": "cl-regex-kit",
         "cl-resilience-kit": "cl-resilience-kit",
         "cl-toml-kit": "cl-toml-kit",
-        "cl-vcs-kit": "cl-vcs-kit",
         "cl-weave": "cl-weave",
         "cl-yaml-kit": "cl-yaml-kit",
         "nixpkgs": "nixpkgs",

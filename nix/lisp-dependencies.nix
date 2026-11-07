@@ -15,7 +15,6 @@ let
     cl-log-kit
     cl-regex-kit
     cl-process-kit
-    cl-vcs-kit
     cl-crypto-kit
     cl-deflate-kit
     cl-resilience-kit
@@ -105,17 +104,6 @@ let
       concurrentKit
     ];
   };
-  vcsKit = ctx.cl.lispDerivation {
-    pname = "cl-vcs-kit";
-    version = ctx.cl.fromAsdSystem "${cl-vcs-kit}/cl-vcs-kit.asd";
-    src = cl-vcs-kit;
-    lispSystem = "cl-vcs-kit";
-    lispDependencies = [
-      processKit
-      hostKit
-      logKit
-    ];
-  };
   cryptoKit = ctx.cl.lispDerivation {
     pname = "cl-crypto-kit";
     version = ctx.cl.fromAsdSystem "${cl-crypto-kit}/cl-crypto-kit.asd";
@@ -191,7 +179,6 @@ in
   boundaryKit
   concurrentKit
   processKit
-  vcsKit
   cryptoKit
   deflateKit
   resilienceKit

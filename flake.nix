@@ -53,11 +53,6 @@
       flake = false;
     };
 
-    cl-vcs-kit = {
-      url = "github:nerima-lisp/cl-vcs-kit/v0.2.0";
-      flake = false;
-    };
-
     # These inputs satisfy transitive kit ASDF dependencies. Each kit is built
     # in its own derivation, so its dependencies belong in its own
     # lispDependencies list below.
@@ -142,7 +137,6 @@
       cl-boundary-kit,
       cl-concurrent-kit,
       cl-process-kit,
-      cl-vcs-kit,
       cl-date-kit,
       cl-log-kit,
       cl-parser-kit,
