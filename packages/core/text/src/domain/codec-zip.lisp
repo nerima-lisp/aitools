@@ -20,6 +20,16 @@
       (1- day))
      (cl-date-kit:zone-offset-utc))))
 
+(defun %u16le (octets offset)
+  (logior (aref octets offset)
+          (ash (aref octets (+ offset 1)) 8)))
+
+(defun %u32le (octets offset)
+  (logior (aref octets offset)
+          (ash (aref octets (+ offset 1)) 8)
+          (ash (aref octets (+ offset 2)) 16)
+          (ash (aref octets (+ offset 3)) 24)))
+
 (defun %zip-signature-p (octets offset signature)
   (and (<= 0 offset) (<= (+ offset 4) (length octets))
        (= (%u32le octets offset) signature)))
