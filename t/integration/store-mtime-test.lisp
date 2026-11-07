@@ -95,17 +95,18 @@
       (expect (disk-mtime store "a.txt") :to-be +old-mtime+)
       (expect (read-journal store) :to-equal '())) :io nil))
 
-  (it "rolls an mtime op forward from every step after its commit point"
-    (dolist (case '((:after-intent 1) (:after-apply-step 1) (:after-apply 1) (:after-journal 1)))
-      (call-with-temp-store (lambda (store) (put-old-file store "a.txt" "keep")
-        (expect (call-with-fault-at (first case) (lambda () (touch-op store)) :nth (second case)) :to-be-truthy)
-        (multiple-value-bind (status entries) (recover store)
-          (expect status :to-be :recovered)
-          (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
-        (expect (disk-mtime store "a.txt") :to-be +new-mtime+)
-        (expect (disk-text store "a.txt") :to-equal "keep")
-        (expect (length (read-journal store)) :to-be 1)
-        (expect (intent-files store) :to-equal '())) :io nil)))
+  (it-each ((:after-intent 1) (:after-apply-step 1) (:after-apply 1) (:after-journal 1))
+      "rolls an mtime op forward from ~A (nth ~A)"
+      (point nth)
+    (call-with-temp-store (lambda (store) (put-old-file store "a.txt" "keep")
+      (expect (call-with-fault-at point (lambda () (touch-op store)) :nth nth) :to-be-truthy)
+      (multiple-value-bind (status entries) (recover store)
+        (expect status :to-be :recovered)
+        (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
+      (expect (disk-mtime store "a.txt") :to-be +new-mtime+)
+      (expect (disk-text store "a.txt") :to-equal "keep")
+      (expect (length (read-journal store)) :to-be 1)
+      (expect (intent-files store) :to-equal '())) :io nil))
 
   (it "reaches the same result when the roll-forward is itself interrupted"
     (call-with-temp-store (lambda (store) (put-old-file store "a.txt" "keep")

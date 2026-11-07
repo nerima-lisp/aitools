@@ -81,16 +81,17 @@
         (expect (blob-names store) :to-equal '())
         (expect (disk-text store "a.txt") :to-equal "a"))) :io nil))
 
-  (it "stays at the previous op's state when a tx op is interrupted"
-    (dolist (point '(:tx-after-blobs :tx-after-ops))
-      (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
-        (let ((tx (begin store)))
-          (stage-append store tx "a.txt" "+1")
-          (expect (call-with-fault-at point (lambda () (stage-append store tx "a.txt" "+2"))) :to-be-truthy)
-          (expect (tx-view-text store tx "a.txt") :to-equal "a+1")
-          (expect (mapcar #'tx-op-record-tx-op (tx-status-ops (status-of store tx))) :to-equal '(1))
-          (expect (stage-append store tx "a.txt" "+3") :to-be 2)
-          (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3"))) :io nil)))
+  (it-each ((:tx-after-blobs) (:tx-after-ops))
+      "stays at the previous op's state when a tx op is interrupted at ~A"
+      (point)
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
+      (let ((tx (begin store)))
+        (stage-append store tx "a.txt" "+1")
+        (expect (call-with-fault-at point (lambda () (stage-append store tx "a.txt" "+2"))) :to-be-truthy)
+        (expect (tx-view-text store tx "a.txt") :to-equal "a+1")
+        (expect (mapcar #'tx-op-record-tx-op (tx-status-ops (status-of store tx))) :to-equal '(1))
+        (expect (stage-append store tx "a.txt" "+3") :to-be 2)
+        (expect (tx-view-text store tx "a.txt") :to-equal "a+1+3"))) :io nil))
 
   (it "serialises two processes writing into one tx"
     (call-with-temp-store (lambda (store) (put-file store "log.txt" "")

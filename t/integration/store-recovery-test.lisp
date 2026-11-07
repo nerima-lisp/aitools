@@ -123,24 +123,27 @@ unchanged-p all-applied-p) after recovery."
       (expect actions :to-equal '("rolled-forward"))
       (expect applied :to-be-truthy)))
 
-  (it "never leaves a multi-file write half applied"
-    (dolist (n '(1 2 3))
-      (multiple-value-bind (fired status actions unchanged applied) (crash-then-recover :after-apply-step :nth n)
-        (declare (ignore fired status actions))
-        (expect (or unchanged applied) :to-be-truthy)
-        (expect applied :to-be-truthy))))
+  (it-each ((1) (2) (3))
+      "never leaves a multi-file write half applied at apply step ~D"
+      (n)
+    (multiple-value-bind (fired status actions unchanged applied)
+        (crash-then-recover :after-apply-step :nth n)
+      (declare (ignore fired status actions))
+      (expect (or unchanged applied) :to-be-truthy)
+      (expect applied :to-be-truthy)))
 
-  (it "reaches the same result when recovery itself is interrupted (idempotence)"
-    (dolist (second-crash '(1 2 3))
-      (call-with-temp-store (lambda (store) (put-file store "a.txt" "a-old")
-        (call-with-fault-at :after-apply-step (lambda () (two-file-write store)) :nth 2)
-        (expect (call-with-fault-at :after-apply-step (lambda () (recover store)) :nth second-crash) :to-be-truthy)
-        (expect (call-with-fault-at :after-journal (lambda () (recover store))) :to-be-truthy)
-        (multiple-value-bind (status entries) (recover store)
-          (expect status :to-be :recovered)
-          (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
-        (expect (all-applied-p store) :to-be-truthy)
-        (expect (recover store) :to-be :none)) :io nil)))
+  (it-each ((1) (2) (3))
+      "reaches the same result when recovery itself is interrupted (idempotence), at apply step ~D"
+      (second-crash)
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a-old")
+      (call-with-fault-at :after-apply-step (lambda () (two-file-write store)) :nth 2)
+      (expect (call-with-fault-at :after-apply-step (lambda () (recover store)) :nth second-crash) :to-be-truthy)
+      (expect (call-with-fault-at :after-journal (lambda () (recover store))) :to-be-truthy)
+      (multiple-value-bind (status entries) (recover store)
+        (expect status :to-be :recovered)
+        (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
+      (expect (all-applied-p store) :to-be-truthy)
+      (expect (recover store) :to-be :none)) :io nil))
 
   (it "reaches the same result when a discard is interrupted"
     (call-with-temp-store (lambda (store) (put-file store "a.txt" "a-old")

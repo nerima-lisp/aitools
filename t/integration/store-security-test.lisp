@@ -60,18 +60,23 @@ an agent able to write the state directory could. Returns its op id."
       (expect (disk-text store ".aitools-evil-1.tmp") :to-equal "#!/bin/sh")
       (expect (intent-files store) :to-equal '())) :io nil))
 
-  (it "discards a record whose step case-folds to .git, climbs a symlink out, or targets the state directory"
+  (it-each ((".GIT/config" ".GIT/config")
+          ("link/pwn.txt" "link/pwn.txt")
+          ("state directory" :state-marker))
+      "discards a record targeting ~A"
+      (label path-case)
     (call-with-temp-store (lambda (store) (let* ((base (base-directory store))
              (inside (make-store (store-io-port store) (store-root store) (disk-path store "state"))))
         (seed-state inside)
         (sb-posix:mkdir (concatenate 'string base "/outside") #o755)
         (sb-posix:symlink "../outside" (disk-path store "link"))
-        (dolist (path (list ".GIT/config" "link/pwn.txt" "state/marker.txt"
-                            (format nil "state/~A/commit/x.json"
-                                    (subseq (store-state-directory inside)
-                                            (1+ (position #\/ (store-state-directory inside) :from-end t))))))
+        (let ((target (if (eq path-case :state-marker)
+                          (format nil "state/~A/commit/x.json"
+                                  (subseq (store-state-directory inside)
+                                          (1+ (position #\/ (store-state-directory inside) :from-end t))))
+                          path-case)))
           (put-file store ".aitools-payload-1.tmp" "x")
-          (let ((op-id (forge-intent inside (list (make-intent-step :op :replace :path path
+          (let ((op-id (forge-intent inside (list (make-intent-step :op :replace :path target
                                                                     :temp ".aitools-payload-1.tmp" :kind :file
                                                                     :mode #o644)))))
             (multiple-value-bind (status entries) (recover inside)
@@ -154,14 +159,16 @@ an agent able to write the state directory could. Returns its op id."
         (expect (file-mode outside) :to-be #o644)
         (expect (read-journal store) :to-equal '()))) :io nil))
 
-  (it "has the production adapter refuse them too, and never follow a symlink"
+  (it-each (("hard link" "hl.txt") ("symlink" "sl.txt"))
+      "has the production adapter refuse the ~A and never follow a symlink"
+      (kind relative)
     (call-with-temp-store (lambda (store) (let ((outside (concatenate 'string (base-directory store) "/outside.txt"))
             (io (make-posix-store-io :root (store-root store))))
         (write-raw outside "secret")
         (sb-posix:chmod outside #o644)
         (sb-posix:link outside (disk-path store "hl.txt"))
         (sb-posix:symlink outside (disk-path store "sl.txt"))
-        (dolist (path (list (disk-path store "hl.txt") (disk-path store "sl.txt")))
+        (let ((path (disk-path store relative)))
           (signals store-io-error (funcall (store-io-chmod io) path #o4777))
           (signals store-io-error (funcall (store-io-set-mtime io) path 1000000000)))
         (expect (file-mode outside) :to-be #o644))) :io nil)))
