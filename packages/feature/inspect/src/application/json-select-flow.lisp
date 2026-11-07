@@ -17,7 +17,8 @@
                    (limit 50)
                    on-ok
                    on-partial
-                   on-error)
+                   on-error
+                   format-override)
  "doc select. WHERE and PICK are lists of texts. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (labels ((report-error (code message
@@ -49,13 +50,12 @@
            (repair
             "pointer-syntax"
             "Write members as /name or /a/b."
-            (format nil "aitools schema ~A select"
-                    (%format-group format)))))
+            (format nil "aitools ~A select~@[ --format ~A~]" (%format-group format) format-override))))
          (aitools.kernel.domain:flow-call
-          (%pointer-tokens pointer (%format-group format))
+          (%pointer-tokens pointer (%format-group format) :format-override format-override)
           (:on-tokens (tokens)
             (aitools.kernel.domain:flow-call
-             (%where-comparisons where (%format-group format))
+             (%where-comparisons where (%format-group format) :format-override format-override)
              (:on-comparisons (comparisons)
                (aitools.kernel.domain:flow-call
                 (%call-with-format-file
@@ -66,8 +66,12 @@
                  :record t)
                 (:on-document (context target document)
                   (aitools.kernel.domain:flow-call
-                   (%resolve-or-fail context target document tokens
-                                     (%format-group format))
+                   (%resolve-or-fail context
+                                     target
+                                     document
+                                     tokens
+                                     (%format-group format)
+                                     :format-override format-override)
                    (:on-found (array)
                      (if (not (json-array-value-p array))
                          (aitools.kernel.domain:flow-continue
@@ -82,10 +86,16 @@
                            (repair
                             "list-keys"
                             "Find the array to select from."
-                            (command-line
-                             context
-                             (list (%format-group format)
-                                   "get" path pointer "--keys")))))
+                            (command-line context
+                                             (append
+                                              (list (%format-group format)
+                                                    "get"
+                                                    path
+                                                    pointer
+                                                    "--keys")
+                                              (when format-override
+                                                (list "--format"
+                                                      format-override)))))))
                          (let ((indexes nil)
                                (limit-message nil))
                            (aitools.kernel.domain:flow-call
@@ -115,13 +125,13 @@
                                  (repair
                                   "fix-pattern"
                                   "Simplify the regular expression."
-                                  (format nil "aitools schema ~A select"
-                                          (%format-group format)))))
+                                  (format nil "aitools ~A select~@[ --format ~A~]" (%format-group format) format-override))))
                                (multiple-value-bind (fields truncated)
-                                   (%select-fields
-                                    context target pointer array indexes pick
-                                    output limit :where where
-                                    :group (%format-group format))
+                                   (%select-fields context target pointer array indexes
+                                   pick output limit
+                                   :where where
+                                   :group (%format-group format)
+                                   :format-override format-override)
                                  (if truncated
                                      (aitools.kernel.domain:flow-continue
                                       :on-partial

@@ -78,7 +78,7 @@
         (expect (error-code fields) :to-equal "input.unsupported-value")
         (expect (getf fields :message) :to-contain "JSON Pointer /outer/value")
         (expect (getf (first (getf fields :repairs)) :command)
-                :to-equal "aitools schema doc get"))))
+                :to-equal "aitools doc get --format toml"))))
 
   (it "maps malformed TOML to the syntax error and schema repair"
     (let ((ports (make-test-ports
@@ -89,4 +89,4 @@
         (expect (error-code fields) :to-equal "input.syntax-error")
         (expect (getf fields :message) :to-equal "TOML syntax error.")
         (expect (getf (first (getf fields :repairs)) :command)
-                :to-equal "aitools schema doc get")))))
+                :to-equal "aitools doc get --format toml")))))

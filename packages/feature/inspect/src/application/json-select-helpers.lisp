@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (%where-comparisons texts group &key on-comparisons on-error)
+ (%where-comparisons texts group &key format-override on-comparisons on-error)
  "COMPARISONs keyed by relative pointer tokens for each --where text."
  (declare (type function on-comparisons on-error))
  (let ((comparisons '())
@@ -20,7 +20,7 @@
                       (list
                        (repair "where-example"
                                "Compare a member of each element, e.g. /status=\"open\"."
-                               (format nil "aitools schema ~A select" group)))))
+                               (format nil "aitools ~A select~@[ --format ~A~]" group format-override)))))
              (aitools.kernel.domain:flow-call
               (make-comparison/k tokens operator right)
               (:on-comparison (comparison)
@@ -33,7 +33,7 @@
                                 (list
                                  (repair "fix-pattern"
                                          "Correct the regular expression."
-                                         (format nil "aitools schema ~A select" group))))))))))))
+                                         (format nil "aitools ~A select~@[ --format ~A~]" group format-override))))))))))))
    (if failure
        (aitools.kernel.domain:flow-continue
         :on-error (first failure) (second failure)
@@ -100,7 +100,8 @@ value under SORT-TOKENS when given."
                                limit
                                &key
                                where
-                               group)
+                               group
+                               format-override)
   "(VALUES fields truncated)."
   (if (string= output "count")
       (values
@@ -140,5 +141,7 @@ value under SORT-TOKENS when given."
                                          pointer)
                                    (loop for condition in where
                                          append (list "--where" condition))
-                                   (list "--output" "count"))))))))
+                                   (list "--output" "count")
+                                   (when format-override
+                                     (list "--format" format-override)))))))))
          truncated))))

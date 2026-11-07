@@ -71,7 +71,7 @@
                                         "json"))))))))))
 
 (aitools.kernel.domain:define-flow
- (%pointer-tokens pointer group &key on-tokens on-error)
+ (%pointer-tokens pointer group &key format-override on-tokens on-error)
  (declare (type function on-tokens on-error))
  (let ((tokens (parse-json-pointer pointer)))
    (if (eq tokens :invalid)
@@ -85,11 +85,19 @@
         (list
          (repair "whole-document"
                  "Start from the document's top-level keys."
-                 (format nil "aitools schema ~A get" group))))
+                 (format nil "aitools ~A get~@[ --format ~A~]" group format-override))))
        (aitools.kernel.domain:flow-continue :on-tokens tokens))))
 
 (aitools.kernel.domain:define-flow
- (%resolve-or-fail context target document tokens group &key on-found on-error)
+ (%resolve-or-fail context
+                    target
+                    document
+                    tokens
+                    group
+                    &key
+                    on-found
+                    on-error
+                    format-override)
  (declare (type function on-found on-error))
  (aitools.kernel.domain:flow-call
   (resolve-json-pointer/k document tokens)
@@ -116,14 +124,17 @@
         (repair "list-keys"
                 "List the keys that exist there."
                 (command-line context
-                              (list group
-                                    "get"
-                                    (file-target-argument target)
-                                    parent-pointer
-                                    "--keys")))))))))
+                              (append
+                               (list group
+                                     "get"
+                                     (file-target-argument target)
+                                     parent-pointer
+                                     "--keys")
+                               (when format-override
+                                 (list "--format" format-override)))))))))))
 
 (aitools.kernel.domain:define-flow
- (%max-bytes text group &key on-bytes on-error)
+ (%max-bytes text group &key format-override on-bytes on-error)
  (declare (type function on-bytes on-error))
  (let ((bytes (handler-case (size-bytes (parse-size text))
                 (error () nil))))
@@ -139,9 +150,10 @@
         (list
          (repair "default-size"
                  "Use the default limit."
-                 (format nil "aitools schema ~A get" group)))))))
+                 (format nil "aitools ~A get~@[ --format ~A~]" group format-override)))))))
 
-(defun %json-get-fields (context target group pointer value keys raw max-bytes)
+(defun %json-get-fields (context target group pointer value keys raw max-bytes
+                                  &key format-override)
   "(VALUES fields truncated) for `doc get`."
   (let* ((head
           (list (cons "path" (file-target-argument target))
@@ -183,21 +195,29 @@
                                                      :test
                                                      #'string=)
                                              (command-line context
-                                                           (list group
-                                                                 "get"
-                                                                 (file-target-argument
-                                                                  target)
-                                                                 pointer
-                                                                 "--keys")))
+                                                           (append
+                                                            (list group
+                                                                  "get"
+                                                                  (file-target-argument
+                                                                   target)
+                                                                  pointer
+                                                                  "--keys")
+                                                            (when format-override
+                                                              (list "--format"
+                                                                    format-override)))))
                                         (and (json-array-value-p value)
                                              (plusp (length value))
                                              (command-line context
-                                                           (list group
-                                                                 "get"
-                                                                 (file-target-argument
-                                                                  target)
-                                                                 (concatenate
+                                                           (append
+                                                            (list group
+                                                                  "get"
+                                                                  (file-target-argument
+                                                                   target)
+                                                                  (concatenate
                                                                   'string
                                                                   pointer
-                                                                  "/0")))))))))
+                                                                  "/0"))
+                                                            (when format-override
+                                                              (list "--format"
+                                                                    format-override))))))))))
            t)))))

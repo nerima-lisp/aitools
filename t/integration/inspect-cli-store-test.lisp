@@ -5,10 +5,6 @@
 ;;;; function. Workspace and store helpers come from inspect-cli-test.lisp.
 (in-package #:aitools.integration.inspect-cli-test)
 
-(defun begin-tx (store)
-  (aitools.store.application:tx-begin/k store :on-begun (lambda (id name created) (declare (ignore name created)) id)
-                                              :on-busy (lambda () (fail "busy"))))
-
 (defun delegating-host (&key on-stat)
   "The production workspace host, calling ON-STAT (path) before each stat."
   (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
@@ -179,3 +175,69 @@
         (expect (probe-file (format nil "~A/snapshots/~A.json"
                                     (aitools.store.application:store-state-directory (open-store workspace)) id))
                 :to-be-truthy)))))
+
+(describe "JSON doc format override"
+  (it "routes every reader with explicit --format and repairs unknown paths"
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let ((file (ws-file workspace "matrix.json"
+                           "{\"items\":[{\"id\":1},{\"id\":2}]}"))
+            (other (ws-file workspace "other.json" "{\"items\":[{\"id\":3}]}"))
+            (unknown (ws-file workspace "extensionless" "{}")))
+        (dolist (arguments
+                 (list (list "doc" "get" file "/items/0/id" "--format" "json")
+                       (list "doc" "select" file "/items" "--where" "/id>1" "--format" "json")
+                       (list "doc" "diff" file other "--format" "json")))
+          (multiple-value-bind (code envelope)
+              (apply (function run-aitools) "--root" workspace arguments)
+            (expect code :to-be 0)
+            (expect (value-at envelope "command")
+                    :to-equal (concatenate (quote string) "doc " (second arguments)))))
+        (multiple-value-bind (code envelope)
+            (run-aitools "--root" workspace "doc" "get" unknown "")
+          (let ((command (value-at envelope "error" "repairs" 0 "command")))
+            (expect code :to-be 1)
+            (expect (value-at envelope "error" "code") :to-equal "argument.invalid")
+            (expect (search "doc get" command) :to-be-truthy)
+            (expect (search "--format" command) :to-be-truthy)))))))
+
+(describe "snapshot commands through dispatch"
+  (it "parses snapshot create's repeated --glob and filters, and snapshot diff --limit"
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (ws-file workspace "a.txt" "a")
+      (ws-file workspace "b.md" "b")
+      (ws-file workspace "c.lisp" "c")
+      (multiple-value-bind (code envelope)
+          (run-aitools "--root" workspace "snapshot" "create" "--glob" "*.txt" "--glob" "*.md" "--no-ignore"
+                       "--skip-larger-than" "1KiB")
+        (expect code :to-be 0)
+        (expect envelope :to-match-envelope '("status" "ok" "command" "snapshot create"))
+        (expect (value-at envelope "files") :to-be 2)
+        (let ((id (value-at envelope "snapshot_id")))
+          (ws-file workspace "d.txt" "d")
+          (ws-file workspace "e.txt" "e")
+          (ws-file workspace "f.lisp" "f")
+          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "snapshot" "diff" id "--limit" "1")
+            (expect code :to-be 3)
+            (expect (envelope-list envelope "added") :to-equal '("d.txt")))))
+      (multiple-value-bind (code envelope) (run-aitools "--root" workspace "snapshot" "create" "--lang" "markdown" "--newer" "1h")
+        (expect code :to-be 0)
+        (expect (value-at envelope "files") :to-be 1)))))
+
+(describe "archive commands through dispatch"
+  (it "parses archive list --limit and archive read's entry, --as, --max-lines, and selectors"
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let ((file (ws-file workspace "a.zip" (zip-of "one.txt" (format nil "1~%2~%3~%") "two.txt" "2"))))
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "list" file "--limit" "1")
+          (expect code :to-be 3)
+          (expect envelope :to-match-envelope '("status" "partial" "command" "archive list"))
+          (expect (value-at envelope "total") :to-be 2))
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "read" file "one.txt" "--range" "2:3"
+                                                          "--max-lines" "1")
+          (expect code :to-be 3)
+          (expect (envelope-list envelope "lines") :to-equal '("2")))
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "read" file "two.txt" "--as" "hex")
+          (expect code :to-be 0)
+          (expect (value-at envelope "rows" 0 "hex") :to-equal "32"))))))

@@ -2,79 +2,23 @@
 
 (defun %format-group (format)
   (ecase format
-    (:json "json")
-    (:yaml "yaml")
-    (:toml "toml")))
-
-(aitools.kernel.domain:define-flow
- (doc-inspect-flow ports action paths arguments format options
-                   &key operation root tx lock-timeout on-ok on-partial on-error)
- (declare (type function operation on-ok on-partial on-error))
- (labels ((option-arguments (values)
-            (loop for (name value) on values by #'cddr
-                  for flag = (concatenate 'string
-                                          "--"
-                                          (string-downcase (symbol-name name)))
-                  append (cond
-                           ((null value) nil)
-                           ((member name '(:keys :raw :desc))
-                            (list flag))
-                           ((member name '(:where :pick))
-                            (loop for item in value
-                                  append (list flag item)))
-                           (t (list flag (princ-to-string value))))))
-          (repair-command ()
-            (apply (function aitools.protocol.domain:command-line)
-                   (append (list "aitools")
-                           (option-arguments
-                            (list :root root :lock-timeout lock-timeout))
-                           (list "doc" action)
-                           arguments
-                           (option-arguments (append (list :tx tx) options))
-                           (list "--format" "<json|yaml|toml>")))))
-   (let* ((formats (mapcar (lambda (path)
-                             (%document-format path format))
-                           paths))
-          (unknown (position nil formats)))
-     (if unknown
-         (let ((path (nth unknown paths)))
-           (aitools.kernel.domain:flow-continue
-            :on-error
-            "argument.invalid"
-            (format nil
-                    "Cannot determine the document format for ~A; pass --format json, yaml, or toml."
-                    path)
-            :repairs
-            (list
-             (repair "specify-format"
-                     "Pass --format with the format that matches the document."
-                     (repair-command)))))
-         (cond
-           ((string= action "get")
-            (funcall operation ports (first arguments) (second arguments)
-                     :root root :tx tx :lock-timeout lock-timeout
-                     :format (first formats)
-                     :max-bytes (getf options :max-bytes)
-                     :keys (getf options :keys)
-                     :raw (getf options :raw)
-                     :on-ok on-ok :on-partial on-partial :on-error on-error))
-           ((string= action "select")
-            (funcall operation ports (first arguments) (second arguments)
-                     :root root :tx tx :lock-timeout lock-timeout
-                     :format (first formats)
-                     :where (getf options :where)
-                     :pick (getf options :pick)
-                     :sort-by (getf options :sort-by)
-                     :desc (getf options :desc)
-                     :output (getf options :output)
-                     :limit (getf options :limit)
-                     :on-ok on-ok :on-partial on-partial :on-error on-error))
-           (t
-            (funcall operation ports (first arguments) (second arguments)
-                     :root root :tx tx :lock-timeout lock-timeout
-                     :format-a (first formats) :format-b (second formats)
-                     :limit (getf options :limit)
-                     :on-ok on-ok :on-partial on-partial :on-error on-error)))))))
+    (:json "doc")
+    (:yaml "doc")
+    (:toml "doc")))
+(defun %document-format (path override)
+  (if override
+      (cond
+        ((string-equal override "json") :json)
+        ((string-equal override "yaml") :yaml)
+        ((string-equal override "toml") :toml))
+      (let ((extension (and path (pathname-type path))))
+        (cond
+          ((and (stringp extension) (string-equal extension "json")) :json)
+          ((and (stringp extension)
+                (or (string-equal extension "yaml")
+                    (string-equal extension "yml")))
+           :yaml)
+          ((and (stringp extension) (string-equal extension "toml")) :toml)))))
 
 (progn
   (defmacro %call-document-reader (call)

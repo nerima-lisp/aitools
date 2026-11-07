@@ -14,7 +14,8 @@
                 raw
                 on-ok
                 on-partial
-                on-error)
+                on-error
+                format-override)
  "doc get. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (labels ((report-error (code message
@@ -30,10 +31,10 @@
              :conflicts conflicts
              :repairs repairs)))
    (aitools.kernel.domain:flow-call
-    (%max-bytes max-bytes (%format-group format))
+    (%max-bytes max-bytes (%format-group format) :format-override format-override)
     (:on-bytes (limit)
       (aitools.kernel.domain:flow-call
-       (%pointer-tokens pointer (%format-group format))
+       (%pointer-tokens pointer (%format-group format) :format-override format-override)
        (:on-tokens (tokens)
          (aitools.kernel.domain:flow-call
           (%call-with-format-file
@@ -44,8 +45,12 @@
            :record t)
           (:on-document (context target document)
             (aitools.kernel.domain:flow-call
-             (%resolve-or-fail context target document tokens
-                               (%format-group format))
+             (%resolve-or-fail context
+                               target
+                               document
+                               tokens
+                               (%format-group format)
+                               :format-override format-override)
              (:on-found (value)
                (if (and keys
                         (not (member (json-type-name value)
@@ -65,13 +70,25 @@
                      (repair
                       "get-value"
                       "Get the value itself."
-                      (command-line
-                       context
-                       (list (%format-group format) "get" path pointer)))))
+                      (command-line context
+                                             (append
+                                              (list (%format-group format)
+                                                    "get"
+                                                    path
+                                                    pointer)
+                                              (when format-override
+                                                (list "--format"
+                                                      format-override)))))))
                    (multiple-value-bind (fields truncated)
-                       (%json-get-fields
-                        context target (%format-group format) pointer
-                        value keys raw limit)
+                       (%json-get-fields context
+                                      target
+                                      (%format-group format)
+                                      pointer
+                                      value
+                                      keys
+                                      raw
+                                      limit
+                                      :format-override format-override)
                      (if truncated
                          (aitools.kernel.domain:flow-continue
                           :on-partial

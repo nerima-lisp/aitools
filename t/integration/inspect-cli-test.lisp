@@ -211,7 +211,7 @@ the parsed JSON (hash tables) from whichever stream received output."
                                     (if (string= format "yaml") "YAML" "TOML")
                                     pointer reason)))
       (expect (value-at envelope "error" "repairs" 0 "command")
-              :to-equal (format nil "aitools --root ~A schema doc get" workspace format))
+              :to-equal (format nil "aitools --root ~A doc get --format ~A" workspace format))
       (expect (value-at envelope "error" "repairs" 0 "action")
               :to-equal (if (string= code "input.syntax-error")
                             "fix-format-syntax"
@@ -242,3 +242,7 @@ the parsed JSON (hash tables) from whichever stream received output."
                        (search "--pick" command
                                :start2 (1+ (search "--pick" command))))
                   :to-be-truthy))))))
+
+(defun begin-tx (store)
+  (aitools.store.application:tx-begin/k store :on-begun (lambda (id name created) (declare (ignore name created)) id)
+                                              :on-busy (lambda () (fail "busy"))))

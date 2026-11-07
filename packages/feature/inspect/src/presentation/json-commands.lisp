@@ -2,14 +2,13 @@
 ;;;; Structured document read commands.
 (in-package #:aitools.inspect.presentation)
 
-(defun %run-doc-flow (ports invocation flow action paths arguments flow-options)
+(defun %run-doc-flow (ports invocation action paths arguments flow-options)
   (apply (function run-flow)
          (append
            (list (function aitools.inspect.application::doc-inspect-flow)
                  ports action paths arguments
                  (option-value invocation :format)
-                 flow-options
-                 :operation flow)
+                 flow-options)
            (context-arguments invocation))))
 
 (defun %repeated-option (name description &key value-name)
@@ -29,7 +28,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation #'aitools.inspect.application:json-get-flow "get"
+               ports invocation "get"
                (list (positional-value invocation :path))
                (list (positional-value invocation :path)
                      (positional-value invocation :pointer))
@@ -55,7 +54,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation #'aitools.inspect.application:json-select-flow "select"
+               ports invocation "select"
                (list (positional-value invocation :path))
                (list (positional-value invocation :path)
                      (positional-value invocation :pointer))
@@ -77,7 +76,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation #'aitools.inspect.application:json-diff-flow "diff"
+               ports invocation "diff"
                (list (positional-value invocation :a)
                      (positional-value invocation :b))
                (list (positional-value invocation :a)

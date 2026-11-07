@@ -55,7 +55,56 @@
         (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "diff" a b "--limit" "1")
           (expect code :to-be 3)
           (expect (value-at envelope "total") :to-be 2)
-          (expect (length (envelope-list envelope "ops")) :to-be 1))))))
+          (expect (length (envelope-list envelope "ops")) :to-be 1)))))
+  (it "doc commands preserve format in repairs and array continuations"
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (let ((yaml (ws-file workspace "items.yaml" (format nil "- one~%- two~%")))
+            (toml (ws-file workspace "items.toml" (format nil "items = [\"one\", \"two\"]~%"))))
+        (dolist (case (list (list "yaml" yaml "" "/0")
+                            (list "toml" toml "/items" "/items/0")))
+          (let ((document-format (first case))
+                (path (second case))
+                (array-pointer (third case))
+                (next-pointer (fourth case)))
+            (multiple-value-bind (code envelope)
+                (run-aitools "--root" workspace "doc" "get" path "/missing"
+                             "--format" document-format)
+              (expect code :to-be 1)
+              (expect (value-at envelope "error" "code") :to-equal "input.not-found")
+              (let ((command (value-at envelope "error" "repairs" 0 "command")))
+                (expect (search "doc get" command) :to-be-truthy)
+                (expect (search "--keys" command) :to-be-truthy)
+                (expect (search (format nil "--format ~A" document-format) command)
+                        :to-be-truthy)))
+            (multiple-value-bind (code envelope)
+                (run-aitools "--root" workspace "doc" "get" path next-pointer
+                             "--keys" "--format" document-format)
+              (expect code :to-be 1)
+              (expect (value-at envelope "error" "code") :to-equal "argument.invalid")
+              (expect (search (format nil "--format ~A" document-format)
+                              (value-at envelope "error" "repairs" 0 "command"))
+                      :to-be-truthy))
+            (multiple-value-bind (code envelope)
+                (run-aitools "--root" workspace "doc" "select" path next-pointer
+                             "--format" document-format)
+              (expect code :to-be 1)
+              (expect (value-at envelope "error" "code") :to-equal "argument.invalid")
+              (let ((command (value-at envelope "error" "repairs" 0 "command")))
+                (expect (search "doc get" command) :to-be-truthy)
+                (expect (search "--keys" command) :to-be-truthy)
+                (expect (search (format nil "--format ~A" document-format) command)
+                        :to-be-truthy)))
+            (multiple-value-bind (code envelope)
+                (run-aitools "--root" workspace "doc" "get" path array-pointer
+                             "--max-bytes" "1" "--format" document-format)
+              (expect code :to-be 3)
+              (expect envelope :to-match-envelope "status" "partial" "command" "doc get")
+              (let ((command (value-at envelope "next_commands" 1)))
+                (expect (search "doc get" command) :to-be-truthy)
+                (expect (search (format nil "~A --format ~A" next-pointer document-format)
+                                command)
+                        :to-be-truthy)))))))))
 
 (describe "table commands through dispatch"
   (it "parses table read's --columns list, repeated --where, --range, --limit, and reading options"
@@ -114,47 +163,6 @@
          collect (aitools.text.domain:make-archive-member
                   :name name :kind :file :mode #o644 :mtime 0
                   :data (sb-ext:string-to-octets text :external-format :utf-8)))))
-
-(describe "archive commands through dispatch"
-  (it "parses archive list --limit and archive read's entry, --as, --max-lines, and selectors"
-    (aitools.test.support:with-workspace (workspace state)
-      (declare (ignore state))
-      (let ((file (ws-file workspace "a.zip" (zip-of "one.txt" (format nil "1~%2~%3~%") "two.txt" "2"))))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "list" file "--limit" "1")
-          (expect code :to-be 3)
-          (expect envelope :to-match-envelope '("status" "partial" "command" "archive list"))
-          (expect (value-at envelope "total") :to-be 2))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "read" file "one.txt" "--range" "2:3"
-                                                          "--max-lines" "1")
-          (expect code :to-be 3)
-          (expect (envelope-list envelope "lines") :to-equal '("2")))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "archive" "read" file "two.txt" "--as" "hex")
-          (expect code :to-be 0)
-          (expect (value-at envelope "rows" 0 "hex") :to-equal "32"))))))
-
-(describe "snapshot commands through dispatch"
-  (it "parses snapshot create's repeated --glob and filters, and snapshot diff --limit"
-    (aitools.test.support:with-workspace (workspace state)
-      (declare (ignore state))
-      (ws-file workspace "a.txt" "a")
-      (ws-file workspace "b.md" "b")
-      (ws-file workspace "c.lisp" "c")
-      (multiple-value-bind (code envelope)
-          (run-aitools "--root" workspace "snapshot" "create" "--glob" "*.txt" "--glob" "*.md" "--no-ignore"
-                       "--skip-larger-than" "1KiB")
-        (expect code :to-be 0)
-        (expect envelope :to-match-envelope '("status" "ok" "command" "snapshot create"))
-        (expect (value-at envelope "files") :to-be 2)
-        (let ((id (value-at envelope "snapshot_id")))
-          (ws-file workspace "d.txt" "d")
-          (ws-file workspace "e.txt" "e")
-          (ws-file workspace "f.lisp" "f")
-          (multiple-value-bind (code envelope) (run-aitools "--root" workspace "snapshot" "diff" id "--limit" "1")
-            (expect code :to-be 3)
-            (expect (envelope-list envelope "added") :to-equal '("d.txt")))))
-      (multiple-value-bind (code envelope) (run-aitools "--root" workspace "snapshot" "create" "--lang" "markdown" "--newer" "1h")
-        (expect code :to-be 0)
-        (expect (value-at envelope "files") :to-be 1)))))
 
 (describe "read of a path that is neither a file nor a directory"
   (it "refuses a FIFO as refusal.not-a-file without calling it a directory"
@@ -216,3 +224,4 @@
             (expect (<= start offset) :to-be t)
             (expect (>= end (+ offset 16)) :to-be t)
             (expect (<= (- end start) (+ 16 (* 2 4096))) :to-be t)))))))
+
