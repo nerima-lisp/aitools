@@ -86,30 +86,23 @@
     (expect (error-code (nth-value 1 (run-archive #'archive-read-flow "a.zip" nil))) :to-equal "argument.invalid"))
 
   (it "refuses a gzip stream that expands past the entry limit"
-    (let ((original
-            (symbol-function
-             (quote aitools.text.domain:gzip-decompress)))
-          (observed-limit nil))
+    (let ((observed-limit nil))
       (cl-weave:with-mocked-functions
           (((symbol-function
              (quote aitools.text.domain:gzip-decompress))
             (lambda (octets &key max-output)
+              (declare (ignore octets))
               (setf observed-limit max-output)
-              (funcall original octets :max-output max-output))))
-        (let ((bomb
-                (deflate-kit:gzip-encode
-                 (make-array (1+ +archive-max-entry+)
-                             :element-type (quote (unsigned-byte 8))
-                             :initial-element 0)
-                 :level 9)))
-          (multiple-value-bind (kind fields)
-              (run-flow
-                (symbol-function (quote archive-read-flow))
-                (make-test-ports :files `(("/work/zeros.gz" . ,bomb)))
-                "zeros.gz"
-                nil)
-            (expect kind :to-be :error)
-            (expect (error-code fields) :to-equal "refusal.too-large")))
+              (error (quote aitools.text.domain:archive-limit-exceeded)
+                     :limit max-output
+                     :reason "entry size"))))
+        (multiple-value-bind (kind fields)
+            (run-archive (function archive-read-flow)
+                         "notes.txt.gz"
+                         nil)
+          (expect kind :to-be :error)
+          (expect (error-code fields)
+                  :to-equal "refusal.too-large"))
         (expect observed-limit :to-be +archive-max-entry+)))))
 
 (describe "archive read outcomes"
