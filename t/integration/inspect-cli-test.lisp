@@ -189,3 +189,56 @@ the parsed JSON (hash tables) from whichever stream received output."
         (multiple-value-bind (code envelope) (run-aitools "--root" workspace "read" (inspect-test-path workspace "cfg.txt") "--tx" "tx-nope")
           (expect code :to-be 1)
           (expect (value-at envelope "error" "code") :to-equal "input.not-found"))))))
+
+(progn
+  (defun expect-format-read-error (workspace format path code reason &optional pointer)
+    (multiple-value-bind (exit envelope stream)
+        (run-aitools "--root" workspace "doc" "get" path "")
+      (expect (list exit stream) :to-equal '(1 :stderr))
+      (expect envelope :to-match-envelope "status" "error"
+              "command" (format nil "doc get"))
+      (expect (value-at envelope "schema_version") :to-be 2)
+      (let ((actual-code (value-at envelope "error" "code")))
+        (unless (equal actual-code code)
+          (fail "~A read of ~A: expected error code ~A, got ~A"
+                format path code actual-code)))
+      (expect (value-at envelope "error" "code") :to-equal code)
+      (expect (value-at envelope "error" "exit_code") :to-be 1)
+      (expect (value-at envelope "error" "message")
+              :to-equal (if (string= code "input.syntax-error")
+                            reason
+                            (format nil "~A value at JSON Pointer ~A uses unsupported ~A."
+                                    (if (string= format "yaml") "YAML" "TOML")
+                                    pointer reason)))
+      (expect (value-at envelope "error" "repairs" 0 "command")
+              :to-equal (format nil "aitools --root ~A schema doc get" workspace format))
+      (expect (value-at envelope "error" "repairs" 0 "action")
+              :to-equal (if (string= code "input.syntax-error")
+                            "fix-format-syntax"
+                            "convert-to-supported-value"))
+      (expect (value-at envelope "error" "repairs" 0 "detail")
+              :to-equal (if (string= code "input.syntax-error")
+                            "Fix the YAML/TOML syntax or TOML integer range, then retry."
+                            "Convert the value to the supported subset, then retry."))))
+
+  (defun expect-doc-select-format-repair-options (workspace)
+    (let ((path (inspect-test-path workspace "extensionless")))
+      (multiple-value-bind (code envelope)
+          (run-aitools "--root" workspace "doc" "select" path ""
+                       "--where" "/x>0" "--where" "/y>0"
+                       "--pick" "/x" "--pick" "/y" "--sort-by" "/x"
+                       "--desc" "--limit" "1" "--tx" "tx-example")
+        (expect code :to-be 1)
+        (expect (value-at envelope "error" "code") :to-equal "argument.invalid")
+        (let ((command (value-at envelope "error" "repairs" 0 "command")))
+          (dolist (option '("--root" "--tx" "tx-example" "--where"
+                            "--pick" "--sort-by" "--desc" "--limit" "--format"))
+            (expect (search option command) :to-be-truthy))
+          (expect (and (search "--where" command)
+                       (search "--where" command
+                               :start2 (1+ (search "--where" command))))
+                  :to-be-truthy)
+          (expect (and (search "--pick" command)
+                       (search "--pick" command
+                               :start2 (1+ (search "--pick" command))))
+                  :to-be-truthy))))))

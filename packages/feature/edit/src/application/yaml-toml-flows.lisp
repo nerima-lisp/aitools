@@ -115,14 +115,29 @@
              "yaml")
             ((and (stringp extension) (string-equal extension "toml")) "toml")))))
 
-  (defun %document-format-repair (verb positionals)
-    (aitools.protocol.domain:repair
-     "specify-format"
-     "対象の形式を確認し、--format json / yaml / toml のいずれかを明示してください。"
-     (apply #'aitools.protocol.domain:command-line
-            (append (list "aitools" "doc" verb)
-                    positionals
-                    (list "--format" "<json|yaml|toml>")))))
+  (defun %document-format-repair (verb positionals options)
+    (let* ((name (format nil "doc.~A" verb))
+           (repair-options (copy-list options)))
+      (setf (getf repair-options :format) "<json|yaml|toml>")
+      (let* ((argv (options-argv name positionals repair-options))
+             (retry-options
+               (append
+                (when (getf options :tx)
+                  (list "--tx" (getf options :tx)))
+                (when (getf options :dry-run)
+                  (list "--dry-run"))
+                (when (or (getf options :stdin)
+                          (getf options :stdin-data))
+                  (list "--stdin"))))
+             (separator (position "--" argv :test #'string=)))
+        (apply #'aitools.protocol.domain:command-line
+               (append
+                (list "aitools")
+                (if separator
+                    (append (subseq argv 0 separator)
+                            retry-options
+                            (subseq argv separator))
+                    (append argv retry-options)))))))
 
   (defun %format-plan (format command path transform options
                        &key serializer repair-pointer record-options

@@ -2,7 +2,7 @@
 
 (defun expect-format-write-error (workspace format verb path code reason pointer
                                   &optional stdin &rest extra-arguments)
-  (let* ((arguments (append (list "doc" verb path)
+  (let* ((arguments (append (list format verb path)
                             (when stdin '("--stdin"))
                             extra-arguments))
          (result (if stdin
@@ -14,7 +14,7 @@
          (unsupported (string= code "input.unsupported-value")))
     (expect (aitools-exit-code result) :to-be 1)
     (expect envelope :to-match-envelope "status" "error"
-            "command" (format nil "doc ~A" verb))
+            "command" (format nil "~A ~A" format verb))
     (expect (jget error "code") :to-equal code)
     (expect (jget error "exit_code") :to-be 1)
     (expect (and (vectorp (jget error "repairs"))
@@ -25,7 +25,7 @@
             :to-equal (if unsupported
                           "Convert the value to the supported subset, then retry."
                           "Fix the YAML/TOML syntax or TOML integer range, then retry."))
-    (expect (jget repair "command") :to-equal (format nil "aitools schema doc ~A" verb))
+    (expect (jget repair "command") :to-equal (format nil "aitools schema ~A ~A" format verb))
     (expect (jget error "message")
             :to-equal (if unsupported
                           (format nil "~A value at JSON Pointer ~A uses unsupported ~A."
@@ -100,7 +100,7 @@
                                   nil "" "\"text\"")
        (put ws "overflow.toml" (format nil "value = 1~%"))
        (let* ((before (file-octets ws "overflow.toml"))
-              (result (aitools ws '("doc" "set" "overflow.toml" "/value"
+              (result (aitools ws '("toml" "set" "overflow.toml" "/value"
                                     "9223372036854775808")))
               (envelope (aitools-envelope result)))
          (expect (aitools-exit-code result) :to-be 1)
@@ -127,31 +127,41 @@
          (let* ((format (first case))
                 (path (put ws (second case) (format nil (third case))))
                 (before (file-octets ws (second case)))
-                (result (aitools ws (list format "set" (namestring path)
-                                          "/value" "1e-9999")))
+                (result (aitools ws (list "doc" "set" (namestring path)
+                                          "/value" "1e-9999" "--format" format)))
                 (envelope (aitools-envelope result)))
            (expect (aitools-exit-code result) :to-be 1)
            (expect envelope :to-match-envelope "status" "error"
-                   "command" (format nil "~A set" format))
+                   "command" "doc set")
            (expect (jget envelope "error" "code") :to-equal "argument.invalid")
            (expect (jget envelope "error" "exit_code") :to-be 1)
-           (expect (file-octets ws (second case)) :to-equalp before)))
+           (expect (file-octets ws (second case)) :to-equalp before)
+           (when (string= format "yaml")
+             (let* ((result (aitools ws '("doc" "merge" "extensionless" "--stdin")
+                                     :stdin "{}"))
+                    (envelope (aitools-envelope result))
+                    (command (jget envelope "error" "repairs" 0 "command")))
+               (expect (aitools-exit-code result) :to-be 1)
+               (expect (jget envelope "error" "code") :to-equal "argument.invalid")
+               (expect (search "--stdin" command) :to-be-truthy)
+               (expect (search "--format" command) :to-be-truthy)))))
        (dolist (case (quote (("yaml" "zero.yaml" "value: 1~%")
                              ("toml" "zero.toml" "value = 1~%"))))
          (dolist (number (quote ("0" "0e-9999")))
            (let* ((format (first case))
                   (path (put ws (second case) (format nil (third case))))
                   (before (file-octets ws (second case)))
-                  (result (aitools ws (list format "set" (namestring path)
-                                            "/value" number)))
+                  (result (aitools ws (list "doc" "set" (namestring path)
+                                            "/value" number "--format" format)))
                   (envelope (aitools-envelope result)))
              (expect (aitools-exit-code result) :to-be 0)
-         (expect envelope :to-match-envelope "status" "ok"
+             (expect envelope :to-match-envelope "status" "ok"
                      "command" "doc set")
              (expect (equalp (file-octets ws (second case)) before) :to-be nil)
-             (let* ((read-result (aitools ws (list format "get" (namestring path) "")))
+             (let* ((read-result (aitools ws (list "doc" "get" (namestring path)
+                                                   "" "--format" format)))
                     (read-envelope (aitools-envelope read-result)))
                (expect (aitools-exit-code read-result) :to-be 0)
                (expect read-envelope :to-match-envelope "status" "ok"
-                     "command" "doc get")
+                       "command" "doc get")
                (expect (zerop (jget read-envelope "value" "value")) :to-be t)))))))))
