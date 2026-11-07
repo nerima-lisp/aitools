@@ -82,7 +82,7 @@
     };
 
     cl-crypto-kit = {
-      url = "github:nerima-lisp/cl-crypto-kit/v0.1.1";
+      url = "github:nerima-lisp/cl-crypto-kit/v0.2.2";
       flake = false;
     };
 
