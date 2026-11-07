@@ -15,5 +15,4 @@
   ../packages/feature/process/process.asd
   ../packages/feature/search/search.asd
   ../packages/feature/util/util.asd
-  ../packages/feature/vcs/vcs.asd
 ]
