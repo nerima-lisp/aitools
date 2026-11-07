@@ -6,7 +6,7 @@ same information is available at run time:
 
 ```sh
 aitools schema                 # every command's name and summary
-aitools schema json get read   # full detail for the named commands
+aitools schema doc get read    # full detail for the named commands
 aitools schema --all           # full detail for every command
 aitools read --help            # full detail for one command
 ```
@@ -44,6 +44,14 @@ write output are relative to the workspace root. `read`, `info`, `check`,
 and `diff` report a file inside the root relative to it and a file outside
 the root by its absolute real path; see [JSON output](../json-schema.md#reads).
 
+`doc` commands infer JSON, YAML, or TOML from `.json`, `.yaml`/`.yml`, or
+`.toml` path extensions; `--format` overrides that choice. `doc diff`
+resolves each path separately, converts
+both documents to JSON values, and compares them; one `--format` applies to
+both paths. The command does not guess from content. A path without a
+supported extension requires `--format`; otherwise it returns
+`argument.invalid` with a repair showing how to specify the format.
+
 ## Conventions shared by many commands
 
 - **Selectors** pick the part of a file a command acts on: `--old`,
@@ -77,8 +85,8 @@ the root by its absolute real path; see [JSON output](../json-schema.md#reads).
   argument table omits them. Every write returns the shape described in
   [JSON output](../json-schema.md#write-output).
 - **Limits** are command-specific: `read --max-lines` and list-like commands
-  such as `search` or `find` use `--limit`; `json get --max-bytes` limits a
-  rendered JSON value. When more data remains, the response becomes
+  such as `search` or `find` use `--limit`; `doc get --max-bytes` limits a
+  rendered document value. When more data remains, the response becomes
   `status:"partial"` with exit code 3 and a `next_commands` entry where the
   command supports paging.
 - **Durations** are `<n>ms`, `<n>s`, `<n>m`, `<n>h`, or `<n>d`. **Sizes** are
@@ -91,14 +99,17 @@ The meaning and exit code of each error code are in
 
 ## YAML and TOML write formatting
 
-YAML and TOML write commands serialize the whole document through the format's
-value serializer.
+`doc` write commands for YAML and TOML serialize the whole document through
+the format's value serializer.
+JSON `doc fmt` also accepts `--indent`, `--minify`, and `--sort-keys`;
+these options return `argument.invalid` when the selected format is YAML or
+TOML.
 Comments are dropped, with a `format.comments-dropped` warning when the input
 contains comments.
-The `yaml fmt` and `toml fmt` commands emit UTF-8 without a BOM, use LF line
-endings, and end with a newline.
-A second run of either formatter is a byte-for-byte no-op.
-`toml fmt` emits each table's value entries first, then its child tables, then
+The `doc fmt` command emits UTF-8 without a BOM, uses LF line endings, and
+ends with a newline.
+A second run is a byte-for-byte no-op.
+For TOML, `doc fmt` emits each table's value entries first, then its child tables, then
 its arrays of tables.
 It preserves source order within each of those groups.
 On the first format pass, this changes any input interleaving among those
@@ -232,7 +243,7 @@ With no arguments, list every implemented command as {name, summary}. With comma
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `commands` | string, repeatable |  | Command names as typed, such as read, json get, or org todo set. |
+| `commands` | string, repeatable |  | Command names as typed, such as read, doc get, or org todo set. |
 | `--all` | flag |  | Return every command's full detail. |
 
 | Output field | Description |
@@ -275,7 +286,7 @@ fails with `argument.invalid`; an unregistered command name fails with
 | Not provided | Use instead |
 |---|---|
 | `search --encoding <name>` | `read` and `table read` take `--encoding`. |
-| `json select --stdin` | `json select` reads a file argument only. |
+| `doc select --stdin` | `doc select` reads a file argument only. |
 | A timing benchmark suite | None is committed. See [Benchmarks](../benchmarks.md) for what was measured. |
 
 ## Schemas match the parser

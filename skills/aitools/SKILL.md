@@ -21,7 +21,7 @@ first, then on `error.code`. The exit codes come from `data/domain/protocol/erro
 
 - 0: `status:"ok"`. `run` also exits 0 after the child starts, even on timeout, unless `--grep-limit`
   is exceeded (exit 3). Read the child's own `exit_code`, `signal`, and `timed_out` fields.
-- 3: `status:"partial"`. A result was cut at a command-specific limit, or inspection could not obtain all requested state. Limits include `read --max-lines`, search/find/table/archive `--limit`, `json get --max-bytes`, and `run --grep-limit`.
+- 3: `status:"partial"`. A result was cut at a command-specific limit, or inspection could not obtain all requested state. Limits include `read --max-lines`, search/find/table/archive `--limit`, `doc get --max-bytes`, and `run --grep-limit`.
   Inspect limit fields, section statuses, and diagnostics; missing observations are not empty state. Use `next_commands` when appropriate. For `run`, the child has
   already executed; grep overflow does not imply `truncated:true` or provide a continuation. Do not rerun
   a side-effecting program just to recover omitted output.
@@ -77,7 +77,7 @@ Command catalog and workspace orientation; read-only.
 ```sh
 aitools schema
 aitools schema edit
-aitools schema json get
+aitools schema doc get
 aitools schema --all
 aitools overview --limit 10
 aitools --root . overview src
@@ -138,22 +138,28 @@ aitools diff --op op-20260926T011541Z-4a125e73
 
 ### Structured data
 
-JSON by RFC 6901 pointer (jq), tables by column (awk/cut/sort/uniq -c). JSON writes accept an
-optional `--expect-hash`; `table set` requires it outside `--dry-run` because rows are positional.
+Structured documents use RFC 6901 pointers (jq); tables use columns (awk/cut/sort/uniq -c). The
+`doc` commands select JSON, YAML, or TOML from `.json`, `.yaml`/`.yml`, or `.toml` path
+extensions; `--format` overrides it. Writes accept an optional `--expect-hash`; `table set`
+requires it outside `--dry-run` because rows are positional.
 
 ```sh
-aitools json get package.json /version --raw
-aitools json get package.json /dependencies --keys
-aitools json select data.json /items --where '/status=active' --pick /id --pick /name
-aitools json select data.json /items --where '/size>100' --sort-by /size --desc --limit 5
-aitools json select data.json /items --where '/name~^test' --output count
-aitools json diff before.json after.json
-aitools json set package.json /version '"0.2.0"' --dry-run
-aitools json set package.json /keywords/- '"cli"'
-aitools json delete package.json /scripts/prepublish
-aitools json merge config.json --stdin-data '{"debug":false}' --dry-run
-aitools json patch config.json --stdin-data '[{"op":"test","path":"/debug","value":true},{"op":"replace","path":"/debug","value":false}]'
-aitools json fmt config.json --indent 2 --sort-keys
+aitools doc get package.json /version --raw
+aitools doc get package.json /dependencies --keys
+aitools doc select data.json /items --where '/status=active' --pick /id --pick /name
+aitools doc select data.json /items --where '/size>100' --sort-by /size --desc --limit 5
+aitools doc select data.json /items --where '/name~^test' --output count
+aitools doc diff before.json after.yaml
+aitools doc set package.json /version '"0.2.0"' --dry-run
+aitools doc set package.json /keywords/- '"cli"'
+aitools doc delete package.json /scripts/prepublish
+aitools doc merge config.json --stdin-data '{"debug":false}' --dry-run
+aitools doc patch config.json --stdin-data '[{"op":"test","path":"/debug","value":true},{"op":"replace","path":"/debug","value":false}]'
+aitools doc fmt config.json --indent 2 --sort-keys
+aitools doc get config.yaml /server/host
+aitools doc set settings.toml /features/0/enabled true --dry-run
+aitools doc get input.data /version --format yaml
+aitools doc fmt settings.toml
 aitools table read users.csv --columns name,email --where 'age>=30' --limit 20
 aitools table read access.log --format ws --ws-columns 4 --columns 1,4
 aitools table read /etc/passwd --format sep --delimiter : --no-header --columns 1,7
@@ -162,9 +168,10 @@ aitools table agg access.log --format ws --group-by 1 --count --min-count 10
 aitools table set users.csv --row 3 --column email --value new@example.com --dry-run
 ```
 
-For YAML and TOML, use `get`, `select`, and `diff` to inspect a value, filter arrays, or compare documents.
-Use `set`, `delete`, `merge`, `patch`, or `fmt` to update a document. These writes use the journal and can be
-reverted with `aitools undo <op_id>`.
+The same `doc` commands handle YAML and TOML. A path without a supported
+extension needs `--format`; `doc diff` compares JSON values and can resolve
+each path's format independently, or use one `--format` for both. Document
+writes use the journal and can be reverted with `aitools undo <op_id>`.
 
 ### Org files
 
@@ -513,7 +520,7 @@ aitools run -- git diff --stat
 | cat, head, tail, nl | `aitools read` (--range, --tail, --match, --between, --symbol) |
 | grep, rg, egrep, fgrep | `aitools search` (--fixed, --word, --invert, --output files, count, matches) |
 | ls, fd, find, tree, du | `aitools find` (--depth 1, --output tree, --sizes, --type) |
-| diff, cmp, comm | `aitools diff` (--output unified, stat, set); `aitools json diff` for JSON |
+| diff, cmp, comm | `aitools diff` (--output unified, stat, set); `aitools doc diff` for structured documents |
 | sed, perl for one occurrence | `aitools edit --old ... --new ...` |
 | sed, perl for every occurrence | `aitools replace PATTERN REPLACEMENT PATH... --expect-count N` |
 | awk, cut | `aitools table read` (--format ws or sep, --columns, --where); `aitools table agg` for sums and counts |
@@ -528,7 +535,7 @@ aitools run -- git diff --stat
 | ln | `aitools link` |
 | touch | `aitools touch` |
 | mktemp | `aitools mktemp` |
-| jq | `aitools json get`, `select`, `diff` to read; `json set`, `delete`, `merge`, `patch`, `fmt` to write |
+| jq | `aitools doc get`, `select`, `diff` to read; `doc set`, `delete`, `merge`, `patch`, `fmt` to write |
 | tar, unzip, zcat, gzip, zip | `aitools archive list`, `read`, `extract`, `create` |
 | git | `aitools run -- git ...` |
 | uname, whoami, hostname, nproc | `aitools sys info` |
