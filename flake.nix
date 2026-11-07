@@ -49,7 +49,7 @@
     };
 
     cl-process-kit = {
-      url = "github:nerima-lisp/cl-process-kit/v3.4.0";
+      url = "github:nerima-lisp/cl-process-kit/v3.4.4";
       flake = false;
     };
 
