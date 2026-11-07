@@ -27,7 +27,7 @@
                                                                     (:file "envelope-matchers")
                                                                     (:file "process-test-support")
                                                                     (:file "store-fault-injection")
-                                                                    (:file "workspace-integration")))
+                                                                    (:file "workspace-integration" :depends-on ("package" "workspace"))))
                                               (:module "e2e" :pathname "e2e/" :serial t
                                                :components ((:file "package")
                                                             (:file "harness")
