@@ -164,7 +164,7 @@
                       :coverage-report-directory (merge-pathnames "coverage/" root)
                       :coverage-include-pathnames selected
                       :coverage-minimum-expression 0 :coverage-minimum-branch 0
-                      :pass-with-no-tests nil))
+                      :pass-with-no-tests nil :max-workers 1))
              (report (get-output-stream-string json))
              (parsed (uiop:symbol-call :json-kit :parse report))
              (events (coerce (gethash "events" parsed) 'list)))
