@@ -22,7 +22,7 @@
 per-option-group additions the presentation layer computes.")
 
 (defparameter *edit-count-output-fields*
-  '((:name "expect_count" :description "With --dry-run: the number of items selected by this command, for use as --expect-count on a real run."))
+  '((:name "expect_count" :description "With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count."))
   "Output fields every command whose spec :INCLUDEs :COUNT reports.")
 
 (export '(*edit-write-output-fields* *edit-count-output-fields* *edit-common-error-codes*))

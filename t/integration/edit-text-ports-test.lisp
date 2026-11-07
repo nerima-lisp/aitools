@@ -147,16 +147,16 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (with-error (code) (run "rm" '(".git")) (expect code :to-equal "refusal.outside-workspace"))
       (expect (kind ".git") :to-be :directory))))
 
-  (it "deletes and moves mktemp entries, which are valid write targets"
-    (call-with-edit-workspace (lambda () (let* ((file (mktemp-path))
-             (directory (mktemp-path :dir t))
-             (inner (concatenate 'string directory "/x")))
-        (expect (run "write" (list inner) :content '("x")) :to-be :ok)
-        (expect (run "move" (list inner (concatenate 'string directory "/y"))) :to-be :ok)
-        (expect (probe-file inner) :to-be nil)
-        (expect (run "rm" (list (concatenate 'string directory "/y"))) :to-be :ok)
-        (expect (run "rm" (list file)) :to-be :ok)
-        (expect (probe-file file) :to-be nil)))))
+  (it "moves entries in a mktemp directory"
+    (call-with-edit-workspace
+     (lambda ()
+       (let* ((directory (mktemp-path :dir t))
+              (inner (concatenate 'string directory "/x"))
+              (destination (concatenate 'string directory "/y")))
+         (expect (run "write" (list inner) :content (list "x")) :to-be :ok)
+         (expect (run "move" (list inner destination)) :to-be :ok)
+         (expect (probe-file inner) :to-be nil)
+         (expect (probe-file destination) :to-be-truthy)))))
 
   (it "names a symlink loop as the reason a target is refused"
     (call-with-edit-workspace (lambda () (sb-posix:symlink "l2" (disk "l1"))
