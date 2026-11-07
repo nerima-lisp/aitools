@@ -165,7 +165,7 @@ is in neither context list)."
             :to-equal '("packages/core/fixture/src/domain/bad.lisp:10: HOST-KIT:READ-FILE, which fixture/domain may not depend on"
                         "packages/core/fixture/src/domain/package.lisp:3: :import-from PROCESS-KIT:RUN, which fixture/domain may not depend on"
                         "packages/core/fixture/src/domain/package.lisp:3: :local-nicknames HOST-KIT, which fixture/domain may not depend on"
-                        "packages/core/fixture/src/domain/package.lisp:3: :shadowing-import-from VCS-KIT:STATUS, which fixture/domain may not depend on"
+                        "packages/core/fixture/src/domain/package.lisp:3: :shadowing-import-from FIXTURE-MISSING-KIT:STATUS, which fixture/domain may not depend on"
                         "packages/core/fixture/src/domain/package.lisp:3: :use CL-CLI, which fixture/domain may not depend on")))
 
   (it "fails on another context's internal symbol even where its package is allowed"

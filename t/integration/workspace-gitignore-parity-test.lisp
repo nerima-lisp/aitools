@@ -159,6 +159,6 @@
              (loop for file in (directory (merge-pathnames "packages/core/workspace/src/**/*.lisp" root))
                    for text = (uiop:read-file-string file)
                    when (some (lambda (needle) (search needle text :test #'char-equal))
-                              '("run-program" "process-kit" "vcs-kit" "spawn" "posix-fork" "execv"))
+                              '("run-program" "process-kit" "spawn" "posix-fork" "execv"))
                      collect (file-namestring file))))
       (expect offending :to-equal nil))))

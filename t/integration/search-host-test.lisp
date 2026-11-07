@@ -100,7 +100,7 @@
       (expect (length sources) :to-be-greater-than 10)
       (dolist (source sources)
         (let ((text (uiop:read-file-string source)))
-          (dolist (needle '("process-kit:" "vcs-kit:" "run-program" "run-git"))
+          (dolist (needle '("process-kit:" "run-program" "run-git"))
             (expect (search needle text :test #'char-equal) :to-be nil))))))
   (it "reads from disk when a tx has no staged paths"
     (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))

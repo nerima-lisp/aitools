@@ -4,5 +4,5 @@
   (:use #:cl #:cl-cli)
   (:import-from #:aitools.kernel.domain #:sha256-hex)
   (:import-from #:process-kit #:run)
-  (:shadowing-import-from #:vcs-kit #:status)
+  (:shadowing-import-from #:fixture-missing-kit #:status)
   (:local-nicknames (#:hk #:host-kit)))
