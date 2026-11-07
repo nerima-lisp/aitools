@@ -136,3 +136,8 @@
           (expect count :to-be 1)
           (expect (json-alist-value (second (json-alist-value value "blocks")) "lines") :to-equal public)
           (expect (json-alist-value (second (json-alist-value value "blocks")) "path") :to-equal "pub.pem"))))))
+(describe "aitools.protocol.application redact-json-value scalar fallback"
+  (it "leaves scalar values unchanged"
+    (multiple-value-bind (value count) (redact-json-value 42)
+      (expect value :to-be 42)
+      (expect count :to-be 0))))

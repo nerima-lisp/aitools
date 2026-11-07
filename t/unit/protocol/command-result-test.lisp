@@ -69,10 +69,7 @@
            (continuations
              (case case-kind
                (:unknown-key
-                (list :on-ok on-ok
-                      :on-partial on-partial
-                      :on-error on-error
-                      :unknown unknown-callback))
+                (list :on-ok on-ok :on-partial on-partial :unknown unknown-callback))
                (:non-function
                 (list :on-ok on-ok :on-partial 42 :on-error on-error))
                (:missing-on-ok
@@ -82,10 +79,7 @@
                (:missing-on-error
                 (list :on-ok on-ok :on-partial on-partial))
                (:duplicate-key
-                (list :on-ok on-ok
-                      :on-ok duplicate-on-ok
-                      :on-partial on-partial
-                      :on-error on-error)))))
+                (list :on-ok on-ok :on-ok duplicate-on-ok :on-error on-error)))))
       (signals error
         (normalize-command-continuations continuations))))
 

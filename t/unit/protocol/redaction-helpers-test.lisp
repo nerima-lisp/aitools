@@ -30,9 +30,22 @@
     (expect (command-line "aitools" nil (list "read" "a b.txt") "")
             :to-equal "aitools read 'a b.txt' ''")))
 
-(describe "aitools.protocol.domain secret-key-name-p"
-  (it "matches a secret key name as a whole underscore-separated word, case-insensitively"
+(describe "aitools.protocol.domain redaction helpers"
+  (it "matches secret key names as whole words, case-insensitively"
     (expect (secret-key-name-p "GITHUB_TOKEN") :to-be-truthy)
     (expect (secret-key-name-p "db_password") :to-be-truthy)
     (expect (secret-key-name-p "TOKENIZER_PATH") :to-be-falsy)
-    (expect (secret-key-name-p "passwordless") :to-be-falsy)))
+    (expect (secret-key-name-p "passwordless") :to-be-falsy))
+  (it "ignores empty configured secret key names"
+    (let ((aitools.data:*redaction-secret-key-names* '("")))
+      (expect (secret-key-name-p "token") :to-be-falsy)))
+  (it "classifies token characters and literal prefix boundaries"
+    (let ((token-char-p
+            (symbol-function 'aitools.protocol.domain::%token-char-p))
+          (boundary-before-p
+            (symbol-function 'aitools.protocol.domain::%boundary-before-p)))
+      (expect (funcall token-char-p #\a) :to-be-truthy)
+      (expect (funcall token-char-p #\Space) :to-be-falsy)
+      (expect (funcall boundary-before-p "sk-token" 0) :to-be-truthy)
+      (expect (funcall boundary-before-p " key" 1) :to-be-truthy)
+      (expect (funcall boundary-before-p "desk-lamp" 2) :to-be-falsy))))
