@@ -33,6 +33,7 @@
                                                             (:file "harness")
                                                             (:file "byte-capture")
                                                             (:file "harness-cases")
+                                                            (:file "harness-cases-extra" :depends-on ("harness-cases"))
                                                             (:file "trace-harness")
                                                             (:file "correspondence-rows")
                                                             (:file "byte-gate")
