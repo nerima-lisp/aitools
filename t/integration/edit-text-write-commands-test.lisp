@@ -72,7 +72,7 @@
                             (list "transform" '("a.txt") :op '("sort"))
                             (list "move-lines" '("a.txt") :match "^a$" :expect-count "1" :to-position "start")
                             (list "transcode" '("a.txt") :to "utf-16le")
-                            (list "json.set" '("c.json" "/k" "2"))
+                            (list "doc.set" '("c.json" "/k" "2"))
                             (list "split" '("a.txt") :lines "1")
                             (list "write" '("new.txt") :content '("n"))))
           (multiple-value-bind (kind fields) (apply #'run call)

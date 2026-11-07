@@ -16,46 +16,46 @@
         (expect (kind "copied") :to-be :absent)
         (expect (text "target.txt") :to-equal "content"))))))
 
-(describe "aitools json writes"
+(describe "aitools doc writes"
   (it "keeps key order and the file's indentation, appends with /-, and refuses a missing parent"
     (call-with-edit-workspace (lambda () (put "c.json" (format nil "{~%    \"z\": 1,~%    \"a\": [1]~%}~%"))
-      (expect (run "json.set" '("c.json" "/a/-" "2")) :to-be :ok)
-      (expect (run "json.set" '("c.json" "/m" "{\"k\":true}")) :to-be :ok)
+      (expect (run "doc.set" '("c.json" "/a/-" "2")) :to-be :ok)
+      (expect (run "doc.set" '("c.json" "/m" "{\"k\":true}")) :to-be :ok)
       (expect (text "c.json")
               :to-equal (format nil "{~%    \"z\": 1,~%    \"a\": [~%        1,~%        2~%    ],~%    \"m\": {~%        \"k\": true~%    }~%}~%"))
-      (with-error (code) (run "json.set" '("c.json" "/nope/deeper" "1")) (expect code :to-equal "input.not-found"))
-      (with-error (code) (run "json.set" '("c.json" "/z" "bare words")) (expect code :to-equal "argument.invalid"))
-      (expect (run "json.delete" '("c.json" "/m")) :to-be :ok)
+      (with-error (code) (run "doc.set" '("c.json" "/nope/deeper" "1")) (expect code :to-equal "input.not-found"))
+      (with-error (code) (run "doc.set" '("c.json" "/z" "bare words")) (expect code :to-equal "argument.invalid"))
+      (expect (run "doc.delete" '("c.json" "/m")) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%    \"z\": 1,~%    \"a\": [~%        1,~%        2~%    ]~%}~%")))))
   (it "refuses to edit a binary JSON file without changing it"
     (call-with-edit-workspace (lambda () (put "bad.json" (octet-vector 123 34 97 34 58 0 125))
       (let ((before (snapshot)))
         (with-error (code)
-            (run "json.set" '("bad.json" "/a" "1") :expect-hash (list (hash "bad.json")))
+            (run "doc.set" '("bad.json" "/a" "1") :expect-hash (list (hash "bad.json")))
           (expect code :to-equal "refusal.not-a-file"))
         (expect-unchanged before)))))
 
   (it "merges and patches from --stdin, writing nothing when a test op fails"
     (call-with-edit-workspace (lambda () (put "c.json" (format nil "{\"a\": 1, \"b\": 2}~%"))
       (setf *stdin* (bytes "{\"b\": null, \"c\": 3}"))
-      (expect (run "json.merge" '("c.json") :stdin t) :to-be :ok)
+      (expect (run "doc.merge" '("c.json") :stdin t) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{\"a\":1,\"c\":3}~%"))
       (let ((before (snapshot)))
         (setf *stdin* (bytes "[{\"op\":\"replace\",\"path\":\"/a\",\"value\":9},{\"op\":\"test\",\"path\":\"/c\",\"value\":4}]"))
-        (with-error (code) (run "json.patch" '("c.json") :stdin t) (expect code :to-equal "selection.no-match"))
+        (with-error (code) (run "doc.patch" '("c.json") :stdin t) (expect code :to-equal "selection.no-match"))
         (expect-unchanged before))
       (setf *stdin* (bytes "[{\"op\":\"test\",\"path\":\"/c\",\"value\":3},{\"op\":\"add\",\"path\":\"/d\",\"value\":[]}]"))
-      (expect (run "json.patch" '("c.json") :stdin t) :to-be :ok)
+      (expect (run "doc.patch" '("c.json") :stdin t) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{\"a\":1,\"c\":3,\"d\":[]}~%")))))
 
   (it "formats with --indent, --minify and --sort-keys, and refuses non-JSON"
     (call-with-edit-workspace (lambda () (put "c.json" "{\"b\":1,\"a\":{\"y\":2,\"x\":3}}")
-      (expect (run "json.fmt" '("c.json") :indent "2" :sort-keys t) :to-be :ok)
+      (expect (run "doc.fmt" '("c.json") :indent "2" :sort-keys t) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%  \"a\": {~%    \"x\": 3,~%    \"y\": 2~%  },~%  \"b\": 1~%}"))
-      (expect (run "json.fmt" '("c.json") :minify t) :to-be :ok)
+      (expect (run "doc.fmt" '("c.json") :minify t) :to-be :ok)
       (expect (text "c.json") :to-equal "{\"a\":{\"x\":3,\"y\":2},\"b\":1}")
       (put "n.json" "not json")
-      (with-error (code) (run "json.fmt" '("n.json")) (expect code :to-equal "input.unsupported-format"))))))
+      (with-error (code) (run "doc.fmt" '("n.json")) (expect code :to-equal "input.unsupported-format"))))))
 
 (describe "aitools table set"
   (it "sets one cell with a required hash, and undo restores the file"
