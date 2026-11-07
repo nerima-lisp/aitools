@@ -32,12 +32,15 @@ boundary; command flows use one contract."
              (listp (first continuations)))
     (setf continuations (first continuations)))
   (cond
-    ((and (evenp (length continuations))
+    ((and (= (length continuations) 6)
           (loop for (key value) on continuations by #'cddr
                 always (and (member key '(:on-ok :on-partial :on-error))
                             (functionp value)))
-          (= (length (remove-duplicates continuations :test #'eq :key #'identity))
-             (length continuations)))
+          (= (length (remove-duplicates
+                      (loop for (key value) on continuations by #'cddr
+                            collect key)
+                      :test #'eq))
+             3))
      (list :on-ok (getf continuations :on-ok)
            :on-partial (getf continuations :on-partial)
            :on-error (getf continuations :on-error)))
