@@ -138,59 +138,6 @@
                       options
                       :serializer (edit-ports-serialize-document ports)))))
 
-(aitools.kernel.domain:define-flow
-  (%format-command/k format verb ports positionals options &key on-plan on-error)
-  (let ((command (format nil "~A.~A" format verb)))
-    (cond
-      ((string= verb "set")
-       (aitools.kernel.domain:flow-call
-         (%format-set/k format command ports positionals options)
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "delete")
-       (aitools.kernel.domain:flow-call
-         (%format-delete/k format command ports positionals options)
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "merge")
-       (aitools.kernel.domain:flow-call
-         (%format-stdin-command format command ports positionals options
-                                (lambda (patch)
-                                  (lambda (document)
-                                    (json-merge-patch document patch))))
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "patch")
-       (aitools.kernel.domain:flow-call
-         (%format-stdin-command format command ports positionals options
-                                (lambda (operations)
-                                  (lambda (document)
-                                    (json-apply-patch document operations))))
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      (t
-       (aitools.kernel.domain:flow-continue
-         :on-plan
-         (%format-plan
-          format command (first positionals) (function identity) options
-          :serializer (edit-ports-serialize-document ports)
-          :sort-keys (and json-format-p (getf options :sort-keys))
-          :indent-function
-          (and json-format-p
-               (lambda (detected)
-                 (cond
-                   ((getf options :minify) nil)
-                   (indent (make-string indent-width :initial-element #\Space))
-                   (t (or detected "  ")))))))))))
-
 (progn
   (defmacro %with-plan-continuations (flow)
     `(aitools.kernel.domain:flow-call
