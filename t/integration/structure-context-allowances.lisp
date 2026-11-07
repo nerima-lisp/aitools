@@ -11,6 +11,7 @@
     ("edit" (:infrastructure) "YAML-KIT" "EMIT" "serialize the YAML document")
     ("edit" (:infrastructure) "CL-TOML-KIT" "+TOML-FALSE+" "map JSON false values to the TOML false sentinel")
     ("edit" (:infrastructure) "CL-TOML-KIT" "ENCODE" "serialize the TOML document")
+    ("edit" (:infrastructure) "CL-TOML-KIT" "*TOML-MAX-NESTING-DEPTH*" "bound TOML serialization to the format depth limit")
     ("search" (:infrastructure) "AITOOLS.KERNEL.DOMAIN" "UNIVERSAL-TIME-TO-UNIX-SECONDS"
      "pure Unix-time conversion for the search adapter")
     ("org" (:infrastructure) "CL-DATE-KIT" "FIND-TIME-ZONE" "find zone rules for query time conversion")
