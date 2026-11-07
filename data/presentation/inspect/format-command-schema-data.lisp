@@ -22,7 +22,7 @@
                        "refusal.not-a-file" "environment.busy" "environment.io")))
     (list
      (list :name (format nil "~A.get" group)
-           :summary (format nil "Get a value from a ~A document." format)
+           :summary (format nil "Get a value from a ~A." format)
            :description (concatenate 'string
                                      "Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes "
                                      "are returned as a preview with truncated:true (status partial, exit 3).")
@@ -52,6 +52,7 @@
      (list :name (format nil "~A.select" group)
            :summary (format nil "Filter, sort, and project a ~A array." format)
            :description (concatenate 'string
+                                     "Operators are =, !=, <, <=, >, >=, and ~ (regex on strings). "
                                      "--where <rel-pointer><op><json-value> repeats for AND. The right side is JSON "
                                      "when it parses as JSON, otherwise it is a string. "
                                      "A missing member satisfies only !=.")
@@ -101,7 +102,7 @@
   `(,@(%inspect-format-read-schemas "doc" "structured document")
     (:name "table.read"
      :summary "Read rows of a CSV, TSV, JSONL, JSON, whitespace, separator, or line table."
-     :description "Columns get a type (integer, number, boolean, string, null; mixed for JSON sources). ws splits each line on whitespace runs, awk-style, so rows may differ in width; --ws-columns N bounds the fields and keeps the rest of the line in the last column. A first row of unique non-numeric cells is the header unless --no-header."
+     :description "Columns get a type (integer, number, boolean, string, null; mixed for JSON sources). ws splits each line on whitespace runs, awk-style, so rows may differ in width; --ws-columns N bounds the fields and keeps the rest of the line in the last column. A first row made only of distinct, non-numeric cells is the header unless --no-header."
      :args ((:name "path" :kind "positional" :type "string" :required t :description "Table file.")
             (:name "--columns" :type "string" :description "Comma-separated column names or 1-based numbers.")
             (:name "--range" :type "string" :description "Rows S:E, S:, or N (1-based, after --where).")

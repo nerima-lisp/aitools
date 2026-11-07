@@ -6,7 +6,7 @@
 
 Read a file's lines with line numbers, a selector, and a line limit.
 
-One of: a selector, --tail, --as hex, --as strings. --max-lines always applies; when the output stops before the end of the file, next_commands holds the next --range. A binary file read as text returns {binary,size,mime} instead of lines. With --match, line_numbers lists each returned line's number. encoding_errors counts U+FFFD substitutions in the returned lines. approx_tokens is ceil(characters of the returned text / 4). A line longer than 16384 bytes (16384 characters under a non-UTF-8 --encoding) is cut there and listed in cut_lines; the result is partial, and next_commands names the --as hex --bytes dump of the bytes after the cut. A --as strings run longer than 16384 characters is cut the same way and marked cut:true.
+Use one text selector, --tail, --as hex, or --as strings; these choices are mutually exclusive. --max-lines always applies. When a text read stops before the end of the file, next_commands holds the next --range. A text line longer than 16384 bytes (characters under a non-UTF-8 --encoding) is cut; the result is partial and next_commands names an --as hex --bytes dump of the remaining bytes. A --as strings run longer than 16384 characters is cut and marked cut:true.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -81,7 +81,7 @@ Path fields always; content fields for an existing file. --allow-missing turns a
 | `bom` | Whether the file starts with a UTF-8 BOM. |
 | `mode` | Permission bits as four octal digits. |
 | `mtime` | Modification time, ISO 8601 UTC; with --tx, the staged time of a file the tx touched, and null for a file the tx otherwise changed. |
-| `hash` | The change-detection hash, the value --expect-hash compares: SHA-256 of the bytes of the regular file the path leads to (symlinks followed); for a symlink that leads to no regular file (dangling, or to a directory), SHA-256 of its target text, reported with --allow-missing for a dangling one; absent for a directory. |
+| `hash` | The change-detection hash, the value --expect-hash compares: SHA-256 of a regular file's bytes, following symlinks. A symlink to a non-file has the SHA-256 of its target text; for a dangling symlink this appears only with --allow-missing. A directory path has no hash. |
 | `approx_tokens` | ceil(characters / 4); null for binary files. |
 | `digest` | {algorithm,value} with --digest. |
 
@@ -142,96 +142,17 @@ Files: unified (identical, diff), stat (added, deleted), or set (only_a, only_b,
 
 Errors: `argument.invalid`, `input.not-found`, `environment.io`.
 
-### `json get` {#json-get}
+### `doc get` {#doc-get}
 
-Get the value at a JSON pointer, its keys, length, or raw string.
-
-RFC 6901 pointers ("" is the whole document; ~0 is ~ and ~1 is /). length is the array's elements, the object's keys, or the string's characters. A value whose JSON is longer than --max-bytes comes back as value_preview with truncated:true (status partial, exit 3).
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `path` (positional, required) | string |  | JSON file. |
-| `pointer` (positional, required) | string |  | RFC 6901 pointer. |
-| `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
-| `--keys` | flag |  | Return the object's keys or the array's indexes instead of the value. |
-| `--raw` | flag |  | Return text: a string value unescaped, anything else as JSON text. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `pointer` | The pointer asked for. |
-| `type` | object, array, string, number, boolean, or null. |
-| `length` | Elements, keys, or characters; null for other types. |
-| `value` | The value (default). |
-| `keys` | With --keys. |
-| `text` | With --raw. |
-| `value_preview` | The start of the rendered value when --max-bytes was exceeded. |
-| `truncated` | True when --max-bytes cut the value. |
-| `approx_tokens` | ceil(characters of the returned value / 4). |
-| `next_commands` | Narrower reads when truncated. |
-
-Errors: `argument.invalid`, `input.not-found`, `input.unsupported-format`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
-
-### `json select` {#json-select}
-
-Filter, sort, and project the elements of a JSON array.
-
---where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. Ordering compares numbers with numbers and strings with strings.
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `path` (positional, required) | string |  | JSON file. |
-| `pointer` (positional, required) | string |  | Pointer to the array. |
-| `--where` | string, repeatable |  | Condition on each element. |
-| `--pick` | string, repeatable |  | Return {pointer: value} for these relative pointers instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by (null first, then booleans, numbers, strings). |
-| `--desc` | flag |  | Descending order. |
-| `--output` | enum: `items`, `count` | `items` | Sets mode. |
-| `--limit` | integer | `50` | Maximum items returned. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `mode` | items or count. |
-| `items` | [{pointer,value}] of the selected elements. |
-| `count` | Selected elements, in count mode. |
-| `total` | Selected elements, in items mode. |
-| `truncated` | True when --limit cut items (status partial, exit 3). |
-
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
-
-### `json diff` {#json-diff}
-
-List the add, remove, and replace operations between two JSON files.
-
-Key order and whitespace are ignored; numbers compare by value. Array elements compare by index.
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `a` (positional, required) | string |  | Old JSON file. |
-| `b` (positional, required) | string |  | New JSON file. |
-| `--limit` | integer | `100` | Maximum operations returned. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `identical` | No differences. |
-| `ops` | [{op,pointer,old?,new?}], op add, remove, or replace. |
-| `total` | Number of operations. |
-| `truncated` | True when --limit cut ops (status partial, exit 3). |
-
-Errors: `input.not-found`, `input.unsupported-format`, `refusal.not-a-file`, `environment.io`.
-
-### `yaml get` {#yaml-get}
-
-Get a value from a YAML document.
+Get a value from a structured document.
 
 Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `path` (positional, required) | string |  | YAML file. |
+| `path` (positional, required) | string |  | structured document file. |
 | `pointer` (positional, required) | string |  | RFC 6901 pointer. |
+| `--format` | enum: `json`, `yaml`, `toml` |  | Document format; defaults from the path extension. |
 | `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
 | `--keys` | flag |  | Return the object's keys or the array's indexes. |
 | `--raw` | flag |  | Return a string value unescaped. |
@@ -250,18 +171,19 @@ Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are retur
 | `approx_tokens` | ceil(characters of the returned value / 4). |
 | `next_commands` | Narrower reads when truncated. |
 
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
 
-### `yaml select` {#yaml-select}
+### `doc select` {#doc-select}
 
-Filter, sort, and project a YAML array.
+Filter, sort, and project a structured document array.
 
---where <rel-pointer><op><json-value> repeats for AND. The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=.
+Operators are =, !=, <, <=, >, >=, and ~ (regex on strings). --where <rel-pointer><op><json-value> repeats for AND. The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `path` (positional, required) | string |  | YAML file. |
+| `path` (positional, required) | string |  | structured document file. |
 | `pointer` (positional, required) | string |  | Pointer to the array. |
+| `--format` | enum: `json`, `yaml`, `toml` |  | Document format; defaults from the path extension. |
 | `--where` | string, repeatable |  | Condition on each element. |
 | `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
 | `--sort-by` | string |  | Relative pointer to order by. |
@@ -278,18 +200,19 @@ Filter, sort, and project a YAML array.
 | `total` | Selected elements, in items mode. |
 | `truncated` | True when --limit cut items (status partial, exit 3). |
 
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
 
-### `yaml diff` {#yaml-diff}
+### `doc diff` {#doc-diff}
 
-List value changes between two YAML files.
+List value changes between two structured document files.
 
 Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `a` (positional, required) | string |  | Old YAML file. |
-| `b` (positional, required) | string |  | New YAML file. |
+| `a` (positional, required) | string |  | Old structured document file. |
+| `b` (positional, required) | string |  | New structured document file. |
+| `--format` | enum: `json`, `yaml`, `toml` |  | Apply this format to both files; otherwise use each path extension. |
 | `--limit` | integer | `100` | Maximum operations returned. |
 | `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
 
@@ -300,93 +223,13 @@ Values are compared after conversion to JSON. Key order is ignored; numbers comp
 | `total` | Number of operations. |
 | `truncated` | True when --limit cut ops (status partial, exit 3). |
 
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.io`.
-
-### `toml get` {#toml-get}
-
-Get a value from a TOML document.
-
-Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes are returned as a preview with truncated:true (status partial, exit 3).
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `path` (positional, required) | string |  | TOML file. |
-| `pointer` (positional, required) | string |  | RFC 6901 pointer. |
-| `--max-bytes` | size | `16KiB` | Largest rendered value returned. |
-| `--keys` | flag |  | Return the object's keys or the array's indexes. |
-| `--raw` | flag |  | Return a string value unescaped. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `pointer` | The pointer asked for. |
-| `type` | object, array, string, number, boolean, or null. |
-| `length` | Elements, keys, or characters; null for other types. |
-| `value` | The value (default). |
-| `keys` | With --keys. |
-| `text` | With --raw. |
-| `value_preview` | The start of a value longer than --max-bytes. |
-| `truncated` | True when --max-bytes cut the value. |
-| `approx_tokens` | ceil(characters of the returned value / 4). |
-| `next_commands` | Narrower reads when truncated. |
-
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
-
-### `toml select` {#toml-select}
-
-Filter, sort, and project a TOML array.
-
---where <rel-pointer><op><json-value> repeats for AND. The right side is JSON when it parses as JSON, otherwise it is a string. A missing member satisfies only !=.
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `path` (positional, required) | string |  | TOML file. |
-| `pointer` (positional, required) | string |  | Pointer to the array. |
-| `--where` | string, repeatable |  | Condition on each element. |
-| `--pick` | string, repeatable |  | Relative pointer to return instead of the element. |
-| `--sort-by` | string |  | Relative pointer to order by. |
-| `--desc` | flag |  | Descending order. |
-| `--output` | enum: `items`, `count` | `items` | Sets mode. |
-| `--limit` | integer | `50` | Maximum items returned. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `mode` | items or count. |
-| `items` | [{pointer,value}] of the selected elements. |
-| `count` | Selected elements, in count mode. |
-| `total` | Selected elements, in items mode. |
-| `truncated` | True when --limit cut items (status partial, exit 3). |
-
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
-
-### `toml diff` {#toml-diff}
-
-List value changes between two TOML files.
-
-Values are compared after conversion to JSON. Key order is ignored; numbers compare by value, and array elements compare by index.
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `a` (positional, required) | string |  | Old TOML file. |
-| `b` (positional, required) | string |  | New TOML file. |
-| `--limit` | integer | `100` | Maximum operations returned. |
-| `--tx` | string |  | Read the tx's state. Single-file reads also record the file's disk state in the tx read set. |
-
-| Output field | Description |
-|---|---|
-| `identical` | No differences. |
-| `ops` | [{op,pointer,old?,new?}], op add, remove, or replace. |
-| `total` | Number of operations. |
-| `truncated` | True when --limit cut ops (status partial, exit 3). |
-
-Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-value`, `refusal.not-a-file`, `environment.io`.
+Errors: `argument.invalid`, `input.not-found`, `input.syntax-error`, `input.unsupported-format`, `input.unsupported-value`, `refusal.not-a-file`, `environment.busy`, `environment.io`.
 
 ### `table read` {#table-read}
 
 Read rows of a CSV, TSV, JSONL, JSON, whitespace, separator, or line table.
 
-Columns get a type (integer, number, boolean, string, null; mixed for JSON sources). ws splits each line on whitespace runs, awk-style, so rows may differ in width; --ws-columns N bounds the fields and keeps the rest of the line in the last column. A first row of unique non-numeric cells is the header unless --no-header.
+Columns get a type (integer, number, boolean, string, null; mixed for JSON sources). ws splits each line on whitespace runs, awk-style, so rows may differ in width; --ws-columns N bounds the fields and keeps the rest of the line in the last column. A first row made only of distinct, non-numeric cells is the header unless --no-header.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|

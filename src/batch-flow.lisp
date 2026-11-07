@@ -147,7 +147,7 @@
         :description
         (format nil "~{~A~}"
                 '("--stdin is a JSON array of argv arrays without the leading aitools, e.g. "
-                  "[[\"read\",\"a.lisp\"],[\"edit\",\"a.lisp\",\"--old\",\"x\",\"--new\",\"y\"]]]. "
+                  "[[\"read\",\"a.lisp\"],[\"edit\",\"a.lisp\",\"--old\",\"x\",\"--new\",\"y\"]]. "
                   "Each element is parsed and validated exactly as a standalone call, with "
                   "batch's --root and --lock-timeout placed before it. "
                   "Elements run in order; after the first failure the rest are skipped unless "

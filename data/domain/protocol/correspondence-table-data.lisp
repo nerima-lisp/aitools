@@ -66,10 +66,10 @@
      :repairs ((:detail "Create a temporary file or directory in the workspace's state tmp/ area."
                 :command "aitools mktemp")))
     (:foreign-names ("jq" "json.get" "yaml.get" "toml.get")
-     :repairs ((:detail "Read, query, or edit structured documents."
+     :repairs ((:detail "Read and query structured documents."
                 :command "aitools doc get")))
     (:foreign-names ("tar" "unzip" "zcat" "gzip" "zip")
-     :repairs ((:detail "List, read, extract, or create an archive."
+     :repairs ((:detail "Use archive list, read, extract, or create for the matching operation."
                 :command "aitools archive list")))
     (:foreign-names ("git")
      :repairs ((:detail "Run Git through aitools run."
@@ -109,7 +109,7 @@
      :repairs ((:detail "Read or convert the current or a given time."
                 :command "aitools time now")))
     (:foreign-names ("base64" "xxd")
-     :repairs ((:detail "Encode or decode bytes."
+     :repairs ((:detail "Encode bytes with util encode; use util decode to decode them."
                 :command "aitools util encode")))
     (:foreign-names ("bc" "expr")
      :repairs ((:detail "Evaluate an arithmetic expression."

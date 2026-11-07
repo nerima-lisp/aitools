@@ -130,15 +130,9 @@ groups to the fixed output order.
 | [`info`](inspect.md#info) | inspect | Describe a path: location, kind, size, lines, words, encoding, mode, hash, and digests. |
 | [`check`](inspect.md#check) | inspect | Check a JSON file's syntax or a Lisp file's delimiter balance. |
 | [`diff`](inspect.md#diff) | inspect | Compare two files or directories, or show an op's full diff. |
-| [`json get`](inspect.md#json-get) | inspect | Get the value at a JSON pointer, its keys, length, or raw string. |
-| [`json select`](inspect.md#json-select) | inspect | Filter, sort, and project the elements of a JSON array. |
-| [`json diff`](inspect.md#json-diff) | inspect | List the add, remove, and replace operations between two JSON files. |
-| [`yaml get`](inspect.md#yaml-get) | inspect | Get a value from a YAML document. |
-| [`yaml select`](inspect.md#yaml-select) | inspect | Filter, sort, and project a YAML array. |
-| [`yaml diff`](inspect.md#yaml-diff) | inspect | List value changes between two YAML files. |
-| [`toml get`](inspect.md#toml-get) | inspect | Get a value from a TOML document. |
-| [`toml select`](inspect.md#toml-select) | inspect | Filter, sort, and project a TOML array. |
-| [`toml diff`](inspect.md#toml-diff) | inspect | List value changes between two TOML files. |
+| [`doc get`](inspect.md#doc-get) | inspect | Get a value from a structured document. |
+| [`doc select`](inspect.md#doc-select) | inspect | Filter, sort, and project a structured document array. |
+| [`doc diff`](inspect.md#doc-diff) | inspect | List value changes between two structured document files. |
 | [`table read`](inspect.md#table-read) | inspect | Read rows of a CSV, TSV, JSONL, JSON, whitespace, separator, or line table. |
 | [`table agg`](inspect.md#table-agg) | inspect | Group table rows and count, sum, average, or take min, max, or distinct counts. |
 | [`archive list`](inspect.md#archive-list) | inspect | List the members of a zip, tar, tar.gz, or gz archive. |
@@ -162,24 +156,14 @@ groups to the fixed output order.
 | [`link`](edit.md#link) | edit | Create a symlink LINK pointing at TARGET inside the workspace. |
 | [`touch`](edit.md#touch) | edit | Create an empty file, or set an existing file's modification time. |
 | [`mktemp`](edit.md#mktemp) | edit | Create a temporary file or directory in the workspace's state tmp/ area (not journaled). |
-| [`json set`](edit.md#json-set) | edit | Set the value at a JSON Pointer (/- appends to an array). |
-| [`json delete`](edit.md#json-delete) | edit | Delete the value at a JSON Pointer. |
-| [`json merge`](edit.md#json-merge) | edit | Apply an RFC 7386 JSON Merge Patch read from --stdin. |
-| [`json patch`](edit.md#json-patch) | edit | Apply an RFC 6902 JSON Patch read from --stdin; all operations or none. |
-| [`json fmt`](edit.md#json-fmt) | edit | Re-indent a JSON file, keeping key order unless --sort-keys. |
+| [`doc set`](edit.md#doc-set) | edit | Set a JSON value in a JSON, YAML, or TOML document at a JSON Pointer; string values need JSON quotes. |
+| [`doc delete`](edit.md#doc-delete) | edit | Delete a value from a JSON, YAML, or TOML document at a JSON Pointer. |
+| [`doc merge`](edit.md#doc-merge) | edit | Apply an RFC 7386 JSON Merge Patch from --stdin to a JSON, YAML, or TOML document. |
+| [`doc patch`](edit.md#doc-patch) | edit | Apply an RFC 6902 JSON Patch from --stdin to a JSON, YAML, or TOML document; all operations or none. |
+| [`doc fmt`](edit.md#doc-fmt) | edit | Format a JSON, YAML, or TOML document; JSON supports --indent, --minify, and --sort-keys. |
 | [`table set`](edit.md#table-set) | edit | Set one cell of a CSV or TSV file by data row and column name. |
 | [`archive extract`](edit.md#archive-extract) | edit | Extract a zip, tar, tar.gz or gz archive after validating every entry. |
 | [`archive create`](edit.md#archive-create) | edit | Create a zip, tar, tar.gz or gz archive from workspace files (ignored files excluded). |
-| [`yaml set`](edit.md#yaml-set) | edit | Set a JSON value in a YAML document at a JSON Pointer; string values need JSON quotes. |
-| [`yaml delete`](edit.md#yaml-delete) | edit | Delete a value from a YAML document at a JSON Pointer. |
-| [`yaml merge`](edit.md#yaml-merge) | edit | Apply an RFC 7386 JSON Merge Patch from --stdin to a YAML document. |
-| [`yaml patch`](edit.md#yaml-patch) | edit | Apply an RFC 6902 JSON Patch from --stdin to a YAML document; all operations or none. |
-| [`yaml fmt`](edit.md#yaml-fmt) | edit | Format a YAML document; a second fmt is a byte-for-byte no-op. |
-| [`toml set`](edit.md#toml-set) | edit | Set a JSON value in a TOML document at a JSON Pointer; string values need JSON quotes. |
-| [`toml delete`](edit.md#toml-delete) | edit | Delete a value from a TOML document at a JSON Pointer. |
-| [`toml merge`](edit.md#toml-merge) | edit | Apply an RFC 7386 JSON Merge Patch from --stdin to a TOML document. |
-| [`toml patch`](edit.md#toml-patch) | edit | Apply an RFC 6902 JSON Patch from --stdin to a TOML document; all operations or none. |
-| [`toml fmt`](edit.md#toml-fmt) | edit | Format a TOML document. Value entries precede child tables and arrays of tables; order within each group is preserved, groups may reorder, and a second fmt is a byte-for-byte no-op. |
 | [`history`](journal.md#history) | journal | List journaled operations (op_id, command, paths, time), newest first. |
 | [`undo`](journal.md#undo) | journal | Revert one journaled op, checking first that none of its paths changed since. |
 | [`tx begin`](journal.md#tx-begin) | journal | Open a transaction: --tx writes stack up in it without touching the working tree. |
@@ -243,7 +227,7 @@ With no arguments, list every implemented command as {name, summary}. With comma
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `commands` | string, repeatable |  | Command names as typed, such as read, doc get, or org todo set. |
+| `commands` | string, repeatable |  | Command names as typed, such as read, json get, or org todo set. |
 | `--all` | flag |  | Return every command's full detail. |
 
 | Output field | Description |
@@ -256,7 +240,7 @@ Errors: `input.not-found`, `argument.invalid`.
 
 Run several aitools invocations from one JSON input, optionally as one tx.
 
---stdin is a JSON array of argv arrays without the leading aitools, e.g. [["read","a.lisp"],["edit","a.lisp","--old","x","--new","y"]]]. Each element is parsed and validated exactly as a standalone call, with batch's --root and --lock-timeout placed before it. Elements run in order; after the first failure the rest are skipped unless --continue-on-error. Without --atomic each write commits on its own: undo the successful elements' op_id values to reverse a partial batch. --atomic runs tx begin, every element with --tx <tx>, then tx commit, as one op; a failing element or a conflicting commit aborts the tx and writes nothing. An element may not be a batch, may not read --stdin (batch has consumed it; pass --content or --stdin-data), and under --atomic may not carry --tx. On failure the answer is an error with the first failing element's error.code and exit code, and results[] in error.diagnostics.
+--stdin is a JSON array of argv arrays without the leading aitools, e.g. [["read","a.lisp"],["edit","a.lisp","--old","x","--new","y"]]. Each element is parsed and validated exactly as a standalone call, with batch's --root and --lock-timeout placed before it. Elements run in order; after the first failure the rest are skipped unless --continue-on-error. Without --atomic each write commits on its own: undo the successful elements' op_id values to reverse a partial batch. --atomic runs tx begin, every element with --tx <tx>, then tx commit, as one op; a failing element or a conflicting commit aborts the tx and writes nothing. An element may not be a batch, may not read --stdin (batch has consumed it; pass --content or --stdin-data), and under --atomic may not carry --tx. On failure the answer is an error with the first failing element's error.code and exit code, and results[] in error.diagnostics.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
