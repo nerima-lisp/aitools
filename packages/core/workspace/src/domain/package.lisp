@@ -3,7 +3,8 @@
 ;;;; decisions: lexical path arithmetic, git's wildmatch, .gitignore
 ;;;; parsing and precedence, git config and index parsing, and the write
 ;;;; boundary verdict. Nothing here performs I/O; the application layer reads
-;;;; bytes through the WORKSPACE-HOST port and hands them to these functions.
+;;;; bytes through the workspace boundary context and hands them to these
+;;;; functions.
 (in-package #:cl-user)
 
 (defpackage #:aitools.workspace.domain

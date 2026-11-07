@@ -117,8 +117,7 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
   (it "refuses the injected home directory without touching its children"
     (call-with-edit-workspace (lambda () (put "fixture-home/keep" "protected")
       (put "ordinary/keep" "ordinary")
-      (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host
-                    :home-directory (lambda () (disk "fixture-home"))))
+      (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries :home-directory (lambda () (disk "fixture-home"))))
              (*ports* (make-edit-ports
                        :workspace-host host
                        :open-store #'open-store

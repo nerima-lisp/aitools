@@ -52,8 +52,7 @@ edit, or fixture setup). CONTENT is a string or an octet vector."
 too) and whose OPEN-STORE hands back STORE itself."
   (let ((root (aitools.store.application:store-root store)))
     (make-journal-ports
-     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
-                      :current-directory (lambda () root)
+     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (lambda () root)
                       :getenv (constantly nil))
      :open-store (lambda (real-root)
                    (assert (string= real-root root))

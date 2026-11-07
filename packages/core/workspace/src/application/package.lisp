@@ -1,8 +1,6 @@
 ;;;;
-;;;; The workspace context's public boundary (other contexts reach
-;;;; workspace only through this package). It defines the
-;;;; WORKSPACE-HOST port and the continuation-passing flows for root
-;;;; resolution, the write boundary, and the ignore-aware scan.
+;;;; The workspace context's public operations and continuation-passing
+;;;; flows for root resolution, the write boundary, and ignore-aware scans.
 (in-package #:cl-user)
 
 (defpackage #:aitools.workspace.application
@@ -12,7 +10,7 @@
                 #:path-inside-p
                 #:path-relative-to)
   (:export
-   ;; re-exported domain values callers receive from the flows below
+   ;; Re-exported domain values callers receive from the flows below.
    #:workspace-entry
    #:workspace-entry-p
    #:make-workspace-entry
@@ -31,10 +29,8 @@
    #:git-repository-top
    #:git-repository-git-dir
    #:git-repository-common-dir
-   ;; host.lisp
-   #:workspace-host
-   #:workspace-host-p
-   #:make-workspace-host
+   ;; host.lisp boundary operations
+   #:make-workspace-boundaries
    #:host-list-directory
    #:host-stat
    #:host-read-link

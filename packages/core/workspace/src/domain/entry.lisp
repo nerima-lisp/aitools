@@ -1,8 +1,7 @@
 ;;;;
-;;;; One directory entry as the WORKSPACE-HOST port reports it (lstat
-;;;; semantics: a symlink is reported as :SYMLINK, never as its target), and
-;;;; the sibling order that makes a depth-first walk emit paths in exactly
-;;;; the order a plain string sort of the full relative paths would give.
+;;;; One directory entry as lstat reports it: a symlink is :SYMLINK, never
+;;;; its target. The sibling order makes a depth-first walk emit paths in
+;;;; the same order as a plain string sort of the full relative paths.
 (in-package #:aitools.workspace.domain)
 
 (defstruct (workspace-entry (:copier nil))

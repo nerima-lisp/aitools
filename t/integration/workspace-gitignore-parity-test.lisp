@@ -43,8 +43,7 @@
 (defun scan-listing (scratch directory)
   "Sorted non-directory paths the workspace scan emits for DIRECTORY."
   (let* ((environment (%environment scratch))
-         (host (aitools.workspace.infrastructure:make-host-workspace-host
-                :getenv (lambda (name) (cdr (assoc name environment :test #'string=)))
+         (host (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv (lambda (name) (cdr (assoc name environment :test #'string=)))
                 :home-directory (lambda () (cdr (assoc "HOME" environment :test #'string=)))
                 :current-directory (lambda () directory)))
          (root (aitools.workspace.application:call-with-resolved-root/k
@@ -150,7 +149,38 @@
         (git scratch repository "worktree" "add" "-q" worktree)
         (dolist (file '("wt-new.txt" "wt.log" "q.exclude" "sub/w.txt" "build/w.bin"))
           (write-file (concatenate 'string worktree "/" file) file))
-        (expect-parity scratch worktree))))))
+        (let* ((boundaries
+               (aitools.workspace.infrastructure:make-host-workspace-boundaries
+                :getenv (lambda (name) (cdr (assoc name (%environment scratch) :test string=)))
+                :home-directory (lambda () (cdr (assoc "HOME" (%environment scratch) :test string=)))
+                :current-directory (lambda () worktree)))
+               (root
+                (aitools.workspace.application:call-with-resolved-root/k
+                 boundaries :root worktree :on-resolved identity
+                 :on-error (lambda (reason path) (error "root ~A ~A" reason path))))
+               (repository (aitools.workspace.application:workspace-root-repository root)))
+          (expect-parity scratch worktree)
+          (flet ((verdict (target)
+                   (aitools.workspace.application:call-with-workspace-boundary/k
+                    boundaries root target
+                    :on-inside (lambda (path verdict) (declare (ignore path)) verdict)
+                    :on-outside (lambda (verdict lexical real)
+                                  (declare (ignore lexical real)) verdict))))
+            (expect (aitools.workspace.application:workspace-entry-kind
+                     (aitools.workspace.application:host-stat
+                      boundaries (aitools.workspace.domain:join-path worktree ".git")))
+                    :to-be :file)
+            (expect (verdict ".git/index") :to-be :git-directory)
+            (expect (verdict
+                     (aitools.workspace.domain:join-path
+                      (aitools.workspace.application:git-repository-git-dir repository)
+                      "index.lock"))
+                    :to-be :outside-root)
+            (expect (verdict
+                     (aitools.workspace.domain:join-path
+                      (aitools.workspace.application:git-repository-common-dir repository)
+                      "config"))
+                    :to-be :outside-root))))))))
 
 (describe "aitools workspace scan never starts git"
   (it "has no process-starting reference in the workspace context's sources"

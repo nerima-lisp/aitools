@@ -9,7 +9,7 @@
   (aitools.org.application:make-org-ports :max-input-bytes 0))
 
 (defun %org-ports-without-operation (missing)
-  (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host))
+  (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
          (source (aitools.text.infrastructure:make-host-text-source))
          (production (aitools.org.infrastructure:make-production-org-ports
                       :workspace-host host :text-source source)))

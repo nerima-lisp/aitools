@@ -1,26 +1,25 @@
 ;;;;
 ;;;; Ignore-rule and pruning behavior of CALL-WITH-WORKSPACE-SCAN/K over the
-;;;; in-memory host. Real-git parity lives in the integration test.
+;;;; in-memory boundary context. Real-git parity lives in the integration test.
 (in-package #:aitools.workspace.test)
 
 (defun repo-host (files &rest options)
-  "A fake host with a git repository at /r holding FILES (relative paths)."
-  (apply #'make-fake-host
-         :files (append '(("/r/.git/HEAD" . "ref: refs/heads/main"))
+  "Build a fake boundary context with a git repository at /r holding FILES."
+  (apply (function make-fake-workspace-boundaries)
+         :files (append (list (cons "/r/.git/HEAD" "ref: refs/heads/main"))
                         (loop for (path . content) in files collect (cons (join-path "/r" path) content)))
          :cwd "/r"
          options))
 
 (defun counting-host (host counts)
-  "HOST with LIST-DIRECTORY calls counted per path in the hash table COUNTS."
-  (make-workspace-host
+  (make-workspace-boundaries
    :list-directory (lambda (path) (incf (gethash path counts 0)) (host-list-directory host path))
    :stat (lambda (path) (host-stat host path))
    :read-link (lambda (path) (host-read-link host path))
    :read-octets (lambda (path) (host-read-octets host path))
-   :getenv (lambda (name) (host-getenv host name))
-   :home-directory (lambda () (host-home-directory host))
-   :current-directory (lambda () (host-current-directory host))))
+   :environment (cl-boundary-kit:boundary-context-require host :environment)
+   :working-directory (cl-boundary-kit:boundary-context-require host :working-directory)
+   :home-directory (lambda () (host-home-directory host))))
 
 (describe "aitools.workspace.application scan: ignore sources"
   (it "applies .gitignore rules, nested files, and negation inside git"
@@ -46,7 +45,7 @@ build/
       (expect (gethash "/r" counts) :to-be-truthy)))
 
   (it "uses info/exclude and the XDG global excludes file, deeper files winning"
-    (let ((host (make-fake-host
+    (let ((host (make-fake-workspace-boundaries
                   :files '(("/r/.git/HEAD" . "x") ("/r/.git/info/exclude" . "*.tmp")
                            ("/xdg/git/ignore" . "*.bak
 *.keep")
@@ -56,7 +55,7 @@ build/
       (expect (scan-paths host (resolved-root host)) :to-equal '("sub" "sub/.gitignore" "sub/c.keep"))))
 
   (it "prefers core.excludesFile (with ~/ expansion and include.path) over the XDG default"
-    (let ((host (make-fake-host
+    (let ((host (make-fake-workspace-boundaries
                  :files '(("/r/.git/HEAD" . "x")
                           ("/r/.git/config" . "[include]
 	path = ../extra.config")
@@ -69,7 +68,7 @@ build/
       (expect (scan-paths host (resolved-root host)) :to-equal '("b.txt" "extra.config"))))
 
   (it "folds case under core.ignoreCase"
-    (let ((host (make-fake-host :files '(("/r/.git/HEAD" . "x") ("/r/.git/config" . "[core]
+    (let ((host (make-fake-workspace-boundaries :files '(("/r/.git/HEAD" . "x") ("/r/.git/config" . "[core]
 	ignorecase = true")
                                          ("/r/.gitignore" . "*.LOG") ("/r/a.log" . ""))
                                 :cwd "/r")))
@@ -83,7 +82,7 @@ build/
       (expect (scan-paths host (resolved-root host)) :to-equal '(".gitignore" "vendor/lib.c" "x.gen"))))
 
   (it "uses the builtin list outside git"
-    (let ((host (make-fake-host :files '(("/p/node_modules/a.js" . "") ("/p/target/x" . "") ("/p/src/a.rs" . "")
+    (let ((host (make-fake-workspace-boundaries :files '(("/p/node_modules/a.js" . "") ("/p/target/x" . "") ("/p/src/a.rs" . "")
                                          ("/p/.gitignore" . "src/"))
                                 :cwd "/p")))
       (multiple-value-bind (paths source) (scan-paths host (resolved-root host))
@@ -182,18 +181,20 @@ build/
   (it "delivers WORK results in path order whatever order the mapper runs them"
     (let* ((files (loop for i from 0 below 150 collect (cons (format nil "f~3,'0D" i) "")))
            (base (repo-host files))
-           (host (make-workspace-host
-                  :list-directory (lambda (path) (host-list-directory base path))
-                  :stat (lambda (path) (host-stat base path))
-                  :read-link (lambda (path) (host-read-link base path))
-                  :read-octets (lambda (path) (host-read-octets base path))
-                  :getenv (constantly nil)
-                  :home-directory (constantly "/home/user")
-                  :current-directory (constantly "/r")
-                  :call-with-ordered-mapper
-                  (lambda (thunk)
-                    (funcall thunk (lambda (function items)
-                                     (reverse (mapcar function (reverse items))))))))
+           (host (make-workspace-boundaries
+            :list-directory (lambda (path) (host-list-directory base path))
+            :stat (lambda (path) (host-stat base path))
+            :read-link (lambda (path) (host-read-link base path))
+            :read-octets (lambda (path) (host-read-octets base path))
+            :environment
+            (cl-boundary-kit:boundary-context-require base :environment)
+            :working-directory
+            (cl-boundary-kit:boundary-context-require base :working-directory)
+            :home-directory (lambda () (host-home-directory base))
+            :call-with-ordered-mapper
+            (lambda (thunk)
+              (funcall thunk (lambda (function items)
+                               (reverse (mapcar function (reverse items))))))))
            (results '()))
       (call-with-workspace-scan/k host (resolved-root host)
                                   :work (lambda (entry) (string-upcase (scan-entry-path entry)))

@@ -61,8 +61,7 @@ succeeds) but its bytes cannot be read (EACCES), so the source reports
        :mode (if (eq (first node) :file) (third node) #o755)))))
 
 (defun make-fake-host (nodes &key (cwd "/work"))
-  (aitools.workspace.application:make-workspace-host
-   :list-directory (lambda (path)
+  (aitools.workspace.application:make-workspace-boundaries :list-directory (lambda (path)
                      (let ((node (gethash path nodes)))
                        (if (and node (eq (first node) :directory))
                            (values (loop for key being the hash-keys of nodes
@@ -74,9 +73,9 @@ succeeds) but its bytes cannot be read (EACCES), so the source reports
    :read-link (lambda (path) (let ((node (gethash path nodes))) (and node (eq (first node) :symlink) (second node))))
    :read-octets (lambda (path) (let ((node (gethash (%follow nodes path) nodes)))
                                  (and node (eq (first node) :file) (second node))))
-   :getenv (constantly nil)
+   :environment (cl-boundary-kit:make-test-environment)
    :home-directory (constantly "/home/user")
-   :current-directory (constantly cwd)))
+   :working-directory (cl-boundary-kit:make-test-working-directory :initial cwd)))
 
 (defun make-fake-source (nodes)
   (flet ((file (path)

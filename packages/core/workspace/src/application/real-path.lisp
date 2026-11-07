@@ -1,7 +1,7 @@
 ;;;;
-;;;; realpath(3) over the WORKSPACE-HOST port, one lstat per component. The
-;;;; nonexistent tail of a path is kept lexically, so the boundary check can
-;;;; resolve the real location of a file that a write is about to create.
+;;;; realpath(3) uses context lstat/read-link operations, one lstat per path
+;;;; component. A nonexistent tail stays lexical so the write boundary can
+;;;; resolve the location where a file would be created.
 (in-package #:aitools.workspace.application)
 
 (defparameter *symlink-hop-limit* 40

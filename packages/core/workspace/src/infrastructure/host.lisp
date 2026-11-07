@@ -1,8 +1,8 @@
 ;;;;
-;;;; The production WORKSPACE-HOST. Paths stay native strings all the way to
+;;;; POSIX filesystem capabilities for workspace boundary contexts. Paths stay native strings all the way to
 ;;;; the system call (sb-posix), never CL pathnames, so names containing `*`,
 ;;;; `?`, `[`, or `\` work. Environment and home directory come from
-;;;; host-kit.
+;;;; cl-boundary-kit environment; the home directory comes from host-kit.
 (in-package #:aitools.workspace.infrastructure)
 
 (defun %entry-from-stat (name stat)
@@ -87,19 +87,24 @@ scan nor gets read."
   (let ((cwd (sb-posix:getcwd)))
     (if (string= cwd "/") cwd (string-right-trim "/" cwd))))
 
-(defun make-host-workspace-host (&key (getenv #'host-kit:getenv)
-                                      (home-directory #'%home-directory)
-                                      (current-directory #'%current-directory))
-  "The production WORKSPACE-HOST over the real filesystem and environment,
-with a CPU-sized ordered mapper (see CALL-WITH-ORDERED-MAPPER). The keyword
-arguments replace the environment-facing functions, for callers (and
-integration tests) that must not read the process environment."
-  (make-workspace-host
-   :list-directory #'%list-directory
-   :stat #'%lstat-entry
-   :read-link #'%read-link
-   :read-octets #'read-regular-file-octets
-   :getenv getenv
+(defun %set-current-directory (path)
+  (let ((directory (namestring (pathname path))))
+    (sb-posix:chdir directory)
+    (setf *default-pathname-defaults* (pathname directory))
+    directory))
+
+(defun make-host-workspace-boundaries (&key (getenv (function host-kit:getenv))
+                                           (home-directory (function %home-directory))
+                                           (current-directory (function %current-directory)))
+  "Build production environment, working-directory, and POSIX workspace boundaries."
+  (make-workspace-boundaries
+   :list-directory (function %list-directory)
+   :stat (function %lstat-entry)
+   :read-link (function %read-link)
+   :read-octets (function read-regular-file-octets)
+   :environment (cl-boundary-kit:make-environment :get-fn getenv)
+   :working-directory
+   (cl-boundary-kit:make-working-directory
+    :get-fn current-directory :set-fn (function %set-current-directory))
    :home-directory home-directory
-   :current-directory current-directory
-   :call-with-ordered-mapper #'call-with-ordered-mapper))
+   :call-with-ordered-mapper (function call-with-ordered-mapper)))

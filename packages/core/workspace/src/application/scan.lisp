@@ -3,7 +3,7 @@
 ;;;; snapshot, and archive create. Ignore decisions happen during the walk,
 ;;;; so an ignored directory is never listed. Entries are emitted
 ;;;; in path order (see ENTRY-ORDER-KEY); optional per-file WORK runs on the
-;;;; host's ordered mapper in batches, and results are still delivered in
+;;;; boundary context's ordered mapper in batches, and results are still delivered in
 ;;;; path order, so parallelism never changes the output.
 ;;;;
 ;;;; A tx overlay (docs/src/reference/transactions.md) plugs in through WORKSPACE-OVERLAY: it
@@ -29,7 +29,7 @@ aitools temporary files are always skipped.
 SKIP-LARGER-THAN reports larger files to ON-SKIP as :TOO-LARGE; NIL disables
 the limit. NEWER keeps entries with a later mtime.
 OVERLAY replaces directory listings and file bytes for staged changes.
-WORK runs on the host's ordered mapper in batches. EMIT receives each entry
+WORK runs on the boundary context's ordered mapper in batches. EMIT receives each entry
 and result; returning :STOP ends the scan.
 ON-SKIP receives an entry and :TOO-LARGE or :UNREADABLE.
 ON-COMPLETE receives the ignore source and stopped flag.

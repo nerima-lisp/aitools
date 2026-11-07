@@ -2,7 +2,7 @@
 
 (describe "aitools.workspace.application scan option normalization"
   (it "keeps the default size limit when scan options are omitted"
-    (let* ((host (make-fake-host))
+    (let* ((host (make-fake-workspace-boundaries))
            (options
              (call-with-scan-options/k
               host
@@ -21,7 +21,7 @@
       (expect (getf options :no-ignore) :to-be nil)))
 
   (it "normalizes a size, duration, and known language before calling ON-OPTIONS"
-    (let* ((host (make-fake-host))
+    (let* ((host (make-fake-workspace-boundaries))
            (overlay (make-workspace-overlay))
            (options
              (call-with-scan-options/k
@@ -51,7 +51,7 @@
       (expect (getf options :overlay) :to-be overlay)))
 
   (it "uses the mtime of an existing duration-shaped path"
-    (let* ((host (make-fake-host :files '(("/w/7d" . "reference")) :cwd "/w"))
+    (let* ((host (make-fake-workspace-boundaries :files '(("/w/7d" . "reference")) :cwd "/w"))
            (options
              (call-with-scan-options/k
               host
@@ -69,7 +69,7 @@
   (it "reports an invalid size before resolving newer paths or language names"
     (let ((resolved-path nil)
           (continued nil)
-          (host (make-fake-host)))
+          (host (make-fake-workspace-boundaries)))
       (expect
        (call-with-scan-options/k
         host
@@ -87,7 +87,7 @@
       (expect continued :to-be-falsy)))
 
   (it "reports a newer value that is neither a path nor a duration"
-    (let ((host (make-fake-host)))
+    (let ((host (make-fake-workspace-boundaries)))
       (expect
        (call-with-scan-options/k
         host
@@ -101,7 +101,7 @@
        :to-equal '(:invalid-newer "yesterday" nil))))
 
   (it "reports an unknown language with the known names"
-    (let ((host (make-fake-host)))
+    (let ((host (make-fake-workspace-boundaries)))
       (expect
        (call-with-scan-options/k
         host

@@ -62,8 +62,7 @@ reader (NIL for none); OPEN-STORE is passed through."
                  (and node (eq (first node) :file) (second node)))))
       (aitools.search.application:make-search-ports
        :workspace-host
-       (aitools.workspace.application:make-workspace-host
-        :list-directory (lambda (path)
+       (aitools.workspace.application:make-workspace-boundaries :list-directory (lambda (path)
                           (let ((node (gethash path nodes)))
                             (if (and node (eq (first node) :directory) (not (member path unlistable :test #'string=)))
                                 (values (loop for key being the hash-keys of nodes
@@ -74,9 +73,9 @@ reader (NIL for none); OPEN-STORE is passed through."
         :stat #'entry
         :read-link (lambda (path) (let ((node (gethash path nodes))) (and node (eq (first node) :symlink) (second node))))
         :read-octets #'file-octets
-        :getenv (constantly nil)
+        :environment (cl-boundary-kit:make-test-environment)
         :home-directory (constantly "/home/user")
-        :current-directory (constantly cwd))
+        :working-directory (cl-boundary-kit:make-test-working-directory :initial cwd))
        :text-source
        (aitools.text.application:make-text-source
         :file-size (lambda (path) (let ((octets (file-octets path))) (and octets (length octets))))

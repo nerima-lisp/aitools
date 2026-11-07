@@ -1,7 +1,6 @@
 ;;;;
-;;;; Production adapters for the workspace context's WORKSPACE-HOST port,
-;;;; and their registration as a cl-boundary-kit boundary for the
-;;;; composition root.
+;;;; Production filesystem capabilities for workspace boundary contexts and
+;;;; their ordered mapper.
 (in-package #:cl-user)
 
 (defpackage #:aitools.workspace.infrastructure
@@ -9,14 +8,11 @@
   (:import-from #:aitools.workspace.domain
                 #:make-workspace-entry)
   (:import-from #:aitools.workspace.application
-                #:make-workspace-host)
+                #:make-workspace-boundaries)
   (:export
    ;; host.lisp
    #:read-regular-file-octets
-   #:make-host-workspace-host
+   #:make-host-workspace-boundaries
    ;; ordered-mapper.lisp
    #:processor-count
-   #:call-with-ordered-mapper
-   ;; boundaries.lisp
-   #:+workspace-host-boundary+
-   #:with-workspace-boundaries))
+   #:call-with-ordered-mapper))

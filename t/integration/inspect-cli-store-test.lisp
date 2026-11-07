@@ -7,15 +7,14 @@
 
 (defun delegating-host (&key on-stat)
   "The production workspace host, calling ON-STAT (path) before each stat."
-  (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
-    (aitools.workspace.application:make-workspace-host
-     :list-directory (lambda (path) (aitools.workspace.application:host-list-directory host path))
+  (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
+    (aitools.workspace.application:make-workspace-boundaries :list-directory (lambda (path) (aitools.workspace.application:host-list-directory host path))
      :stat (lambda (path) (funcall on-stat path) (aitools.workspace.application:host-stat host path))
      :read-link (lambda (path) (aitools.workspace.application:host-read-link host path))
      :read-octets (lambda (path) (aitools.workspace.application:host-read-octets host path))
-     :getenv (lambda (name) (aitools.workspace.application:host-getenv host name))
+     :environment (cl-boundary-kit:boundary-context-require host :environment)
      :home-directory (lambda () (aitools.workspace.application:host-home-directory host))
-     :current-directory (lambda () (aitools.workspace.application:host-current-directory host)))))
+     :working-directory (cl-boundary-kit:boundary-context-require host :working-directory))))
 
 (describe "--tx reads that cannot record the read set"
   (it "answers environment.busy with a retry command while another thread holds the tx lock"
@@ -164,7 +163,7 @@
       (declare (ignore state))
       (ws-file workspace "a.txt" "a")
       (let* ((ports (aitools.inspect.application:make-inspect-ports
-                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                      :text-source (aitools.text.infrastructure:make-host-text-source)
                      :open-store #'open-store
                      :state-directory-function (constantly nil)))

@@ -3,16 +3,18 @@
 (describe "aitools.workspace.application scan: worker pool lifecycle"
   (it "does not compute a worker count or create a worker pool for a one-file scan"
     (let* ((base (repo-host '(("a.txt" . ""))))
-           (host (make-workspace-host
-                  :list-directory (lambda (path) (host-list-directory base path))
-                  :stat (lambda (path) (host-stat base path))
-                  :read-link (lambda (path) (host-read-link base path))
-                  :read-octets (lambda (path) (host-read-octets base path))
-                  :getenv (lambda (name) (host-getenv base name))
-                  :home-directory (lambda () (host-home-directory base))
-                  :current-directory (lambda () (host-current-directory base))
-                  :call-with-ordered-mapper
-                  #'aitools.workspace.infrastructure:call-with-ordered-mapper))
+           (host (make-workspace-boundaries
+            :list-directory (lambda (path) (host-list-directory base path))
+            :stat (lambda (path) (host-stat base path))
+            :read-link (lambda (path) (host-read-link base path))
+            :read-octets (lambda (path) (host-read-octets base path))
+            :environment
+            (cl-boundary-kit:boundary-context-require base :environment)
+            :working-directory
+            (cl-boundary-kit:boundary-context-require base :working-directory)
+            :home-directory (lambda () (host-home-directory base))
+            :call-with-ordered-mapper
+            (function aitools.workspace.infrastructure:call-with-ordered-mapper)))
            (processor-count-calls 0)
            (executor-calls 0)
            (scan-thread (cl-concurrent-kit:current-thread))

@@ -120,7 +120,7 @@ opens such a root as a temporary store exempt from the state-directory guard."
                            (values :octets *stdin*)
                            (values :failure "the test did not expect stdin to be read")))))))
               (make-edit-ports
-               :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+               :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                :open-store (function open-store)
                :text-source (aitools.text.infrastructure:make-host-text-source)
                :read-stdin-octets

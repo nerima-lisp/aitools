@@ -19,7 +19,7 @@
              (*ports*
                (make-edit-ports
                 :workspace-host
-                (aitools.workspace.infrastructure:make-host-workspace-host)
+                (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                 :open-store
                 (lambda (root)
                   (let* ((io (aitools.store.infrastructure:make-posix-store-io))
@@ -58,8 +58,7 @@
       (cl-weave:with-mocked-functions
           (((symbol-function 'aitools.workspace.infrastructure::%home-directory)
             (lambda () (disk "fixture-home"))))
-        (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host
-                      :home-directory
+        (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries :home-directory
                       (symbol-function 'aitools.workspace.infrastructure::%home-directory)))
                (*ports* (make-edit-ports
                          :workspace-host host
@@ -81,10 +80,9 @@
       (put "../outside/keep" "outside")
       (let* ((target (disk "tree/escape"))
              (swapped nil)
-             (base-host (aitools.workspace.infrastructure:make-host-workspace-host))
+             (base-host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
              (host
-               (aitools.workspace.application:make-workspace-host
-                :list-directory
+               (aitools.workspace.application:make-workspace-boundaries :list-directory
                 (lambda (path)
                   (aitools.workspace.application:host-list-directory base-host path))
                 :stat
@@ -100,15 +98,13 @@
                 :read-octets
                 (lambda (path)
                   (aitools.workspace.application:host-read-octets base-host path))
-                :getenv
-                (lambda (name)
-                  (aitools.workspace.application:host-getenv base-host name))
+                :environment
+                (cl-boundary-kit:boundary-context-require base-host :environment)
                 :home-directory
                 (lambda ()
                   (aitools.workspace.application:host-home-directory base-host))
-                :current-directory
-                (lambda ()
-                  (aitools.workspace.application:host-current-directory base-host))))
+                :working-directory
+                (cl-boundary-kit:boundary-context-require base-host :working-directory)))
              (*ports*
                (make-edit-ports
                 :workspace-host host

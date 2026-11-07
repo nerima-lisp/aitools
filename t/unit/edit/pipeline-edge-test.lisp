@@ -55,7 +55,7 @@
     (call-with-edit-workspace (lambda () (sb-posix:mkdir (disk "tmp") #o700)
       (let* ((targets (list (aitools.edit.application:make-write-target "a.txt")))
              (paths (list "a.txt"))
-             (host (aitools.workspace.infrastructure:make-host-workspace-host))
+             (host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
              (root (aitools.workspace.domain:make-workspace-root
                     :path *root* :real *root* :source :cwd))
              (temporary-root (disk "tmp")))

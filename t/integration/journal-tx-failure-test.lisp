@@ -103,8 +103,7 @@ condition a failing rename or fsync raises, at the first POINT."
     (label condition-type initargs committed)
   (declare (ignore label))
   (call-with-temp-store (lambda (store) (let* ((ports (make-journal-ports
-                   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
-                                    :current-directory (constantly (aitools.store.application:store-root store))
+                   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (constantly (aitools.store.application:store-root store))
                                     :getenv (constantly nil))
                    :open-store (lambda (real-root)
                                  (declare (ignore real-root))
@@ -184,8 +183,7 @@ condition a failing rename or fsync raises, at the first POINT."
       ;; whichever .git lies above it; the store is STORE either way.
       (multiple-value-bind (kind error)
           (run-with (make-journal-ports
-                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host
-                                      :current-directory (constantly (aitools.store.application:store-root store))
+                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (constantly (aitools.store.application:store-root store))
                                       :getenv (constantly nil))
                      :open-store (lambda (real-root) (declare (ignore real-root)) store))
                     (make-journal-context) #'tx-status-flow "tx-20260101T000000Z-00000000")

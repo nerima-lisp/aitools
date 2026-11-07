@@ -3,7 +3,7 @@
 (describe "aitools.workspace.application scan: git config sources"
   (it "reads core.excludesFile from GIT_CONFIG_COUNT pairs, ignoring a non-numeric count"
     (flet ((paths (count)
-             (let ((host (make-fake-host
+             (let ((host (make-fake-workspace-boundaries
                           :files '(("/r/.git/HEAD" . "x") ("/r/ignore-list" . "*.secret")
                                    ("/r/a.secret" . "") ("/r/b.txt" . ""))
                           :environment `(("GIT_CONFIG_COUNT" . ,count)
@@ -16,7 +16,7 @@
       (expect (paths "two") :to-equal '("a.secret" "b.txt" "ignore-list"))))
 
   (it "reads GIT_CONFIG_GLOBAL instead of ~/.gitconfig"
-    (let ((host (make-fake-host :files `(("/r/.git/HEAD" . "x")
+    (let ((host (make-fake-workspace-boundaries :files `(("/r/.git/HEAD" . "x")
                                          ("/cfg/global" . ,(format nil "[core]~%~AexcludesFile = /cfg/ignore" #\Tab))
                                          ("/cfg/ignore" . "*.a")
                                          ("/home/user/.gitconfig" . ,(format nil "[core]~%~AexcludesFile = /cfg/other" #\Tab))
@@ -28,7 +28,7 @@
 
   (it "reads config.worktree only under extensions.worktreeConfig"
     (flet ((paths (enabled)
-             (let ((host (make-fake-host
+             (let ((host (make-fake-workspace-boundaries
                           :files `(("/r/.git/HEAD" . "x")
                                    ("/r/.git/config" . ,(format nil "[extensions]~%~Aworktreeconfig = ~A" #\Tab enabled))
                                    ("/r/.git/config.worktree" . ,(format nil "[core]~%~AexcludesFile = /w/ignore" #\Tab))

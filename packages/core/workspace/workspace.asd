@@ -20,14 +20,14 @@
                  (:file "scan") (:file "scan-options")))
    (:module "infrastructure"
     :components ((:file "package") (:file "host")
-                 (:file "ordered-mapper") (:file "boundaries")))))
+                 (:file "ordered-mapper")))))
 (defsystem "aitools/test/workspace"
            :description "workspace context tests."
            :depends-on ("aitools/test/base" "aitools/core/workspace")
            :pathname "../../../t/"
            :serial t
            :components ((:file "unit/workspace/package")
-                        (:file "unit/workspace/fake-host")
+                        (:file "unit/workspace/fake-workspace-boundaries")
                         (:file "unit/workspace/wildmatch-test")
                         (:file "unit/workspace/gitignore-test")
                         (:file "unit/workspace/root-boundary-test")

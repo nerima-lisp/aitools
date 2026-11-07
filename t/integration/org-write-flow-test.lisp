@@ -2,7 +2,7 @@
 
 (defun make-org-write-flow-ports ()
   (aitools.org.infrastructure:make-production-org-ports
-   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
    :text-source (aitools.text.infrastructure:make-host-text-source)
    :open-store #'open-store))
 

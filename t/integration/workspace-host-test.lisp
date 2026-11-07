@@ -1,105 +1,155 @@
 ;;;;
-;;;; The production WORKSPACE-HOST against a real filesystem: odd file
+;;;; The production workspace boundary context against a real filesystem: odd file
 ;;;; names, symlinks, FIFOs, the workspace boundary with real symlinks, the
-;;;; CPU-sized ordered mapper, and the cl-boundary-kit registration.
+;;;; CPU-sized ordered mapper, and direct cl-boundary-kit objects.
 (in-package #:aitools.workspace.integration-test)
 
 (defun host-for (directory)
-  (aitools.workspace.infrastructure:make-host-workspace-host
-   :getenv (constantly nil)
-   :home-directory (constantly directory)
-   :current-directory (constantly directory)))
+  (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv
+                                                                   (constantly nil)
+                                                                   :home-directory
+                                                                   (constantly directory)
+                                                                   :current-directory
+                                                                   (constantly directory)))
 
 (defun root-for (host directory)
-  (aitools.workspace.application:call-with-resolved-root/k
-   host :root directory :on-resolved #'identity
-        :on-error (lambda (reason path) (error "root ~A ~A" reason path))))
+  (aitools.workspace.application:call-with-resolved-root/k host
+                                                           :root
+                                                           directory
+                                                           :on-resolved
+                                                           #'identity
+                                                           :on-error
+                                                           (lambda (reason path)
+                                                             (error "root ~A ~A" reason path))))
 
 (defun entry-kinds (host directory)
-  (sort (mapcar (lambda (entry)
-                  (list (aitools.workspace.application:workspace-entry-name entry)
-                        (aitools.workspace.application:workspace-entry-kind entry)))
-                (aitools.workspace.application:host-list-directory host directory))
-        #'string< :key #'first))
+  (sort
+   (mapcar
+    (lambda (entry)
+      (list (aitools.workspace.application:workspace-entry-name entry) (aitools.workspace.application:workspace-entry-kind entry)))
+    (aitools.workspace.application:host-list-directory host directory))
+   #'string<
+   :key
+   #'first))
 
-(describe "aitools workspace production host"
-  (it "lists names with glob and escape characters and reports lstat kinds"
-    (call-with-scratch-directory (lambda (scratch)
-      (write-file (concatenate 'string scratch "/a*b") "1")
-      (write-file (concatenate 'string scratch "/[x]?") "2")
-      (write-file (concatenate 'string scratch "/back\\slash") "3")
-      (write-file (concatenate 'string scratch "/sub/.hidden") "4")
-      (make-symlink "sub" (concatenate 'string scratch "/link"))
-      (let ((host (host-for scratch)))
-        (expect (entry-kinds host scratch)
-                :to-equal '(("[x]?" :file) ("a*b" :file) ("back\\slash" :file) ("link" :symlink) ("sub" :directory)))
-        (expect (aitools.workspace.application:host-read-link host (concatenate 'string scratch "/link"))
-                :to-equal "sub")
-        (expect (map 'string #'code-char
-                     (aitools.workspace.application:host-read-octets host (concatenate 'string scratch "/a*b")))
-                :to-equal "1")
-        (expect (aitools.workspace.application:host-stat host (concatenate 'string scratch "/missing"))
-                :to-be-falsy)))))
+(describe "aitools workspace production boundaries"
+          (it "lists names with glob and escape characters and reports lstat kinds"
+              (call-with-scratch-directory
+               (lambda (scratch)
+                 (write-file (concatenate 'string scratch "/a*b") "1")
+                 (write-file (concatenate 'string scratch "/[x]?") "2")
+                 (write-file (concatenate 'string scratch "/back\\slash") "3")
+                 (write-file (concatenate 'string scratch "/sub/.hidden") "4")
+                 (make-symlink "sub" (concatenate 'string scratch "/link"))
+                 (let ((host (host-for scratch)))
+                   (expect (entry-kinds host scratch) :to-equal '(("[x]?" :file) ("a*b" :file) ("back\\slash" :file) ("link" :symlink) ("sub" :directory)))
+                   (expect (aitools.workspace.application:host-read-link host (concatenate 'string scratch "/link")) :to-equal "sub")
+                   (expect (map 'string #'code-char (aitools.workspace.application:host-read-octets host (concatenate 'string scratch "/a*b"))) :to-equal "1")
+                   (expect (aitools.workspace.application:host-stat host (concatenate 'string scratch "/missing")) :to-be-falsy)))))
+          (it "refuses to read a FIFO instead of blocking on it"
+              (call-with-scratch-directory
+               (lambda (scratch)
+                 (let ((fifo (concatenate 'string scratch "/pipe")))
+                   (sb-posix:mkfifo fifo #o600)
+                   (expect (aitools.workspace.infrastructure:read-regular-file-octets fifo) :to-be-falsy)
+                   (expect (aitools.workspace.infrastructure:read-regular-file-octets scratch) :to-be-falsy)))))
+          (it "scans a real tree in path order, skipping builtin excludes outside git"
+              (call-with-scratch-directory
+               (lambda (scratch)
+                 (dolist (file '("b.txt" "a/c.txt" "a.txt" "node_modules/x.js" "a*b.txt"))
+                   (write-file (concatenate 'string scratch "/" file) file))
+                 (let* ((host (host-for scratch))
+                        (paths '()))
+                   (aitools.workspace.application:call-with-workspace-scan/k host
+                                                                             (root-for host scratch)
+                                                                             :work
+                                                                             (lambda (entry)
+                                                                               (aitools.workspace.application:scan-entry-size entry))
+                                                                             :emit
+                                                                             (lambda (entry size)
+                                                                               (push (list (aitools.workspace.application:scan-entry-path entry) size) paths)
+                                                                               nil)
+                                                                             :on-complete
+                                                                             (lambda (source stopped)
+                                                                               (declare (ignore stopped))
+                                                                               (expect source :to-be :builtin))
+                                                                             :on-error
+                                                                             (lambda (reason path)
+                                                                               (fail (format nil "~A ~A" reason path))))
+                   (expect (mapcar #'first (reverse paths)) :to-equal '("a*b.txt" "a.txt" "a" "a/c.txt" "b.txt"))
+                   (expect (second (assoc "a/c.txt" paths :test #'string=)) :to-be 7)))))
+          (it "enforces the workspace boundary with real symlinks and a real .git directory"
+              (call-with-scratch-directory
+               (lambda (scratch)
+                 (let ((root-path (concatenate 'string scratch "/ws")))
+                   (make-directories (concatenate 'string root-path "/.git"))
+                   (make-directories (concatenate 'string scratch "/outside"))
+                   (make-symlink "../outside" (concatenate 'string root-path "/escape"))
+                   (make-symlink "src" (concatenate 'string root-path "/alias"))
+                   (make-directories (concatenate 'string root-path "/src"))
+                   (let* ((host (host-for scratch))
+                          (root (root-for host root-path)))
+                     (flet ((verdict (target)
+                              (aitools.workspace.application:call-with-workspace-boundary/k host
+                                                                                            root
+                                                                                            target
+                                                                                            :temporary-root
+                                                                                            (concatenate 'string scratch "/state/tmp")
+                                                                                            :on-inside
+                                                                                            (lambda (path verdict)
+                                                                                              (declare (ignore path))
+                                                                                              verdict)
+                                                                                            :on-outside
+                                                                                            (lambda (verdict lexical real)
+                                                                                              (declare (ignore lexical real))
+                                                                                              verdict))))
+                       (expect (verdict "src/new.lisp") :to-be :inside)
+                       (expect (verdict "alias/new.lisp") :to-be :inside)
+                       (expect (verdict "escape/new.lisp") :to-be :symlink-escape)
+                       (expect (verdict "../outside/x") :to-be :outside-root)
+                       (expect (verdict ".git/config") :to-be :git-directory)
+                       (expect (verdict (concatenate 'string scratch "/state/tmp/scratch.txt")) :to-be :temporary)))))))
+          (it "maps in input order on the CPU-sized pool"
+              (expect (>= (aitools.workspace.infrastructure:processor-count) 1) :to-be-truthy)
+              (let ((items
+                     (loop for i from 0 below 500
+                           collect i)))
+                (expect
+                 (aitools.workspace.infrastructure:call-with-ordered-mapper
+                  (lambda (mapper)
+                    (funcall mapper
+                             (lambda (x)
+                               (* x x))
+                             items)))
+                 :to-equal
+                 (mapcar
+                  (lambda (x)
+                    (* x x))
+                  items))))
+          (it "assembles workspace capabilities in a cl-boundary-kit context"
+              (let* ((environment (cl-boundary-kit:make-test-environment :initial-values (list (cons "HOME" "/home/test"))))
+                     (working-directory (cl-boundary-kit:make-test-working-directory :initial #p"/tmp/"))
+                     (boundaries
+                      (aitools.workspace.application:make-workspace-boundaries :list-directory
+                                                                               (function identity)
+                                                                               :stat
+                                                                               (function identity)
+                                                                               :read-link
+                                                                               (function identity)
+                                                                               :read-octets
+                                                                               (function identity)
+                                                                               :environment
+                                                                               environment
+                                                                               :working-directory
+                                                                               working-directory
+                                                                               :home-directory
+                                                                               (function identity))))
+                (expect (cl-boundary-kit:boundary-context-require boundaries :environment) :to-be environment)
+                (expect (cl-boundary-kit:boundary-context-require boundaries :working-directory) :to-be working-directory)
+                (expect (aitools.workspace.application:host-getenv boundaries "HOME") :to-equal "/home/test")
+                (expect (aitools.workspace.application:host-current-directory boundaries) :to-equal "/tmp"))))
 
-  (it "refuses to read a FIFO instead of blocking on it"
-    (call-with-scratch-directory (lambda (scratch)
-      (let ((fifo (concatenate 'string scratch "/pipe")))
-        (sb-posix:mkfifo fifo #o600)
-        (expect (aitools.workspace.infrastructure:read-regular-file-octets fifo) :to-be-falsy)
-        (expect (aitools.workspace.infrastructure:read-regular-file-octets scratch) :to-be-falsy)))))
-
-  (it "scans a real tree in path order, skipping builtin excludes outside git"
-    (call-with-scratch-directory (lambda (scratch)
-      (dolist (file '("b.txt" "a/c.txt" "a.txt" "node_modules/x.js" "a*b.txt"))
-        (write-file (concatenate 'string scratch "/" file) file))
-      (let* ((host (host-for scratch)) (paths '()))
-        (aitools.workspace.application:call-with-workspace-scan/k
-         host (root-for host scratch)
-         :work (lambda (entry) (aitools.workspace.application:scan-entry-size entry))
-         :emit (lambda (entry size) (push (list (aitools.workspace.application:scan-entry-path entry) size) paths) nil)
-         :on-complete (lambda (source stopped) (declare (ignore stopped)) (expect source :to-be :builtin))
-         :on-error (lambda (reason path) (fail (format nil "~A ~A" reason path))))
-        (expect (mapcar #'first (reverse paths)) :to-equal '("a*b.txt" "a.txt" "a" "a/c.txt" "b.txt"))
-        (expect (second (assoc "a/c.txt" paths :test #'string=)) :to-be 7)))))
-
-  (it "enforces the workspace boundary with real symlinks and a real .git directory"
-    (call-with-scratch-directory (lambda (scratch)
-      (let ((root-path (concatenate 'string scratch "/ws")))
-        (make-directories (concatenate 'string root-path "/.git"))
-        (make-directories (concatenate 'string scratch "/outside"))
-        (make-symlink "../outside" (concatenate 'string root-path "/escape"))
-        (make-symlink "src" (concatenate 'string root-path "/alias"))
-        (make-directories (concatenate 'string root-path "/src"))
-        (let* ((host (host-for scratch))
-               (root (root-for host root-path)))
-          (flet ((verdict (target)
-                   (aitools.workspace.application:call-with-workspace-boundary/k
-                    host root target
-                    :temporary-root (concatenate 'string scratch "/state/tmp")
-                    :on-inside (lambda (path verdict) (declare (ignore path)) verdict)
-                    :on-outside (lambda (verdict lexical real) (declare (ignore lexical real)) verdict))))
-            (expect (verdict "src/new.lisp") :to-be :inside)
-            (expect (verdict "alias/new.lisp") :to-be :inside)
-            (expect (verdict "escape/new.lisp") :to-be :symlink-escape)
-            (expect (verdict "../outside/x") :to-be :outside-root)
-            (expect (verdict ".git/config") :to-be :git-directory)
-            (expect (verdict (concatenate 'string scratch "/state/tmp/scratch.txt")) :to-be :temporary)))))))
-
-  (it "maps in input order on the CPU-sized pool"
-    (expect (>= (aitools.workspace.infrastructure:processor-count) 1) :to-be-truthy)
-    (let ((items (loop for i from 0 below 500 collect i)))
-      (expect (aitools.workspace.infrastructure:call-with-ordered-mapper
-               (lambda (mapper) (funcall mapper (lambda (x) (* x x)) items)))
-              :to-equal (mapcar (lambda (x) (* x x)) items))))
-
-  (it "registers the host in a cl-boundary-kit boundary context"
-    (let* ((host (host-for "/"))
-           (context (aitools.workspace.infrastructure:with-workspace-boundaries
-                     (cl-boundary-kit:make-boundary-context) :host host)))
-      (expect (aitools.workspace.infrastructure::workspace-host-from-context context) :to-be host))))
-
-(describe "aitools workspace production host ports"
-  (it "answers NIL for what each reader cannot read"
+(describe "aitools workspace production boundary operations" (it "answers NIL for what each reader cannot read"
     (call-with-scratch-directory (lambda (scratch)
       (let ((file (concatenate 'string scratch "/plain.txt"))
             (missing (concatenate 'string scratch "/missing"))
@@ -132,7 +182,7 @@
     ;; Nix build sandbox has no /usr.
     (call-with-scratch-directory (lambda (scratch)
       (let ((previous (sb-posix:getcwd))
-            (host (aitools.workspace.infrastructure:make-host-workspace-host :getenv (constantly nil))))
+            (host (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv (constantly nil))))
         (unwind-protect
              (progn
                (sb-posix:chdir "/")
@@ -141,12 +191,7 @@
                (expect (aitools.workspace.application:host-current-directory host) :to-equal scratch))
           (sb-posix:chdir previous))))))
 
-  (it "refuses a host port that is not a function"
-    (expect (handler-case (aitools.workspace.application:make-workspace-host
-                           :list-directory #'identity :stat 42 :read-link #'identity :read-octets #'identity
-                           :getenv #'identity :home-directory #'identity :current-directory #'identity)
-              (error (condition) (princ-to-string condition)))
-            :to-equal "make-workspace-host: STAT must be a function, got 42")))
+  (it "refuses a non-function workspace capability" (expect (handler-case (aitools.workspace.application:make-workspace-boundaries :list-directory (function identity) :stat 42 :read-link (function identity) :read-octets (function identity) :environment (cl-boundary-kit:make-test-environment) :working-directory (cl-boundary-kit:make-test-working-directory) :home-directory (function identity)) (error (condition) (princ-to-string condition))) :to-equal "make-workspace-boundaries: STAT must be a function, got 42")))
 
 (describe "aitools workspace scan under a root reached through a symlink"
   (it "maps a start given by its real path into the root named through the link"
