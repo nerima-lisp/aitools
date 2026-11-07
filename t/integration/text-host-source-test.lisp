@@ -3,7 +3,7 @@
 ;;;; flow over it.
 (in-package #:aitools.text.integration-test)
 
-(defun source () (make-host-text-source))
+(defun source () (aitools.text.infrastructure:make-host-text-source))
 
 (describe "aitools text production source"
   (it "reads sizes, prefixes, whole files, and chunks of oddly named files"

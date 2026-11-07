@@ -135,7 +135,7 @@
 
 (describe "aitools.text.infrastructure make-host-text-source"
   (it "provides all file operations as boundary keys"
-    (let ((context (make-host-text-source)))
+    (let ((context (aitools.text.infrastructure:make-host-text-source)))
       (dolist (key (list :text-file-size
                          :text-read-prefix
                          :text-read-octets

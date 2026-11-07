@@ -7,7 +7,7 @@
        (declare (ignore state))
        (multiple-value-bind (range size)
            (funcall (cl-boundary-kit:boundary-context-require
-                     (make-host-text-source)
+                     (aitools.text.infrastructure:make-host-text-source)
                      :text-read-range)
                     (format nil "~A/absent" root) 0 4)
          (expect range :to-be nil)
@@ -20,7 +20,7 @@
          (aitools.test.support:write-bytes path #(1 2 3))
          (multiple-value-bind (range size)
              (funcall (cl-boundary-kit:boundary-context-require
-                       (make-host-text-source)
+                       (aitools.text.infrastructure:make-host-text-source)
                        :text-read-range)
                       path 1 1)
            (expect range :to-equalp #())
@@ -33,7 +33,7 @@
          (aitools.test.support:write-bytes path #(1 2 3))
          (multiple-value-bind (range size)
              (funcall (cl-boundary-kit:boundary-context-require
-                       (make-host-text-source)
+                       (aitools.text.infrastructure:make-host-text-source)
                        :text-read-range)
                       path 0 2)
            (expect range :to-equalp #(1 2))
@@ -46,7 +46,7 @@
          (aitools.test.support:write-bytes path #(1 2 3))
          (multiple-value-bind (range size)
              (funcall (cl-boundary-kit:boundary-context-require
-                       (make-host-text-source)
+                       (aitools.text.infrastructure:make-host-text-source)
                        :text-read-range)
                       path 1 99)
            (expect range :to-equalp #(2 3))
@@ -63,7 +63,7 @@
          (aitools.test.support:write-bytes path bytes)
          (multiple-value-bind (range size)
              (funcall (cl-boundary-kit:boundary-context-require
-                       (make-host-text-source)
+                       (aitools.text.infrastructure:make-host-text-source)
                        :text-read-range)
                       path 65534 65539)
            (expect range :to-equalp #(1 2 3 4 5))
