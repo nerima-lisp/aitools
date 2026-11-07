@@ -38,7 +38,6 @@
    (:file "application/edit/command-spec-data")
    (:file "application/edit/command-option-groups-data" :depends-on ("domain/protocol/selector-options-data"))
    (:file "presentation/process/command-schema-data")
-   (:file "presentation/vcs/command-schema-data")
    (:file "domain/env/tools-data")
    (:file "domain/util/util-tables-data" :depends-on ("table-macros"))
    (:file "domain/store/action-names-data")
@@ -67,7 +66,6 @@
                "aitools/feature/journal"
                "aitools/feature/edit"
                "aitools/feature/process"
-               "aitools/feature/vcs"
                "aitools/feature/org"
                "aitools/feature/env"
                "aitools/feature/util")
@@ -116,10 +114,6 @@
                              (:file "presentation/commands")))
                (:module "feature-process"
                 :pathname "packages/feature/process/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/commands")))
-               (:module "feature-vcs"
-                :pathname "packages/feature/vcs/src/"
                 :components ((:file "presentation/package")
                              (:file "presentation/commands")))
                (:module "feature-org"

@@ -2,7 +2,7 @@
 ;;;; Resolves line selectors (`--range`, `--symbol`, `--between`, `--match`)
 ;;;; against file lines. Results are selected ranges, no-match candidates,
 ;;;; ambiguous candidates, or an invalid selector code and message. The
-;;;; application layer exposes this as RESOLVE-SELECTOR/K to edit and VCS.
+;;;; application layer exposes this as RESOLVE-SELECTOR/K to edit.
 (in-package #:aitools.inspect.domain)
 
 (defconstant +selection-candidate-count+

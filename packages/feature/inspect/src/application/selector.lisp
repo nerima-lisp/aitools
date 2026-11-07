@@ -3,7 +3,7 @@
 ;;;; "Conventions shared by many commands"): turning
 ;;;; parsed options into one kernel SELECTOR under the "one selector per
 ;;;; call" rule, and resolving it against a file's lines. `read` and
-;;;; `archive read` use it here; the edit and vcs contexts reach it through
+;;;; `archive read` use it here; the edit context reaches it through
 ;;;; this package, the only part of inspect they may reference.
 (in-package #:aitools.inspect.application)
 

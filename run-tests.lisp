@@ -37,7 +37,7 @@
       (:store . "packages/core/store/src/") (:composition . "src/") (:search . "packages/feature/search/src/")
       (:inspect . "packages/feature/inspect/src/") (:edit . "packages/feature/edit/src/")
       (:journal . "packages/feature/journal/src/") (:process . "packages/feature/process/src/")
-      (:vcs . "packages/feature/vcs/src/") (:org . "packages/feature/org/src/")
+      (:org . "packages/feature/org/src/")
       (:env . "packages/feature/env/src/") (:util . "packages/feature/util/src/")))
   (defparameter *coverage-exclusion-rules* '(("data/" . "Shared data tables have no single executable-context owner.")))
   (defun coverage-prefix-p (prefix string)

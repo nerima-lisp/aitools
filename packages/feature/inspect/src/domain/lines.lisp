@@ -9,8 +9,8 @@
 (deftype octet-vector ()
   '(simple-array (unsigned-byte 8) (*)))
 
-;;; SPLIT-TEXT-LINES and DECODE-TEXT-LINES are core text operations shared by
-;;; the inspect and vcs contexts; they live in AITOOLS.TEXT.DOMAIN (see
+;;; SPLIT-TEXT-LINES and DECODE-TEXT-LINES are core text operations used by
+;;; inspect; they live in AITOOLS.TEXT.DOMAIN (see
 ;;; packages/core/text/src/domain/lines.lisp) and are imported here.
 (defun %utf8-cut (octets start cut)
   "CUT moved back to the start of the UTF-8 character it would split, but

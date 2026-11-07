@@ -21,7 +21,7 @@
 (in-package #:aitools.integration.structure-test)
 
 (defparameter *core-contexts* '("kernel" "protocol" "workspace" "text" "store"))
-(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "vcs" "org" "env" "util"))
+(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "org" "env" "util"))
 (defparameter *all-contexts* (append *core-contexts* *feature-contexts*))
 
 (defun context-package-name (context layer)
@@ -40,7 +40,7 @@
   ;; SB-GRAY adapts caller-owned input streams without closing them; SB-UNIX
   ;; polls their descriptors so the process feeder can observe cancellation.
   ;; These host effects remain confined to infrastructure.
-  '("HOST-KIT" "PROCESS-KIT" "VCS-KIT" "CL-CONCURRENT-KIT" "CL-BOUNDARY-KIT"
+  '("HOST-KIT" "PROCESS-KIT" "CL-CONCURRENT-KIT" "CL-BOUNDARY-KIT"
     "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
     "SB-GRAY" "SB-UNIX" "UIOP"))
 

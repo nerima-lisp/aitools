@@ -108,8 +108,6 @@ layer that owns ARGUMENT.INVALID formatting catches it."
     (:read          . (:range :symbol :between :match))
     (:transform     . (:range :symbol :between :match))
     (:move-lines    . (:range :symbol :between :match))
-    (:git-blame     . (:range :symbol :between :match))
-    (:git-show      . (:range :symbol :between :match))
     (:archive-read  . (:range :symbol :between :match))
     (:insert        . (:range :symbol :between :match))
     (:replace       . (:range :symbol :between :match)))

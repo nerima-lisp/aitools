@@ -1,11 +1,10 @@
 ;;;;
 ;;;; The selector options (every selector but --old; one selector per
-;;;; call), as the single data definition three presentation
+;;;; call), as the single data definition the two presentation
 ;;;; sites build their cl-cli options from: edit (command-spec's :selectors
-;;;; group), vcs (`git blame`/`git show`), and inspect (`read`, `archive
-;;;; read`). Each entry names the option, its kind, an optional value-name for
-;;;; help display, and the description; each site maps these through
-;;;; MAKE-OPTION so the three cannot drift apart.
+;;;; group) and inspect (`read`, `archive read`). Each entry names the option,
+;;;; its kind, an optional value-name for help display, and the description;
+;;;; each site maps these through MAKE-OPTION so the two cannot drift apart.
 (in-package #:aitools.data)
 
 (defparameter *selector-options*

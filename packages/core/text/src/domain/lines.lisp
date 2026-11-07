@@ -2,9 +2,8 @@
 ;;;; Whole-file UTF-8 bytes to line strings: the UTF-8 BOM never
 ;;;; appears in line 1, invalid UTF-8 becomes U+FFFD and is counted, and a
 ;;;; CRLF terminator's CR is dropped unless the caller needs to see it. These
-;;;; are core text operations the inspect and vcs contexts both read a file's
-;;;; lines through, so they live in the text domain rather than in one
-;;;; feature.
+;;;; are core text operations the inspect context reads a file's lines through,
+;;;; so they live in the text domain rather than in one feature.
 (in-package #:aitools.text.domain)
 
 (defun split-text-lines (string &key keep-cr)
