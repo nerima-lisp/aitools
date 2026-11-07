@@ -43,4 +43,6 @@
    #:default-repairs
    ;; commands.lisp
    #:run-edit-command
-   #:replay-edit-op #:+max-format-document-depth+))
+   #:replay-edit-op
+   #:register-format-document-replayers
+   #:+max-format-document-depth+))

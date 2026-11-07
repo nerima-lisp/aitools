@@ -80,5 +80,15 @@
                                 :repairs repairs
                                 :path path))))
 
-(dolist (name +replayable-commands+)
-  (aitools.journal.application:register-tx-replayer name #'replay-edit-op))
+(progn
+  (defun register-format-document-replayers (serializer)
+    (dolist (name
+             (list "doc.set" "doc.delete" "doc.merge" "doc.patch" "doc.fmt"))
+      (aitools.journal.application:register-tx-replayer
+       name
+       (lambda (argv view commit reject)
+         (replay-edit-op argv view commit reject :serializer serializer))))
+    t)
+  (dolist (name +replayable-commands+)
+    (aitools.journal.application:register-tx-replayer
+     name (function replay-edit-op))))

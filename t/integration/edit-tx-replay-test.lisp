@@ -84,32 +84,75 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal (format nil "head~%x = 2~%")))))))
 (describe "aitools tx rebase replays doc write commands"
-  (it "replays doc.set with an explicit format across JSON, YAML, and TOML bases"
-    (call-with-edit-workspace
-     (lambda ()
-       (dolist (format '("json" "yaml" "toml"))
-         (let* ((path (format nil "c.~A" format))
-                (original (cond ((string= format "json") "{\"a\":1}")
-                                ((string= format "yaml") (format nil "a: 1~%"))
-                                (t (format nil "a = 1~%"))))
-                (moved (cond ((string= format "json") "{\"a\":1,\"head\":true}")
-                             ((string= format "yaml") (format nil "a: 1~%head: true~%"))
-                             (t (format nil "a = 1~%head = true~%"))))
-                (expected (cond ((string= format "json") "{\"a\":2,\"head\":true}")
-                                ((string= format "yaml") (format nil "a: 2~%head: true~%"))
-                                (t (format nil "a = 2~%head = true~%")))))
-           (put path original)
-           (let ((tx (begin-tx)))
-             (expect (run-in tx "doc.set" (list path "/a" "2") :format format)
-                     :to-be :ok)
-             (put path moved)
-             (expect
-              (aitools.store.application:tx-rebase/k
-               (open-store *root*) tx (function replay-record)
-               :on-rebased (lambda (paths) paths)
-               :on-conflict (lambda (conflicts) (declare (ignore conflicts)) :conflict)
-               :on-not-found (lambda () :not-found)
-               :on-busy (lambda () :busy))
-              :to-equal (list path))
-             (expect (commit-tx tx) :to-be :committed)
-             (expect (text path) :to-equal expected))))))))
+  (it "replays every doc write verb with an explicit format across JSON, YAML, and TOML bases"
+    (labels ((write-in-tx (tx verb path format)
+               (cond
+                 ((string= verb "set")
+                  (run-in tx "doc.set" (list path "/key" "\"updated\"") :format format))
+                 ((string= verb "delete")
+                  (run-in tx "doc.delete" (list path "/drop") :format format))
+                 ((string= verb "merge")
+                  (run-in tx "doc.merge" (list path) :format format
+                          :stdin-data "{\"key\":\"updated\"}"))
+                 ((string= verb "patch")
+                  (run-in tx "doc.patch" (list path) :format format
+                          :stdin-data "[{\"op\":\"replace\",\"path\":\"/key\",\"value\":\"updated\"}]"))
+                 (t (run-in tx "doc.fmt" (list path) :format format))))
+             (base-document (format moved)
+               (cond
+                 ((string= format "json")
+                  (if moved
+                      "{ \"key\" : \"old\", \"drop\" : true, \"head\" : true }"
+                      "{ \"key\" : \"old\", \"drop\" : true }"))
+                 ((string= format "yaml")
+                  (if moved
+                      (format nil "key:    old~%drop:   true~%head: true~%")
+                      (format nil "key:    old~%drop:   true~%")))
+                 (t
+                  (if moved
+                      (format nil "key    = \"old\"~%drop   = true~%head = true~%")
+                      (format nil "key    = \"old\"~%drop   = true~%"))))))
+      (call-with-edit-workspace
+       (lambda ()
+         (dolist (format (list "json" "yaml" "toml"))
+           (dolist (verb (list "set" "delete" "merge" "patch" "fmt"))
+             (let ((path (format nil "doc-~A.~A" verb format)))
+               (put path (base-document format nil))
+               (let ((tx (begin-tx)))
+                 (expect (write-in-tx tx verb path format) :to-be :ok)
+                 (put path (base-document format t))
+                 (expect
+                  (aitools.store.application:tx-rebase/k
+                   (open-store *root*) tx (function replay-record)
+                   :on-rebased (lambda (paths) paths)
+                   :on-conflict
+                   (lambda (conflicts)
+                     (declare (ignore conflicts))
+                     :conflict)
+                   :on-not-found (lambda () :not-found)
+                   :on-busy (lambda () :busy))
+                  :to-equal (list path))
+                 (expect (commit-tx tx) :to-be :committed)
+                 (let ((content (text path)))
+                   (progn
+                     (expect (search "head" content) :to-be-truthy)
+                     (when (string= verb "fmt")
+                       (expect
+                        (search
+                         (cond
+                           ((string= format "json") "\"key\":")
+                           ((string= format "yaml") "key: old")
+                           (t "key = \"old\""))
+                         content)
+                        :to-be-truthy)))
+                   (expect
+                    (search
+                     (if (member verb (list "set" "merge" "patch")
+                                 :test (function string=))
+                         "updated"
+                         "old")
+                     content)
+                    :to-be-truthy)
+                   (if (string= verb "delete")
+                       (expect (search "drop" content) :to-be nil)
+                       (expect (search "drop" content) :to-be-truthy))))))))))))
