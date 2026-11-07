@@ -48,9 +48,13 @@ Built-in reads are not restricted to the workspace. Built-in writes outside it, 
 symlink that leaves it, or into the workspace's `.git/` fail with
 `refusal.outside-workspace`. `archive extract` entry paths and
 `copy --recursive` children go through the same boundary, so an archive entry
-or nested directory that resolves into `.git/` is refused. Extracted files
-get the entry's mode masked with `0755`: never group- or other-writable, and
-never setuid, setgid, or sticky. The state
+or nested directory that resolves into `.git/` is refused. `archive extract`
+rejects symlink targets during planning if they leave the destination after
+following symlinks from the archive. It also rejects targets that cross a
+symlink already in the destination. Before writing, it rejects archive entries
+whose parent path crosses an archive or destination symlink.
+Extracted files get the entry's mode masked with `0755`: never group- or
+other-writable, and never setuid, setgid, or sticky. The state
 directory lives outside the root, so writes there are refused too. The one
 exception is the temporary area that `aitools mktemp` creates; writes below
 the path it returns are allowed.

@@ -9,6 +9,7 @@
 
 ## v0.4.0
 
+- Security: Reject archive symlink targets that escape through archive or existing destination symlinks, and entries whose parent path passes through a symlink before writing.
 - Remove the top-level `delete` command. Use `rm` for files, symlinks, empty directories, and recursive trees.
 - Map the shell command `rmdir` to `aitools rm`; `rmdir` is not an aitools
   command. Calling the removed top-level `delete` command returns
