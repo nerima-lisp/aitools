@@ -89,7 +89,11 @@ is in neither context list)."
                 (and (string= own "AITOOLS.PROTOCOL.INFRASTRUCTURE") '("JSON-KIT"))))
        (:presentation
         (list (context-package-name context :application)
-              "AITOOLS.PROTOCOL.DOMAIN" "AITOOLS.PROTOCOL.APPLICATION" "CL-CLI"))))))
+              "AITOOLS.PROTOCOL.DOMAIN" "AITOOLS.PROTOCOL.APPLICATION" "CL-CLI"))
+       (:composition
+        (list (context-package-name context :presentation)
+              (context-package-name context :infrastructure)
+              "AITOOLS/CLI"))))))
 
 (defun symbol-allowed-p (context layer package symbol)
   (or (find-if (lambda (entry)

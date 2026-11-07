@@ -33,10 +33,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/util" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t
-    :components ((:file "package")
-                 (:file "util-commands")
-                 (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "util-commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/util"
   :description "Utility context tests."
