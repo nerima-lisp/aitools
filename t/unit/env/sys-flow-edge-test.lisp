@@ -1,7 +1,7 @@
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.application sys commands on an unsupported or sparse host"
-  (it "answers sys info on an unknown OS with environment.unavailable"
+  (it "rejects sys commands on an unknown OS"
     (let ((host (darwin-host)))
       (multiple-value-bind (kind error)
           (run-flow (function sys-info/k)
@@ -16,7 +16,15 @@
                     (make-fake-ports
                      :identity (list "FreeBSD" "14.1" "amd64")))
         (expect kind :to-be :error)
-        (expect (first error) :to-equal "environment.unavailable"))))
+        (expect (first error) :to-equal "environment.unavailable"))
+      (multiple-value-bind (kind error)
+          (run-flow (function sys-metrics/k)
+                    (make-fake-ports
+                     :identity (list "FreeBSD" "14.1" "amd64")
+                     :host host))
+        (expect kind :to-be :error)
+        (expect (first error) :to-equal "environment.unavailable")
+        (expect (fake-host-runs host) :to-equal nil))))
   #+darwin
   (it "rejects negative Darwin load averages"
     (multiple-value-bind (kind error)

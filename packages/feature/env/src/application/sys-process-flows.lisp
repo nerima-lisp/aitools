@@ -141,9 +141,14 @@ userspace tick (USER_HZ) at 100."
          (load-average (%load-average ports os)))
     (multiple-value-bind (cpus total available)
         (%cpus-and-memory ports os :strict t)
-      (let* ((program (case os
-                        (:linux (find-executable ports "ps"))
-                        (:darwin (%darwin-program :ps ports))))
+      (let* ((program
+               (progn
+                 #+linux
+                 (and (eq os :linux) (find-executable ports "ps"))
+                 #+darwin
+                 (and (eq os :darwin) (%darwin-program :ps ports))
+                 #-(or linux darwin)
+                 nil))
              (records
                (and program
                     (aitools.env.domain:parse-process-metrics
@@ -177,13 +182,15 @@ userspace tick (USER_HZ) at 100."
                             (%object (cons "total_bytes" total)
                                      (cons "available_bytes" available)
                                      (cons "available_basis"
-                                           (if (eq os :linux)
-                                               "mem_available_or_free_buffers_cached"
-                                               "free_inactive_speculative_pages"))))
+                                           (progn
+                                             #+linux "mem_available_or_free_buffers_cached"
+                                             #+darwin "free_inactive_speculative_pages"
+                                             #-(or linux darwin) "unknown"))))
                       (cons "process_cpu_basis"
-                            (if (eq os :linux)
-                                "lifetime_average"
-                                "decaying_average"))
+                            (progn
+                              #+linux "lifetime_average"
+                              #+darwin "decaying_average"
+                              #-(or linux darwin) "unknown"))
                       (cons "items"
                             (loop for record in (subseq sorted 0 (min limit count))
                                   collect
