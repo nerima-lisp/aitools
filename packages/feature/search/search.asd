@@ -23,3 +23,13 @@
                  (:file "overview-flow")))
    (:module "infrastructure" :serial t
     :components ((:file "package") (:file "ports")))))
+(defsystem "aitools/feature/search/presentation"
+  :description "Search and find CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/search" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "commands")
+                 (:file "command-registration")
+                 (:file "context-registration")))))

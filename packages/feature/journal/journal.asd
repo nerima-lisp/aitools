@@ -19,3 +19,12 @@
                  (:file "tx-commit-flows")))
    (:module "infrastructure"
     :components ((:file "package") (:file "ports")))))
+(defsystem "aitools/feature/journal/presentation"
+  :description "Journal and undo CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/journal" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "commands")
+                 (:file "context-registration")))))

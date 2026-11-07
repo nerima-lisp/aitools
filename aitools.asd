@@ -44,7 +44,7 @@
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
    (:file "presentation/edit/command-schema-data")
-   (:file "presentation/edit/doc-command-schema-data")))
+   (:file "presentation/edit/yaml-toml-command-schema-data")))
 
 (defsystem "aitools"
   :description "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends: JSON-only output, crash-safe writes, and a built-in undo history."
@@ -75,6 +75,17 @@
                       (funcall next)))
   :in-order-to ((test-op (test-op "aitools/test"))))
 
+(defsystem "aitools/cli/foundation"
+  :description "Shared CLI package and runtime foundation."
+  :depends-on ("aitools" "cl-cli" "cl-observability-kit")
+  :pathname "src/"
+  :serial t
+  :components ((:file "package")
+               (:file "trace-context" :depends-on ("package"))
+               (:file "trace-store-io" :depends-on ("trace-context"))
+               (:file "registry" :depends-on ("package"))
+               (:file "workspace-context" :depends-on ("package"))
+               (:file "context-registration-definitions" :depends-on ("package"))))
 (defsystem "aitools/cli"
   :description "Command-line executable for aitools."
   :author "takeokunn <bararararatty@gmail.com>"
@@ -84,65 +95,22 @@
   :homepage "https://github.com/nerima-lisp/aitools"
   :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
   :source-control (:git "https://github.com/nerima-lisp/aitools.git")
-  :depends-on ("aitools" "cl-cli" "cl-observability-kit")
+  :depends-on ("aitools"
+               "aitools/cli/foundation"
+               "cl-cli"
+               "cl-observability-kit"
+               "aitools/feature/search/presentation"
+               "aitools/feature/inspect/presentation"
+               "aitools/feature/edit/presentation"
+               "aitools/feature/journal/presentation"
+               "aitools/feature/process/presentation"
+               "aitools/feature/org/presentation"
+               "aitools/feature/env/presentation"
+               "aitools/feature/util/presentation")
   :pathname "."
-  ;; Each feature context's presentation layer (its cl-cli command
-  ;; definitions), in module order, ahead of the CLI's own src/ module.
-  :components ((:module "feature-search"
-                :pathname "packages/feature/search/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/commands")
-                             (:file "presentation/command-registration")))
-               (:module "feature-inspect"
-                :pathname "packages/feature/inspect/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/registry")
-                             (:file "presentation/file-commands")
-                             (:file "presentation/json-commands")
-                             (:file "presentation/table-commands")
-                             (:file "presentation/archive-commands")
-                             (:file "presentation/snapshot-commands")))
-               (:module "feature-journal"
-                :pathname "packages/feature/journal/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/commands")))
-               (:module "feature-edit"
-                :pathname "packages/feature/edit/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/commands")))
-               (:module "feature-process"
-                :pathname "packages/feature/process/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/commands")))
-               (:module "feature-org"
-                :pathname "packages/feature/org/src/"
-                :components ((:file "presentation/package")
- (:file "presentation/commands")
- (:file "presentation/command-support")
- (:file "presentation/todo-property-commands")
- (:file "presentation/planning-clock-commands")
- (:file "presentation/agenda-report-commands")
- (:file "presentation/table-commands")
- (:file "presentation/command-registration")))
-               (:module "feature-env"
-                :pathname "packages/feature/env/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/env-command-support")
-                             (:file "presentation/env-sys-command-builders")
-                             (:file "presentation/env-time-command-builders")
-                             (:file "presentation/env-commands")))
-               (:module "feature-util"
-                :pathname "packages/feature/util/src/"
-                :components ((:file "presentation/package")
-                             (:file "presentation/util-commands")))
-               (:module "src"
+  :components ((:module "src"
                 :pathname "src/"
-                :components ((:file "package")
-                             (:file "trace-context" :depends-on ("package"))
-                             (:file "trace-store-io" :depends-on ("trace-context"))
-                             (:file "registry")
-                             (:file "workspace-context")
-                             (:file "context-registration")
+                :components ((:file "context-registration")
                              (:file "schema")
                              (:file "dispatch-names")
                              (:file "dispatch")

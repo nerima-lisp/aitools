@@ -83,3 +83,19 @@
                         (:module "infrastructure"
                                  :components
                                  ((:file "package") (:file "ports")))))
+(defsystem "aitools/feature/inspect/presentation"
+  :description "Inspection and archive CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/inspect" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "registry")
+                 (:file "file-commands")
+                 (:file "json-commands")
+                 (:file "yaml-commands")
+                 (:file "toml-commands")
+                 (:file "table-commands")
+                 (:file "archive-commands")
+                 (:file "snapshot-commands")
+                 (:file "context-registration")))))
