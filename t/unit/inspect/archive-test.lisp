@@ -101,7 +101,7 @@
                  (make-array (1+ +archive-max-entry+)
                              :element-type (quote (unsigned-byte 8))
                              :initial-element 0)
-                 :level 0)))
+                 :level 9)))
           (multiple-value-bind (kind fields)
               (run-flow
                 (symbol-function (quote archive-read-flow))
