@@ -215,7 +215,10 @@ or to `.out` when that fallback is unsafe or has no basename."
     (deflate-kit:checksum-error ()
       (%archive-fail "gzip checksum mismatch"))
     (deflate-kit:inflate-invalid-data (condition)
-      (%archive-fail (deflate-kit:deflate-error-message condition)))
+      (%archive-fail
+       (if (eq (deflate-kit:inflate-error-reason condition) :truncated-input)
+           "field is truncated"
+           (deflate-kit:deflate-error-message condition))))
     (deflate-kit:deflate-error ()
       (%archive-fail "invalid gzip stream"))))
 
