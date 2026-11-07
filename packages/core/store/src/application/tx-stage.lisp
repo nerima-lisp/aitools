@@ -115,7 +115,8 @@ repairs path); ON-NOT-FOUND and ON-BUSY receive no arguments."
                                                                       :previous previous :after after
                                                                       :replayable (and replayable t)
                                                                       :time (aitools.kernel.domain:iso8601-utc
-                                                                             (%io store now)))))))
+                                                                             (cl-boundary-kit:clock-now
+                                                                              (store-clock store))))))))
                                        (lambda ()
                                          (aitools.kernel.domain:flow-continue
                                           :on-staged tx-op results))))))

@@ -34,76 +34,71 @@ lock is held."
                                   :on-busy (lambda () :busy))
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
-        (kill-child pid))) :fake-monotonic-clock t))
+        (kill-child pid))) :io nil))
   (it "accepts a lock acquired after the deadline"
-    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
-             (real-try-lock (symbol-function 'store-io-try-lock))
-             (real-unlock (symbol-function 'store-io-unlock))
-             (real-monotonic-ms (symbol-function 'store-io-monotonic-ms))
-             (clock-ms 0)
-             (acquired-handle nil)
-             (unlocked-handles nil)
-             (lock-path nil)
-             (io (aitools.store.application::copy-store-io base-io))
-             (store (make-store
-                     io
-                     (store-root plain)
-                     (subseq (store-state-directory plain)
-                             0
-                             (position (char "/" 0) (store-state-directory plain) :from-end t))))
-             (outcome nil))
-        (cl-weave:with-mocked-functions
-            (((symbol-function 'store-io-try-lock)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda (path &rest keys)
-                      (setf lock-path path)
-                      (let ((handle
-                              (apply (funcall real-try-lock base-io) path keys)))
-                        (setf acquired-handle handle)
-                        (when handle
-                          (incf clock-ms 101))
-                        handle))
-                    (funcall real-try-lock candidate-io))))
-             ((symbol-function 'store-io-unlock)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda (handle)
-                      (push handle unlocked-handles)
-                      (funcall (funcall real-unlock base-io) handle))
-                    (funcall real-unlock candidate-io))))
-             ((symbol-function 'store-io-monotonic-ms)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda () clock-ms)
-                    (funcall real-monotonic-ms candidate-io)))))
-          (unwind-protect
-               (progn
-                 (setf outcome
-                       (with-workspace-lock (store 100 :on-timeout :busy)
-                         :acquired))
-                 (let ((expansion
-                        (macroexpand-1
-                         (quote (aitools.store.application:with-workspace-lock
-                                 (store 100 :on-timeout :busy)
-                                 :acquired)))))
-                   (expect (first expansion)
-                           :to-be (quote aitools.kernel.domain:flow-call))
-                   (expect (mapcar (function first) (cddr expansion))
-                           :to-equal (quote (:on-acquired :on-timeout)))
-                   (expect outcome :to-be :acquired))
-                 (expect acquired-handle :to-be-truthy)
-                 (expect unlocked-handles :to-equal (list acquired-handle))
-                 (let ((again (funcall (funcall real-try-lock base-io) lock-path)))
-                   (expect (integerp again) :to-be t)
-                   (when (integerp again)
-                     (funcall (funcall real-unlock base-io) again))))
-            (when (and acquired-handle
-                       (not (member acquired-handle unlocked-handles :test (function eql))))
-              (funcall (funcall real-unlock base-io) acquired-handle)))))) :io nil))
-
+  (call-with-temp-store
+   (lambda (plain)
+     (let* ((base-io (store-io-port plain))
+            (real-try-lock (symbol-function 'store-io-try-lock))
+            (real-unlock (symbol-function 'store-io-unlock))
+            (clock (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0))
+            (acquired-handle nil)
+            (unlocked-handles nil)
+            (lock-path nil)
+            (io (aitools.store.application::copy-store-io base-io))
+            (store (make-store
+                    io
+                    (store-root plain)
+                    (subseq (store-state-directory plain)
+                            0
+                            (position #\/ (store-state-directory plain) :from-end t))
+                    :clock clock
+                    :sleeper (cl-boundary-kit:make-sleeper)))
+            (outcome nil))
+       (cl-weave:with-mocked-functions
+           (((symbol-function 'store-io-try-lock)
+             (lambda (candidate-io)
+               (if (eq candidate-io io)
+                   (lambda (path &rest keys)
+                     (setf lock-path path)
+                     (let ((handle
+                             (apply (funcall real-try-lock base-io) path keys)))
+                       (setf acquired-handle handle)
+                       (when handle
+                         (cl-boundary-kit:advance-fake-clock
+                          clock 0
+                          :monotonic-delta
+                          (* 101 (/ internal-time-units-per-second 1000))))
+                       handle))
+                   (funcall real-try-lock candidate-io))))
+            ((symbol-function 'store-io-unlock)
+             (lambda (candidate-io)
+               (if (eq candidate-io io)
+                   (lambda (handle)
+                     (push handle unlocked-handles)
+                     (funcall (funcall real-unlock base-io) handle))
+                   (funcall real-unlock candidate-io)))))
+         (unwind-protect
+              (progn
+                (setf outcome
+                      (with-workspace-lock (store 100 :on-timeout :busy)
+                        :acquired))
+                (progn
+                  (let ((e (macroexpand-1 '(aitools.store.application:with-workspace-lock (store 100 :on-timeout :busy) :acquired))))
+                    (expect (list outcome (first e) (mapcar (function first) (cddr e)))
+                            :to-equal '(:acquired aitools.kernel.domain:flow-call (:on-acquired :on-timeout)))))
+                (expect acquired-handle :to-be-truthy)
+                (expect unlocked-handles :to-equal (list acquired-handle))
+                (let ((again (funcall (funcall real-try-lock base-io) lock-path)))
+                  (expect (integerp again) :to-be t)
+                  (when (integerp again)
+                    (funcall (funcall real-unlock base-io) again))))
+           (when (and acquired-handle
+                      (not (member acquired-handle unlocked-handles :test (function eql))))
+             (funcall (funcall real-unlock base-io) acquired-handle))))))))
   (it "waits for the holder and then writes"
     (call-with-temp-store (lambda (store) (let* ((pid (hold-lock-in-child store 0.5))
+             (start (get-internal-real-time))
              (outcome (commit-changes/k store '("write")
                                         (lambda (commit reject)
                                           (declare (ignore reject))
@@ -112,17 +107,15 @@ lock is held."
                                         :on-committed (lambda (&rest args) (declare (ignore args)) :committed)
                                         :on-rejected (lambda (&rest args) (declare (ignore args)) :rejected)
                                         :on-busy (lambda () :busy)))
-             (waited-ms (funcall (store-io-monotonic-ms (store-io-port store)))))
+             (waited (/ (- (get-internal-real-time) start) internal-time-units-per-second)))
         (expect outcome :to-be :committed)
-        (expect waited-ms :to-be-greater-than 0)
+        (expect waited :to-be-greater-than 0.1)
         (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))
-        (expect (disk-text store "x") :to-equal "x"))) :fake-monotonic-clock t))
-
+        (expect (disk-text store "x") :to-equal "x"))) :io nil))
   (it "is released by the OS when the holder is killed"
     (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 60)))
         (expect (multiple-value-list (kill-child pid)) :to-equal (list :signalled sb-posix:sigkill))
         (expect (with-workspace-lock (store 2000 :on-timeout :busy) :acquired) :to-be :acquired))) :io nil))
-
   (it "serialises two processes' writes to the journal"
     (call-with-temp-store (lambda (store) (let ((pids (loop for n from 0 below 2
                         collect (let ((n n))
@@ -133,24 +126,16 @@ lock is held."
                                                                                       (bytes "x")))))))))))
         (dolist (pid pids)
           (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))))
-      (expect (length (read-journal store)) :to-be 10)) :fake-monotonic-clock t)))
+      (expect (length (read-journal store)) :to-be 10)) :io nil)))
 
 (describe "aitools.store tx lock and the flock primitive"
   (it "runs WITH-TX-LOCK's body, or its not-found form for an unknown tx"
     (call-with-temp-store (lambda (store) (let ((tx (begin store)))
-        (let ((expansion
-          (macroexpand-1
-           (quote (aitools.store.application:with-tx-lock
-                   (store tx 1000 :on-timeout :busy :on-not-found :missing)
-                   :held)))))
-          (expect (first expansion)
-                  :to-be (quote aitools.kernel.domain:flow-call))
-          (expect (mapcar (function first) (cddr expansion))
-                  :to-equal (quote (:on-acquired :on-timeout :on-not-found)))
-          (expect (with-tx-lock
-                      (store tx 1000 :on-timeout :busy :on-not-found :missing)
-                    :held)
-                  :to-be :held))
+        (progn
+          (let ((e (macroexpand-1 '(aitools.store.application:with-tx-lock (store tx 1000 :on-timeout :busy :on-not-found :missing) :held))))
+            (expect (list (first e) (mapcar (function first) (cddr e))
+                          (with-tx-lock (store tx 1000 :on-timeout :busy :on-not-found :missing) :held))
+                    :to-equal '(aitools.kernel.domain:flow-call (:on-acquired :on-timeout :on-not-found) :held))))
         (expect (with-tx-lock (store (format-tx-id 3964000000 "00000000") 1000 :on-timeout :busy :on-not-found :missing)
                   :held)
                 :to-be :missing))) :io nil))
@@ -164,7 +149,7 @@ lock is held."
                        (sleep 3))))))
         (wait-until-exists store "locked")
         (expect (with-tx-lock (store tx 100 :on-timeout :busy :on-not-found :missing) :held) :to-be :busy)
-        (kill-child pid))) :fake-monotonic-clock t))
+        (kill-child pid))) :io nil))
 
   (it "takes an exclusive flock once per open file description"
     (call-with-temp-store (lambda (store) (let* ((io (store-io-port store))

@@ -99,14 +99,11 @@ names the path, while TO is what blocks the rename. The detail names FROM."
                                                          :detail (format nil "~A (renaming ~A)" (sb-int:strerror errno) from))))
                                               result))))))
 
-(defun make-posix-store-io (&key root
-                                 (clock (cl-boundary-kit:make-clock))
-                                 (sleeper (cl-boundary-kit:make-sleeper)))
+(defun make-posix-store-io (&key root)
   "The production STORE-IO. Changes to paths below ROOT (the workspace's real
 root path, or NIL for none) go through pinned parent directories; see this
-file's header. CLOCK supplies `now` (universal time, for journal times and
-ids) and the monotonic time lock waits are measured in; SLEEPER performs the
-waits between lock attempts."
+file's header. Its retry adapter runs resilience-kit with the CLOCK and SLEEPER
+held by the store, and declares the clock's internal-time tick rate."
   (let ((root (and root (%strip-trailing-slash root))))
     (make-store-io
      :lstat #'%lstat
@@ -148,22 +145,14 @@ waits between lock attempts."
      :list-directory #'%list-directory
      :try-lock #'%try-lock
      :unlock #'%unlock
-     :sleep (lambda (milliseconds) (cl-boundary-kit:sleeper-sleep sleeper (/ milliseconds 1000)))
-     :monotonic-ms (lambda ()
-                     (floor (* 1000 (cl-boundary-kit:clock-monotonic clock)) internal-time-units-per-second))
-     :now (lambda () (cl-boundary-kit:clock-now clock))
      :call-with-retry
-     (lambda (policy thunk monotonic-ms sleep)
+     (lambda (policy thunk clock sleeper)
        (handler-case
            (resilience-kit:call-with-retry
             policy thunk
-            :clock (cl-boundary-kit:make-clock :monotonic-fn monotonic-ms)
-            :monotonic-units-per-second 1000d0
-            :sleeper
-            (cl-boundary-kit:make-sleeper
-             :sleep-fn
-             (lambda (seconds)
-               (funcall sleep (ceiling (* seconds 1000))))))
+            :clock clock
+            :monotonic-units-per-second internal-time-units-per-second
+            :sleeper sleeper)
          (resilience-kit:retry-exhausted () nil)))
      :random-hex #'%random-hex)))
 

@@ -2,7 +2,7 @@
 ;;;; The store context's public application boundary: the workspace and tx
 ;;;; locks, the write protocol and recovery, the journal, blobs and
 ;;;; undo, and the tx overlay. Every entry point takes a STORE (the
-;;;; filesystem port, the workspace root, and its state directory) and
+;;;; file operations, clock, sleeper, workspace root, and state directory) and
 ;;;; workspace-relative path strings; no function here reads the process
 ;;;; environment or the current directory.
 (in-package #:cl-user)
@@ -33,9 +33,7 @@
    #:store-io-list-directory
    #:store-io-try-lock
    #:store-io-unlock
-   #:store-io-sleep
-   #:store-io-monotonic-ms
-   #:store-io-now
+   #:store-clock
    #:store-io-random-hex
    #:store-io-error
    #:store-byte-limit-error

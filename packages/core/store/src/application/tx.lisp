@@ -93,7 +93,7 @@
    (aitools.kernel.domain:flow-call
        (call-with-workspace-lock/k store lock-timeout-ms)
      (:on-acquired ()
-       (let* ((now (%io store now))
+       (let* ((now (cl-boundary-kit:clock-now (store-clock store)))
               (tx-id (format-tx-id now (%io store random-hex 8)))
               (created (aitools.kernel.domain:iso8601-utc now))
               (root (tx-root-directory (store-state-directory store)))

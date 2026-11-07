@@ -40,7 +40,7 @@
                 #:path-hash
                 #:view-path-state #:view-read-file #:find-journal-entry #:read-blob #:workspace-state
                 #:store-io-port #:store-io-read-file #:store-io-create-file #:store-io-rename
-                #:store-io-mkdir #:store-io-list-directory #:store-io-lstat #:store-io-now
+                #:store-io-mkdir #:store-io-list-directory #:store-io-lstat #:store-clock
                 #:store-io-random-hex)
   ;; snapshot-flows.lisp
   (:import-from #:aitools.store.application #:store-state-directory)

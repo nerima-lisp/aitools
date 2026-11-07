@@ -1,7 +1,9 @@
 (in-package #:aitools.store.application)
 
 (defun %new-id (store formatter)
-  (funcall formatter (%io store now) (%io store random-hex 8)))
+  (funcall formatter
+           (cl-boundary-kit:clock-now (store-clock store))
+           (%io store random-hex 8)))
 
 (aitools.kernel.domain:define-flow
     (%disk-plan/k store requests &key on-planned on-rejected)
@@ -54,7 +56,8 @@ with the workspace lock held. Returns the new op id."
   (let* ((state (store-state-directory store))
          (op-id (%new-id store #'format-op-id))
          (entry (make-journal-entry :op-id op-id :argv argv
-                                    :time (aitools.kernel.domain:iso8601-utc (%io store now))
+                                    :time (aitools.kernel.domain:iso8601-utc
+                                           (cl-boundary-kit:clock-now (store-clock store)))
                                     :changes (mapcar #'%strip-contents results)
                                     :undoes undoes))
          (steps (changes->steps op-id results

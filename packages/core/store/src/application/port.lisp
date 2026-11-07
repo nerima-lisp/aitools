@@ -1,14 +1,14 @@
 ;;;;
-;;;; STORE-IO is the store's file, clock, and retry port. cl-boundary-kit's
+;;;; STORE-IO carries the store's specialized file operations. cl-boundary-kit's
 ;;;; filesystem shape (read/store/rename/delete whole files) cannot express
 ;;;; the write protocol: it needs exclusive creation with fsync, a separately
 ;;;; synced append, lstat without following symlinks, chmod, symlink
-;;;; creation, and flock. So the port is defined here, with closures per
+;;;; creation, and flock. The port is defined here, with closures per
 ;;;; primitive over absolute native path strings; the production adapter
-;;;; (infrastructure) builds it from sb-posix, libc flock, and the
-;;;; cl-boundary-kit clock and sleeper boundaries. It also supplies the
-;;;; resilience-kit retry adapter. Tests wrap a real adapter with COPY-STORE-IO
-;;;; to inject behaviour at one port.
+;;;; (infrastructure) builds it from sb-posix and libc flock and supplies the
+;;;; resilience-kit retry adapter. STORE holds CLOCK and SLEEPER boundaries
+;;;; directly. Tests wrap a real adapter with COPY-STORE-IO to inject behaviour
+;;;; at one file operation.
 ;;;;
 ;;;; File primitives signal STORE-IO-ERROR on failure. Their contracts:
 ;;;;
@@ -34,9 +34,8 @@
 ;;;;   try-lock (path &key create)   -> handle, or NIL when another open file
 ;;;;                                    description holds the exclusive lock
 ;;;;   unlock (handle)
-;;;;   call-with-retry (policy thunk monotonic-ms sleep)
-;;;;                                  -> thunk result; NIL on exhaustion
-;;;;   sleep (milliseconds) / monotonic-ms () / now () -> universal time
+;;;;   call-with-retry (policy thunk clock sleeper)
+;;;;                                  -> thunk result; NIL on retry exhaustion
 ;;;;   random-hex (count)            -> COUNT lowercase hex digits
 (in-package #:aitools.store.application)
 
@@ -61,18 +60,15 @@
   (try-lock nil :type function :read-only t)
   (unlock nil :type function :read-only t)
   (call-with-retry nil :type function :read-only t)
-  (sleep nil :type function :read-only t)
-  (monotonic-ms nil :type function :read-only t)
-  (now nil :type function :read-only t)
   (random-hex nil :type function :read-only t))
 
 (declaim (notinline store-io-append-file store-io-rename store-io-unlink
                     store-io-read-file store-io-chmod-directory-identity
-                    store-io-try-lock store-io-unlock store-io-sleep
-                    store-io-monotonic-ms store-io-random-hex store-io-mkdir))
+                    store-io-try-lock store-io-unlock
+                    store-io-random-hex store-io-mkdir))
 
 (defun copy-store-io (io &rest overrides &key &allow-other-keys)
-  "A STORE-IO identical to IO except for the ports named in OVERRIDES
+  "A STORE-IO identical to IO except for the file operations named in OVERRIDES
 (keyword = slot name)."
   (flet ((pick (key reader)
            (or (getf overrides key) (funcall reader io))))
@@ -96,9 +92,6 @@
                    :try-lock (pick :try-lock #'store-io-try-lock)
                    :unlock (pick :unlock #'store-io-unlock)
                    :call-with-retry (pick :call-with-retry #'store-io-call-with-retry)
-                   :sleep (pick :sleep #'store-io-sleep)
-                   :monotonic-ms (pick :monotonic-ms #'store-io-monotonic-ms)
-                   :now (pick :now #'store-io-now)
                    :random-hex (pick :random-hex #'store-io-random-hex))))
 
 (define-condition store-io-error (error)
@@ -133,8 +126,10 @@ anything is prepared; COMMIT-CHANGES/K reports it through ON-REJECTED.")
   (:report (lambda (condition stream)
              (write-string (store-refusal-message condition) stream))))
 
-(defstruct (store (:constructor %make-store (io-port root state-directory temporary)) (:copier nil))
+(defstruct (store (:constructor %make-store (io-port clock sleeper root state-directory temporary)) (:copier nil))
   (io-port nil :type store-io :read-only t)
+  (clock nil :read-only t)
+  (sleeper nil :read-only t)
   ;; The workspace root's real path, no trailing slash.
   (root nil :type string :read-only t)
   ;; <state>/<workspace-id>, see WORKSPACE-STATE-DIRECTORY.
@@ -158,12 +153,12 @@ XDG-STATE-HOME and HOME are the environment's values, read by the caller.
 Its `tmp/` (TMP-DIRECTORY) is `mktemp`'s area and `bg/` the bg logs."
   (workspace-state-directory (state-home xdg-state-home home) (%normalize-root real-root)))
 
-(defun make-store (io root state-home &key temporary)
-  "A STORE over IO for the workspace whose real (symlink-resolved) root path
-is ROOT, keeping its state under STATE-HOME (see STATE-HOME in the domain).
-With TEMPORARY, ROOT is instead a workspace's mktemp area,
-`<STATE-HOME>/<workspace-id>/tmp`: the store writes there without a journal
-or intent record and locks that workspace."
+(defun make-store (io root state-home &key temporary
+                                           (clock (cl-boundary-kit:make-clock))
+                                           (sleeper (cl-boundary-kit:make-sleeper)))
+  "Create a store for the real workspace ROOT. CLOCK supplies transaction
+timestamps and lock timing; SLEEPER waits between lock attempts. TEMPORARY
+stores write under the workspace mktemp area without an intent record."
   (let ((root (%normalize-root root)))
     (if temporary
         (let* ((slash (position #\/ root :from-end t))
@@ -173,8 +168,8 @@ or intent record and locks that workspace."
           (unless (and (string= (subseq root (1+ slash)) "tmp")
                        id (plusp (length id)) (not (member id '("." "..") :test #'string=)))
             (error "a temporary store root must be a workspace's tmp directory: ~S" root))
-          (%make-store io root (join-path state-home id) t))
-        (%make-store io root (workspace-state-directory state-home root) nil))))
+          (%make-store io clock sleeper root (join-path state-home id) t))
+        (%make-store io clock sleeper root (workspace-state-directory state-home root) nil))))
 
 (defun workspace-state-root (state-directory)
   "`<state-home>/aitools`, the directory holding STATE-DIRECTORY

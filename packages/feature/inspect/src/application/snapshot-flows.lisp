@@ -62,7 +62,7 @@
 
 (defun %now-unix (context)
   (aitools.kernel.domain:universal-time-to-unix-seconds
-   (funcall (%store-io (context-store context) #'store-io-now))))
+   (cl-boundary-kit:clock-now (store-clock (context-store context)))))
 
 (aitools.kernel.domain:define-flow
     (%scan-options/k context &key glob lang no-ignore skip-larger-than newer on-options on-error)

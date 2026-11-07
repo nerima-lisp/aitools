@@ -1,9 +1,10 @@
 ;;;;
 ;;;; The workspace lock and the per-tx lock: an exclusive
 ;;;; flock on a lock file, held for the dynamic extent of ON-ACQUIRED.
-;;;; flock has no timed wait. Resilience-kit retries non-blocking attempts
-;;;; with delays doubling from 5 ms to 100 ms using the store's monotonic clock
-;;;; and `--lock-timeout`.
+;;;; flock has no timed wait. Resilience-kit retries non-blocking attempts with
+;;;; delays doubling from 5 ms to 100 ms. CLOCK-MONOTONIC's internal-time ticks
+;;;; are converted to --lock-timeout milliseconds; each retry delay is returned
+;;;; in seconds for the store's sleeper.
 ;;;; The OS releases the lock when the process dies, so a crashed writer never
 ;;;; leaves a stale lock.
 ;;;;
@@ -71,7 +72,13 @@ another umask left it readable by others."
       (let ((handle
               (if (<= timeout-ms 0)
                   (%io store try-lock path :create create)
-                  (let* ((retry-start-ms (%io store monotonic-ms))
+                  (let* ((clock (store-clock store))
+                         (sleeper (store-sleeper store))
+                         (monotonic-ms
+                           (lambda ()
+                             (floor (* 1000 (cl-boundary-kit:clock-monotonic clock))
+                                    internal-time-units-per-second)))
+                         (retry-start-ms (funcall monotonic-ms))
                          (policy
                            (resilience-kit:make-retry-policy
                             :max-attempts (%lock-retry-attempt-limit timeout-ms)
@@ -83,7 +90,7 @@ another umask left it readable by others."
                             :result-classifier
                             (lambda (result attempt)
                               (when (null result)
-                                (let* ((elapsed (- (%io store monotonic-ms)
+                                (let* ((elapsed (- (funcall monotonic-ms)
                                                    retry-start-ms))
                                        (remaining (- timeout-ms elapsed)))
                                   (when (plusp remaining)
@@ -94,15 +101,15 @@ another umask left it readable by others."
                     (%io store call-with-retry
                          policy
                          (lambda () (%io store try-lock path :create create))
-                         (lambda () (%io store monotonic-ms))
-                         (lambda (milliseconds)
-                           (%io store sleep milliseconds)))))))
+                         clock
+                         sleeper)))))
         (if handle
             (unwind-protect
                  (let ((*held-locks* (cons path *held-locks*)))
                    (aitools.kernel.domain:flow-continue :on-acquired))
               (%io store unlock handle))
             (aitools.kernel.domain:flow-continue :on-timeout)))))
+
 
 
 (aitools.kernel.domain:define-flow

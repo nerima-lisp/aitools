@@ -1,5 +1,5 @@
 (in-package #:aitools/test)
-(defun %trace-test-store-io (operation &key retry sleeper monotonic now random)
+(defun %trace-test-store-io (operation &key retry random)
   (aitools.store.application:make-store-io
    :lstat operation
    :read-file operation
@@ -18,9 +18,6 @@
    :try-lock operation
    :unlock operation
    :call-with-retry (or retry operation)
-   :sleep (or sleeper operation)
-   :monotonic-ms (or monotonic operation)
-   :now (or now operation)
    :random-hex (or random operation)))
 (describe "aitools CLI store IO trace decorators"
   (it "returns the identical IO when tracing is disabled"
@@ -31,107 +28,112 @@
            (aitools/cli::*trace-session* nil))
       (expect (eq (aitools/cli::%trace-store-io io) io) :to-be t)))
 
-  (it "wraps every filesystem and lock slot with its fixed name and preserves multiple values"
+  (it-each ((:lstat "store.lstat" ("path"))
+            (:read-file "store.read-file" ("path"))
+            (:create-file "store.create-file" ("path" #()))
+            (:append-file "store.append-file" ("path" #()))
+            (:rename "store.rename" ("from" "to"))
+            (:unlink "store.unlink" ("path"))
+            (:rmdir "store.rmdir" ("path"))
+            (:mkdir "store.mkdir" ("path"))
+            (:chmod "store.chmod" ("path" 0))
+            (:chmod-directory-identity "store.chmod-directory-identity" ("path" 0 nil))
+            (:sync-directory "store.sync-directory" ("path"))
+            (:symlink "store.symlink" ("target" "path"))
+            (:set-mtime "store.set-mtime" ("path" 0))
+            (:list-directory "store.list-directory" ("path"))
+            (:try-lock "store.try-lock" ("path"))
+            (:unlock "store.unlock" (nil)))
+    "wraps the ~S slot as ~A and preserves multiple values"
+    (slot-name span-name arguments)
     (let* ((operation (lambda (&rest arguments)
                         (declare (ignore arguments))
                         (values :first :second)))
            (io (%trace-test-store-io operation))
            (session (aitools/cli::%make-trace-session))
-           (wrapped nil)
-           (slots
-             '((aitools.store.application:store-io-lstat "store.lstat" ("path"))
-               (aitools.store.application:store-io-read-file "store.read-file" ("path"))
-               (aitools.store.application:store-io-create-file "store.create-file" ("path" #()))
-               (aitools.store.application:store-io-append-file "store.append-file" ("path" #()))
-               (aitools.store.application:store-io-rename "store.rename" ("from" "to"))
-               (aitools.store.application:store-io-unlink "store.unlink" ("path"))
-               (aitools.store.application:store-io-rmdir "store.rmdir" ("path"))
-               (aitools.store.application:store-io-mkdir "store.mkdir" ("path"))
-               (aitools.store.application:store-io-chmod "store.chmod" ("path" 0))
-               (aitools.store.application:store-io-chmod-directory-identity
-                "store.chmod-directory-identity" ("path" 0 nil))
-               (aitools.store.application:store-io-sync-directory "store.sync-directory" ("path"))
-               (aitools.store.application:store-io-symlink "store.symlink" ("target" "path"))
-               (aitools.store.application:store-io-set-mtime "store.set-mtime" ("path" 0))
-               (aitools.store.application:store-io-list-directory "store.list-directory" ("path"))
-               (aitools.store.application:store-io-try-lock "store.try-lock" ("path"))
-               (aitools.store.application:store-io-unlock "store.unlock" (nil))))
-           (returned nil))
+           (wrapped nil))
       (let ((aitools/cli::*trace-session* session))
         (setf wrapped (aitools/cli::%trace-store-io io))
-        (dolist (slot slots)
-          (push (multiple-value-list
-                 (apply (funcall (symbol-function (first slot)) wrapped)
-                        (third slot)))
-                returned)))
-      (expect (nreverse returned)
-              :to-equal (make-list (length slots) :initial-element '(:first :second)))
-      (expect (mapcar #'observability-kit:span-record-name
-                      (aitools/cli::%trace-session-records session))
-              :to-equal (mapcar #'second slots))))
+        (expect
+         (multiple-value-list
+          (apply
+           (ecase slot-name
+             (:lstat #'aitools.store.application:store-io-lstat)
+             (:read-file #'aitools.store.application:store-io-read-file)
+             (:create-file #'aitools.store.application:store-io-create-file)
+             (:append-file #'aitools.store.application:store-io-append-file)
+             (:rename #'aitools.store.application:store-io-rename)
+             (:unlink #'aitools.store.application:store-io-unlink)
+             (:rmdir #'aitools.store.application:store-io-rmdir)
+             (:mkdir #'aitools.store.application:store-io-mkdir)
+             (:chmod #'aitools.store.application:store-io-chmod)
+             (:chmod-directory-identity #'aitools.store.application:store-io-chmod-directory-identity)
+             (:sync-directory #'aitools.store.application:store-io-sync-directory)
+             (:symlink #'aitools.store.application:store-io-symlink)
+             (:set-mtime #'aitools.store.application:store-io-set-mtime)
+             (:list-directory #'aitools.store.application:store-io-list-directory)
+             (:try-lock #'aitools.store.application:store-io-try-lock)
+             (:unlock #'aitools.store.application:store-io-unlock))
+           wrapped arguments))
+         :to-equal '(:first :second))
+        (expect
+         (mapcar #'observability-kit:span-record-name
+                 (aitools/cli::%trace-session-records session))
+         :to-equal (list span-name)))))
 
-  (it "preserves the exact condition and maps store IO failures to unavailable"
-    (dolist (case
-             (list (list (make-condition 'aitools.store.application:store-io-error
-                                         :operation "read-file" :path "private-path-marker")
-                         :unavailable)
-                   (list (make-condition 'simple-error
-                                         :format-control "private-condition-marker"
-                                         :format-arguments nil)
-                         :error)))
-      (let* ((condition (first case))
-             (outcome (second case))
-             (operation (lambda (&rest arguments)
-                          (declare (ignore arguments))
-                          (error condition)))
-             (io (%trace-test-store-io operation))
-             (session (aitools/cli::%make-trace-session))
-             (wrapped nil)
-             (caught nil))
-        (let ((aitools/cli::*trace-session* session))
-          (setf wrapped (aitools/cli::%trace-store-io io))
-          (setf caught
-                (handler-case
-                    (funcall (aitools.store.application:store-io-read-file wrapped)
-                             "private-path-marker")
-                  (error (raised) raised))))
-        (expect (eq caught condition) :to-be t)
-        (let* ((record (first (aitools/cli::%trace-session-records session)))
-               (span-id (observability-kit:span-record-span-id record)))
-            (expect (observability-kit:span-record-status-message record)
-                    :to-be-falsy)
-            (expect (observability-kit:span-record-attributes record)
-                    :to-be-falsy)
-            (expect (gethash span-id (aitools/cli::%trace-session-outcomes session))
-                    :to-be outcome)))))
+  (it-each ((:store-io-error :unavailable)
+            (:simple-error :error))
+    "preserves the exact ~S condition and maps store IO failures to ~S"
+    (condition-kind outcome)
+    (let* ((condition
+             (ecase condition-kind
+               (:store-io-error
+                (make-condition 'aitools.store.application:store-io-error
+                                :operation "read-file" :path "private-path-marker"))
+               (:simple-error
+                (make-condition 'simple-error
+                                :format-control "private-condition-marker"
+                                :format-arguments nil))))
+           (operation (lambda (&rest arguments)
+                        (declare (ignore arguments))
+                        (error condition)))
+           (io (%trace-test-store-io operation))
+           (session (aitools/cli::%make-trace-session))
+           (wrapped nil)
+           (caught nil))
+      (let ((aitools/cli::*trace-session* session))
+        (setf wrapped (aitools/cli::%trace-store-io io))
+        (setf caught
+              (handler-case
+                  (funcall (aitools.store.application:store-io-read-file wrapped)
+                           "private-path-marker")
+                (error (raised) raised))))
+      (expect (eq caught condition) :to-be t)
+      (let* ((record (first (aitools/cli::%trace-session-records session)))
+             (span-id (observability-kit:span-record-span-id record)))
+        (expect (observability-kit:span-record-status-message record)
+                :to-be-falsy)
+        (expect (observability-kit:span-record-attributes record)
+                :to-be-falsy)
+        (expect (gethash span-id (aitools/cli::%trace-session-outcomes session))
+                :to-be outcome))))
 
-  (it "retains sleep, clock, random, and retry functions without tracing them"
+  (it "retains retry and random functions without tracing them"
     (let* ((operation (lambda (&rest arguments)
                         (declare (ignore arguments))
                         (values :retained :secondary)))
            (retry operation)
-           (sleeper operation)
-           (monotonic operation)
-           (now operation)
            (random operation)
-           (io (%trace-test-store-io operation :retry retry :sleeper sleeper
-                                     :monotonic monotonic :now now :random random))
+           (io (%trace-test-store-io operation :retry retry :random random))
            (session (aitools/cli::%make-trace-session))
            (wrapped nil))
       (let ((aitools/cli::*trace-session* session))
         (setf wrapped (aitools/cli::%trace-store-io io))
         (expect (eq (aitools.store.application::store-io-call-with-retry wrapped) retry)
                 :to-be t)
-        (expect (eq (aitools.store.application:store-io-sleep wrapped) sleeper) :to-be t)
-        (expect (eq (aitools.store.application:store-io-monotonic-ms wrapped) monotonic)
-                :to-be t)
-        (expect (eq (aitools.store.application:store-io-now wrapped) now) :to-be t)
         (expect (eq (aitools.store.application:store-io-random-hex wrapped) random)
                 :to-be t)
         (funcall (aitools.store.application::store-io-call-with-retry wrapped)
-                 nil operation operation operation)
-        (funcall (aitools.store.application:store-io-sleep wrapped) 0)
-        (funcall (aitools.store.application:store-io-monotonic-ms wrapped))
-        (funcall (aitools.store.application:store-io-now wrapped))
+                 nil operation nil nil)
         (funcall (aitools.store.application:store-io-random-hex wrapped) 4))
       (expect (aitools/cli::%trace-session-records session) :to-be nil))))
