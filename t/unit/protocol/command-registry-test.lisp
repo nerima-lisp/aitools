@@ -6,47 +6,37 @@
    :schema (make-command-schema name "Test command.")))
 
 (describe "aitools.protocol.application define-command"
-  (it "rejects duplicate and unknown options during macro expansion"
+  (it-each (("non-list options" 42)
+            ("odd-length options" (:schema))
+            ("unknown option" (:command-builder #'identity :schema nil :unknown t))
+            ("duplicate option" (:group nil :group nil :command-builder #'identity :schema nil))
+            ("missing :command-builder" (:schema nil))
+            ("missing :schema" (:command-builder #'identity)))
+      "rejects ~A options during macro expansion"
+      (case-name options)
     (signals error
       (macroexpand-1
-       '(aitools.protocol.application:define-command
-            "read"
-          (:command-builder #'identity :schema nil :unknown t))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            "read"
-          (:group nil :group nil :command-builder #'identity :schema nil))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command "read" (:schema nil))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            "read"
-          (:command-builder #'identity)))))
+        `(aitools.protocol.application:define-command
+             "read" ,options))))
 
-  (it "rejects invalid literal names and groups during macro expansion"
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            7
-          (:command-builder #'identity :schema nil))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            ""
-          (:command-builder #'identity :schema nil))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            "json.get"
-          (:group 7 :command-builder #'identity :schema nil))))
-    (signals error
-      (macroexpand-1
-       '(aitools.protocol.application:define-command
-            "json.get"
-          (:group "" :command-builder #'identity :schema nil)))))
+  (it-each (("an integer name" :name 7)
+          ("an empty name" :name "")
+          ("a character name" :name #\x)
+          ("a keyword name" :name :read)
+          ("a vector name" :name #())
+          ("NIL as a name" :name nil)
+          ("T as a name" :name t)
+          ("an integer group" :group 7)
+          ("an empty group" :group ""))
+      "rejects ~A during macro expansion"
+      (case-name field value)
+    (let ((form
+            (if (eq field :name)
+                `(aitools.protocol.application:define-command
+                     ,value (:command-builder #'identity :schema nil))
+                `(aitools.protocol.application:define-command
+                     "read" (:group ,value :command-builder #'identity :schema nil)))))
+      (signals error (macroexpand-1 form))))
 
   (it "evaluates each dynamic form once in argument order"
     (let ((events nil)
@@ -62,6 +52,47 @@
                 :to-equal "util.echo")
         (expect (aitools.protocol.application:command-declaration-group declaration)
                 :to-equal "util"))))
+  (it "expands quoted and dynamic names and groups at runtime"
+    (let* ((quoted-schema (make-command-schema "util.quoted" "Test command."))
+           (quoted-declaration
+             (eval
+              (macroexpand-1
+                `(aitools.protocol.application:define-command
+                     '"util.quoted"
+                   (:group '"util"
+                    :command-builder #'identity
+                    :schema ',quoted-schema)))))
+           (dynamic-schema (make-command-schema "util.dynamic" "Test command."))
+           (dynamic-declaration
+             (eval
+              (macroexpand-1
+                `(aitools.protocol.application:define-command
+                     (progn "util.dynamic")
+                   (:group (progn "util")
+                    :command-builder #'identity
+                    :schema ',dynamic-schema))))))
+      (expect (aitools.protocol.application:command-declaration-name quoted-declaration)
+              :to-equal "util.quoted")
+      (expect (aitools.protocol.application:command-declaration-group quoted-declaration)
+              :to-equal "util")
+      (expect (aitools.protocol.application:command-declaration-name dynamic-declaration)
+              :to-equal "util.dynamic")
+      (expect (aitools.protocol.application:command-declaration-group dynamic-declaration)
+              :to-equal "util")
+      (expect (nth-value
+               1
+               (macroexpand-1
+                 '(aitools.protocol.application:define-command
+                      (quote)
+                    (:command-builder #'identity :schema nil))))
+              :to-be t)
+      (expect (nth-value
+               1
+               (macroexpand-1
+                 '(aitools.protocol.application:define-command
+                      (quote "util.extra" "extra")
+                    (:command-builder #'identity :schema nil))))
+              :to-be t)))
 
   (it "checks schema names and nested grouped names at runtime"
     (signals error
@@ -110,7 +141,23 @@
         (expect (gethash "org.todo" groups) :to-equal '(:set-command)))
       (expect (mapcar #'command-schema-name
                       (aitools.protocol.application:all-command-schemas registry))
-              :to-equal '("org.todo.set")))))
+              :to-equal '("org.todo.set"))))
+  (it-each (("a non-string group" 7 "read")
+          ("an empty group" "" "read")
+          ("a group starting with a dot" ".org" ".org.read")
+          ("a group ending with a dot" "org." "org.read")
+          ("a group with adjacent dots" "org..team" "org..team.read")
+          ("a name starting with a dot" "org" ".org.read")
+          ("a name ending with a dot" "org" "org.read.")
+          ("a name with adjacent dots" "org" "org..read")
+          ("a name with an extra command segment" "org" "org.read.extra")
+          ("a name outside its group" "org" "util.read"))
+      "rejects ~A at runtime"
+      (case-name group name)
+    (signals error
+      (aitools.protocol.application:make-command-declaration
+       name :group group :command-builder #'identity
+       :schema (make-command-schema name "Test command.")))))
 
 (describe "aitools.protocol.application command declaration registration"
   (it "builds a declaration once with the supplied dependencies"
