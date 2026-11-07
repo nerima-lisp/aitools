@@ -1,9 +1,9 @@
 # Using aitools from an agent
 
-aitools is meant to be the only tool an agent calls for file and text work.
-This page describes the loop an agent runs against it: discover a command,
-call it, branch on the exit code, and follow the `next_commands` and
-`repairs` the output hands back.
+Use `aitools` as the CLI for file and text work. Its `run` command invokes
+external programs. This page describes the loop an agent runs against it:
+discover a command, call it, branch on the exit code, and follow the
+`next_commands` and `repairs` the output hands back.
 
 ## Discover commands with `schema`
 
@@ -336,5 +336,5 @@ with `repairs` naming the aitools command to use instead:
 A shell command with several rows (`sed`, `perl`) returns every row's repair,
 in table order. A name the table does not list returns the repair
 `aitools schema`. Names that are also aitools commands or groups (`find`,
-`diff`, `mkdir`, `chmod`, `mktemp`, `touch`, `git`) run the aitools command
+`diff`, `mkdir`, `chmod`, `mktemp`, `touch`) run the aitools command
 and never reach this lookup; their rows only document the mapping.
