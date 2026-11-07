@@ -5,8 +5,10 @@
 ;;;; into a plist and hands them to RUN-EDIT-COMMAND.
 (in-package #:aitools.edit.presentation)
 
-(defun %yaml-toml-write-command-p (spec)
-  (member (getf spec :name) aitools.data:*edit-yaml-toml-write-command-names* :test #'string=))
+(defun %structured-document-write-command-p (spec)
+  (member (getf spec :name)
+          aitools.data:*edit-structured-write-command-names*
+          :test #'string=))
 
 (defun %error-codes (spec)
   (let ((include (getf spec :include))
@@ -16,21 +18,21 @@
             (and (member :count include) '("selection.count-mismatch"))
             (and (member :selectors include)
                  '("selection.no-match" "selection.ambiguous" "input.syntax-error" "input.unsupported-language"))
-            (and (member name '("edit" "insert" "replace" "apply" "transform" "move-lines"
-                                "json.set" "json.delete" "json.merge" "json.patch" "json.fmt" "table.set")
+            (and (member name '("edit" "insert" "replace" "apply" "transform" "move-lines" "table.set")
                          :test #'string=)
                  '("input.not-utf8"))
-            (and (%yaml-toml-write-command-p spec) '("input.not-utf8"))
-            (and (member name '("edit" "apply" "json.patch" "yaml.patch" "toml.patch") :test #'string=)
+            (and (%structured-document-write-command-p spec)
+                 '("input.not-utf8"))
+            (and (member name '("edit" "apply" "doc.patch") :test #'string=)
                  '("selection.no-match" "selection.ambiguous"))
-            (and (member name '("transcode" "json.set" "json.delete" "json.merge" "json.patch" "json.fmt"
-                                "table.set" "archive.extract")
+            (and (member name '("transcode" "table.set" "archive.extract")
                          :test #'string=)
                  '("input.unsupported-format" "input.syntax-error"))
-            (and (%yaml-toml-write-command-p spec)
+            (and (%structured-document-write-command-p spec)
                  (append '("input.unsupported-format" "input.syntax-error")
-                         aitools.data:*edit-yaml-toml-write-error-codes*))
-            (and (member name '("copy" "archive.extract") :test #'string=) '("refusal.too-large")))))
+                         aitools.data:*edit-structured-write-error-codes*))
+            (and (member name '("copy" "archive.extract") :test #'string=)
+                 '("refusal.too-large")))))
 
 (defun %schema (spec)
   (aitools.protocol.domain:make-command-schema
@@ -52,8 +54,8 @@
                   (getf spec :options)))
    :output-fields (append (and (member :write (getf spec :include)) aitools.data:*edit-write-output-fields*)
                           (and (member :count (getf spec :include)) aitools.data:*edit-count-output-fields*)
-                          (and (%yaml-toml-write-command-p spec)
-                               aitools.data:*edit-yaml-toml-write-output-fields*)
+                          (and (%structured-document-write-command-p spec)
+                               aitools.data:*edit-structured-write-output-fields*)
                           (getf spec :output-fields))
    :error-codes (remove-duplicates (%error-codes spec) :test #'string= :from-end t)))
 

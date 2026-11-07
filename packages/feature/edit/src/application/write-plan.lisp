@@ -42,7 +42,7 @@ on a symlink rather than what it points at (delete, move, link)."
      (:copier nil) (:predicate nil))
   "What one write command wants, independent of how it runs.
 
-COMMAND: dispatch name (\"edit\", \"json.set\").
+COMMAND: dispatch name (\"edit\", \"doc.set\").
 TARGETS: WRITE-TARGETs, boundary-checked in order; the plan sees their
   workspace-relative paths as CONTEXT-PATHS.
 INPUTS: strings or octet vectors checked for the redaction placeholder.

@@ -1,15 +1,14 @@
 (in-package #:aitools.data)
 
-(defparameter *edit-yaml-toml-write-command-names*
-  '("yaml.set" "yaml.delete" "yaml.merge" "yaml.patch" "yaml.fmt"
-    "toml.set" "toml.delete" "toml.merge" "toml.patch" "toml.fmt"))
+(defparameter *edit-structured-write-command-names*
+  '("doc.set" "doc.delete" "doc.merge" "doc.patch" "doc.fmt"))
 
-(defparameter *edit-yaml-toml-write-output-fields*
-  '((:name "warnings" :description "[{code,message,count}] for dropped comments; always present, empty when none.")))
+(defparameter *edit-structured-write-output-fields*
+  '((:name "warnings" :description "For YAML/TOML writes, warnings lists dropped comments; always present, empty when none. JSON writes omit warnings.")))
 
-(defparameter *edit-yaml-toml-write-error-codes*
+(defparameter *edit-structured-write-error-codes*
   '("input.unsupported-value"))
 
-(export '(*edit-yaml-toml-write-command-names*
-         *edit-yaml-toml-write-output-fields*
-         *edit-yaml-toml-write-error-codes*))
+(export '(*edit-structured-write-command-names*
+         *edit-structured-write-output-fields*
+         *edit-structured-write-error-codes*))

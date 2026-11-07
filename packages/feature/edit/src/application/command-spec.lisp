@@ -34,7 +34,7 @@
         #'string=))
 
 (defun command-words (name)
-  "The argv words naming dispatch NAME: \"json.set\" -> (\"json\" \"set\")."
+  "The argv words naming dispatch NAME: \"doc.set\" -> (\"doc\" \"set\")."
   (labels ((split-at (start)
              (let ((dot (position #\. name :start start)))
                (if dot

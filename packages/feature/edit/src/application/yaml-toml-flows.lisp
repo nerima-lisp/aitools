@@ -99,25 +99,58 @@
                      (cons "count" comment-count))))
              #()))))
 
-(defun %format-plan (format command path transform options
-                            &key serializer repair-pointer record-options record-positionals inputs)
-  (make-write-plan
-   :command command
-   :targets (list (make-write-target path))
-   :inputs inputs
-   :expect-hashes (getf options :expect-hash)
-   :replayable (null (getf options :expect-hash))
-   :plan (%json-plan transform
-                     :repair-pointer repair-pointer
-                     :reader (lambda (context target &key on-error on-json)
-                               (%read-format/k format command context target
-                                               :on-error on-error
-                                               :on-json on-json))
-                     :document-function (lambda (document value comment-count)
-                                          (%format-document format document value
-                                                            comment-count serializer))
-                     :repairs-function (function %format-repairs)
-                     :extra-function (function %format-warning-fields))
-   :record-options (or record-options options)
-   :record-positionals (or record-positionals
-                           (lambda (paths) (list (first paths))))))
+(progn
+  (defun %document-format (path override)
+    (if override
+        (cond
+          ((string-equal override "json") "json")
+          ((string-equal override "yaml") "yaml")
+          ((string-equal override "toml") "toml"))
+        (let ((extension (and path (pathname-type path))))
+          (cond
+            ((and (stringp extension) (string-equal extension "json")) "json")
+            ((and (stringp extension)
+                  (or (string-equal extension "yaml")
+                      (string-equal extension "yml")))
+             "yaml")
+            ((and (stringp extension) (string-equal extension "toml")) "toml")))))
+
+  (defun %document-format-repair (verb positionals)
+    (aitools.protocol.domain:repair
+     "specify-format"
+     "対象の形式を確認し、--format json / yaml / toml のいずれかを明示してください。"
+     (apply #'aitools.protocol.domain:command-line
+            (append (list "aitools" "doc" verb)
+                    positionals
+                    (list "--format" "<json|yaml|toml>")))))
+
+  (defun %format-plan (format command path transform options
+                       &key serializer repair-pointer record-options
+                         record-positionals inputs indent-function sort-keys)
+    (make-write-plan
+     :command command
+     :targets (list (make-write-target path))
+     :inputs inputs
+     :expect-hashes (getf options :expect-hash)
+     :replayable (null (getf options :expect-hash))
+     :plan (%json-plan transform
+                       :repair-pointer repair-pointer
+                       :indent-function indent-function
+                       :sort-keys sort-keys
+                       :reader (unless (string= format "json")
+                                 (lambda (context target &key on-error on-json)
+                                   (%read-format/k format command context target
+                                                   :on-error on-error
+                                                   :on-json on-json)))
+                       :document-function
+                       (unless (string= format "json")
+                         (lambda (document value comment-count)
+                           (%format-document format document value comment-count serializer)))
+                       :repairs-function (unless (string= format "json")
+                                           (function %format-repairs))
+                       :extra-function
+                       (unless (string= format "json") (function %format-warning-fields)))
+     :record-options (or record-options options)
+     :record-positionals (or record-positionals
+                             (lambda (paths) (list (first paths))))))
+)
