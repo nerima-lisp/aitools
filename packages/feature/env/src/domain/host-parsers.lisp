@@ -101,13 +101,14 @@
     (when (and values (every (lambda (value) (and value (>= value 0))) values))
       (float (first values) 1d0))))
 
-#+linux
 (defun parse-cpu-counters (text)
   "Aggregate Linux counters, excluding guest counters already counted in user/nice."
+  #-linux (declare (ignore text))
+  #+linux
   (let ((fields (and text (split-fields (first (%split-lines text))))))
     (when (and (equal (first fields) "cpu") (>= (length fields) 9)
-               (every #'ascii-digits-p (subseq fields 1 9)))
-      (mapcar #'parse-integer (subseq fields 1 9)))))
+               (every (function ascii-digits-p) (subseq fields 1 9)))
+      (mapcar (function parse-integer) (subseq fields 1 9)))))
 
 (defun cpu-busy-percent (before after &key iowait-may-decrease)
   (when (and before after)

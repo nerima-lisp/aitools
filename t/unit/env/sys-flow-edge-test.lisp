@@ -44,9 +44,17 @@
              (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42")))
              :linux)
             :to-be nil)
+    (expect (aitools.env.application::%load-average
+             (make-fake-ports :files nil)
+             :darwin)
+            :to-be nil)
     (expect (aitools.env.application::%metrics-cpu
              (make-fake-ports :files nil)
              :linux)
+            :to-be nil)
+    (expect (aitools.env.application::%metrics-cpu
+             (make-fake-ports :files nil)
+             :darwin)
             :to-be nil))
   #+darwin
   (it "rejects a Darwin uptime derived from a future boot time"

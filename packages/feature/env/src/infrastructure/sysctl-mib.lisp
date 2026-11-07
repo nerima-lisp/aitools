@@ -1,11 +1,12 @@
 (in-package #:aitools.env.infrastructure)
 
-#+darwin
 (defun %sysctl-mib (name)
+  #-darwin (declare (ignore name))
+  #+darwin
   (let* ((boot-time-p (eq name :kern-boottime))
          (expected-size (if boot-time-p 16 24))
          (bytes (make-array expected-size
-                            :element-type '(unsigned-byte 8)
+                            :element-type (quote (unsigned-byte 8))
                             :initial-element 0)))
     ;; CTL_KERN/KERN_BOOTTIME = {1, 21}; CTL_VM/VM_LOADAVG = {2, 2}.
     (sb-sys:with-pinned-objects (bytes)
@@ -51,5 +52,4 @@
                       (mapcar (lambda (offset)
                                 (/ (float (sb-sys:sap-ref-32 sap offset) 1d0)
                                    scale))
-                              (list 0 4 8)))))))))))
-)
+                              (list 0 4 8))))))))))))

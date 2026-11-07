@@ -98,24 +98,27 @@ userspace tick (USER_HZ) at 100."
                                 total))))))
               (aitools.kernel.domain:flow-continue :on-ok fields))))))
 
+#+linux
 (defun %metrics-cpu (ports os)
-  (case os
-    #+linux
-    (:linux
-     (let ((before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))
-       (when before
-         (funcall (env-ports-sleep-seconds ports) 1)
-         (aitools.env.domain:cpu-busy-percent
-          before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
-          :iowait-may-decrease t))))
-    #+darwin
-    (:darwin
-     (let ((before (funcall (env-ports-cpu-counters ports))))
-       (when before
-         (funcall (env-ports-sleep-seconds ports) 1)
-         (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))
-    #-(or linux darwin)
-    (t nil)))
+  (when (eq os :linux)
+    (let ((before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))
+      (when before
+        (funcall (env-ports-sleep-seconds ports) 1)
+        (aitools.env.domain:cpu-busy-percent
+         before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
+         :iowait-may-decrease t)))))
+#-linux
+(defun %metrics-cpu (ports os)
+  #+darwin
+  (when (eq os :darwin)
+    (let ((before (funcall (env-ports-cpu-counters ports))))
+      (when before
+        (funcall (env-ports-sleep-seconds ports) 1)
+        (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))
+  #-(or linux darwin)
+  (declare (ignore ports os))
+  #-(or linux darwin)
+  nil)
 (defun %load-average (ports os)
   #+linux
   (when (eq os :linux)
