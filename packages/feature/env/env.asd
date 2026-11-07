@@ -36,13 +36,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/env" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t
-    :components ((:file "package")
-                 (:file "env-command-support")
-                 (:file "env-sys-command-builders")
-                 (:file "env-time-command-builders")
-                 (:file "env-commands")
-                 (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "env-command-support") (:file "env-sys-command-builders") (:file "env-time-command-builders") (:file "env-commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/env"
   :description "Environment context tests."

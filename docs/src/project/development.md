@@ -38,12 +38,12 @@ loads `aitools` and runs `asdf:test-system "aitools/test"`. That operation
 discovers registered `aitools/test/<context>` systems through ASDF. With
 `AITOOLS_TEST_CONTEXT` set, it loads only that context's tests; without it, it
 loads every context system and `aitools/test/shared`.
-`run-tests.lisp` exits 1 with a one-line message if the ASDF test operation
-signals an error, and exits 0 otherwise. The policy in `t/package.lisp`
-rejects failures, errors,
-too few executed specs, and skips or todos outside its explicit allowlist.
-The per-spec report printed to stdout includes the executed count and any
-allowed unrun specs.
+The `aitools/test` operation signals an error when a test fails or the execution
+policy rejects the result, including a missed context spec floor or a skip or
+todo outside its allowlist. `run-tests.lisp` catches that error, prints a
+one-line diagnostic, and exits 1; it exits 0 when the operation completes. The
+per-spec report printed to stdout includes the executed count and any allowed
+unrun specs.
 `AITOOLS_COVERAGE` always measures the full test set and cannot be combined
 with `AITOOLS_TEST_CONTEXT`.
 
@@ -234,25 +234,23 @@ in `aitools-test-system.lisp`.
     `define-command` takes the command name and its options. Its command
     builder receives the dependency value and produces the cl-cli command;
     `register-command-declarations` applies the declaration's group and schema.
-3. For a new feature context, define a dependency constructor in its
-   `presentation/context-registration.lisp` and declare the context with
-   `aitools/cli::define-context-command-registration`, passing the context
-   name, `register-<context>-commands`, and the constructor. Existing contexts
-   use this same registration file; update their constructor when a command
-   needs new effects. The context owns the constructor's input contract and
-   returned dependency value; consult its signature for inputs. That signature
-   can change without changing the registration macro contract. The macro
-   stores the constructor without inspecting its inputs or result. The
-   composition root passes the constructor's returned value to the registration
-   function unchanged.
+3. For a new feature context, define its dependency constructor and
+   `aitools/cli::define-context-command-registration` form in
+   `packages/feature/<ctx>/src/composition/context-registration.lisp`. Pass the
+   context name, `register-<context>-commands`, and the constructor. Existing
+   contexts use their own registration file; update the constructor when a
+   command needs new effects. Each context owns its constructor and dependency
+   value. As it migrates, it can change that value from ports to boundary
+   objects without changing the registration macro contract. The macro stores
+   the constructor without inspecting it or its result; the composition root
+   passes the result to the registration function unchanged.
 4. Each command builder returns a cl-cli command with a handler. The handler
    returns a command result for dispatch by calling the application flow through
    `aitools.protocol.application:call-with-command-result/k`. That function
    returns the command result produced by the flow's one continuation. If the
-   flow needs a new effect, add an effect
-   function to the context dependency value. The dependency constructor combines
-   production effect functions in infrastructure; tests provide fake functions
-   through a context-owned value with the same contract.
+   flow needs a new effect, add the boundary value or fake it needs to the
+   context dependency value. Production constructors assemble production
+   boundaries; tests supply fakes through a context-owned value.
 5. Put static tables shared across files or consumed by reference generation
    in `data/<layer>/<context>/*-data.lisp`. Keep computed values and behavior
    in their owning layer.

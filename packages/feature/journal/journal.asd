@@ -24,10 +24,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/journal" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t
-    :components ((:file "package")
-                 (:file "commands")
-                 (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/journal"
   :description "Journal context tests."

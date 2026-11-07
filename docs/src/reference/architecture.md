@@ -13,22 +13,28 @@ infrastructure, and presentation layers. Shared types and services live in
 | core/workspace | domain, application, infrastructure | Root resolution, the write boundary, native `.gitignore` evaluation, the parallel ordered scan. |
 | core/text | domain, application, infrastructure | Byte decoding, line index, binary sniffing, line endings and BOM, charsets and encoding guesses, MIME, the language table, and byte-format codecs (DEFLATE and gzip via `cl-deflate-kit`, ZIP, and TAR). |
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
-| feature/search | domain, application, infrastructure, presentation | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
-| feature/inspect | domain, application, infrastructure, presentation | `read`, `info`, `check`, `diff`, `doc get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
-| feature/edit | domain, application, infrastructure, presentation | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
-| feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
-| feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
-| feature/org | domain, application, infrastructure, presentation | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
-| feature/env | domain, application, infrastructure, presentation | The `sys` and `time` groups |
-| feature/util | domain, application, infrastructure, presentation | The `util` group |
+| feature/search | domain, application, infrastructure, presentation, composition | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
+| feature/inspect | domain, application, infrastructure, presentation, composition | `read`, `info`, `check`, `diff`, `doc get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
+| feature/edit | domain, application, infrastructure, presentation, composition | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
+| feature/journal | domain, application, infrastructure, presentation, composition | `history`, `undo`, the `tx` group |
+| feature/process | domain, application, infrastructure, presentation, composition | `run`, `wait`, the `bg` group |
+| feature/org | domain, application, infrastructure, presentation, composition | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
+| feature/env | domain, application, infrastructure, presentation, composition | The `sys` and `time` groups |
+| feature/util | domain, application, infrastructure, presentation, composition | The `util` group |
+
+Context-owned feature registrations live in
+`packages/feature/<ctx>/src/composition/context-registration.lisp`. Each file
+connects its registrar and dependency constructor to `aitools/cli`. The
+registration macro treats the constructor and its returned dependency value
+as opaque, so a context can change the value's representation independently.
 
 `schema` and `batch` read or run commands of every context, so they belong to
 no context; they live in the composition root, `src/schema.lisp` and
 `src/batch.lisp`.
 
-A CLI group can span contexts: `doc get` is in inspect and `doc set` in edit.
-CLI groups follow what an agent would guess; contexts follow whether a command
-reads or writes.
+A CLI group can span contexts: `json get` is in inspect and `json set` in
+edit. CLI groups follow what an agent would guess; contexts follow whether a
+command reads or writes.
 
 ### Placement decisions
 
@@ -73,6 +79,7 @@ production implementations.
 | application | Use cases and continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications; `cl-boundary-kit` boundary objects and fakes; in Store, the pure `resilience-kit:make-retry-policy` constructor |
 | infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
+| composition | Context registration and dependency construction | That context's presentation and infrastructure, `aitools/cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
 `aitools.kernel.domain`. The kernel domain wraps `crypto-kit:digest-hex` from
@@ -120,46 +127,40 @@ context's domain) must fail, and a clean tree must pass.
 The scan covers `packages/` only; the composition root in `src/` may
 reference every layer.
 
-## Ports and the composition root
+## Context dependencies and registration
 
-Application flows use context-specific ports such as `search-ports`
+Some existing application flows still use context-specific port structures,
+such as `search-ports`
 (`packages/feature/search/src/application/ports.lisp`) and Store's `store-io`
-(`packages/core/store/src/application/port.lisp`). Each feature context's
-infrastructure exports a constructor,
-`make-production-<context>-ports (&key ... &allow-other-keys)`, that builds
-the production port without doing I/O.
+(`packages/core/store/src/application/port.lisp`). The downstream contract
+allows application code to use `cl-boundary-kit` boundary objects and fakes
+directly; contexts replace their port structures as they migrate. For contexts
+that still use ports, infrastructure exports a constructor such as
+`make-production-<context>-ports (&key ... &allow-other-keys)` that builds the
+production value without doing I/O.
 
-`src/context-registration.lisp` is the only place that sees both
-presentation and infrastructure. For each feature context whose
-presentation package is loaded, it calls the context's
-`make-production-<context>-ports` with four shared pieces (a
-state-directory function, the workspace host, the text source, and
-`make-posix-store`) and passes the result to
-`register-<context>-commands (registry ports)`. Nothing is looked up
-through a global at run time.
+Context-owned feature registration modules live under
+`packages/feature/<ctx>/src/composition/context-registration.lisp`.
+Each declares its registrar and dependency constructor with
+`aitools/cli::define-context-command-registration`. The macro stores the
+constructor without inspecting it or its return value. The CLI composition
+root in `src/context-registration.lisp` invokes each constructor with shared
+runtime dependencies and passes the result unchanged to the registrar. The
+order follows `aitools/cli`'s feature presentation dependencies, which an
+integration test checks.
 
-Application code holds closure ports rather than cl-boundary-kit objects for
-two reasons:
+Application and infrastructure code may use `cl-boundary-kit` boundaries.
+Infrastructure builds production boundaries, while application flows may
+receive those objects directly with fakes supplied by tests. Store retains a
+separate port for lower-level filesystem operations because
+cl-boundary-kit's filesystem boundary cannot express the write protocol's
+exclusive creation with fsync, separately synced append, `lstat` without
+following symlinks, `chmod`, symlink creation, and `flock`. The store defines
+its own port with one closure per primitive.
 
-- Only infrastructure may depend on cl-boundary-kit (see the layer table
-  above), and the structure test enforces it. A port made of plain functions keeps
-  application code free of the kit, while infrastructure builds those
-  functions from cl-boundary-kit boundaries (the env context's clock,
-  environment, filesystem, and host-info in
-  `packages/feature/env/src/infrastructure/production-ports.lisp`; the
-  store's clock and sleeper in
-  `packages/core/store/src/infrastructure/posix-io.lisp`).
-- cl-boundary-kit's filesystem shape (whole-file read, store, rename,
-  delete) cannot express the write protocol, which needs exclusive creation
-  with fsync, a separately synced append, `lstat` without following
-  symlinks, `chmod`, symlink creation, and `flock`. The store defines its own
-  port with one closure per primitive.
-
-Unit tests build the same port structures from fakes.
-`with-text-boundaries` and `with-workspace-boundaries` install the text
-source and workspace host in a cl-boundary-kit boundary context; the
-integration tests use them, and the composition root passes ports
-directly instead.
+Existing port-based unit tests build those structures from fakes.
+`with-text-boundaries` and `with-workspace-boundaries` install the text source
+and workspace host in a cl-boundary-kit boundary context for tests.
 
 ## Command handler contract
 
@@ -336,7 +337,7 @@ never dumps an image. The second runs `program-op` through cl-nix-forge's
 fasls without compiling and the dumped core never shares a heap with the
 compiler. See [Development](../project/development.md#building-the-binary).
 
-`aitools.asd` lists each context's files inline, grouped by context in load order: core kernel, protocol, workspace,
-text, store, then feature search, inspect, journal, edit, process, env,
-util. See
+`aitools.asd` loads each context's ASD in order: core kernel, protocol,
+workspace, text, store, then feature search, inspect, journal, edit, process,
+env, util. See
 [Development](../project/development.md#the-component-lists).

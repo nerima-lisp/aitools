@@ -28,11 +28,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/search" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t
-    :components ((:file "package")
-                 (:file "commands")
-                 (:file "command-registration")
-                 (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "commands") (:file "command-registration"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/search"
   :description "Search context tests."
