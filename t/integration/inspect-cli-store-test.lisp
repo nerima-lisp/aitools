@@ -60,7 +60,7 @@
                                                     store tx :on-aborted #'identity
                                                              :on-not-found (lambda () (fail "tx vanished early"))
                                                              :on-busy (lambda () (fail "busy"))))))
-                     :text-source (make-host-text-source)
+                     :text-source (aitools.text.infrastructure:make-host-text-source)
                      :open-store #'open-store
                      :state-directory-function (constantly nil)))
              (result (aitools.protocol.application:call-with-command-result/k
@@ -164,7 +164,7 @@
       (ws-file workspace "a.txt" "a")
       (let* ((ports (aitools.inspect.application:make-inspect-ports
                      :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
-                     :text-source (make-host-text-source)
+                     :text-source (aitools.text.infrastructure:make-host-text-source)
                      :open-store #'open-store
                      :state-directory-function (constantly nil)))
              (created (aitools.protocol.application:call-with-command-result/k

@@ -25,7 +25,7 @@
   (make-inspect-ports :workspace-host (if current-directory
                                          (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory current-directory)
                                          (aitools.workspace.infrastructure:make-host-workspace-boundaries))
-                      :text-source (make-host-text-source)
+                      :text-source (aitools.text.infrastructure:make-host-text-source)
                       :open-store (lambda (root) (aitools.store.infrastructure:make-posix-store root))
                       :state-directory-function (lambda () state)))
 

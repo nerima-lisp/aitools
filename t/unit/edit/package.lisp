@@ -122,7 +122,7 @@ opens such a root as a temporary store exempt from the state-directory guard."
               (make-edit-ports
                :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                :open-store (function open-store)
-               :text-source (make-host-text-source)
+               :text-source (aitools.text.infrastructure:make-host-text-source)
                :read-stdin-octets
                (symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
                :unix-now (function aitools.edit.infrastructure:unix-now)

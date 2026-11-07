@@ -10,7 +10,7 @@
 
 (defun %org-ports-without-operation (missing)
   (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
-         (source (make-host-text-source))
+         (source (aitools.text.infrastructure:make-host-text-source))
          (production (aitools.org.infrastructure:make-production-org-ports
                       :workspace-host host :text-source source)))
     (aitools.org.application:make-org-ports
