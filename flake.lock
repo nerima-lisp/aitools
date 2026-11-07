@@ -105,16 +105,16 @@
     "cl-deflate-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1792405147,
-        "narHash": "sha256-fOGDRF1rTuX9XtDofLcIiRuX/RLFh/9fFhRZbSePV4c=",
+        "lastModified": 1792829654,
+        "narHash": "sha256-0tf3CC6we1c7bZl+Vv0dVrsXb71IHRwVTo6R+X+2foc=",
         "owner": "nerima-lisp",
         "repo": "cl-deflate-kit",
-        "rev": "711eb7540ac43869ae08060b6153e5dc768a8382",
+        "rev": "5352176801df9808b070f779cacba780cf8bfbbe",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v0.3.0",
+        "ref": "v0.4.0",
         "repo": "cl-deflate-kit",
         "type": "github"
       }

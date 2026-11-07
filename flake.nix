@@ -87,7 +87,7 @@
     };
 
     cl-deflate-kit = {
-      url = "github:nerima-lisp/cl-deflate-kit/v0.3.0";
+      url = "github:nerima-lisp/cl-deflate-kit/v0.4.0";
       flake = false;
     };
 
