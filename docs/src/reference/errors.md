@@ -95,7 +95,7 @@ lock, and `internal.unexpected` for an uncaught condition
 | `selection.count-mismatch` | `--expect-count` differs from the actual count. |
 | `refusal.target-changed` | `--expect-hash` differs, or the target changed before `tx commit`, `tx rebase`, or `undo`. The paths come as `conflicts`. |
 | `refusal.redacted-input` | A write's input contains the literal text `[REDACTED_SECRET]`. |
-| `refusal.outside-workspace` | A write would land outside the workspace root, through a symlink that leaves it, or inside the workspace's `.git/` (its resolved git directory and common directory). `archive extract` entry paths and `copy --recursive` children are routed through the same boundary, so a `.git/` entry or nested `.git/` is refused. The state directory lives outside the root, so writes there are refused as outside-workspace too. |
+| `refusal.outside-workspace` | A write would land outside the workspace root, through a symlink that leaves it, or inside the workspace's `.git/` (its resolved git directory and common directory). `archive extract` entry paths and `copy --recursive` children are routed through the same boundary, so a `.git/` entry or nested `.git/` is refused. `rm` also refuses the workspace root, home directory, and paths with `.git` or `.jj` components. The state directory lives outside the root, so writes there are refused as outside-workspace too. |
 | `refusal.exists` | The destination exists and overwriting was not allowed. |
 | `refusal.not-a-file` | A file-only operation targets a directory, a read targets a FIFO, socket, or device (the message says `X is not a regular file` and the repair is `aitools info X`), a text edit targets a binary file, `rm` targets a non-empty directory, or `chmod`/`touch` targets a hard-linked file (link count > 1). |
 | `refusal.too-large` | Archive operations or `copy --recursive` exceed their size or entry limit, an Org document exceeds the parser limit, or an envelope would exceed the JSON writer's output limit. The output-limit repair is `aitools schema <command>`; reduce the requested output with a limit or narrower selector. |
@@ -116,14 +116,14 @@ this order:
    is `aitools schema <group>`. That repair is runnable: `aitools schema`
    lists a group's subcommands when given the group name (`%group-schemas`
    in `src/schema.lisp`), so it no longer fails with `input.not-found`.
-2. **A group subcommand typed without its group** (`get`, `status`, `logs`,
-   `uuid`) returns one `run-instead` repair per group whose subcommand list
+2. **A group subcommand typed without its group** (`get`, `status`, `logs`)
+   returns one `run-instead` repair per group whose subcommand list
    holds that name, each the grouped form of the invocation with the group
    token inserted and the globals and operands kept. This is driven by the
-   live registry (`%group-subcommand-repairs` in `src/dispatch.lisp`), not by
+   live registry (`%group-subcommand-repairs` in `src/dispatch-names.lisp`), not by
    the correspondence table, so `status` returns `aitools bg status` and
    `aitools tx status`.
-3. **A shell command name in the correspondence table** (`cat`, `grep`)
+3. **A correspondence-table name** (`cat`, `grep`, `uuid`)
    returns that row's repairs, drawn from `aitools.data:*correspondence-table*`
    and shown in [Using aitools from an agent](../guide/agents.md#shell-commands-and-their-aitools-replacements).
 4. **Any other name** gets the repair `aitools schema`.
