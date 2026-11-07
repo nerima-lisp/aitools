@@ -32,7 +32,7 @@ as opaque, so a context can change the value's representation independently.
 no context; they live in the composition root, `src/schema.lisp` and
 `src/batch.lisp`.
 
-A CLI group can span contexts: `json get` is in inspect and `json set` in
+A CLI group can span contexts: `doc get` is in inspect and `doc set` in
 edit. CLI groups follow what an agent would guess; contexts follow whether a
 command reads or writes.
 

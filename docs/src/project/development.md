@@ -199,7 +199,7 @@ files are:
   are checked by the shared `t/spec-count-baselines/loader.lisp`.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
-store, then feature search, inspect, journal, edit, process, env, util.
+store, then feature search, inspect, journal, edit, process, org, env, util.
 A context loads after every context whose application package it calls:
 journal before edit (edit registers its `tx rebase` replayers with journal),
 inspect before edit and edit before util.
@@ -263,7 +263,9 @@ in `aitools-test-system.lisp`.
 
 The command index and context pages under [Commands](../reference/commands/index.md),
 the error table in [Errors](../reference/errors.md), and the correspondence
-table in [Using aitools from an agent](../guide/agents.md) are generated.
+table in [Using aitools from an agent](../guide/agents.md) are generated. The
+correspondence table uses source data from
+`data/domain/protocol/correspondence-table-data.lisp`.
 Regenerate them after changing a command schema, the error catalog, or
 `data/domain/protocol/correspondence-table-data.lisp`:
 

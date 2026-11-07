@@ -85,3 +85,21 @@
   Read and edit operations use that shared model; YAML/TOML comment warnings,
   TOML ordering, and JSON-only `fmt` options remain at their format-specific
   boundaries. JSON-only options fail with `argument.invalid` for YAML or TOML.
+
+## Shared per-context gates
+
+- Structure allowance files under
+  `t/integration/structure-context-allowances/` and budget files under
+  `t/integration/structure-budget-baselines/` are discovered from their
+  directories at runtime. List each existing file in the corresponding data
+  module in `aitools-test-system.lisp` so filtered source trees retain it. A
+  context with no entries needs no empty file; every present file must name its
+  context and provide the data list expected by its loader.
+- A new context's presentation system must be added to the `aitools/cli`
+  dependency list in `aitools.asd`. Its position sets command registration
+  order, which the context-registration integration test checks.
+- The aggregate coverage baseline in `t/coverage-baseline.lisp` is shared with
+  the context baselines in `t/coverage-baselines/`. When deleting covered code
+  requires a baseline adjustment, update the affected context and aggregate
+  measurements together from Linux CI and record the before and after counts
+  in the change. Do not lower a baseline to compensate for missing coverage.
