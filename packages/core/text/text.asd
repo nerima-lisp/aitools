@@ -27,8 +27,10 @@
            :serial t
            :components ((:file "unit/text/package")
                         (:file "unit/text/layout-test")
+                        (:file "unit/text/lines-test")
                         (:file "unit/text/charset-test")
                         (:file "unit/text/guess-test")
+                        (:file "unit/text/language-test")
                         (:file "unit/text/codec-test-support")
                         (:file "unit/text/codec-test")
                         (:file "unit/text/codec-deflate-crafted-test")
