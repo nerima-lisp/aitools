@@ -8,6 +8,7 @@
   (:use #:cl #:aitools.edit.domain)
   (:import-from #:aitools.protocol.domain #:json-object #:json-null #:repair)
   (:import-from #:aitools.kernel.domain #:flow-continue)
+  (:import-from #:aitools.inspect.application #:+max-format-document-depth+)
   (:export
    ;; ports.lisp
    #:edit-ports
@@ -42,4 +43,4 @@
    #:default-repairs
    ;; commands.lisp
    #:run-edit-command
-   #:replay-edit-op))
+   #:replay-edit-op #:+max-format-document-depth+))

@@ -89,4 +89,4 @@
    ;; === end snapshot flows ===
    ;; === YAML/TOML write preflight API ===
    #:parse-yaml-write-document/k
-   #:parse-toml-write-document/k))
+   #:parse-toml-write-document/k #:+max-format-document-depth+))

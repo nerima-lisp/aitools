@@ -110,3 +110,13 @@
         (expect (search "unexpected TOML parser value"
                         (simple-condition-format-control condition))
                 :to-be-truthy)))))
+(describe "TOML read depth"
+  (it "reads documents beyond the kit default nesting limit"
+    (let* ((depth 257)
+           (document
+             (format nil "items = ~A0~A~%"
+                     (make-string depth :initial-element #\[)
+                     (make-string depth :initial-element #\])))
+           (value (json-object-get (parse-toml-document document) "items")))
+      (loop repeat depth do (setf value (aref value 0)))
+      (expect value :to-be 0))))

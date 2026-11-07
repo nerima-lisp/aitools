@@ -188,4 +188,4 @@
    #:decode-snapshot/k
    #:compare-snapshot
    ;; === end snapshot ===
-   ))
+    #:+max-format-document-depth+))

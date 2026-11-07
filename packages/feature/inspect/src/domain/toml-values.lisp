@@ -80,10 +80,12 @@
                      item (append tokens (list (princ-to-string index)))))
       'vector))
     (t (error "unexpected TOML parser value: ~S" value))))
+(defconstant +max-format-document-depth+ 512)
 
 (defun parse-toml-document (text)
   (handler-case
-      (%toml-to-json (cl-toml-kit:parse text) nil)
+      (let ((cl-toml-kit:*toml-max-nesting-depth* +max-format-document-depth+))
+        (%toml-to-json (cl-toml-kit:parse text) nil))
     (cl-toml-kit:toml-parse-error ()
       (error 'toml-syntax-error))))
 
