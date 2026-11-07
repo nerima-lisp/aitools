@@ -131,6 +131,7 @@
                 (aitools.protocol.application:all-command-schemas registry))
         :to-equal '("org.todo.set" "org.todo.list"))))
   (it-each (("a non-string group" 7 "read")
+          ("a non-string name" "org" 7)
           ("an empty group" "" "read")
           ("a group starting with a dot" ".org" ".org.read")
           ("a group ending with a dot" "org." "org.read")
@@ -145,7 +146,7 @@
     (signals error
       (aitools.protocol.application:make-command-declaration
        name :group group :command-builder #'identity
-       :schema (make-command-schema name "Test command.")))))
+       :schema (make-command-schema (if (stringp name) name "org.read") "Test command.")))))
 
 (describe "aitools.protocol.application command declaration registration"
   (it "builds a declaration once with the supplied dependencies"
