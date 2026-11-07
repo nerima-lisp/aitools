@@ -6,7 +6,7 @@
 (defun %context-dependency-arguments ()
   "Shared keyword arguments used to build each feature context's runtime dependencies."
   (list :state-directory-function #'current-state-directory
-        :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
+        :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
         :text-source (aitools.text.infrastructure:make-host-text-source)
         :open-store #'%open-invocation-store
         :with-span #'%call-with-port-span))

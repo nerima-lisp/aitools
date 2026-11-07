@@ -21,7 +21,7 @@ no workspace root was resolved."
 
 (defun %resolve-invocation-root (invocation)
   (aitools.workspace.application:call-with-resolved-root/k
-   (aitools.workspace.infrastructure:make-host-workspace-host)
+   (aitools.workspace.infrastructure:make-host-workspace-boundaries)
    :root (option-value invocation :root)
    :on-resolved (lambda (root)
                   (namestring (aitools.workspace.application:workspace-root-real root)))
