@@ -26,7 +26,8 @@
                                                                     (:file "cli")
                                                                     (:file "envelope-matchers")
                                                                     (:file "process-test-support")
-                                                                    (:file "store-fault-injection")))
+                                                                    (:file "store-fault-injection")
+                                                                    (:file "workspace-integration")))
                                               (:module "e2e" :pathname "e2e/" :serial t
                                                :components ((:file "package")
                                                             (:file "harness")
