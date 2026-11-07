@@ -31,6 +31,7 @@
                         (:file "unit/text/guess-test")
                         (:file "unit/text/codec-test-support")
                         (:file "unit/text/codec-test")
+                        (:file "unit/text/codec-deflate-crafted-test")
                         (:file "unit/text/codec-gzip-test")
                         (:file "unit/text/archive-test")
                         (:file "unit/text/archive-zip-test")
