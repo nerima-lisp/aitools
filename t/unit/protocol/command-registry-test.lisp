@@ -117,15 +117,19 @@
         (%test-command-declaration
          "org.todo.set"
          (lambda (dependencies) (declare (ignore dependencies)) :set-command)
+         "org.todo")
+        (%test-command-declaration
+         "org.todo.list"
+         (lambda (dependencies) (declare (ignore dependencies)) :list-command)
          "org.todo"))
        nil)
       (let ((groups (aitools.protocol.application:command-registry-group-commands registry)))
         (expect (nth-value 1 (gethash "org" groups)) :to-be t)
         (expect (gethash "org" groups) :to-equal nil)
-        (expect (gethash "org.todo" groups) :to-equal '(:set-command)))
+        (expect (gethash "org.todo" groups) :to-equal '(:list-command :set-command)))
       (expect (mapcar #'command-schema-name
-                      (aitools.protocol.application:all-command-schemas registry))
-              :to-equal '("org.todo.set"))))
+                (aitools.protocol.application:all-command-schemas registry))
+        :to-equal '("org.todo.set" "org.todo.list"))))
   (it-each (("a non-string group" 7 "read")
           ("an empty group" "" "read")
           ("a group starting with a dot" ".org" ".org.read")
