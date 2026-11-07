@@ -77,11 +77,11 @@
                     (lambda (path)
                       (declare (ignore path))
                       (values nil :unreadable))
-                    (funcall require-boundary context key))))
+                    (funcall require-boundary context key)))))
           (with-error (code message)
               (run "write" (list "out.txt") :content-file (list "in.txt"))
             (expect code :to-equal "environment.io")
-            (expect message :to-equal "cannot read in.txt"))))
+            (expect message :to-equal "cannot read in.txt")))
       (expect (kind "out.txt") :to-be :absent)))))
   (it "reports a content file that disappears during reading as an I/O failure"
     (call-with-edit-workspace (lambda () (put "in.txt" "input")
@@ -98,11 +98,11 @@
                    (lambda (path)
                      (declare (ignore path))
                      nil))
-                  (otherwise (funcall require-boundary context key)))))
+                  (otherwise (funcall require-boundary context key))))))
           (with-error (code message)
               (run "write" (list "out.txt") :content-file (list "in.txt"))
             (expect code :to-equal "environment.io")
-            (expect message :to-equal "cannot read in.txt"))))
+            (expect message :to-equal "cannot read in.txt")))
       (expect (kind "out.txt") :to-be :absent))))))
 
 (describe "aitools replace: stdin, scan options and unreadable files"
