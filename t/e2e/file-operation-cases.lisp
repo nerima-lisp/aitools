@@ -57,11 +57,11 @@ trees, then compare the two trees entry by entry."
 (define-file-operation-case (28 "mv dir new is move" ("mv"))
   "mv dir renamed" '("move" "a/dir" "a/renamed"))
 
-(define-file-operation-case (28 "rm is delete" ("rm"))
-  "rm f.txt" '("delete" "a/f.txt"))
+(define-file-operation-case (28 "rm removes a file" ("rm"))
+  "rm f.txt" '("rm" "a/f.txt"))
 
-(define-file-operation-case (28 "rmdir is delete on an empty directory" ("rmdir"))
-  "rmdir emptydir" '("delete" "a/emptydir"))
+(define-file-operation-case (28 "rmdir removes an empty directory via rm" ("rmdir"))
+  "rmdir emptydir" '("rm" "a/emptydir"))
 
 (define-file-operation-case (29 "mkdir -p is mkdir" ("mkdir"))
   "mkdir -p new/deep/er" '("mkdir" "a/new/deep/er"))

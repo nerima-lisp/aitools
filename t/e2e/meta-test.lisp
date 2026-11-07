@@ -3,10 +3,10 @@
 ;;;; file, so its specs run after the cases and see the complete registry.
 (in-package #:aitools.e2e.test)
 
-(defparameter +not-a-shell-command+ '("uuid")
-  "Foreign names in the correspondence data that name no shell command the
-table replaces: `uuid` is there so that the bare group subcommand gets a
-repair. Each is pinned below by its own spec.")
+(defparameter +not-a-shell-command+ (quote ("uuid" "delete"))
+  "Foreign names in the correspondence data that do not name a shell command
+the table replaces. `uuid` is a bare group subcommand; `delete` is a retired
+aitools command.")
 
 (defvar *command-words* nil)
 
@@ -68,18 +68,22 @@ repair. Each is pinned below by its own spec.")
 fails with argument.invalid and ENTRY's repairs, in order. A NAME that is
 also an aitools command (find, diff, git, ...) must dispatch to it instead."
   (let ((result (aitools workspace (list name "x"))))
-    (if (member name (aitools-command-words workspace) :test #'string=)
-        (expect-not (jget (aitools-envelope result) "error" "message")
-                    :to-equal (format nil "unknown command ~A" name))
-        (progn
-          (expect (aitools-exit-code result) :to-be 1)
-          (expect (aitools-stream result) :to-be :stderr)
+    (progn
+      (when (string= name "delete")
+        (expect (member name (aitools-command-words workspace) :test #'string=)
+                :to-be nil))
+      (if (member name (aitools-command-words workspace) :test #'string=)
+          (expect-not (jget (aitools-envelope result) "error" "message")
+                      :to-equal (format nil "unknown command ~A" name))
           (progn
-            (expect (aitools-envelope result) :to-match-envelope "status" "error" "command" name)
-            (expect (jget (aitools-envelope result) "error" "code") :to-equal "argument.invalid"))
-          (expect (mapcar (lambda (repair) (jget repair "command"))
-                          (jlist (jget (aitools-envelope result) "error" "repairs")))
-                  :to-equal (mapcar (lambda (repair) (getf repair :command)) (getf entry :repairs)))))))
+            (expect (aitools-exit-code result) :to-be 1)
+            (expect (aitools-stream result) :to-be :stderr)
+            (progn
+              (expect (aitools-envelope result) :to-match-envelope "status" "error" "command" name)
+              (expect (jget (aitools-envelope result) "error" "code") :to-equal "argument.invalid"))
+            (expect (mapcar (lambda (repair) (jget repair "command"))
+                            (jlist (jget (aitools-envelope result) "error" "repairs")))
+                    :to-equal (mapcar (lambda (repair) (getf repair :command)) (getf entry :repairs))))))))
 
 (describe "aitools e2e meta: unknown names repair from the correspondence data"
   (dolist (entry aitools.data:*correspondence-table*)

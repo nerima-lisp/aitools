@@ -146,7 +146,6 @@ groups to the fixed output order.
 | [`move`](edit.md#move) | edit | Move or rename a file or directory; never merges into an existing directory. |
 | [`copy`](edit.md#copy) | edit | Copy a file, or a directory with --recursive, byte for byte. |
 | [`rm`](edit.md#rm) | edit | Remove one file, symlink, or empty directory; journaled and undoable. |
-| [`delete`](edit.md#delete) | edit | Delete a file, a symlink, or an empty directory. |
 | [`mkdir`](edit.md#mkdir) | edit | Create a directory and its parents; an existing directory is a no-op. |
 | [`chmod`](edit.md#chmod) | edit | Set or clear the executable bits, or set an octal mode. |
 | [`link`](edit.md#link) | edit | Create a symlink LINK pointing at TARGET inside the workspace. |

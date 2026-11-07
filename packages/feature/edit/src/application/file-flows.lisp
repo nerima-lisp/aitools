@@ -1,5 +1,5 @@
 ;;;;
-;;;; File operations: move, copy, delete, mkdir, chmod,
+;;;; File operations: move, copy, rm, mkdir, chmod,
 ;;;; link and touch. mktemp, which alone bypasses the journal, is in
 ;;;; mktemp.lisp.
 (in-package #:aitools.edit.application)
@@ -115,75 +115,6 @@
                                                            :record-positionals
                                                            (lambda (paths)
                                                              paths)))))))
-
-(define-write-command "delete"
-                      (ports env positionals options &key on-plan on-error)
-                      (if (/= (length positionals) 1)
-                          (flow-continue :on-error
-                                         "argument.invalid"
-                                         "delete takes exactly one path")
-                          (flow-continue :on-plan
-                                         (make-write-plan :command
-                                                          "delete"
-                                                          :targets
-                                                          (list
-                                                           (make-write-target
-                                                            (first positionals)
-                                                            :follow
-                                                            nil))
-                                                          :expect-hashes
-                                                          (getf options
-                                                                :expect-hash)
-                                                          :plan
-                                                          (lambda
-                                                              (context &key
-                                                                       on-committed
-                                                                       on-rejected)
-                                                            (let ((path
-                                                                   (context-path
-                                                                    context)))
-                                                              (if (eq
-                                                                   (%kind
-                                                                    context
-                                                                    path)
-                                                                   :absent)
-                                                                  (aitools.kernel.domain:flow-call
-                                                                   (%not-found
-                                                                    context
-                                                                    path)
-                                                                   (:on-error
-                                                                    (code
-                                                                     message
-                                                                     &key
-                                                                     candidates
-                                                                     diagnostics
-                                                                     conflicts
-                                                                     repairs
-                                                                     path)
-                                                                    (declare (ignore
-                                                                              path))
-                                                                    (funcall
-                                                                     on-rejected
-                                                                     code
-                                                                     message
-                                                                     :candidates
-                                                                     candidates
-                                                                     :diagnostics
-                                                                     diagnostics
-                                                                     :conflicts
-                                                                     conflicts
-                                                                     :repairs
-                                                                     repairs)))
-                                                                  (funcall
-                                                                   on-committed
-                                                                   (list
-                                                                    (aitools.store.domain:delete-request
-                                                                     path))))))
-                                                          :record-options
-                                                          options
-                                                          :record-positionals
-                                                          (lambda (paths)
-                                                            paths)))))
 
 (define-write-command "mkdir"
                       (ports env positionals options &key on-plan on-error)

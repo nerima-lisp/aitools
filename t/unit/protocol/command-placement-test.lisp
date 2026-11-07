@@ -19,7 +19,7 @@
             ("mv" "aitools move")
             ("rm" "aitools rm")
             ("top" "aitools sys metrics")
-            ("rmdir" "aitools delete")
+            ("rmdir" "aitools rm")
             ("mkdir" "aitools mkdir")
             ("chmod" "aitools chmod")
             ("ln" "aitools link")

@@ -12,7 +12,7 @@
 (describe "aitools file, JSON, table and archive commands refuse malformed arguments"
   (it-each (("move with one path" "move" ("a.txt") () "argument.invalid" "move takes SRC and DST")
             ("copy with one path" "copy" ("a.txt") () "argument.invalid" "copy takes SRC and DST")
-            ("delete with two paths" "delete" ("a.txt" "c.json") () "argument.invalid" "delete takes exactly one path")
+            ("rm with two paths" "rm" ("a.txt" "c.json") () "argument.invalid" "rm takes exactly one path")
             ("mkdir with no path" "mkdir" () () "argument.invalid" "mkdir takes exactly one path")
             ("chmod with two paths" "chmod" ("a.txt" "c.json") (:exec t) "argument.invalid" "chmod takes exactly one path")
             ("chmod with no change" "chmod" ("a.txt") () "argument.invalid" "chmod needs exactly one of --exec, --no-exec, --mode")
@@ -65,7 +65,7 @@
 (describe "aitools file commands: missing, unreadable and special paths"
           (it-each (("move" ("nope.txt" "b.txt") ())
                     ("copy" ("nope.txt" "b.txt") ())
-                    ("delete" ("nope.txt") ())
+                    ("rm" ("nope.txt") ())
                     ("chmod" ("nope.txt") (:exec t)))
                    "~A names similar paths for a missing source"
                    (command positionals options)

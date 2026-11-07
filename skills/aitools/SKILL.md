@@ -242,7 +242,7 @@ aitools move old/name.lisp new/name.lisp
 aitools move draft.md final.md --overwrite --expect-hash "final.md=$HASH"
 aitools copy template.lisp src/new.lisp
 aitools copy assets public/assets --recursive --max-bytes 100MiB
-aitools delete tmp/scratch.txt --expect-hash "$HASH"
+aitools rm tmp/scratch.txt --expect-hash "$HASH"
 aitools mkdir build/reports
 aitools chmod bin/run.sh --exec
 aitools chmod secrets.env --mode 600
@@ -252,9 +252,8 @@ aitools mktemp --suffix .json
 aitools mktemp --dir
 ```
 
-`delete` handles one file, symlink, or empty directory. Use `rm` for recursive
-removal; `rm` also accepts single paths. For a tree, first run a dry run,
-inspect the selected paths and returned count, then repeat with
+`rm` handles one file, symlink, or empty directory. For a tree, first run a dry
+run, inspect the selected paths and returned count, then repeat with
 `--expect-count COUNT`:
 
 ```sh

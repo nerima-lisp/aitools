@@ -144,7 +144,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
       (with-error (code message) (run "move" '("a.txt" ".git"))
         (expect code :to-equal "refusal.outside-workspace")
         (expect (search "inside .git" message) :to-be-truthy))
-      (with-error (code) (run "delete" '(".git")) (expect code :to-equal "refusal.outside-workspace"))
+      (with-error (code) (run "rm" '(".git")) (expect code :to-equal "refusal.outside-workspace"))
       (expect (kind ".git") :to-be :directory))))
 
   (it "deletes and moves mktemp entries, which are valid write targets"
@@ -154,8 +154,8 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
         (expect (run "write" (list inner) :content '("x")) :to-be :ok)
         (expect (run "move" (list inner (concatenate 'string directory "/y"))) :to-be :ok)
         (expect (probe-file inner) :to-be nil)
-        (expect (run "delete" (list (concatenate 'string directory "/y"))) :to-be :ok)
-        (expect (run "delete" (list file)) :to-be :ok)
+        (expect (run "rm" (list (concatenate 'string directory "/y"))) :to-be :ok)
+        (expect (run "rm" (list file)) :to-be :ok)
         (expect (probe-file file) :to-be nil)))))
 
   (it "names a symlink loop as the reason a target is refused"

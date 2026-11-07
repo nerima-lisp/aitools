@@ -9,7 +9,7 @@
       :description "Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text."))
     (:count
      (:key :expect-count :name "expect-count" :kind :value
-      :description "Guard: the number of selected lines or replacements."))
+      :description "Guard: the expected number of selected items."))
     (:selectors
      ,@(mapcar (lambda (option)
                  (list :key (getf option :key) :name (getf option :name)

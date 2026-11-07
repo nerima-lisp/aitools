@@ -295,7 +295,8 @@ with `repairs` naming the aitools command to use instead:
 | `cp` | `aitools copy` | Copy a file, or a directory with --recursive. |
 | `mv` | `aitools move` | Move or rename a file or directory. |
 | `rm` | `aitools rm` | Remove one target with journal and undo; trees need --recursive and --expect-count. |
-| `rmdir` | `aitools delete` | Delete a file, a symlink, or an empty directory. |
+| `rmdir` | `aitools rm` | Remove an empty directory with the journaled rm command. |
+| `delete` | `aitools rm` | The former file-removal command was removed; use rm. |
 | `mkdir` | `aitools mkdir` | Create a directory and its parents. |
 | `chmod` | `aitools chmod` | Set executable bits or an octal mode. |
 | `ln` | `aitools link` | Create a symbolic link inside the workspace. |

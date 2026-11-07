@@ -125,11 +125,6 @@
      :mktemp-error-message "rm requires a workspace target"
      :output-fields ((:name "entries" :description "Number of deleted entries, including the target itself.")
                      (:name "bytes" :description "Total regular-file bytes selected for deletion.")))
-    (:name "delete"
-     :summary "Delete a file, a symlink, or an empty directory."
-     :positionals ((:key :path :name "path"))
-     :options ()
-     :include (:hash :write))
     (:name "mkdir"
      :summary "Create a directory and its parents; an existing directory is a no-op."
      :positionals ((:key :path :name "path"))

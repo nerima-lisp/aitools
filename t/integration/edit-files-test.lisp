@@ -2,7 +2,7 @@
 ;;;; File operations, rm safety, and undo behavior.
 (in-package #:aitools.edit.test)
 
-(describe "aitools move, copy, delete and mkdir"
+(describe "aitools move, copy, rm and mkdir"
   (it "renames a directory, refuses to merge into an existing one, and undoes the move"
     (call-with-edit-workspace (lambda () (put "d/a.txt" "a")
       (put "d/sub/b.txt" "b")
@@ -63,9 +63,9 @@
       (sb-posix:mkdir (disk "empty") #o755)
       (put "f.txt" "f" :mode #o600)
       (let ((before (snapshot)))
-        (with-error (code) (run "delete" '("full")) (expect code :to-equal "refusal.not-a-file"))
+        (with-error (code) (run "rm" '("full")) (expect code :to-equal "refusal.not-a-file"))
         (dolist (path '("empty" "f.txt"))
-          (multiple-value-bind (kind fields) (run "delete" (list path))
+          (multiple-value-bind (kind fields) (run "rm" (list path))
             (expect kind :to-be :ok)
             (expect (changes fields) :to-equal (list (list path "deleted")))
             (expect (kind path) :to-be :absent)

@@ -35,7 +35,7 @@
     "| `perl -MUnicode::Normalize`、全角と半角の統一 | `transform --op nfc\\|nfkc` |"
     "| `iconv`、`nkf` | `transcode`、`read --encoding` |"
     "| `split -l`、`csplit` | `split --lines`、`split --at-match` |"
-    "| `cp`、`cp -r`、`mv`、`mv dir new`、`rm`、`rmdir` | `copy`、`copy --recursive`、`move`、`delete` |"
+    "| `cp`、`cp -r`、`mv`、`mv dir new`、`rm`、`rmdir` | `copy`、`copy --recursive`、`move`、`rm` |"
     "| `mkdir -p`、`chmod +x`、`chmod 644`、`ln -s`、`ln -sf`、`touch`、`mktemp` | `mkdir`、`chmod --exec`、`chmod --mode 0644`、`link`、`link --overwrite`、`touch`、`mktemp` |"
     "| `rename 's/…/…/'` | `find` で対象を得て、`move` を並べた `batch --atomic` |"
     "| `jq '.a.b'`、`jq 'keys'`、`jq 'length'`、`jq -r` | `json get`、`--keys`、`length`、`--raw` |"

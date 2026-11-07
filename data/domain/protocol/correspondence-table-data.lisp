@@ -45,8 +45,11 @@
      :repairs ((:detail "Remove one target with journal and undo; trees need --recursive and --expect-count."
                 :command "aitools rm")))
     (:foreign-names ("rmdir")
-     :repairs ((:detail "Delete a file, a symlink, or an empty directory."
-                :command "aitools delete")))
+     :repairs ((:detail "Remove an empty directory with the journaled rm command."
+                :command "aitools rm")))
+    (:foreign-names ("delete")
+     :repairs ((:detail "The former file-removal command was removed; use rm."
+                :command "aitools rm")))
     (:foreign-names ("mkdir")
      :repairs ((:detail "Create a directory and its parents."
                 :command "aitools mkdir")))
