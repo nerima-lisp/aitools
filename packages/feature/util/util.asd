@@ -50,6 +50,7 @@
      (:file "unit/util/flows-test")
      (:file "unit/util/flow-errors-test")
      (:module "integration" :pathname "integration/" :serial t
-      :components ((:file "util-cli-test")))
+      :components ((:file "util-cli-test")
+                  (:file "util-context-registration-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "process-env-util-cases")))))))

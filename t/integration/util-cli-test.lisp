@@ -231,25 +231,3 @@
           (expect octets :to-equalp contents))
         (expect (reader-outcome reader file 65536) :to-equal (list :too-large))))
     :prefix "aitools-process")))
-(describe "aitools util context registration"
-  (it "registers util commands from the composition dependencies"
-    (let ((aitools/cli::*context-command-registrations* nil))
-      (dolist (component-name '("package" "context-registration"))
-        (asdf:operate 'asdf:load-op
-                      (asdf:find-component
-                       "aitools/feature/util/presentation"
-                       (list "composition" component-name))
-                      :force t))
-      (let* ((registration
-               (find :util (aitools/cli::context-command-registrations)
-                     :key #'first))
-             (registry (aitools.protocol.application:make-command-registry)))
-        (expect registration :to-be-truthy)
-        (funcall (second registration)
-                 registry
-                 (apply (third registration)
-                        (aitools/cli::%context-dependency-arguments)))
-        (expect (mapcar #'aitools.protocol.domain:command-schema-name
-                        (aitools.protocol.application:all-command-schemas registry))
-                :to-equal '("util.encode" "util.decode" "util.redact" "util.tokens"
-                            "util.calc" "util.uuid" "util.random"))))))
