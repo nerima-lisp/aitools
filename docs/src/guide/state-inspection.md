@@ -10,8 +10,9 @@ other processes. An unavailable source is not evidence that nothing exists.
 | Environment | `sys env [PREFIX]` | Current process environment with secret-name and known-format masking; not a guarantee that arbitrary secrets are absent. |
 | Installed tools | `sys tools [NAMES...]` | PATH lookup and version probes; probing runs the programs. |
 | Processes | `sys procs [PATTERN]` | Command-line substring matches ordered by PID; a limit can omit matches. Unlike metrics, this includes command lines. |
-| Workspace layout | `overview [PATH]` | File/language/build overview and selected Git metadata; not every modification or filesystem attribute. |
-| Git changes | `git status` | Git working-tree state; not a substitute for jj's revision or operation state. |
+| Workspace layout | `overview [PATH]` | File/language/build overview and top-level entries; not every modification or filesystem attribute. |
+| Git changes | `run -- git status` | External Git working-tree state. |
+| Jujutsu changes and operations | `run -- jj status`, `run -- jj op log` | Revision and operation state; use jj's own commands for details. |
 | Managed jobs | `bg status [ID]` | Jobs registered in this workspace, not every host process. List results identify unreadable or invalid records in `omitted`. |
 | Job output | `bg logs ID` | Bounded log windows; follow the returned offset to continue. |
 | Transactions | `tx status [ID]`, `tx diff ID` | Open staged operations, recorded reads, drift, and a bounded proposed diff. |
@@ -63,8 +64,8 @@ counts identifiers seen during listing. Each omitted identifier has a reason;
 an all-invalid listing is partial, not a normal empty list. Concurrent job
 changes can still make observations stale immediately after collection.
 
-Normal command dispatch can perform journal recovery before the requested
-handler runs. These commands do not provide a pre-recovery forensic view;
+Normal aitools dispatch can perform journal recovery before the requested
+handler runs. An invocation cannot provide a pre-recovery forensic view;
 failed recovery can prevent the observation. External filesystem writes,
 permissions, ignored paths, and command-specific limits also constrain
 coverage.

@@ -18,7 +18,6 @@ infrastructure, and presentation layers. Shared types and services live in
 | feature/edit | domain, application, infrastructure, presentation | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
 | feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
-| feature/vcs | domain, application, infrastructure, presentation | The read-only `git` group |
 | feature/org | domain, application, infrastructure, presentation | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
 | feature/env | domain, application, infrastructure, presentation | The `sys` and `time` groups |
 | feature/util | domain, application, infrastructure, presentation | The `util` group |
@@ -72,7 +71,7 @@ production implementations.
 |---|---|---|
 | domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, `cl-date-kit`, and `cl-deflate-kit` |
 | application | Use cases, port definitions, continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications; in Store, the pure `resilience-kit:make-retry-policy` constructor |
-| infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `vcs-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
+| infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
@@ -249,7 +248,6 @@ omitted.
 | edit | `run-write-command/k`, `check-expect-count/k`, `require-expect-hash/k`, `resolve-extra-path/k`, `read-stdin/k`, `read-stdin-text/k`, `read-stdin-json/k`, `read-input-file/k`, `read-content/k`, `read-content-text/k`, `read-file-octets/k`, `read-document/k`, `parse-selector/k`, `resolve-lines/k`, `scan-files/k`, `compile-pattern/k`, `decode-text-document/k`, `parse-json-text/k`, `find-old/k`, `compile-search-pattern/k` | `call-with-regex-refusals` |
 | journal | none of its own; its flows call the store's `/k` functions | none |
 | process | `run-command/k`, `wait-until/k`, `wait-command/k`, `bg-start/k`, `bg-logs/k`, `bg-status/k`, `bg-stop/k` | `call-with-bg-log` and `with-bg-log` |
-| vcs | `git-status/k`, `git-log/k`, `git-diff/k`, `git-blame/k`, `git-show/k`, `line-window/k`, `diff-files/k` | none |
 | env | `resolve-zone/k`, `time-now/k`, `time-convert/k`, `time-diff/k`, `sys-info/k`, `sys-env/k`, `sys-tools/k`, `sys-procs/k`, `sys-ports/k` | none |
 | util | `resolve-input/k`, `evaluate-expression/k`, `decode-text/k` | none |
 | composition root | `call-with-invocation-workspace/k` (ready, busy, invalid timeout) | none |
@@ -296,7 +294,6 @@ the traversal where the traversal supports it.
 | `map-matches`, `map-selected-lines` | Regex matches and selected lines | `packages/feature/search/src/domain/matcher.lisp` |
 | `map-word-occurrences` | Identifier occurrences for `code refs` | `packages/feature/search/src/domain/code.lisp` |
 | `map-journal-entries` | Journal entries | `packages/core/store/src/application/journal.lisp` |
-| `map-log-records`, `map-blame-lines` | `git log` and `git blame` output | `packages/feature/vcs/src/domain/log.lisp`, `blame.lisp` |
 | `scan-lisp-delimiters` | Delimiters for `check --format lisp` | `packages/feature/inspect/src/domain/lisp-scan.lisp` |
 
 The search hot path declares its per-line continuations `dynamic-extent`
@@ -331,15 +328,3 @@ branch.
 - `aitools/cli`: every presentation layer and the composition root in
   `src/`; `program-op` builds the `aitools` executable.
 - `aitools/test`: the cl-weave suites under `t/`.
-
-The delivered binary is built in two SBCL processes (`overrideOutputs` in
-`flake.nix`). The first compiles every fasl of the `aitools/cli` closure and
-never dumps an image. The second runs `program-op` through cl-nix-forge's
-`mkExecutable` over that precompiled tree, so the dumping process loads the
-fasls without compiling and the dumped core never shares a heap with the
-compiler. See [Development](../project/development.md#building-the-binary).
-
-`aitools.asd` lists each context's files inline, grouped by context in load order: core kernel, protocol, workspace,
-text, store, then feature search, inspect, journal, edit, process, vcs, env,
-util. See
-[Development](../project/development.md#the-component-lists).

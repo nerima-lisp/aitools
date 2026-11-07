@@ -87,7 +87,7 @@ Errors: `argument.invalid`, `input.not-found`, `internal.unexpected`.
 
 ### `overview` {#overview}
 
-Summarize the workspace: root, git state, languages, build files, and top-level entries.
+Summarize the workspace: root, languages, build files, and top-level entries.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -101,7 +101,6 @@ Summarize the workspace: root, git state, languages, build files, and top-level 
 | `root` | The workspace root. |
 | `path` | The summarized directory, workspace-relative ("" for the root). |
 | `ignore_source` | gitignore, builtin, or none. |
-| `git` | {branch,head,untracked,deleted} read from .git without running git, or null outside a repository. branch is null on a detached HEAD. untracked and deleted count files below path; files modified in place are not counted. |
 | `languages` | [{lang,files,lines,bytes}], most lines first. |
 | `languages_total` | Languages before --limit. |
 | `build_files` | Workspace-relative paths of build and project files (flake.nix, *.asd, Cargo.toml, package.json, ...). |

@@ -111,7 +111,7 @@ groups to the fixed output order.
 |---|---|---|
 | [`search`](search.md#search) | search | Search file contents for a regular expression; results are grouped into blocks with context. |
 | [`find`](search.md#find) | search | List files and directories by name or path pattern; ls, find, tree, and du in one. |
-| [`overview`](search.md#overview) | search | Summarize the workspace: root, git state, languages, build files, and top-level entries. |
+| [`overview`](search.md#overview) | search | Summarize the workspace: root, languages, build files, and top-level entries. |
 | [`code outline`](search.md#code-outline) | search | List the definitions in one source file with their line ranges. |
 | [`code defs`](search.md#code-defs) | search | Find where a name is defined across the workspace's source files. |
 | [`code refs`](search.md#code-refs) | search | Find the lines that mention a name as a whole identifier. |
@@ -185,11 +185,6 @@ groups to the fixed output order.
 | [`bg logs`](process.md#bg-logs) | process | Read a bg process's log: the last lines, or the lines from a byte offset. |
 | [`bg status`](process.md#bg-status) | process | List the bg processes aitools started in this workspace, or one of them. |
 | [`bg stop`](process.md#bg-stop) | process | Stop a bg process: SIGTERM to its process group, SIGKILL if it outlives --grace. |
-| [`git status`](vcs.md#git-status) | vcs | Show the branch, upstream distance, and staged, unstaged, and untracked paths. |
-| [`git log`](vcs.md#git-log) | vcs | List the newest commits, optionally only those touching a path. |
-| [`git diff`](vcs.md#git-diff) | vcs | Show changed files with line counts and, in hunks mode, their hunks. |
-| [`git blame`](vcs.md#git-blame) | vcs | Show who last changed each line of a work-tree file. |
-| [`git show`](vcs.md#git-show) | vcs | Read a file as stored at a revision, in read's shape. |
 | [`org outline`](org.md#org-outline) | org | List Org headings and named or unnamed source and example blocks. |
 | [`org query`](org.md#org-query) | org | Find Org headings that match an Org match expression. |
 | [`org export`](org.md#org-export) | org | Export an Org file as HTML, GFM, or ASCII text. |

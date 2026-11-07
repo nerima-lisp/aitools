@@ -348,20 +348,10 @@ aitools bg status
 aitools bg stop bg-1 --grace 10s
 ```
 
-### Git
+### Git commands
 
-The built-in `git` commands are read-only. Calling git through `run` does not impose that restriction;
-obtain authorization before any version-control write.
-
-```sh
-aitools git status
-aitools git log src/app.lisp --limit 5
-aitools git diff --output stat
-aitools git diff src --staged --max-lines 200
-aitools git diff --ref HEAD~1
-aitools git blame src/app.lisp --symbol build-app
-aitools git show HEAD:src/app.lisp --range 1:40
-```
+Use `run` to invoke Git as an external program. `run` does not impose a
+read-only restriction; obtain authorization before a write.
 
 ### Host, time, and utilities
 
@@ -513,7 +503,7 @@ Validate a unified diff before committing it as one journal operation; preview f
 ```sh
 aitools apply --stdin --dry-run < fix.patch
 aitools apply --stdin < fix.patch
-aitools git diff --output stat
+aitools run -- git diff --stat
 ```
 
 ## Shell habits and their aitools replacements
@@ -540,7 +530,7 @@ aitools git diff --output stat
 | mktemp | `aitools mktemp` |
 | jq | `aitools json get`, `select`, `diff` to read; `json set`, `delete`, `merge`, `patch`, `fmt` to write |
 | tar, unzip, zcat, gzip, zip | `aitools archive list`, `read`, `extract`, `create` |
-| git (read-only) | `aitools git status`, `log`, `diff`, `blame`, `show` |
+| git | `aitools run -- git ...` |
 | uname, whoami, hostname, nproc | `aitools sys info` |
 | env | `aitools sys env` (secret-named values masked) |
 | which plus version probes | `aitools sys tools NAME...` (executes the programs) |

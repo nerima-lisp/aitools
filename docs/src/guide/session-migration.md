@@ -40,7 +40,7 @@ Uses outside the stated subset need external execution.
 | `df` | `sys disk`: one filesystem containing a path, with total and nonprivileged available bytes; not all mounts or disk I/O. |
 | `netstat` | `sys network`, `sys ports`: cumulative interface counters and TCP listeners; not routes, UDP, or established connections. |
 | `lsof` | `sys ports`: TCP listeners and available owners, not all open files, UDP, or established connections. |
-| `git` | `git status`, `git log`, `git diff`, `git blame`, `git show`: supported read-only queries, not Git writes. |
+| `git` | `run -- git ...`: run the external Git command under the caller's execution policy. |
 | `date` | `time now`, `time convert`, `time diff`. |
 | `sleep` | [`wait --duration`](../reference/commands/process.md#wait): JSON output; `--duration` sets the requested delay, while `--timeout` limits the wait (default 60 seconds). Set a timeout longer than the duration for longer delays. |
 | `kill` | `bg stop`: managed job IDs only, not arbitrary PIDs or signals. |

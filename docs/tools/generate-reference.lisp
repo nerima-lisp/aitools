@@ -104,8 +104,6 @@ under the matching `# The <context> context' heading."
               #'aitools.journal.infrastructure:make-production-journal-ports)
         (list "process" #'aitools.process.presentation:register-process-commands
               #'aitools.process.infrastructure:make-production-process-ports)
-        (list "vcs" #'aitools.vcs.presentation:register-vcs-commands
-              #'aitools.vcs.infrastructure:make-production-vcs-ports)
         (list "org" #'aitools.org.presentation:register-org-commands
               #'aitools.org.infrastructure:make-production-org-ports)
         (list "env" #'aitools.env.presentation:register-env-commands

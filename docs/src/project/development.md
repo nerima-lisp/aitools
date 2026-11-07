@@ -10,10 +10,11 @@ nix develop
 sbcl --script run-tests.lisp
 ```
 
-Outside it, point `CL_SOURCE_REGISTRY` at a checkout of every dependency
-first: cl-cli, cl-weave, cl-json-kit, cl-regex-kit, cl-codec-kit,
-cl-host-kit, cl-boundary-kit, cl-concurrent-kit, cl-process-kit, cl-vcs-kit,
-and their own dependencies cl-date-kit, cl-log-kit, and cl-parser-kit, at
+Outside it, place a checkout of every dependency somewhere under
+`$HOME/src/nerima-lisp/` and point `CL_SOURCE_REGISTRY` there: cl-cli,
+cl-weave, cl-json-kit, cl-regex-kit, cl-codec-kit,
+cl-host-kit, cl-boundary-kit, cl-concurrent-kit, cl-process-kit, and their
+own dependencies cl-date-kit, cl-log-kit, and cl-parser-kit, at
 the tags `flake.nix` pins:
 
 ```sh
@@ -169,10 +170,10 @@ context contributes four kinds of file:
 - **test** files, relative to `t/`, loaded into `aitools/test`.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
-store, then feature search, inspect, journal, edit, process, vcs, env, util.
+store, then feature search, inspect, journal, edit, process, env, util.
 A context loads after every context whose application package it calls:
 journal before edit (edit registers its `tx rebase` replayers with journal),
-inspect before edit and vcs, and edit before util.
+inspect before edit, and edit before util.
 
 To add a context or move files between layers, edit its lists in
 `aitools.asd` directly.

@@ -56,7 +56,6 @@ nav:
           - Edit: reference/commands/edit.md
           - Journal: reference/commands/journal.md
           - Process: reference/commands/process.md
-          - VCS: reference/commands/vcs.md
           - Org: reference/commands/org.md
           - Environment: reference/commands/env.md
           - Utilities: reference/commands/util.md

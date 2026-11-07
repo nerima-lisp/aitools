@@ -1,7 +1,7 @@
 # Inspect APIs for other contexts
 
-The Inspect application package exposes selector helpers for Edit and VCS,
-and YAML/TOML preflight helpers for Edit. Each helper reports its result
+The Inspect application package exposes selector APIs to Edit and YAML/TOML
+preflight APIs that Edit uses before writing. Each helper reports its result
 through exactly one continuation.
 
 ## Selector APIs
@@ -36,8 +36,8 @@ line-based selector options are mutually exclusive:
 `package`, `struct`, `trait`, `type`, or `variable`. Available kinds depend on
 the selected file language.
 
-`:read`, `:edit`, `:transform`, `:move-lines`, `:git-blame`, `:git-show`,
-`:archive-read`, `:insert`, and `:replace` accept these four selector forms.
+`:read`, `:edit`, `:transform`, `:move-lines`, `:archive-read`, `:insert`,
+and `:replace` accept these four selector forms.
 Edit's separate `--old` text replacement option is not an input to this API.
 Exactly one selector may be present. `KIND`, `EXCLUSIVE`, and `INVERT` need
 their corresponding selector. `EXTRA-EXCLUSIVE` is a list of
