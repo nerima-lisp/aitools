@@ -5,12 +5,6 @@
 ;;;; bytes, through the tx view when `--tx` is given.
 (in-package #:aitools.inspect.application)
 
-(defun %digest-value (algorithm octets)
-  (cond
-    ((string= algorithm "sha256") (sha256-hex octets))
-    ((string= algorithm "sha1") (crypto-kit:digest-hex :sha1 octets))
-    (t (crypto-kit:digest-hex :md5 octets))))
-
 (defun %path-fields (context target)
   (let* ((host (context-host context))
          (absolute (file-target-absolute target))
@@ -92,7 +86,7 @@ disk's."
        (list (cons "hash" (content-hash octets))
              (cons "approx_tokens" (json-or-null (and characters (approx-token-count characters)))))
        (when digest
-         (list (cons "digest" (json-object "algorithm" digest "value" (%digest-value digest octets)))))))))
+         (list (cons "digest" (json-object "algorithm" digest "value" (info-digest-hex digest octets)))))))))
 
 (defun %link-hash-fields (context target)
   "`hash` for a path that is a symlink leading to no regular file (PATH-HASH's

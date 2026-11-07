@@ -168,3 +168,9 @@ with its scanner dialect, or NIL when the extension names neither."
      nil)
    (:on-error (message line column)
      (list (list line column message)))))
+
+(defun info-digest-hex (algorithm octets)
+  (cond
+    ((string= algorithm "sha256") (aitools.kernel.domain:sha256-hex octets))
+    ((string= algorithm "sha1") (crypto-kit:digest-hex :sha1 octets))
+    (t (crypto-kit:digest-hex :md5 octets))))

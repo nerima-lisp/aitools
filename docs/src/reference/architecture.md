@@ -80,13 +80,14 @@ production implementations.
 | composition | Context registration and dependency construction | That context's presentation and infrastructure, `aitools/cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
-`aitools.kernel.domain`. The kernel domain wraps `crypto-kit:digest-hex` from
-`cl-crypto-kit` for SHA-256 content hashes. Inspect calls
-`crypto-kit:digest-hex` directly for the MD5 and SHA-1 algorithms exposed by
-`info --digest`. These computations map octet vectors to lowercase hexadecimal
-digests without I/O. The kernel domain has no application dependencies, so
-domain and application flows can share the DSL without reversing the dependency
-direction.
+`aitools.kernel.domain`. The kernel domain keeps `sha256-hex` and
+`content-hash`; `sha256-hex` delegates to `crypto-kit:digest-hex` from
+`cl-crypto-kit`. The inspect domain exposes `info-digest-hex` for the algorithms
+used by `info --digest`. It calls `crypto-kit:digest-hex` for MD5 and SHA-1 and
+uses the kernel's SHA-256 helper for SHA-256. These pure computations map octet
+vectors to lowercase hexadecimal digests. The kernel domain has no application
+dependencies, so domain and application flows can share the DSL without
+reversing the dependency direction.
 
 Store application uses `resilience-kit:make-retry-policy` only to describe
 lock retry behavior. Its infrastructure adapter wraps the monotonic-clock and
