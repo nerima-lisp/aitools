@@ -38,3 +38,16 @@ documentation.
 - Every item must have an e2e or integration expectation before release.
 - Tests must reject the old envelope shape.
 - Envelope version 2 is the active contract for this migration.
+
+## Structured document commands
+
+- The inspect and edit contexts each declare one `doc` command for each of
+  `get`, `select`, `diff`, `set`, `delete`, `merge`, `patch`, and `fmt`.
+- The application flow resolves a document's format from `--format` first,
+  then from the path extension. `diff` resolves each path independently unless
+  `--format` overrides both. Missing or unsupported extensions fail with
+  `argument.invalid`; content sniffing is not used.
+- Format codecs convert documents to and from the shared JSON value model.
+  Read and edit operations use that shared model; YAML/TOML comment warnings,
+  TOML ordering, and JSON-only `fmt` options remain at their format-specific
+  boundaries. JSON-only options fail with `argument.invalid` for YAML or TOML.
