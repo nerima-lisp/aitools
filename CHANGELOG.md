@@ -3,8 +3,9 @@
 ## Unreleased
 
 - `aitools sys info` now returns `environment.unavailable` when its uptime source
-  is missing or malformed. Unlike optional CPU and memory values, uptime is
-  required to produce a complete system information response.
+  is missing or malformed; previously, its response could contain a `null`
+  uptime. CPU and memory values are optional, but uptime is required for a
+  complete system information response.
 
 ## v0.4.0
 
