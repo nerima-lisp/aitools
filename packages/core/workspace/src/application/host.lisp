@@ -7,8 +7,9 @@
 ;;;; Every path argument is an absolute, normalized POSIX string.
 (in-package #:aitools.workspace.application)
 
-(defmacro define-workspace-operation (name key arguments)
+(defmacro define-workspace-operation (name key arguments documentation)
   `(defun ,name (boundaries ,@arguments)
+     ,documentation
      (funcall
       (cl-boundary-kit:boundary-context-require boundaries ,key)
       ,@arguments)))
@@ -44,23 +45,62 @@
                context (car capability) (cdr capability))))
       context)))
 
-(define-workspace-operation host-list-directory :workspace-list-directory (path))
+(define-workspace-operation
+ host-list-directory
+ :workspace-list-directory
+ (path)
+ "Return (VALUES entries readable-p): PATH children as WORKSPACE-ENTRY
+values using lstat semantics, in any order, and omit the . and .. entries.
+READABLE-P is NIL when PATH is missing, not a directory, or unreadable.")
 
-(define-workspace-operation host-stat :workspace-stat (path))
+(define-workspace-operation
+ host-stat
+ :workspace-stat
+ (path)
+ "Return the lstat WORKSPACE-ENTRY for PATH, named by its base name, or NIL.")
 
-(define-workspace-operation host-read-link :workspace-read-link (path))
+(define-workspace-operation
+ host-read-link
+ :workspace-read-link
+ (path)
+ "Return the raw symlink target string for PATH, or NIL when PATH is not a
+readable symbolic link.")
 
-(define-workspace-operation host-read-octets :workspace-read-octets (path))
+(define-workspace-operation
+ host-read-octets
+ :workspace-read-octets
+ (path)
+ "Return PATH bytes as an (unsigned-byte 8) vector, or NIL when PATH is
+missing or unreadable.")
 
 (defun host-getenv (boundaries name)
+  "Return a non-empty environment value for NAME, or NIL."
   (let ((value
           (cl-boundary-kit:environment-get
            (cl-boundary-kit:boundary-context-require boundaries :environment)
            name)))
     (and value (plusp (length value)) value)))
 
-(define-workspace-operation host-home-directory :workspace-home-directory ())
+(define-workspace-operation
+ host-home-directory
+ :workspace-home-directory
+ ()
+ "Return the absolute home-directory string without a trailing slash.")
 
-(defun host-current-directory (boundaries) (let ((directory (cl-boundary-kit:working-directory-get (cl-boundary-kit:boundary-context-require boundaries :working-directory)))) (normalize-path (if (stringp directory) directory (sb-ext:native-namestring directory)))))
+(defun host-current-directory (boundaries)
+  "Return the absolute current-directory string without a trailing slash."
+  (let ((directory
+          (cl-boundary-kit:working-directory-get
+           (cl-boundary-kit:boundary-context-require boundaries :working-directory))))
+    (normalize-path
+     (if (stringp directory)
+         directory
+         (sb-ext:native-namestring directory)))))
 
-(define-workspace-operation host-call-with-ordered-mapper :workspace-call-with-ordered-mapper (thunk))
+(define-workspace-operation
+ host-call-with-ordered-mapper
+ :workspace-call-with-ordered-mapper
+ (thunk)
+ "Call THUNK with a mapper (FUNCTION ITEMS) that applies FUNCTION to ITEMS
+and returns results in input order. The default maps sequentially; production
+uses a CPU-sized pool.")
