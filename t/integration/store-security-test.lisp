@@ -199,4 +199,25 @@ an agent able to write the state directory could. Returns its op id."
       (seed-state store)
       (expect (file-mode (store-state-directory store)) :to-be #o700)
       (expect (file-mode (state-home-of store)) :to-be #o700)) :io nil)))
+(describe "aitools.store absolute symlink targets"
+  (it "discards a write record whose parent symlink has an absolute target"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((base (base-directory plain))
+              (outside (format nil "~A/outside" base))
+              (inside (posix-store-under (store-root plain) (format nil "~A/state" base))))
+         (seed-state inside)
+         (sb-posix:mkdir outside #o755)
+         (sb-posix:symlink outside (disk-path inside "link"))
+         (expect (entry-state-target (workspace-state inside "link")) :to-equal outside)
+         (put-file inside ".aitools-payload-1.tmp" "x")
+         (let ((op-id (forge-intent inside (list (make-intent-step :op :replace :path "link/pwn.txt"
+                                                                   :temp ".aitools-payload-1.tmp"
+                                                                   :kind :file :mode #o644)))))
+           (multiple-value-bind (status entries) (recover inside)
+             (expect status :to-be :recovered)
+             (expect entries :to-equal (list (cons op-id "discarded")))))
+         (expect (exists-p (format nil "~A/pwn.txt" outside)) :to-be nil)
+         (expect (null (intent-files inside)) :to-be t)))
+     :io nil)))
 
