@@ -12,7 +12,7 @@
                 #:make-range-selector #:make-symbol-selector #:make-between-selector #:make-match-selector
                 #:selector-kind #:selector-range-start #:selector-range-end #:selector-match-pattern
                 #:selector-invert #:selector-accepts-command-p
-                #:content-hash #:sha256-hex #:approx-token-count
+                #:content-hash #:approx-token-count
                 #:parse-duration #:duration-milliseconds #:parse-size #:size-bytes #:parse-range-spec
                 #:path-inside-p #:path-relative-to)
   (:import-from #:aitools.text.domain

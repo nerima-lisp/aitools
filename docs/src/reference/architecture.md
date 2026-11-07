@@ -79,9 +79,14 @@ The `define-flow`, `flow-call`, and `flow-continue` macros live in
 `aitools.kernel.domain`. Both domain and application packages can use this
 dependency-free DSL without reversing the dependency direction.
 
-The kernel domain also wraps `crypto-kit:digest-hex` from `cl-crypto-kit` to
-compute standard digests and content hashes. The function maps an octet vector
-to a lowercase hexadecimal digest without I/O.
+The kernel domain keeps `sha256-hex` and `content-hash`; `sha256-hex` delegates
+to `crypto-kit:digest-hex` from `cl-crypto-kit`. The inspect domain exposes
+`info-digest-hex` for the algorithms used by `info --digest`. It calls
+`crypto-kit:digest-hex` for MD5 and SHA-1 and uses the kernel's SHA-256 helper
+for SHA-256. These pure computations map octet vectors to lowercase
+hexadecimal digests. The kernel domain has no application dependencies, so
+domain and application flows can share the DSL without reversing the dependency
+direction.
 
 Store application uses `resilience-kit:make-retry-policy` only to describe
 lock retry behavior. Its infrastructure adapter wraps the monotonic-clock and
@@ -305,7 +310,8 @@ allocation does not grow with the number of non-matching lines. See
 
 | Computation | Function | File |
 |---|---|---|
-| Content hash and digests | `content-hash`, `sha256-hex`, `sha1-hex`, `md5-hex` | `packages/core/kernel/src/domain/digest-kit.lisp` |
+| Content hash and SHA-256 digest | `content-hash`, `sha256-hex` | `packages/core/kernel/src/domain/digest-kit.lisp` |
+| Inspection digests | `info-digest-hex` | `packages/feature/inspect/src/domain/file-facts.lisp` |
 | Token estimate | `approx-token-count` | `packages/core/kernel/src/domain/token-estimate.lisp` |
 | Masking one string | `redact-secrets` | `packages/core/protocol/src/domain/redaction.lisp` |
 | Diff generation (LCS) | `generate-diff-hunks`, `generate-unified-diff` | `packages/core/kernel/src/domain/unified-diff.lisp` |
