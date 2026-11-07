@@ -1,7 +1,7 @@
 (in-package #:aitools.store.test)
 
 (defun blob-listing (store)
-  (sort (copy-list (funcall (store-io-list-directory (store-io-port store))
+  (sort (copy-list (funcall (store-operation (store-boundaries store) :list-directory)
                             (blobs-directory (store-state-directory store))))
         #'string<))
 
@@ -30,7 +30,7 @@ content before it; returns that blob's name."
         (sb-posix:mkdir (join-path tx-root "junk") #o700)
         (collect-garbage store)
         (expect (blob-listing store) :to-equal (sort (list kept "notes") #'string<))
-        (expect (funcall (store-io-list-directory (store-io-port store)) tx-root) :to-equal '("junk")))) :io nil))
+        (expect (funcall (store-operation (store-boundaries store) :list-directory) tx-root) :to-equal '("junk")))) :io nil))
 
   (it-each (("an unreadable tx index" :tx-index)
             ("an unreadable journal line" :journal))
@@ -58,7 +58,7 @@ content before it; returns that blob's name."
 
   (it "compacts the journal once it holds twice the retained entries"
     (call-with-temp-store (lambda (store) (flet ((journal-lines ()
-               (count #\Newline (octets-string (funcall (store-io-read-file (store-io-port store))
+               (count #\Newline (octets-string (funcall (store-operation (store-boundaries store) :read-file)
                                                         (journal-file-path (store-state-directory store)))))))
         (loop for n from 1 to 40
               do (commit store (list (write-file-request "a.txt" (bytes (format nil "~D" n))))))
@@ -68,26 +68,25 @@ content before it; returns that blob's name."
         (expect (length (read-journal store)) :to-be 20))) :io nil))
 
   (it "tolerates a removal that fails because the entry already vanished, and reports any other"
-    (call-with-temp-store (lambda (store) (referenced-store store)
-      (let* ((io (aitools.store.application::copy-store-io (store-io-port store)))
-             (original-unlink #'store-io-unlink)
-             (failing-store (make-store io (store-root store) (state-home-of store))))
-        (flet ((collect-with-unlink (unlink)
-         (cl-weave:with-mocked-functions
-             (((symbol-function 'aitools.store.application:store-io-unlink)
-               (lambda (candidate)
-                 (if (eq candidate io)
-                     unlink
-                     (funcall original-unlink candidate)))))
-           (collect-garbage failing-store))))
-  (plant-blob-files store ".vanishing.tmp")
-  (collect-with-unlink
-   (lambda (path)
-     (sb-posix:unlink path)
-     (error 'store-io-error :operation "unlink" :path path :detail "raced")))
-  (expect (member ".vanishing.tmp" (blob-listing store) :test #'string=) :to-be nil)
-  (plant-blob-files store ".stuck.tmp")
-  (let ((condition (handler-case
+    (call-with-temp-store
+     (lambda (store)
+       (referenced-store store)
+       (let ((base-boundaries (store-boundaries store)))
+         (flet ((collect-with-unlink (unlink)
+                  (collect-garbage
+                   (make-store
+                    (cl-boundary-kit:boundary-context-with base-boundaries :unlink unlink)
+                    (store-root store)
+                    (state-home-of store)))))
+           (plant-blob-files store ".vanishing.tmp")
+           (collect-with-unlink
+            (lambda (path)
+              (sb-posix:unlink path)
+              (error 'store-io-error :operation "unlink" :path path :detail "raced")))
+           (expect (member ".vanishing.tmp" (blob-listing store) :test #'string=) :to-be nil)
+           (plant-blob-files store ".stuck.tmp")
+           (let ((condition
+                   (handler-case
                        (progn
                          (collect-with-unlink
                           (lambda (path)
@@ -95,9 +94,9 @@ content before it; returns that blob's name."
                                    :detail "denied")))
                          nil)
                      (store-io-error (condition) condition))))
-    (expect (store-io-error-detail condition) :to-equal "denied")
-    (expect (store-io-error-path condition)
-            :to-equal (join-path (blobs-directory (store-state-directory store))
-                                 ".stuck.tmp")))))) :io nil))
+             (expect (store-io-error-detail condition) :to-equal "denied")
+             (expect (store-io-error-path condition)
+                     :to-equal (join-path (blobs-directory (store-state-directory store))
+                                          ".stuck.tmp"))))))))
 )
 

@@ -48,7 +48,7 @@ edit, or fixture setup)."
   "Every `.aitools-*.tmp` left anywhere under the workspace."
   (let ((found '()))
     (labels ((walk (relative)
-               (dolist (name (funcall (store-io-list-directory (store-io-port store))
+               (dolist (name (funcall (store-operation (store-boundaries store) :list-directory)
                                       (if (string= relative "") (store-root store) (disk-path store relative))))
                  (let ((child (if (string= relative "") name (concatenate 'string relative "/" name))))
                    (when (temp-file-name-p name) (push child found))
@@ -58,7 +58,7 @@ edit, or fixture setup)."
     found))
 
 (defun intent-files (store)
-  (funcall (store-io-list-directory (store-io-port store)) (commit-directory (store-state-directory store))))
+  (funcall (store-operation (store-boundaries store) :list-directory) (commit-directory (store-state-directory store))))
 
 (defun commit (store requests &key (argv '("test")) dry-run)
   "Run COMMIT-CHANGES/K with a VALIDATE that commits REQUESTS. Returns
@@ -90,3 +90,6 @@ edit, or fixture setup)."
 
 (defun actions (results)
   (mapcar (lambda (result) (list (change-result-path result) (change-result-action result))) results))
+
+(defun store-operation (boundaries key)
+  (cl-boundary-kit:boundary-context-require boundaries key))

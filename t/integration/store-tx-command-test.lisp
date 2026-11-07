@@ -160,10 +160,8 @@ redirected to a scratch directory so the CLI opens its own store there."
                  (tx nil)
                  (faulted nil)
                  (base-io (make-posix-store-io)))
-             (let* ((base-read (store-io-read-file base-io))
-                    (io (copy-store-io
-                         base-io
-                         :read-file
+             (let* ((base-read (store-operation base-io :read-file))
+                    (io (cl-boundary-kit:boundary-context-with base-io :read-file
                          (lambda (path &rest arguments)
                            (if (and tx
                                     (not faulted)

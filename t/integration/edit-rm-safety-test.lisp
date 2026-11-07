@@ -23,10 +23,9 @@
                 :open-store
                 (lambda (root)
                   (let* ((io (aitools.store.infrastructure:make-posix-store-io))
-                         (read-file (aitools.store.application:store-io-read-file io))
+                         (read-file (cl-boundary-kit:boundary-context-require io :read-file))
                          (test-io
-                           (aitools.store.application::copy-store-io
-                            io
+                           (cl-boundary-kit:boundary-context-with io
                             :read-file
                             (lambda (path &key max-bytes)
                               (if (string= path target)

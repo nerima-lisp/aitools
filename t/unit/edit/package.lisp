@@ -174,8 +174,7 @@ a string (UTF-8) or octets."
 \"nothing changed\" and \"undo restored everything\" assertions."
   (let ((entries '()))
     (labels ((walk (relative)
-               (let ((names (funcall (aitools.store.application:store-io-list-directory
-                                      (aitools.store.infrastructure:make-posix-store-io))
+               (let ((names (funcall (cl-boundary-kit:boundary-context-require (aitools.store.infrastructure:make-posix-store-io) :list-directory)
                                      (if (string= relative "") *root* (disk relative)))))
                  (dolist (name (sort (copy-list names) #'string<))
                    (let* ((child (if (string= relative "") name (concatenate 'string relative "/" name)))

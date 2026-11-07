@@ -108,7 +108,7 @@
         (expect (disk-text store "a.txt") :to-equal "a")
         (expect (disk-text store "new.txt") :to-be :absent)
         (expect (tx-text store tx "a.txt") :to-be :no-tx)
-        (expect (funcall (aitools.store.application:store-io-list-directory (aitools.store.application:store-io-port store))
+        (expect (funcall (cl-boundary-kit:boundary-context-require (aitools.store.application:store-boundaries store) :list-directory)
                          (aitools.store.domain:tx-root-directory (aitools.store.application:store-state-directory store)))
                 :to-equal '()))) :io nil)))
 

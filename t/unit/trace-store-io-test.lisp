@@ -1,6 +1,6 @@
 (in-package #:aitools/test)
 (defun %trace-test-store-io (operation &key retry random)
-  (aitools.store.application:make-store-io
+  (cl-boundary-kit:make-boundary-context
    :lstat operation
    :read-file operation
    :create-file operation
@@ -57,26 +57,7 @@
         (expect
          (multiple-value-list
           (apply
-           (funcall
-            (ecase slot-name
-              (:lstat #'aitools.store.application:store-io-lstat)
-              (:read-file #'aitools.store.application:store-io-read-file)
-              (:create-file #'aitools.store.application:store-io-create-file)
-              (:append-file #'aitools.store.application:store-io-append-file)
-              (:rename #'aitools.store.application:store-io-rename)
-              (:unlink #'aitools.store.application:store-io-unlink)
-              (:rmdir #'aitools.store.application:store-io-rmdir)
-              (:mkdir #'aitools.store.application:store-io-mkdir)
-              (:chmod #'aitools.store.application:store-io-chmod)
-              (:chmod-directory-identity
-               #'aitools.store.application:store-io-chmod-directory-identity)
-              (:sync-directory #'aitools.store.application:store-io-sync-directory)
-              (:symlink #'aitools.store.application:store-io-symlink)
-              (:set-mtime #'aitools.store.application:store-io-set-mtime)
-              (:list-directory #'aitools.store.application:store-io-list-directory)
-              (:try-lock #'aitools.store.application:store-io-try-lock)
-              (:unlock #'aitools.store.application:store-io-unlock))
-            wrapped)
+           (cl-boundary-kit:boundary-context-require wrapped slot-name)
            arguments))
          :to-equal '(:first :second))
         (expect
@@ -108,7 +89,7 @@
         (setf wrapped (aitools/cli::%trace-store-io io))
         (setf caught
               (handler-case
-                  (funcall (aitools.store.application:store-io-read-file wrapped)
+                  (funcall (cl-boundary-kit:boundary-context-require wrapped :read-file)
                            "private-path-marker")
                 (error (raised) raised))))
       (expect (eq caught condition) :to-be t)
@@ -132,11 +113,11 @@
            (wrapped nil))
       (let ((aitools/cli::*trace-session* session))
         (setf wrapped (aitools/cli::%trace-store-io io))
-        (expect (eq (aitools.store.application::store-io-call-with-retry wrapped) retry)
+        (expect (eq (cl-boundary-kit:boundary-context-require wrapped :call-with-retry) retry)
                 :to-be t)
-        (expect (eq (aitools.store.application:store-io-random-hex wrapped) random)
+        (expect (eq (cl-boundary-kit:boundary-context-require wrapped :random-hex) random)
                 :to-be t)
-        (funcall (aitools.store.application::store-io-call-with-retry wrapped)
+        (funcall (cl-boundary-kit:boundary-context-require wrapped :call-with-retry)
                  nil operation nil nil)
-        (funcall (aitools.store.application:store-io-random-hex wrapped) 4))
+        (funcall (cl-boundary-kit:boundary-context-require wrapped :random-hex) 4))
       (expect (aitools/cli::%trace-session-records session) :to-be nil))))

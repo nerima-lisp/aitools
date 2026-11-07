@@ -1,16 +1,10 @@
 ;;;;
-;;;; STORE-IO carries the store's specialized file operations. cl-boundary-kit's
-;;;; filesystem shape (read/store/rename/delete whole files) cannot express
-;;;; the write protocol: it needs exclusive creation with fsync, a separately
-;;;; synced append, lstat without following symlinks, chmod, symlink
-;;;; creation, and flock. The port is defined here, with closures per
-;;;; primitive over absolute native path strings; the production adapter
-;;;; (infrastructure) builds it from sb-posix and libc flock and supplies the
-;;;; resilience-kit retry adapter. STORE holds CLOCK and SLEEPER boundaries
-;;;; directly. Tests wrap a real adapter with COPY-STORE-IO to inject behaviour
-;;;; at one file operation.
+;;;; The application receives Store-specific operations as a cl-boundary-kit
+;;;; boundary context. Infrastructure builds production contexts from POSIX
+;;;; syscalls; tests derive fakes with BOUNDARY-CONTEXT-WITH. CLOCK and SLEEPER
+;;;; are typed cl-boundary-kit objects stored directly on STORE.
 ;;;;
-;;;; File primitives signal STORE-IO-ERROR on failure. Their contracts:
+;;;; Boundary operations signal STORE-IO-ERROR on failure. Their contracts:
 ;;;;
 ;;;;   lstat (path)                  -> (values kind mode target mtime links identity); kind
 ;;;;                                    is :absent :file :directory :symlink
@@ -38,61 +32,6 @@
 ;;;;                                  -> thunk result; NIL on retry exhaustion
 ;;;;   random-hex (count)            -> COUNT lowercase hex digits
 (in-package #:aitools.store.application)
-
-(defstruct (store-io (:copier nil))
-  (lstat nil :type function :read-only t)
-  (open-search-root nil :type (or null function) :read-only t)
-  (open-search-entry nil :type (or null function) :read-only t)
-  (close-search-directory nil :type (or null function) :read-only t)
-  (read-file nil :type function :read-only t)
-  (create-file nil :type function :read-only t)
-  (append-file nil :type function :read-only t)
-  (rename nil :type function :read-only t)
-  (unlink nil :type function :read-only t)
-  (rmdir nil :type function :read-only t)
-  (mkdir nil :type function :read-only t)
-  (chmod nil :type function :read-only t)
-  (chmod-directory-identity nil :type (or null function) :read-only t)
-  (sync-directory nil :type (or null function) :read-only t)
-  (symlink nil :type function :read-only t)
-  (set-mtime nil :type function :read-only t)
-  (list-directory nil :type function :read-only t)
-  (try-lock nil :type function :read-only t)
-  (unlock nil :type function :read-only t)
-  (call-with-retry nil :type function :read-only t)
-  (random-hex nil :type function :read-only t))
-
-(declaim (notinline store-io-append-file store-io-rename store-io-unlink
-                    store-io-read-file store-io-chmod-directory-identity
-                    store-io-try-lock store-io-unlock
-                    store-io-random-hex store-io-mkdir))
-
-(defun copy-store-io (io &rest overrides &key &allow-other-keys)
-  "A STORE-IO identical to IO except for the file operations named in OVERRIDES
-(keyword = slot name)."
-  (flet ((pick (key reader)
-           (or (getf overrides key) (funcall reader io))))
-    (make-store-io :lstat (pick :lstat #'store-io-lstat)
-                   :open-search-root (pick :open-search-root #'store-io-open-search-root)
-                   :open-search-entry (pick :open-search-entry #'store-io-open-search-entry)
-                   :close-search-directory (pick :close-search-directory #'store-io-close-search-directory)
-                   :read-file (pick :read-file #'store-io-read-file)
-                   :create-file (pick :create-file #'store-io-create-file)
-                   :append-file (pick :append-file #'store-io-append-file)
-                   :rename (pick :rename #'store-io-rename)
-                   :unlink (pick :unlink #'store-io-unlink)
-                   :rmdir (pick :rmdir #'store-io-rmdir)
-                   :mkdir (pick :mkdir #'store-io-mkdir)
-                   :chmod (pick :chmod #'store-io-chmod)
-                   :chmod-directory-identity (pick :chmod-directory-identity #'store-io-chmod-directory-identity)
-                   :sync-directory (pick :sync-directory #'store-io-sync-directory)
-                   :symlink (pick :symlink #'store-io-symlink)
-                   :set-mtime (pick :set-mtime #'store-io-set-mtime)
-                   :list-directory (pick :list-directory #'store-io-list-directory)
-                   :try-lock (pick :try-lock #'store-io-try-lock)
-                   :unlock (pick :unlock #'store-io-unlock)
-                   :call-with-retry (pick :call-with-retry #'store-io-call-with-retry)
-                   :random-hex (pick :random-hex #'store-io-random-hex))))
 
 (define-condition store-io-error (error)
   ((operation :initarg :operation :reader store-io-error-operation)
@@ -126,8 +65,8 @@ anything is prepared; COMMIT-CHANGES/K reports it through ON-REJECTED.")
   (:report (lambda (condition stream)
              (write-string (store-refusal-message condition) stream))))
 
-(defstruct (store (:constructor %make-store (io-port clock sleeper root state-directory temporary)) (:copier nil))
-  (io-port nil :type store-io :read-only t)
+(defstruct (store (:constructor %make-store (boundaries clock sleeper root state-directory temporary)) (:copier nil))
+  (boundaries nil :read-only t)
   (clock nil :read-only t)
   (sleeper nil :read-only t)
   ;; The workspace root's real path, no trailing slash.
@@ -153,12 +92,12 @@ XDG-STATE-HOME and HOME are the environment's values, read by the caller.
 Its `tmp/` (TMP-DIRECTORY) is `mktemp`'s area and `bg/` the bg logs."
   (workspace-state-directory (state-home xdg-state-home home) (%normalize-root real-root)))
 
-(defun make-store (io root state-home &key temporary
-                                           (clock (cl-boundary-kit:make-clock))
-                                           (sleeper (cl-boundary-kit:make-sleeper)))
+(defun make-store (boundaries root state-home &key temporary
+                                                 (clock (cl-boundary-kit:make-clock))
+                                                 (sleeper (cl-boundary-kit:make-sleeper)))
   "Create a store for the real workspace ROOT. CLOCK supplies transaction
-timestamps and lock timing; SLEEPER waits between lock attempts. TEMPORARY
-stores write under the workspace mktemp area without an intent record."
+  timestamps and lock timing; SLEEPER waits between lock attempts. TEMPORARY
+  stores write under the workspace mktemp area without an intent record."
   (let ((root (%normalize-root root)))
     (if temporary
         (let* ((slash (position #\/ root :from-end t))
@@ -168,8 +107,8 @@ stores write under the workspace mktemp area without an intent record."
           (unless (and (string= (subseq root (1+ slash)) "tmp")
                        id (plusp (length id)) (not (member id '("." "..") :test #'string=)))
             (error "a temporary store root must be a workspace's tmp directory: ~S" root))
-          (%make-store io clock sleeper root (join-path state-home id) t))
-        (%make-store io clock sleeper root (workspace-state-directory state-home root) nil))))
+          (%make-store boundaries clock sleeper root (join-path state-home id) t))
+        (%make-store boundaries clock sleeper root (workspace-state-directory state-home root) nil))))
 
 (defun workspace-state-root (state-directory)
   "`<state-home>/aitools`, the directory holding STATE-DIRECTORY
@@ -187,9 +126,10 @@ call sites for the names). Production never binds it.")
   (when *fault-hook*
     (apply *fault-hook* point details)))
 
-;;; Thin accessors so call sites read as operations, not slot fetches.
+;;; Dispatch Store-specific operations through the boundary context.
 
 (defmacro %io (store primitive &rest arguments)
-  `(funcall (,(intern (format nil "STORE-IO-~A" primitive) '#:aitools.store.application)
-             (store-io-port ,store))
+  `(funcall (cl-boundary-kit:boundary-context-require
+             (store-boundaries ,store)
+             ,(intern (symbol-name primitive) :keyword))
             ,@arguments))

@@ -2,23 +2,20 @@
 
 (describe "aitools.store failures after the commit point"
   (flet ((call-with-failing-apply-store (store function)
-           (let* ((base-io (store-io-port store))
-                  (io (aitools.store.application::copy-store-io base-io))
-                  (original-rename #'store-io-rename)
-                  (rename (funcall original-rename io))
-                  (root (concatenate 'string (store-root store) "/"))
-                  (broken (make-store io (store-root store) (state-home-of store))))
-             (cl-weave:with-mocked-functions
-                 (((symbol-function 'aitools.store.application:store-io-rename)
-                   (lambda (candidate)
-                     (if (eq candidate io)
-                         (lambda (from to)
-                           (if (eql 0 (search root to))
-                               (error 'store-io-error :operation "rename" :path to
-                                      :detail "injected")
-                               (funcall rename from to)))
-                         (funcall original-rename candidate)))))
-               (funcall function broken)))))
+  (let* ((base-boundaries (store-boundaries store))
+         (root (concatenate 'string (store-root store) "/"))
+         (boundaries
+           (cl-boundary-kit:boundary-context-with
+            base-boundaries
+            :rename
+            (lambda (from to)
+              (if (eql 0 (search root to))
+                  (error 'store-io-error :operation "rename" :path to :detail "injected")
+                  (funcall (store-operation base-boundaries :rename) from to)))))
+         (state-directory (store-state-directory store))
+         (state-home (subseq state-directory 0 (position #\/ state-directory :from-end t)))
+         (broken (make-store boundaries (store-root store) state-home)))
+    (funcall function broken))))
     (it "signals store-committed-error naming the op and path, and keeps the intent for recovery"
       (call-with-temp-store (lambda (store) (seed-state store)
         (call-with-failing-apply-store
@@ -111,9 +108,9 @@
         (let ((temporary (posix-store-under tmp state-home)))
           (expect (commit temporary (list (write-file-request "scratch.txt" (bytes "one")))) :to-be :committed)
           (expect (commit temporary (list (write-file-request "scratch.txt" (bytes "two")))) :to-be :committed))
-        (expect (octets-string (funcall (store-io-read-file (store-io-port plain)) (join-path tmp "scratch.txt")))
+        (expect (octets-string (funcall (store-operation (store-boundaries plain) :read-file) (join-path tmp "scratch.txt")))
                 :to-equal "two")
-        (expect (funcall (store-io-list-directory (store-io-port plain)) (concatenate 'string state-home "/aitools"))
+        (expect (funcall (store-operation (store-boundaries plain) :list-directory) (concatenate 'string state-home "/aitools"))
                 :to-equal (list (subseq (store-state-directory workspace)
                                         (1+ (position #\/ (store-state-directory workspace) :from-end t)))))
         (expect (length (read-journal workspace)) :to-be 1))) :io nil)))
@@ -122,7 +119,7 @@
   (it "reports the destination of a failed posix rename, not its source"
     (call-with-temp-store (lambda (store) (put-file store "src.txt" "s")
       (put-file store "blocker/inside.txt" "i")
-      (let ((condition (handler-case (progn (funcall (store-io-rename (store-io-port store))
+      (let ((condition (handler-case (progn (funcall (store-operation (store-boundaries store) :rename)
                                                      (disk-path store "src.txt") (disk-path store "blocker"))
                                             nil)
                          (store-io-error (condition) condition))))

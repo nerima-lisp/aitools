@@ -11,30 +11,7 @@
   (:use #:cl #:aitools.store.domain)
   (:export
    ;; port.lisp
-   #:store-io
-   #:make-store-io
-   #:store-io-p
-   #:store-io-lstat
-   #:store-io-open-search-root
-   #:store-io-open-search-entry
-   #:store-io-close-search-directory
-   #:store-io-read-file
-   #:store-io-create-file
-   #:store-io-append-file
-   #:store-io-rename
-   #:store-io-unlink
-   #:store-io-rmdir
-   #:store-io-mkdir
-   #:store-io-chmod
-   #:store-io-chmod-directory-identity
-   #:store-io-sync-directory
-   #:store-io-symlink
-   #:store-io-set-mtime
-   #:store-io-list-directory
-   #:store-io-try-lock
-   #:store-io-unlock
    #:store-clock
-   #:store-io-random-hex
    #:store-io-error
    #:store-byte-limit-error
    #:store-io-error-operation
@@ -48,7 +25,7 @@
    #:state-directory-for-root
    #:workspace-state-root
    #:store-p
-   #:store-io-port
+   #:store-boundaries
    #:store-root
    #:store-state-directory
    #:store-temporary
@@ -108,7 +85,6 @@
    #:tx-rebase/k
    ;; tx-commit.lisp
    #:tx-diff/k
-   #:tx-commit/k
-   #:copy-store-io
    #:make-archive-symlink-prefix-checker
-   #:recheck-archive-symlink-targets))
+   #:recheck-archive-symlink-targets
+   #:tx-commit/k))

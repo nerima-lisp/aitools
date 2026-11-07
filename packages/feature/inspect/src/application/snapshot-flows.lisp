@@ -6,8 +6,8 @@
 ;;;; the store's file primitives with a temp file and a rename.
 (in-package #:aitools.inspect.application)
 
-(defun %store-io (store primitive)
-  (funcall primitive (store-io-port store)))
+(defun %store-io (store key)
+  (cl-boundary-kit:boundary-context-require (store-boundaries store) key))
 
 (defun %snapshot-directory (context)
   (join-path
@@ -20,11 +20,11 @@
    "snapshots"))
 
 (defun %ensure-directory (store path)
-  (unless (eq (funcall (%store-io store #'store-io-lstat) path) :directory)
+  (unless (eq (funcall (%store-io store :lstat) path) :directory)
     (let ((parent (subseq path 0 (or (position #\/ path :from-end t) 0))))
       (when (plusp (length parent))
         (%ensure-directory store parent)))
-    (funcall (%store-io store #'store-io-mkdir) path)))
+    (funcall (%store-io store :mkdir) path)))
 
 (defun %snapshot-path (context id)
   (join-path (%snapshot-directory context) (concatenate 'string id ".json")))
@@ -38,18 +38,18 @@
                      (format nil
                              ".~A.~A.tmp"
                              (snapshot-id snapshot)
-                             (funcall (%store-io store #'store-io-random-hex) 8)))))
+                             (funcall (%store-io store :random-hex) 8)))))
     (%ensure-directory store directory)
-    (funcall (%store-io store #'store-io-create-file)
+    (funcall (%store-io store :create-file)
              temp
              (sb-ext:string-to-octets (encode-snapshot snapshot)
                                       :external-format
                                       :utf-8))
-    (funcall (%store-io store #'store-io-rename) temp final)))
+    (funcall (%store-io store :rename) temp final)))
 
 (defun %existing-snapshot-ids (context)
   (let ((names
-         (funcall (%store-io (context-store context) #'store-io-list-directory)
+         (funcall (%store-io (context-store context) :list-directory)
                   (%snapshot-directory context))))
     (sort
      (loop for name in names
@@ -205,7 +205,7 @@ ordered mapper."
             (make-snapshot
              (snapshot-id-from-time now
                                     (funcall
-                                     (%store-io store #'store-io-random-hex)
+                                     (%store-io store :random-hex)
                                      8))
              (iso8601-from-unix now)
              files

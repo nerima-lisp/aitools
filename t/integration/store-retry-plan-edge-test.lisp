@@ -14,7 +14,7 @@
        (let ((milliseconds (round (* seconds 1000))))
          (funcall on-sleep milliseconds)
          (advance-store-test-clock-ms clock (+ milliseconds oversleep-ms))))))
-  (defun store-with-io (store io &key
+  (defun store-with-boundaries (store io &key
                                 (clock (cl-boundary-kit:make-clock))
                                 (sleeper (cl-boundary-kit:make-sleeper)))
     (make-store io
@@ -41,24 +41,24 @@
 
 (describe "aitools.store lock resilience"
   (it "runs a nested workspace lock without acquiring the flock twice"
-    (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
-             (real-try-lock (symbol-function 'store-io-try-lock))
-             (attempts 0)
-             (io (aitools.store.application::copy-store-io base-io))
-             (store (store-with-io plain io)))
-        (cl-weave:with-mocked-functions
-            (((symbol-function 'store-io-try-lock)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda (path &rest keys)
-                      (incf attempts)
-                      (apply (funcall real-try-lock base-io) path keys))
-                    (funcall real-try-lock candidate-io)))))
-          (expect
-           (with-workspace-lock (store 1000)
-             (with-workspace-lock (store 1000) :nested))
-           :to-be :nested)
-          (expect attempts :to-be 1)))) :io nil))
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((base-boundaries (store-boundaries plain))
+              (real-try-lock (store-operation base-boundaries :try-lock))
+              (attempts 0)
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base-boundaries
+                 :try-lock
+                 (lambda (path &rest keys)
+                   (incf attempts)
+                   (apply real-try-lock path keys))))
+              (store (store-with-boundaries plain boundaries)))
+         (expect
+          (with-workspace-lock (store 1000)
+            (with-workspace-lock (store 1000) :nested))
+          :to-be :nested)
+         (expect attempts :to-be 1))) :io nil))
   (it-each ((0 1 nil)
               (1 2 (1))
               (5 2 (5))
@@ -76,8 +76,7 @@
         (expect legacy-delays :to-equal expected-delays)
         (call-with-temp-store
          (lambda (plain)
-           (let* ((base-io (store-io-port plain))
-                  (real-try-lock (symbol-function 'store-io-try-lock))
+           (let* ((base-boundaries (store-boundaries plain))
                   (clock (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0))
                   (attempts 0)
                   (delays nil)
@@ -85,23 +84,21 @@
                     (make-store-test-sleeper
                      clock
                      (lambda (milliseconds) (push milliseconds delays))))
-                  (io (aitools.store.application::copy-store-io base-io))
-                  (store (store-with-io plain io :clock clock :sleeper sleeper)))
-             (cl-weave:with-mocked-functions
-                 (((symbol-function 'store-io-try-lock)
-                   (lambda (candidate-io)
-                     (if (eq candidate-io io)
-                         (lambda (&rest arguments)
-                           (declare (ignore arguments))
-                           (incf attempts)
-                           nil)
-                         (funcall real-try-lock candidate-io)))))
-               (expect
-                (with-workspace-lock (store timeout-ms :on-timeout :busy)
-                  :acquired)
-                :to-be :busy)
-               (expect attempts :to-be legacy-attempts)
-               (expect (nreverse delays) :to-equal legacy-delays))))
+                  (boundaries
+                    (cl-boundary-kit:boundary-context-with
+                     base-boundaries
+                     :try-lock
+                     (lambda (&rest arguments)
+                       (declare (ignore arguments))
+                       (incf attempts)
+                       nil)))
+                  (store (store-with-boundaries plain boundaries :clock clock :sleeper sleeper)))
+             (expect
+              (with-workspace-lock (store timeout-ms :on-timeout :busy)
+                :acquired)
+              :to-be :busy)
+             (expect attempts :to-be legacy-attempts)
+             (expect (nreverse delays) :to-equal legacy-delays)))
          :io nil)))
     (it "caps the retry attempt count for large lock timeouts"
       (expect
@@ -110,9 +107,9 @@
   (it "accepts acquisition on the deadline attempt"
   (call-with-temp-store
    (lambda (plain)
-     (let* ((base-io (store-io-port plain))
-            (real-try-lock (symbol-function 'store-io-try-lock))
-            (real-unlock (symbol-function 'store-io-unlock))
+     (let* ((base-boundaries (store-boundaries plain))
+            (real-try-lock (store-operation base-boundaries :try-lock))
+            (real-unlock (store-operation base-boundaries :unlock))
             (clock (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0))
             (attempts 0)
             (delays nil)
@@ -121,35 +118,29 @@
               (make-store-test-sleeper
                clock
                (lambda (milliseconds) (push milliseconds delays))))
-            (io (aitools.store.application::copy-store-io base-io))
-            (store (store-with-io plain io :clock clock :sleeper sleeper)))
-       (cl-weave:with-mocked-functions
-           (((symbol-function 'store-io-try-lock)
-             (lambda (candidate-io)
-               (if (eq candidate-io io)
-                   (lambda (&rest arguments)
-                     (declare (ignore arguments))
-                     (incf attempts)
-                     (when (>= (store-test-clock-ms clock) 105) :lock-handle))
-                   (funcall real-try-lock candidate-io))))
-            ((symbol-function 'store-io-unlock)
-             (lambda (candidate-io)
-               (if (eq candidate-io io)
-                   (lambda (handle) (push handle unlocked))
-                   (funcall real-unlock candidate-io)))))
-         (expect
-          (with-workspace-lock (store 105 :on-timeout :busy)
-            :acquired)
-          :to-be :acquired)
-         (expect attempts :to-be 6)
-         (expect (nreverse delays) :to-equal '(5 10 20 40 30))
-         (expect unlocked :to-equal '(:lock-handle)))))
+            (boundaries
+              (cl-boundary-kit:boundary-context-with
+               base-boundaries
+               :try-lock
+               (lambda (&rest arguments)
+                 (declare (ignore arguments))
+                 (incf attempts)
+                 (when (>= (store-test-clock-ms clock) 105) :lock-handle))
+               :unlock
+               (lambda (handle) (push handle unlocked))))
+            (store (store-with-boundaries plain boundaries :clock clock :sleeper sleeper)))
+       (expect
+        (with-workspace-lock (store 105 :on-timeout :busy)
+          :acquired)
+        :to-be :acquired)
+       (expect attempts :to-be 6)
+       (expect (nreverse delays) :to-equal '(5 10 20 40 30))
+       (expect unlocked :to-equal '(:lock-handle))))
    :io nil))
   (it "stops retrying after an overslept backoff"
   (call-with-temp-store
    (lambda (plain)
-     (let* ((base-io (store-io-port plain))
-            (real-try-lock (symbol-function 'store-io-try-lock))
+     (let* ((base-boundaries (store-boundaries plain))
             (clock (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0))
             (attempts 0)
             (delays nil)
@@ -158,24 +149,21 @@
                clock
                (lambda (milliseconds) (push milliseconds delays))
                :oversleep-ms 200))
-            (io (aitools.store.application::copy-store-io base-io))
-            (store (store-with-io plain io :clock clock :sleeper sleeper)))
-       (cl-weave:with-mocked-functions
-           (((symbol-function 'store-io-try-lock)
-             (lambda (candidate-io)
-               (if (eq candidate-io io)
-                   (lambda (&rest arguments)
-                     (declare (ignore arguments))
-                     (incf attempts)
-                     nil)
-                   (funcall real-try-lock candidate-io)))))
-         (expect
-          (with-workspace-lock (store 105 :on-timeout :busy)
-            :acquired)
-          :to-be :busy)
-         (expect attempts :to-be 2)
-         (expect (nreverse delays) :to-equal '(5))
-         (expect (store-test-clock-ms clock) :to-be 205))))
+            (boundaries
+              (cl-boundary-kit:boundary-context-with
+               base-boundaries
+               :try-lock
+               (lambda (&rest arguments)
+                 (declare (ignore arguments))
+                 (incf attempts)
+                 nil)))
+            (store (store-with-boundaries plain boundaries :clock clock :sleeper sleeper)))
+       (expect
+        (with-workspace-lock (store 105 :on-timeout :busy)
+          :acquired)
+        :to-be :busy)
+       (expect attempts :to-be 2)
+       (expect (nreverse delays) :to-equal '(5))))
    :io nil)))
 
 (describe "aitools.store planner boundary cases"

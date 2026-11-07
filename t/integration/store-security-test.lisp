@@ -66,7 +66,7 @@ an agent able to write the state directory could. Returns its op id."
       "discards a record targeting ~A"
       (label path-case)
     (call-with-temp-store (lambda (store) (let* ((base (base-directory store))
-             (inside (make-store (store-io-port store) (store-root store) (disk-path store "state"))))
+             (inside (make-store (store-boundaries store) (store-root store) (disk-path store "state"))))
         (seed-state inside)
         (sb-posix:mkdir (concatenate 'string base "/outside") #o755)
         (sb-posix:symlink "../outside" (disk-path store "link"))
@@ -88,7 +88,7 @@ an agent able to write the state directory could. Returns its op id."
         (expect (intent-files inside) :to-equal '()))) :io nil))
 
   (it "refuses a write request into .git or the state directory before anything is prepared"
-    (call-with-temp-store (lambda (store) (let ((inside (make-store (store-io-port store) (store-root store) (disk-path store "state"))))
+    (call-with-temp-store (lambda (store) (let ((inside (make-store (store-boundaries store) (store-root store) (disk-path store "state"))))
         (seed-state inside)
         (expect (nth-value 1 (commit inside (list (write-file-request ".git/config" (bytes "x")))))
                 :to-equal "refusal.outside-workspace")
@@ -112,7 +112,7 @@ an agent able to write the state directory could. Returns its op id."
           (multiple-value-bind (status code) (commit store (list (write-file-request "sub/a.txt" (bytes "pwn"))))
             (expect status :to-be :rejected)
             (expect code :to-equal "environment.io")))
-        (expect (funcall (store-io-list-directory (store-io-port plain)) outside) :to-equal '())
+        (expect (funcall (store-operation (store-boundaries plain) :list-directory) outside) :to-equal '())
         (expect (disk-text plain "sub-old/keep.txt") :to-equal "k")
         (expect (intent-files store) :to-equal '()))) :io nil))
 
@@ -169,8 +169,8 @@ an agent able to write the state directory could. Returns its op id."
         (sb-posix:link outside (disk-path store "hl.txt"))
         (sb-posix:symlink outside (disk-path store "sl.txt"))
         (let ((path (disk-path store relative)))
-          (signals store-io-error (funcall (store-io-chmod io) path #o4777))
-          (signals store-io-error (funcall (store-io-set-mtime io) path 1000000000)))
+          (signals store-io-error (funcall (store-operation io :chmod) path #o4777))
+          (signals store-io-error (funcall (store-operation io :set-mtime) path 1000000000)))
         (expect (file-mode outside) :to-be #o644))) :io nil)))
 
 (describe "aitools.store state file modes"
@@ -187,7 +187,7 @@ an agent able to write the state directory could. Returns its op id."
         (expect (file-mode (blobs-directory state)) :to-be #o700)
         (expect (file-mode (lock-file-path state)) :to-be #o600)
         (expect (file-mode (journal-file-path state)) :to-be #o600)
-        (let ((blobs (funcall (store-io-list-directory (store-io-port store)) (blobs-directory state))))
+        (let ((blobs (funcall (store-operation (store-boundaries store) :list-directory) (blobs-directory state))))
           (expect (length blobs) :to-be 1)
           (expect (file-mode (join-path (blobs-directory state) (first blobs))) :to-be #o600)))
       (expect (disk-mode store "a.txt") :to-be #o644)) :io nil))

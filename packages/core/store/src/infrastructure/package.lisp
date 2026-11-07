@@ -1,5 +1,5 @@
 ;;;;
-;;;; The production STORE-IO adapter: sb-posix for file primitives and fsync,
+;;;; The production Store boundary context: sb-posix for file primitives and fsync,
 ;;;; libc flock(2) through sb-alien (sb-posix binds lockf and fcntl record
 ;;;; locks but not flock, which the state locks use), and cl-boundary-kit's clock,
 ;;;; sleeper and environment boundaries.
@@ -12,7 +12,7 @@
   (:use #:cl)
   (:import-from #:aitools.store.domain #:state-home)
   (:import-from #:aitools.store.application
-                #:make-store-io #:store-io-error #:store-byte-limit-error
+                #:store-io-error #:store-byte-limit-error
                 #:make-store)
   (:export
    #:make-posix-store-io

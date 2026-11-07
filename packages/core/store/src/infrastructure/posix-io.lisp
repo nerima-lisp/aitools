@@ -5,7 +5,7 @@
 ;;;; has just lstat'ed the path as a regular file or is creating it, so a
 ;;;; symlink swapped in between is refused rather than followed.
 ;;;;
-;;;; Parent pinning (against TOCTOU races in the write protocol): a STORE-IO made with a ROOT performs
+;;;; Parent pinning (against TOCTOU races in the write protocol): a boundary context made with a ROOT performs
 ;;;; every change to a path below ROOT relative to a descriptor of its parent
 ;;;; directory, reached from a descriptor of ROOT one component at a time
 ;;;; with O_DIRECTORY|O_NOFOLLOW. The store only ever writes real paths, so
@@ -21,7 +21,7 @@
 ;;;;
 ;;;; The syscall wrappers and the pinning walk are in posix-syscall.lisp, file
 ;;;; reads, writes and in-place changes in posix-file-io.lisp; this file adds
-;;;; directory listing and locks and assembles the STORE-IO.
+;;;; directory listing and locks and assembles the boundary context.
 (in-package #:aitools.store.infrastructure)
 
 (defconstant +lock-ex+ 2)
@@ -100,12 +100,12 @@ names the path, while TO is what blocks the rename. The detail names FROM."
                                               result))))))
 
 (defun make-posix-store-io (&key root)
-  "The production STORE-IO. Changes to paths below ROOT (the workspace's real
+  "The POSIX Store boundary context. Changes to paths below ROOT (the workspace's real
 root path, or NIL for none) go through pinned parent directories; see this
 file's header. Its retry adapter runs resilience-kit with the CLOCK and SLEEPER
 held by the store, and declares the clock's internal-time tick rate."
   (let ((root (and root (%strip-trailing-slash root))))
-    (make-store-io
+    (cl-boundary-kit:make-boundary-context
      :lstat #'%lstat
      :open-search-root #'%open-search-root
      :open-search-entry #'%open-search-entry
@@ -174,14 +174,13 @@ area, compared with STATE-HOME as given and as its real path (ROOT is real)."
            (or (string= home state-home)
                (equal home (%real-directory state-home)))))))
 
-(defun make-posix-store (root &key (environment (cl-boundary-kit:make-environment)) io)
+(defun make-posix-store (root &key (environment (cl-boundary-kit:make-environment)) boundaries)
   "A STORE for the workspace whose real root path is ROOT, with its state
 under the state directory resolved from ENVIRONMENT's XDG_STATE_HOME and
 HOME. When ROOT is a workspace's mktemp area under that directory the store
-is a temporary one (MAKE-STORE's TEMPORARY): its writes are not journaled.
-IO defaults to the production adapter pinned at ROOT."
+is a temporary one (MAKE-STORE's TEMPORARY): its writes are not journaled."
   (let ((root (%strip-trailing-slash root))
         (home (state-home (cl-boundary-kit:environment-get environment "XDG_STATE_HOME")
                           (cl-boundary-kit:environment-get environment "HOME"))))
-    (make-store (or io (make-posix-store-io :root root)) root home
+    (make-store (or boundaries (make-posix-store-io :root root)) root home
                 :temporary (%temporary-area-p root home))))

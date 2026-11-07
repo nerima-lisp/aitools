@@ -35,13 +35,7 @@
                 #:change-result-path #:change-result-action #:change-result-from
                 #:change-result-before #:change-result-after #:make-change-result #:action-name
                 #:change-diff)
-  (:import-from #:aitools.store.application
-                #:+default-lock-timeout-ms+ #:call-with-tx-view/k #:tx-record-read/k
-                #:path-hash
-                #:view-path-state #:view-read-file #:find-journal-entry #:read-blob #:workspace-state
-                #:store-io-port #:store-io-read-file #:store-io-create-file #:store-io-rename
-                #:store-io-mkdir #:store-io-list-directory #:store-io-lstat #:store-clock
-                #:store-io-random-hex)
+  (:import-from #:aitools.store.application #:+default-lock-timeout-ms+ #:call-with-tx-view/k #:tx-record-read/k #:path-hash #:view-path-state #:view-read-file #:find-journal-entry #:read-blob #:workspace-state #:store-boundaries #:store-clock)
   ;; snapshot-flows.lisp
   (:import-from #:aitools.store.application #:store-state-directory)
   (:import-from #:aitools.kernel.domain #:parse-size #:size-bytes)

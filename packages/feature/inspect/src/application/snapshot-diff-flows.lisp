@@ -41,7 +41,7 @@
  (let* ((store (context-store context))
         (path (and (valid-snapshot-id-p id) (%snapshot-path context id))))
    (if (or (null path)
-           (not (eq (funcall (%store-io store #'store-io-lstat) path) :file)))
+           (not (eq (funcall (%store-io store :lstat) path) :file)))
        (aitools.kernel.domain:flow-call
         (%snapshot-missing context id)
         (:on-error
@@ -54,7 +54,7 @@
           candidates
           :repairs
           repairs)))
-     (let ((octets (funcall (%store-io store #'store-io-read-file) path)))
+     (let ((octets (funcall (%store-io store :read-file) path)))
        (decode-utf8-strict/k octets
                              :on-decoded
                              (lambda (text)

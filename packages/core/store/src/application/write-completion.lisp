@@ -109,7 +109,7 @@ with half its files."
          (header (encode-intent-header next))
          (path (intent-file-path (store-state-directory store) (intent-op-id intent)))
          (temp (concatenate 'string path "." (%io store random-hex 8) ".checkpoint"))
-         (sync (store-io-sync-directory (store-io-port store))))
+         (sync (cl-boundary-kit:boundary-context-get (store-boundaries store) :sync-directory)))
     (unless sync
       (error 'store-io-error :operation "checkpoint" :path path :detail "directory sync unavailable"))
     (with-temp-file (created store temp
@@ -151,7 +151,7 @@ with half its files."
         for step = (first (intent-steps intent))
         do (%check-directory-identity store step)
            ;; A matching mode does not prove that the preceding fsync succeeded.
-           (let ((chmod (store-io-chmod-directory-identity (store-io-port store)))
+           (let ((chmod (cl-boundary-kit:boundary-context-get (store-boundaries store) :chmod-directory-identity))
                    (path (%workspace-path store (intent-step-path step))))
                (unless chmod
                  (error 'store-io-error :operation "finalize-directory" :path path

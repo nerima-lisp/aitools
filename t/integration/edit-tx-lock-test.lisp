@@ -2,31 +2,32 @@
 
 (describe "aitools edit lock contention"
   (it "reports environment.busy when a tx write cannot take the workspace lock"
-    (call-with-edit-workspace (lambda () (put "a.txt" "a")
+    (with-workspace ()
+      (put "a.txt" "a")
       (let* ((tx (begin-tx))
              (result nil)
              (store (open-store *root*))
-             (io (aitools.store.application:store-io-port store))
+             (io (aitools.store.application:store-boundaries store))
              (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
         ;; Hold the file lock directly so the edit path contends as it would
         ;; when another process holds the lock.
-        (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
+        (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
           (unwind-protect
               (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b" :tx tx)
                                 :root *root* :lock-timeout "20ms"
                                 :on-ok (lambda (fields) (setf result fields))
                                 :on-error (lambda (code message &rest keys)
                                             (declare (ignore message keys))
-                                            (setf result code))
-                                :on-partial (function identity))
-            (funcall (aitools.store.application:store-io-unlock io) handle)))
+                                            (setf result code)))
+            (funcall (cl-boundary-kit:boundary-context-require io :unlock) handle)))
         (expect result :to-equal "environment.busy")
         (expect (text "a.txt") :to-equal "a")
         (expect (run-in tx "edit" (list "a.txt") :old "a" :new "b") :to-be :ok)
         (expect (commit-tx tx) :to-be :committed)
-        (expect (text "a.txt") :to-equal "b")))))
+        (expect (text "a.txt") :to-equal "b"))))
   (it "reports environment.busy and leaves the tx unstaged while another thread holds its tx lock"
-    (call-with-edit-workspace (lambda () (put "a.txt" "a")
+    (with-workspace ()
+      (put "a.txt" "a")
       (let* ((tx (begin-tx)) (store (open-store *root*)) (acquired nil)
              (lock-result-ready (sb-thread:make-semaphore)) (release (sb-thread:make-semaphore))
              (holder (sb-thread:make-thread
@@ -47,18 +48,19 @@
         (expect (list (text "a.txt") (aitools.store.application:tx-status/k store tx :on-status #'aitools.store.application:tx-status-ops :on-not-found (lambda () :not-found))) :to-equal (list "a" '()))
         (expect (run-in tx "edit" (list "a.txt") :old "a" :new "b") :to-be :ok)
         (expect (commit-tx tx) :to-be :committed)
-        (expect (text "a.txt") :to-equal "b")))))
+        (expect (text "a.txt") :to-equal "b"))))
   (it "reports environment.busy with the same command as repair when the workspace lock is held"
-    (call-with-edit-workspace (lambda () (put "a.txt" "a")
+    (with-workspace ()
+      (put "a.txt" "a")
       (let ((result nil))
         (let* ((store (open-store *root*))
-               (io (aitools.store.application:store-io-port store))
+               (io (aitools.store.application:store-boundaries store))
                (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
           ;; Create the lock path through the normal API, then hold its file
-          ;; lock through the port to simulate a competing process.
+          ;; lock through the boundary context to simulate a competing process.
           (aitools.store.application:call-with-workspace-lock/k store 1000 :on-acquired (lambda () nil)
                                                                           :on-timeout (lambda () nil))
-          (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
+          (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
             (unwind-protect
                  (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b")
                                    :root *root* :lock-timeout "20ms"
@@ -66,8 +68,7 @@
                                    :on-ok (lambda (fields) (setf result fields))
                                    :on-error (lambda (code message &key repairs &allow-other-keys)
                                                (declare (ignore message))
-                                               (setf result (list code (getf (first repairs) :command))))
-                                   :on-partial (function identity))
-              (funcall (aitools.store.application:store-io-unlock io) handle))))
+                                               (setf result (list code (getf (first repairs) :command)))))
+              (funcall (cl-boundary-kit:boundary-context-require io :unlock) handle))))
         (expect result :to-equal (list "environment.busy" "aitools edit a.txt --old a --new b"))
-        (expect (text "a.txt") :to-equal "a"))))))
+        (expect (text "a.txt") :to-equal "a")))))

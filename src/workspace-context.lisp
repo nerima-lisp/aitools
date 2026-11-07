@@ -38,11 +38,15 @@ or :INVALID when the value is not a duration."
         (handler-case (aitools.kernel.domain:duration-milliseconds
                        (aitools.kernel.domain:parse-duration text))
           (aitools.kernel.domain:invalid-duration-error () :invalid)))))
-(defun %open-invocation-store (root &key (environment (cl-boundary-kit:make-environment)) io)
-  (let* ((base-io (or io (aitools.store.infrastructure:make-posix-store-io :root root)))
-         (store-io (if *trace-session* (%trace-store-io base-io) base-io)))
+(defun %open-invocation-store (root &key (environment (cl-boundary-kit:make-environment)) boundaries)
+  (let* ((base-boundaries
+           (or boundaries (aitools.store.infrastructure:make-posix-store-io :root root)))
+         (store-boundaries
+           (if *trace-session*
+               (%trace-store-io base-boundaries)
+               base-boundaries)))
     (aitools.store.infrastructure:make-posix-store
-     root :environment environment :io store-io)))
+     root :environment environment :boundaries store-boundaries)))
 
 (defun %recover-invocation-workspace (root timeout)
   "Run startup recovery for the store at ROOT. Returns :BUSY when the lock

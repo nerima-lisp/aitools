@@ -59,7 +59,7 @@ append TEXT to PATH as the view shows it."
   (funcall commit (append-requests view (tx-op-record-argv record))))
 
 (defun blob-names (store)
-  (funcall (store-io-list-directory (store-io-port store)) (blobs-directory (store-state-directory store))))
+  (funcall (store-operation (store-boundaries store) :list-directory) (blobs-directory (store-state-directory store))))
 
 (describe "aitools.store tx overlay"
   (it "stages writes without touching the working tree and reads them back through the tx"

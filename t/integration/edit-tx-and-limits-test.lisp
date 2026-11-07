@@ -99,11 +99,11 @@
                                      ;; The store's lock is reentrant within one dynamic extent, so hold
                                      ;; the flock through the port directly, as another process would.
                                      (let* ((store (open-store *root*))
-                                            (io (aitools.store.application:store-io-port store))
+                                            (io (aitools.store.application:store-boundaries store))
                                             (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
                                        (aitools.store.application:call-with-workspace-lock/k store 1000 :on-acquired (lambda () nil)
                                                                                              :on-timeout (lambda () nil))
-                                       (let ((handle (funcall (aitools.store.application:store-io-try-lock io) path :create t)))
+                                       (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
                                          (unwind-protect
                                              (run-edit-command *ports* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "20ms"
                                                                :display-argv '("edit" "a.txt" "--old" "a" "--new" "b")
@@ -112,7 +112,7 @@
                                                                            (declare (ignore message))
                                                                            (setf result (list code (getf (first repairs) :command))))
                                                                :on-partial #'identity)
-                                           (funcall (aitools.store.application:store-io-unlock io) handle))))
+                                           (funcall (cl-boundary-kit:boundary-context-require io :unlock) handle))))
                                      (expect result :to-equal '("environment.busy" "aitools edit a.txt --old a --new b"))
                                      (expect (text "a.txt") :to-equal "a")))))
 

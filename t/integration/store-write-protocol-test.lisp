@@ -124,61 +124,58 @@
       (expect (disk-text store "a.txt") :to-equal "a")) :io nil))
 
   (it "rejects an I/O failure before the commit point as environment.io and leaves nothing"
-    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
-      (let* ((base-io (store-io-port store))
-             (io (aitools.store.application::copy-store-io base-io))
-             (broken (make-store io (store-root store)
-                                (subseq (store-state-directory store) 0
-                                        (position #\/ (store-state-directory store) :from-end t))))
-             (accessor-name 'aitools.store.application:store-io-append-file)
-             (original-accessor (symbol-function accessor-name)))
-        (cl-weave:with-mocked-functions
-            (((symbol-function accessor-name)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda (&rest args)
-                      (declare (ignore args))
-                      (error 'store-io-error :operation "write" :path "x"))
-                    (funcall original-accessor candidate-io)))))
-          (expect (nth-value 1 (commit broken (list (write-file-request "a.txt" (bytes "b")))))
-                  :to-equal "environment.io")))
-      (expect (disk-text store "a.txt") :to-equal "a")
-      (expect (temp-files store) :to-equal '())
-      (expect (intent-files store) :to-equal '())) :io nil))
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "a")
+       (let* ((base-boundaries (store-boundaries store))
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base-boundaries
+                 :append-file
+                 (lambda (&rest arguments)
+                   (declare (ignore arguments))
+                   (error 'store-io-error :operation "write" :path "x"))))
+              (broken (make-store
+                       boundaries
+                       (store-root store)
+                       (subseq (store-state-directory store) 0
+                               (position #\/ (store-state-directory store) :from-end t)))))
+         (expect (nth-value 1 (commit broken (list (write-file-request "a.txt" (bytes "b")))))
+                 :to-equal "environment.io"))
+       (expect (disk-text store "a.txt") :to-equal "a")
+       (expect (temp-files store) :to-equal '())
+       (expect (intent-files store) :to-equal '())) :io nil))
 
   (it "validates after the lock is held (TOCTOU)"
-    ;; A fake adapter that rewrites the target at the moment the lock is
-    ;; granted, i.e. just before validation would run. Validation must see
-    ;; the rewritten content; a validate-then-lock implementation sees "v1".
-    (call-with-temp-store (lambda (plain) (put-file plain "a.txt" "v1")
-      (let* ((base-io (store-io-port plain))
-             (io (aitools.store.application::copy-store-io base-io))
-             (accessor-name 'aitools.store.application:store-io-try-lock)
-             (original-accessor (symbol-function accessor-name))
-             (real-try-lock (funcall original-accessor io))
-             (store (make-store io (store-root plain)
-                                (subseq (store-state-directory plain) 0
-                                        (position #\/ (store-state-directory plain) :from-end t))))
-             (seen nil))
-        (cl-weave:with-mocked-functions
-            (((symbol-function accessor-name)
-              (lambda (candidate-io)
-                (if (eq candidate-io io)
-                    (lambda (path &rest keys)
-                      (let ((handle (apply real-try-lock path keys)))
-                        (when handle (put-file plain "a.txt" "v2"))
-                        handle))
-                    (funcall original-accessor candidate-io)))))
-          (commit-changes/k store '("edit")
-                            (lambda (commit reject)
-                              (declare (ignore reject))
-                              (setf seen (disk-text plain "a.txt"))
-                              (funcall commit (list (write-file-request "a.txt" (bytes "v3")))))
-                            :on-committed (lambda (&rest args) (declare (ignore args)))
-                            :on-rejected (lambda (&rest args) (declare (ignore args)))
-                            :on-busy (lambda ()))
-          (expect seen :to-equal "v2")
-          (expect (disk-text plain "a.txt") :to-equal "v3")))) :io nil))
+    (call-with-temp-store
+     (lambda (plain)
+       (put-file plain "a.txt" "v1")
+       (let* ((base-boundaries (store-boundaries plain))
+              (real-try-lock (store-operation base-boundaries :try-lock))
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base-boundaries
+                 :try-lock
+                 (lambda (path &rest keys)
+                   (let ((handle (apply real-try-lock path keys)))
+                     (when handle (put-file plain "a.txt" "v2"))
+                     handle))))
+              (store (make-store
+                      boundaries
+                      (store-root plain)
+                      (subseq (store-state-directory plain) 0
+                              (position #\/ (store-state-directory plain) :from-end t))))
+              (seen nil))
+         (commit-changes/k store '("edit")
+                           (lambda (commit reject)
+                             (declare (ignore reject))
+                             (setf seen (disk-text plain "a.txt"))
+                             (funcall commit (list (write-file-request "a.txt" (bytes "v3")))))
+                           :on-committed (lambda (&rest args) (declare (ignore args)))
+                           :on-rejected (lambda (&rest args) (declare (ignore args)))
+                           :on-busy (lambda ()))
+         (expect seen :to-equal "v2")
+         (expect (disk-text plain "a.txt") :to-equal "v3"))) :io nil))
 
   (it "replaces a symlink itself rather than writing through it"
     (call-with-temp-store (lambda (store) (put-file store "real.txt" "r")
