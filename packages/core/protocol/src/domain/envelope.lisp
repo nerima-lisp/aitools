@@ -46,7 +46,6 @@ an absent scalar is built through this."
   (json-kit:json-object-members value))
 
 (defun repair (action detail command)
-  "Build a repair plist with ACTION, DETAIL, and runnable COMMAND."
   (list :action action :detail detail :command command))
 
 (defun schema-repair (command)
