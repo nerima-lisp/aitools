@@ -20,11 +20,13 @@
                  tx
                  lock-timeout
                  (format :json)
+                 format-a
+                 format-b
                  (limit 100)
                  on-ok
                  on-partial
                  on-error)
- "json diff. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
+ "doc diff. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (labels ((report-error (code message
                               &key
@@ -40,7 +42,7 @@
              :repairs repairs)))
    (aitools.kernel.domain:flow-call
     (%call-with-format-file
-     ports a format "diff"
+     ports a (or format-a format) "diff"
      :root root
      :tx tx
      :lock-timeout lock-timeout)
@@ -48,7 +50,7 @@
       (declare (ignore context target-a))
       (aitools.kernel.domain:flow-call
        (%call-with-format-file
-        ports b format "diff"
+        ports b (or format-b format) "diff"
         :root root
         :tx tx
         :lock-timeout lock-timeout)

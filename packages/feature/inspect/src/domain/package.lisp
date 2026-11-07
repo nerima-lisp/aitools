@@ -108,7 +108,7 @@
    #:hunk-line-counts
    #:compare-line-sets
    #:compare-path-lists
-   ;; === json-query (json get/select/diff) ===
+   ;; === json-query (doc get/select/diff) ===
    #:parse-json-pointer
    #:format-json-pointer
    #:json-child

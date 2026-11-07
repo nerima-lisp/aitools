@@ -1,7 +1,7 @@
 ;;;;
-;;;; The read side of the `json` group: `json get`
-;;;; (the `jq '.a.b'`, `keys`, `length`, `-r` replacement), `json select`
-;;;; (`select`, `sort_by`, `map | length`), and `json diff`. A file that is
+;;;; Shared JSON-value inspect flows behind the structured `doc` commands:
+;;;; `get` (`jq '.a.b'`, `keys`, `length`, `-r`), `select`
+;;;; (`select`, `sort_by`, `map | length`), and `diff`. A file that is
 ;;;; not JSON is `input.unsupported-format`; `get` and `select` join a tx's
 ;;;; read set.
 (in-package #:aitools.inspect.application)
@@ -142,7 +142,7 @@
                  (format nil "aitools schema ~A get" group)))))))
 
 (defun %json-get-fields (context target group pointer value keys raw max-bytes)
-  "(VALUES fields truncated) for `json get`."
+  "(VALUES fields truncated) for `doc get`."
   (let* ((head
           (list (cons "path" (file-target-argument target))
                 (cons "pointer" pointer)

@@ -1,69 +1,90 @@
 ;;;;
-;;;; `json get`, `json select`, and `json diff` (the read side of `json`).
+;;;; Structured document read commands.
 (in-package #:aitools.inspect.presentation)
 
-(defun %json-summary (name)
-  (command-summary name aitools.data:*inspect-format-command-schemas*))
+(defun %run-doc-flow (ports invocation flow action paths arguments flow-options)
+  (apply #'run-flow
+         (append (list #'aitools.inspect.application::doc-inspect-flow
+                       flow ports action paths arguments
+                       (option-value invocation :format))
+                 flow-options
+                 (context-arguments invocation))))
 
 (defun %repeated-option (name description &key value-name)
   (make-option :name name :kind :value :multiple-p t :value-name value-name :description description))
 
-(defun %json-get-command (ports)
+(defun %doc-get-command (ports)
   (make-command
-   :name "get" :description (%json-summary "json.get")
+   :name "get" :description (command-summary "doc.get" aitools.data:*inspect-format-command-schemas*)
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
-   :options (list (value-option "max-bytes" "Largest rendered value returned." :default "16KiB" :value-name "SIZE")
+   :options (list (value-option "format" "Document format; defaults from the file extension."
+                                :choices '("json" "yaml" "toml"))
+                  (value-option "max-bytes" "Largest rendered value returned."
+                                :default "16KiB" :value-name "SIZE")
                   (flag-option "keys" "Return the keys or indexes.")
                   (flag-option "raw" "Return the string value unescaped.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:json-get-flow ports
-                     (positional-value invocation :path)
-                     (positional-value invocation :pointer)
-                     :max-bytes (option-value invocation :max-bytes)
+              (%run-doc-flow
+               ports invocation #'aitools.inspect.application:json-get-flow "get"
+               (list (positional-value invocation :path))
+               (list (positional-value invocation :path)
+                     (positional-value invocation :pointer))
+               (list :max-bytes (option-value invocation :max-bytes)
                      :keys (option-value invocation :keys)
-                     :raw (option-value invocation :raw)
-                     (context-arguments invocation)))))
+                     :raw (option-value invocation :raw))))))
 
-(defun %json-select-command (ports)
+(defun %doc-select-command (ports)
   (make-command
-   :name "select" :description (%json-summary "json.select")
+   :name "select" :description (command-summary "doc.select" aitools.data:*inspect-format-command-schemas*)
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
-   :options (list (%repeated-option "where" "Condition <rel-pointer><op><json-value>." :value-name "COND")
+   :options (list (value-option "format" "Document format; defaults from the file extension."
+                                :choices '("json" "yaml" "toml"))
+                  (%repeated-option "where" "Condition <rel-pointer><op><json-value>."
+                                    :value-name "COND")
                   (%repeated-option "pick" "Relative pointer to return." :value-name "POINTER")
                   (value-option "sort-by" "Relative pointer to order by." :value-name "POINTER")
                   (flag-option "desc" "Descending order.")
-                  (value-option "output" "items or count." :choices '("items" "count") :default "items")
+                  (value-option "output" "items or count." :choices '("items" "count")
+                                :default "items")
                   (integer-option "limit" 50 "Maximum items returned.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:json-select-flow ports
-                     (positional-value invocation :path)
-                     (positional-value invocation :pointer)
-                     :where (option-value invocation :where)
+              (%run-doc-flow
+               ports invocation #'aitools.inspect.application:json-select-flow "select"
+               (list (positional-value invocation :path))
+               (list (positional-value invocation :path)
+                     (positional-value invocation :pointer))
+               (list :where (option-value invocation :where)
                      :pick (option-value invocation :pick)
                      :sort-by (option-value invocation :sort-by)
                      :desc (option-value invocation :desc)
                      :output (option-value invocation :output)
-                     :limit (option-value invocation :limit)
-                     (context-arguments invocation)))))
+                     :limit (option-value invocation :limit))))))
 
-(defun %json-diff-command (ports)
+(defun %doc-diff-command (ports)
   (make-command
-   :name "diff" :description (%json-summary "json.diff")
+   :name "diff" :description (command-summary "doc.diff" aitools.data:*inspect-format-command-schemas*)
    :positionals (list (make-positional :key :a :name "a" :required-p t)
                       (make-positional :key :b :name "b" :required-p t))
-   :options (list (integer-option "limit" 100 "Maximum operations returned.")
+   :options (list (value-option "format" "Use one format for both files; otherwise use each extension."
+                                :choices '("json" "yaml" "toml"))
+                  (integer-option "limit" 100 "Maximum operations returned.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:json-diff-flow ports
-                     (positional-value invocation :a)
-                     (positional-value invocation :b)
-                     :limit (option-value invocation :limit)
-                     (context-arguments invocation)))))
+              (%run-doc-flow
+               ports invocation #'aitools.inspect.application:json-diff-flow "diff"
+               (list (positional-value invocation :a)
+                     (positional-value invocation :b))
+               (list (positional-value invocation :a)
+                     (positional-value invocation :b))
+               (list :limit (option-value invocation :limit))))))
 
-(define-inspect-command "json.get" "json" '%json-get-command aitools.data:*inspect-format-command-schemas*)
-(define-inspect-command "json.select" "json" '%json-select-command aitools.data:*inspect-format-command-schemas*)
-(define-inspect-command "json.diff" "json" '%json-diff-command aitools.data:*inspect-format-command-schemas*)
+(define-inspect-command "doc.get" "doc" '%doc-get-command
+  aitools.data:*inspect-format-command-schemas*)
+(define-inspect-command "doc.select" "doc" '%doc-select-command
+  aitools.data:*inspect-format-command-schemas*)
+(define-inspect-command "doc.diff" "doc" '%doc-diff-command
+  aitools.data:*inspect-format-command-schemas*)
