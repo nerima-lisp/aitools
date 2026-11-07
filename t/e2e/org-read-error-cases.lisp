@@ -2,14 +2,12 @@
 
 (describe "aitools e2e org read error envelopes"
   (define-org-case ("org outline rejects missing, malformed, and non-UTF-8 inputs" ws)
-    (let ((envelope (org-error ws '("org" "outline" "MISSING.org")
-                               "org.outline" "input.not-found")))
+    (let ((envelope (org-error ws '("org" "outline" "MISSING.org") "org outline" "input.not-found")))
       (dolist (field '("entries" "total" "truncated"))
         (expect (nth-value 1 (gethash field envelope)) :to-be nil)))
     (put ws "invalid.org" #(#xFF))
     (let ((before (file-octets ws "invalid.org")))
-      (let* ((envelope (org-error ws '("org" "outline" "invalid.org")
-                                  "org.outline" "input.not-utf8"))
+      (let* ((envelope (org-error ws '("org" "outline" "invalid.org") "org outline" "input.not-utf8"))
              (diagnostics (jlist (jget envelope "error" "diagnostics")))
              (diagnostic (first diagnostics)))
         (expect (length diagnostics) :to-be 1)
@@ -31,8 +29,7 @@
       (destructuring-bind (path bytes encoding) fixture
         (put ws path bytes)
         (let* ((before (file-octets ws path))
-               (envelope (org-error ws (list "org" "outline" path)
-                                    "org.outline" "input.unsupported-format")))
+               (envelope (org-error ws (list "org" "outline" path) "org outline" "input.unsupported-format")))
           (expect (search encoding (jget envelope "error" "message")) :to-be-truthy)
           (dolist (field '("entries" "total" "truncated"))
             (expect (nth-value 1 (gethash field envelope)) :to-be nil))

@@ -7,16 +7,13 @@
 
 (in-package #:aitools.integration.org-write-dispatch-test)
 
-(defun %command-name (name)
-  (substitute #\. #\Space name))
-
 (defun %org-ok (root arguments name)
   (multiple-value-bind (code envelope stream)
       (aitools.test.support:run-aitools root arguments)
     (expect code :to-be 0)
     (expect stream :to-be :stdout)
     (expect (aitools.test.support:envelope-value envelope "command")
-            :to-equal (%command-name name))
+            :to-equal name)
     (expect (aitools.test.support:envelope-value envelope "status")
             :to-equal "ok")
     envelope))
@@ -29,7 +26,7 @@
       (expect code :to-be expected-exit-code)
       (expect stream :to-be :stderr)
       (expect (aitools.test.support:envelope-value envelope "command")
-              :to-equal (%command-name name))
+              :to-equal name)
       (expect (aitools.test.support:envelope-value envelope "status")
               :to-equal "error")
       (expect (aitools.test.support:envelope-value envelope "error" "code")

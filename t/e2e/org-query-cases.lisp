@@ -11,7 +11,7 @@
     (let* ((before (file-octets ws "siblings.org"))
            (arguments (list "org" "query" "siblings.org" "--match" "work/TODO"
                             "--at" "2026-10-19T09:00:00" "--tz" "UTC"))
-           (envelope (org-ok ws arguments "org.query"))
+           (envelope (org-ok ws arguments "org query"))
            (matches (jlist (jget envelope "matches"))))
       (expect (jget envelope "count") :to-be 3)
       (expect (mapcar (lambda (match) (jget match "title")) matches)
@@ -28,8 +28,7 @@
       (let* ((top-level
                (org-ok ws
                        (list "org" "query" "siblings.org" "--match" "LEVEL=1"
-                             "--at" "2026-10-19T09:00:00" "--tz" "UTC")
-                       "org.query"))
+                             "--at" "2026-10-19T09:00:00" "--tz" "UTC") "org query"))
              (top-matches (jlist (jget top-level "matches")))
              (parent (first top-matches))
              (other (second top-matches)))
@@ -48,8 +47,7 @@
           (expect (jlist tags) :to-equal (list))))
       (let ((none (org-ok ws
                           (list "org" "query" "siblings.org" "--match" "missing/TODO"
-                                "--at" "2026-10-19T09:00:00" "--tz" "UTC")
-                          "org.query")))
+                                "--at" "2026-10-19T09:00:00" "--tz" "UTC") "org query")))
         (expect (jget none "count") :to-be 0)
         (expect (jlist (jget none "matches")) :to-equal (list)))
       (expect (file-octets ws "siblings.org") :to-equalp before)))
@@ -58,7 +56,7 @@
          (format nil
                  "#+BEGIN_SRC lisp~%(+ 1 2)~%#+END_SRC~%#+BEGIN_EXAMPLE~%plain text~%#+END_EXAMPLE~%"))
     (let* ((before (file-octets ws "unnamed.org"))
-           (envelope (org-ok ws '("org" "outline" "unnamed.org") "org.outline"))
+           (envelope (org-ok ws '("org" "outline" "unnamed.org") "org outline"))
            (entries (jlist (jget envelope "entries"))))
       (expect (jget envelope "total") :to-be 2)
       (expect (jget envelope "truncated") :to-be nil)
@@ -75,7 +73,6 @@
       (let ((path (car fixture)))
         (put ws path (cdr fixture))
         (let ((before (file-octets ws path))
-              (envelope (org-error ws (list "org" "outline" path)
-                                   "org.outline" "input.unsupported-format")))
+              (envelope (org-error ws (list "org" "outline" path) "org outline" "input.unsupported-format")))
           (expect (nth-value 1 (gethash "content" envelope)) :to-be nil)
           (expect (file-octets ws path) :to-equalp before))))))

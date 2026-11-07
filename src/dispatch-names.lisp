@@ -7,19 +7,15 @@ or NIL when no command was dispatched (bare `--help`/`--version`)."
     (when path
       (format nil "~{~A~^.~}" (mapcar #'command-name path)))))
 
-(defun %display-name (command-name &key cli-p)
-  "Response form of COMMAND-NAME. Org envelopes use dotted names; CLI forms use spaces."
+(defun %display-name (command-name)
+  "Return the command name used in envelopes, with spaces between group names and subcommands."
   (and command-name
-       (let ((org-command-p (and (>= (length command-name) 4)
-                                 (string= "org." command-name :end2 4))))
-         (if (or cli-p (not org-command-p))
-             (substitute #\Space #\. command-name)
-             command-name))))
+       (substitute #\Space #\. command-name)))
 
 (defun %generic-repair (command-name)
   (schema-repair
    (if command-name
-       (format nil "aitools schema ~A" (%display-name command-name :cli-p t))
+       (format nil "aitools schema ~A" (%display-name command-name))
        "aitools schema")))
 
 (defun %groups-with-subcommand (registry name)

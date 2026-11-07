@@ -23,8 +23,7 @@
         (let ((before (file-octets ws relative)))
           (dolist (backend (list "html" "gfm" "ascii"))
             (let* ((envelope (org-error ws (list "org" "export" relative
-                                                  "--backend" backend)
-                                        "org.export" "input.unsupported-format"))
+                                                  "--backend" backend) "org export" "input.unsupported-format"))
                    (present (nth-value 1 (gethash "content" envelope)))
                    (diagnostics (jlist (jget envelope "error" "diagnostics")))
                    (diagnostic (first diagnostics)))
@@ -41,8 +40,7 @@
     (let ((before (file-octets ws "ordered.org")))
       (dolist (backend (list "html" "gfm" "ascii"))
         (let* ((envelope (org-ok ws (list "org" "export" "ordered.org"
-                                          "--backend" backend)
-                                 "org.export"))
+                                          "--backend" backend) "org export"))
                (content (jget envelope "content")))
           (expect (jget envelope "backend") :to-equal backend)
           (expect (stringp content) :to-be t)
@@ -57,8 +55,7 @@
    (let ((before (file-octets ws "mailto.org")))
      (dolist (backend (list "html" "gfm" "ascii"))
        (let* ((envelope (org-ok ws (list "org" "export" "mailto.org"
-                                         "--backend" backend)
-                                "org.export"))
+                                         "--backend" backend) "org export"))
               (content (jget envelope "content")))
          (expect (jget envelope "backend") :to-equal backend)
          (expect (stringp content) :to-be t)
@@ -80,8 +77,7 @@
    (let ((before (file-octets ws "unsafe.org")))
      (dolist (backend (list "html" "gfm" "ascii"))
        (let* ((envelope (org-error ws (list "org" "export" "unsafe.org"
-                                            "--backend" backend)
-                                   "org.export" "input.unsupported-format"))
+                                            "--backend" backend) "org export" "input.unsupported-format"))
               (present (nth-value 1 (gethash "content" envelope)))
               (diagnostics (jlist (jget envelope "error" "diagnostics")))
               (diagnostic (first diagnostics)))
@@ -98,8 +94,7 @@
     (let ((before (file-octets ws "metadata.org")))
       (dolist (backend '("html" "gfm" "ascii"))
         (let* ((envelope (org-ok ws
-                                 (list "org" "export" "metadata.org" "--backend" backend)
-                                 "org.export"))
+                                 (list "org" "export" "metadata.org" "--backend" backend) "org export"))
                (content (jget envelope "content")))
           (expect (jget envelope "backend") :to-equal backend)
           (expect (stringp content) :to-be t)
@@ -133,8 +128,7 @@
           (let ((before (file-octets ws relative)))
             (dolist (backend (list "html" "gfm" "ascii"))
               (let* ((envelope (org-ok ws (list "org" "export" relative
-                                                "--backend" backend)
-                                       "org.export"))
+                                                "--backend" backend) "org export"))
                      (content (jget envelope "content")))
                 (expect (jget envelope "backend") :to-equal backend)
                 (expect (stringp content) :to-be t)
@@ -165,12 +159,10 @@
                 (expected (org-kit:export-org parsed kit-backend))
                 (first-envelope
                   (org-ok ws (list "org" "export" "coverage.org"
-                                   "--backend" backend)
-                          "org.export"))
+                                   "--backend" backend) "org export"))
                 (second-envelope
                   (org-ok ws (list "org" "export" "coverage.org"
-                                   "--backend" backend)
-                          "org.export"))
+                                   "--backend" backend) "org export"))
                 (first-content (jget first-envelope "content"))
                 (second-content (jget second-envelope "content")))
            (expect (jget first-envelope "backend") :to-equal backend)
@@ -192,8 +184,7 @@
        (dolist (backend (list "html" "gfm" "ascii"))
          (let* ((envelope
                   (org-ok ws (list "org" "export" "omissions.org"
-                                   "--backend" backend)
-                          "org.export"))
+                                   "--backend" backend) "org export"))
                 (content (jget envelope "content")))
            (expect (jget envelope "backend") :to-equal backend)
            (expect (stringp content) :to-be t)

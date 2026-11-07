@@ -9,15 +9,13 @@
              (tx (jget (run-ok ws (list "tx" "begin")) "tx"))
              (staged (org-ok ws (org-write-time-args
                                  (list "org" "property" "set" "tx-dry.org" "--match" "/TODO"
-                                       "--name" "OWNER" "--value" "高橋" "--tx" tx))
-                             "org.property.set"))
+                                       "--name" "OWNER" "--value" "高橋" "--tx" tx)) "org property set"))
              (overlay-before (jget (run-ok ws (list "tx" "diff" tx)) "changes" 0 "diff"))
              (planned (org-ok ws
                               (append (org-write-time-args
                                        (list "org" "todo" "set" "tx-dry.org" "--match" "/TODO"
                                              "--state" "DONE" "--tx" tx))
-                                      (list "--dry-run"))
-                              "org.todo.set")))
+                                      (list "--dry-run")) "org todo set")))
         (expect (jget staged "tx") :to-equal tx)
         (expect (jget staged "tx_op") :to-be 1)
         (expect-org-fragments overlay-before (list "* TODO Build :work:" ":OWNER: 高橋"))
@@ -40,8 +38,7 @@
            (result (org-ok ws
                            (org-write-time-args
                             (list "org" "todo" "set" "todo-note.org" "--match" "/TODO"
-                                  "--state" "DONE" "--note" "closing note"))
-                           "org.todo.set"))
+                                  "--state" "DONE" "--note" "closing note")) "org todo set"))
            (expected
              (format nil "#+TODO: TODO(t!) | DONE(d@)~%* DONE Close~%:LOGBOOK:~%- State \"DONE\"       from \"TODO\"       [2026-10-19 Mon 09:00] \\\\~%  closing note~%:END:~%")))
       (expect (jget result "previous_state") :to-equal "TODO")
@@ -56,12 +53,10 @@
       (org-error ws
                  (org-write-time-args
                   '("org" "planning" "set" "duplicate-planning.org" "--match" "/TODO"
-                    "--kind" "scheduled" "--timestamp" "<2026-10-23>"))
-                 "org.planning.set" "selection.ambiguous")
+                    "--kind" "scheduled" "--timestamp" "<2026-10-23>")) "org planning set" "selection.ambiguous")
       (expect (file-octets ws "duplicate-planning.org") :to-equalp before)
       (org-error ws
                  (org-write-time-args
                   '("org" "planning" "delete" "duplicate-planning.org" "--match" "/TODO"
-                    "--kind" "scheduled"))
-                 "org.planning.delete" "selection.ambiguous")
+                    "--kind" "scheduled")) "org planning delete" "selection.ambiguous")
       (expect (file-octets ws "duplicate-planning.org") :to-equalp before))))

@@ -28,13 +28,11 @@
   (define-org-case ("org table align and recalculate preserve F-BYTE spans" ws)
     (put ws "byte-table.org" +org-table-byte-fixture+)
     (let ((before (file-octets ws "byte-table.org")))
-      (let ((aligned (org-ok ws '("org" "table" "align" "byte-table.org" "--table" "1")
-                             "org.table.align")))
+      (let ((aligned (org-ok ws '("org" "table" "align" "byte-table.org" "--table" "1") "org table align")))
         (expect (jget aligned "table") :to-be 1)
         (expect (jget aligned "changed") :to-be nil)
         (expect (file-octets ws "byte-table.org") :to-equalp before))
-      (let* ((recalculated (org-ok ws '("org" "table" "recalculate" "byte-table.org" "--table" "1")
-                                   "org.table.recalculate"))
+      (let* ((recalculated (org-ok ws '("org" "table" "recalculate" "byte-table.org" "--table" "1") "org table recalculate"))
              (expected
                (concatenate 'string
                             "#+TODO: TODO | DONE" (string #\Newline)
@@ -61,8 +59,7 @@
                               "  |-----+-------~%  | bb~% |---+--+--~%"
                               "| ccc | 22 | z~%After~%")))
     (let* ((before (file-octets ws "align.org"))
-           (aligned (org-ok ws '("org" "table" "align" "align.org" "--table" "1")
-                            "org.table.align"))
+           (aligned (org-ok ws '("org" "table" "align" "align.org" "--table" "1") "org table align"))
            (expected
              (format nil
                      (concatenate 'string
@@ -81,8 +78,7 @@
     (let* ((before (file-octets ws "sort.org"))
            (sorted (org-ok ws '("org" "table" "sort" "sort.org" "--table" "1"
                                 "--column" "1" "--type" "lexical" "--order" "ascending"
-                                "--start" "1" "--end" "3")
-                           "org.table.sort"))
+                                "--start" "1" "--end" "3") "org table sort"))
            (expected
              (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| A | second |~%| A | first |~%| Z | 3 |~%| 0 | outside |~%")))
       (expect (jget sorted "table") :to-be 1)
@@ -90,11 +86,9 @@
       (expect-org-write-and-undo ws "sort.org" before expected sorted))
     (put ws "bad-table.org" (format nil "| A | B |~%"))
     (let ((before (file-octets ws "bad-table.org")))
-      (org-error ws '("org" "table" "align" "bad-table.org" "--table" "0")
-                 "org.table.align" "argument.invalid")
+      (org-error ws '("org" "table" "align" "bad-table.org" "--table" "0") "org table align" "argument.invalid")
       (org-error ws '("org" "table" "sort" "bad-table.org" "--table" "1"
-                      "--column" "0")
-                 "org.table.sort" "argument.invalid")
+                      "--column" "0") "org table sort" "argument.invalid")
       (expect (file-octets ws "bad-table.org") :to-equalp before)))
 
   (define-org-case ("org table sort supports numeric descending and undoes exactly" ws)
@@ -103,8 +97,7 @@
     (let* ((before (file-octets ws "numeric-sort.org"))
            (sorted (org-ok ws '("org" "table" "sort" "numeric-sort.org" "--table" "1"
                                 "--column" "1" "--type" "numeric" "--order" "descending"
-                                "--start" "1" "--end" "2")
-                           "org.table.sort"))
+                                "--start" "1" "--end" "2") "org table sort"))
            (expected
              (format nil "# keep this comment~%#+FR-013-UNKNOWN: retained~%| 10 | ten |~%| 2 | two |~%")))
       (expect (jget sorted "table") :to-be 1)
@@ -114,8 +107,7 @@
   (define-org-case ("org table formula recalculate evaluates and rejects the documented subset" ws)
     (put ws "formula.org"
          (format nil "| Input | Total |~%|-------+-------|~%| 2 | 0 |~%#+TBLFM: @2$2=$1+1~%"))
-    (let ((result (org-ok ws '("org" "table" "recalculate" "formula.org" "--table" "1")
-                          "org.table.recalculate")))
+    (let ((result (org-ok ws '("org" "table" "recalculate" "formula.org" "--table" "1") "org table recalculate")))
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "formula.org")
               :to-equal (format nil "| Input | Total |~%|-------+-------|~%| 2 | 3 |~%#+TBLFM: @2$2=$1+1~%")))
@@ -142,22 +134,19 @@
       (destructuring-bind (path source code) fixture
         (put ws path source)
         (let ((before (file-octets ws path)))
-          (org-error ws (list "org" "table" "recalculate" path "--table" "1")
-                     "org.table.recalculate" code)
+          (org-error ws (list "org" "table" "recalculate" path "--table" "1") "org table recalculate" code)
           (expect (file-octets ws path) :to-equalp before)))))
 
   (define-org-case ("org table formulas preserve precedence and first-directive behavior" ws)
     (put ws "precedence.org"
          (format nil "| Input | Result |~%|-------+--------|~%| 12 | 0 |~%| 12 | 0 |~%#+TBLFM: @2$2=12/3*2::@3$2=12/3/2~%"))
-    (let ((result (org-ok ws '("org" "table" "recalculate" "precedence.org" "--table" "1")
-                          "org.table.recalculate")))
+    (let ((result (org-ok ws '("org" "table" "recalculate" "precedence.org" "--table" "1") "org table recalculate")))
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "precedence.org")
               :to-equal (format nil "| Input | Result |~%|-------+--------|~%| 12 | 2 |~%| 12 | 2 |~%#+TBLFM: @2$2=12/3*2::@3$2=12/3/2~%")))
     (put ws "multiple.org"
          (format nil "| Input | Total |~%|-------+-------|~%| 2 | 0 |~%#+TBLFM: @2$2=$1+1~%#+TBLFM: @2$2=$1+2~%"))
-    (let ((result (org-ok ws '("org" "table" "recalculate" "multiple.org" "--table" "1")
-                          "org.table.recalculate")))
+    (let ((result (org-ok ws '("org" "table" "recalculate" "multiple.org" "--table" "1") "org table recalculate")))
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "multiple.org")
               :to-equal (format nil "| Input | Total |~%|-------+-------|~%| 2 | 3 |~%#+TBLFM: @2$2=$1+1~%#+TBLFM: @2$2=$1+2~%"))))
@@ -167,8 +156,7 @@
       (put ws "large.org" fixture)
       (let* ((committed
                (org-ok ws
-                       (list "org" "table" "align" "large.org" "--table" "1")
-                       "org.table.align"))
+                       (list "org" "table" "align" "large.org" "--table" "1") "org table align"))
              (op-id (jget committed "op_id"))
              (change (jget committed "changes" 0)))
         (expect (jget change "diff_truncated") :to-be t)
@@ -179,8 +167,7 @@
       (let ((before (file-octets ws "large.org"))
             (dry-run
               (org-ok ws
-                      (list "org" "table" "align" "large.org" "--table" "1" "--dry-run")
-                      "org.table.align")))
+                      (list "org" "table" "align" "large.org" "--table" "1" "--dry-run") "org table align")))
         (expect (jget dry-run "dry_run") :to-be t)
         (expect (jget dry-run "changes" 0 "diff_truncated") :to-be t)
         (expect (nth-value 1 (gethash "next_commands" dry-run)) :to-be nil)
@@ -189,8 +176,7 @@
              (before (file-octets ws "large.org"))
              (staged
                (org-ok ws
-                       (list "org" "table" "align" "large.org" "--table" "1" "--tx" tx)
-                       "org.table.align"))
+                       (list "org" "table" "align" "large.org" "--table" "1" "--tx" tx) "org table align"))
              (next (jget staged "next_commands" 0))
              (prefix (format nil "aitools tx diff ~A --max-diff-lines " tx))
              (prefix-at (and (stringp next) (search prefix next)))
