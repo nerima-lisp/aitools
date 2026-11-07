@@ -1,5 +1,5 @@
 ;;;;
-;;;; Schema text for the read side of the `json`, `yaml`, `toml`, and `table` groups.
+;;;; Schema text for the structured document and table commands.
 (in-package #:aitools.data)
 
 (defparameter *inspect-table-read-args*
@@ -17,15 +17,9 @@
   "Reading options shared by `table read` and `table agg`.")
 
 (defun %inspect-format-read-schemas (group format)
-  (let ((get-errors '("argument.invalid" "input.not-found" "input.syntax-error"
-                      "input.unsupported-value" "refusal.not-a-file"
-                      "environment.busy" "environment.io"))
-        (select-errors '("argument.invalid" "input.not-found" "input.syntax-error"
-                         "input.unsupported-value" "refusal.not-a-file"
-                         "environment.busy" "environment.io"))
-        (diff-errors '("argument.invalid" "input.not-found" "input.syntax-error"
-                       "input.unsupported-value" "refusal.not-a-file"
-                       "environment.io")))
+  (let ((read-errors '("argument.invalid" "input.not-found" "input.syntax-error"
+                       "input.unsupported-format" "input.unsupported-value"
+                       "refusal.not-a-file" "environment.busy" "environment.io")))
     (list
      (list :name (format nil "~A.get" group)
            :summary (format nil "Get a value from a ~A document." format)
@@ -36,6 +30,8 @@
                              :description (format nil "~A file." format))
                        '(:name "pointer" :kind "positional" :type "string" :required t
                          :description "RFC 6901 pointer.")
+                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
+                         :description "Document format; defaults from the path extension.")
                        '(:name "--max-bytes" :type "size" :default "16KiB"
                          :description "Largest rendered value returned.")
                        '(:name "--keys" :type "flag"
@@ -52,7 +48,7 @@
                             (:name "truncated" :description "True when --max-bytes cut the value.")
                             (:name "approx_tokens" :description "ceil(characters of the returned value / 4).")
                             (:name "next_commands" :description "Narrower reads when truncated."))
-           :error-codes get-errors)
+           :error-codes read-errors)
      (list :name (format nil "~A.select" group)
            :summary (format nil "Filter, sort, and project a ~A array." format)
            :description (concatenate 'string
@@ -63,6 +59,8 @@
                              :description (format nil "~A file." format))
                        '(:name "pointer" :kind "positional" :type "string" :required t
                          :description "Pointer to the array.")
+                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
+                         :description "Document format; defaults from the path extension.")
                        '(:name "--where" :type "string" :multiple t
                          :description "Condition on each element.")
                        '(:name "--pick" :type "string" :multiple t
@@ -79,7 +77,7 @@
                             (:name "count" :description "Selected elements, in count mode.")
                             (:name "total" :description "Selected elements, in items mode.")
                             (:name "truncated" :description "True when --limit cut items (status partial, exit 3)."))
-           :error-codes select-errors)
+           :error-codes read-errors)
      (list :name (format nil "~A.diff" group)
            :summary (format nil "List value changes between two ~A files." format)
            :description (concatenate 'string
@@ -89,68 +87,18 @@
                              :description (format nil "Old ~A file." format))
                        (list :name "b" :kind "positional" :type "string" :required t
                              :description (format nil "New ~A file." format))
+                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
+                         :description "Apply this format to both files; otherwise use each path extension.")
                        '(:name "--limit" :type "integer" :default 100
                          :description "Maximum operations returned."))
            :output-fields '((:name "identical" :description "No differences.")
                             (:name "ops" :description "[{op,pointer,old?,new?}], op add, remove, or replace.")
                             (:name "total" :description "Number of operations.")
                             (:name "truncated" :description "True when --limit cut ops (status partial, exit 3)."))
-           :error-codes diff-errors))))
+           :error-codes read-errors))))
 
 (defparameter *inspect-format-command-schemas*
-  `((:name "json.get"
-     :summary "Get the value at a JSON pointer, its keys, length, or raw string."
-     :description "RFC 6901 pointers (\"\" is the whole document; ~0 is ~ and ~1 is /). length is the array's elements, the object's keys, or the string's characters. A value whose JSON is longer than --max-bytes comes back as value_preview with truncated:true (status partial, exit 3)."
-     :args ((:name "path" :kind "positional" :type "string" :required t :description "JSON file.")
-            (:name "pointer" :kind "positional" :type "string" :required t :description "RFC 6901 pointer.")
-            (:name "--max-bytes" :type "size" :default "16KiB" :description "Largest rendered value returned.")
-            (:name "--keys" :type "flag" :description "Return the object's keys or the array's indexes instead of the value.")
-            (:name "--raw" :type "flag" :description "Return text: a string value unescaped, anything else as JSON text."))
-     :output-fields ((:name "pointer" :description "The pointer asked for.")
-                     (:name "type" :description "object, array, string, number, boolean, or null.")
-                     (:name "length" :description "Elements, keys, or characters; null for other types.")
-                     (:name "value" :description "The value (default).")
-                     (:name "keys" :description "With --keys.")
-                     (:name "text" :description "With --raw.")
-                     (:name "value_preview" :description "The start of the rendered value when --max-bytes was exceeded.")
-                     (:name "truncated" :description "True when --max-bytes cut the value.")
-                     (:name "approx_tokens" :description "ceil(characters of the returned value / 4).")
-                     (:name "next_commands" :description "Narrower reads when truncated."))
-     :error-codes ("argument.invalid" "input.not-found" "input.unsupported-format"
-                   "refusal.not-a-file"
-                   "environment.busy" "environment.io"))
-    (:name "json.select"
-     :summary "Filter, sort, and project the elements of a JSON array."
-     :description "--where <rel-pointer><op><json-value> (repeat for AND); op is = != < <= > >= or ~ (regex on strings). The right side is JSON when it parses as JSON, else a string. A missing member satisfies only !=. Ordering compares numbers with numbers and strings with strings."
-     :args ((:name "path" :kind "positional" :type "string" :required t :description "JSON file.")
-            (:name "pointer" :kind "positional" :type "string" :required t :description "Pointer to the array.")
-            (:name "--where" :type "string" :multiple t :description "Condition on each element.")
-            (:name "--pick" :type "string" :multiple t :description "Return {pointer: value} for these relative pointers instead of the element.")
-            (:name "--sort-by" :type "string" :description "Relative pointer to order by (null first, then booleans, numbers, strings).")
-            (:name "--desc" :type "flag" :description "Descending order.")
-            (:name "--output" :type "enum" :choices ("items" "count") :default "items" :description "Sets mode.")
-            (:name "--limit" :type "integer" :default 50 :description "Maximum items returned."))
-     :output-fields ((:name "mode" :description "items or count.")
-                     (:name "items" :description "[{pointer,value}] of the selected elements.")
-                     (:name "count" :description "Selected elements, in count mode.")
-                     (:name "total" :description "Selected elements, in items mode.")
-                     (:name "truncated" :description "True when --limit cut items (status partial, exit 3)."))
-     :error-codes ("argument.invalid" "input.not-found" "input.syntax-error"
-                   "input.unsupported-format"
-                   "refusal.not-a-file" "environment.busy" "environment.io"))
-    (:name "json.diff"
-     :summary "List the add, remove, and replace operations between two JSON files."
-     :description "Key order and whitespace are ignored; numbers compare by value. Array elements compare by index."
-     :args ((:name "a" :kind "positional" :type "string" :required t :description "Old JSON file.")
-            (:name "b" :kind "positional" :type "string" :required t :description "New JSON file.")
-            (:name "--limit" :type "integer" :default 100 :description "Maximum operations returned."))
-     :output-fields ((:name "identical" :description "No differences.")
-                     (:name "ops" :description "[{op,pointer,old?,new?}], op add, remove, or replace.")
-                     (:name "total" :description "Number of operations.")
-                     (:name "truncated" :description "True when --limit cut ops (status partial, exit 3)."))
-     :error-codes ("input.not-found" "input.unsupported-format" "refusal.not-a-file" "environment.io"))
-    ,@(%inspect-format-read-schemas "yaml" "YAML")
-    ,@(%inspect-format-read-schemas "toml" "TOML")
+  `(,@(%inspect-format-read-schemas "doc" "structured document")
     (:name "table.read"
      :summary "Read rows of a CSV, TSV, JSONL, JSON, whitespace, separator, or line table."
      :description "Columns get a type (integer, number, boolean, string, null; mixed for JSON sources). ws splits each line on whitespace runs, awk-style, so rows may differ in width; --ws-columns N bounds the fields and keeps the rest of the line in the last column. A first row of unique non-numeric cells is the header unless --no-header."
@@ -190,6 +138,6 @@
                      (:name "truncated" :description "True when --limit cut groups (status partial, exit 3)."))
      :error-codes ("argument.invalid" "input.not-found" "input.syntax-error" "input.unsupported-format"
                    "refusal.not-a-file" "environment.busy" "environment.io")))
-  "The read commands of the `json`, `yaml`, `toml`, and `table` groups.")
+  "The read commands of the structured document and table groups.")
 
 (export '(*inspect-table-read-args* *inspect-format-command-schemas*))

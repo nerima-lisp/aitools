@@ -18,8 +18,7 @@
                    on-ok
                    on-partial
                    on-error)
- "json select. WHERE and PICK are lists of texts. Calls ON-OK or ON-PARTIAL
-(fields), or ON-ERROR."
+ "doc select. WHERE and PICK are lists of texts. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (labels ((report-error (code message
                               &key

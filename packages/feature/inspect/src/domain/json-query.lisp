@@ -1,8 +1,8 @@
 ;;;;
-;;;; The read side of the `json` group (`get`, `select`, `diff`): RFC 6901
+;;;; Shared JSON-value operations for `doc get`, `doc select`, and `doc diff`: RFC 6901
 ;;;; pointers, `--where` conditions with the shared comparison operators
 ;;;; (= != < <= > >= ~), `--sort-by` ordering, and the structural diff of
-;;;; `json diff`, which ignores key order and whitespace.
+;;;; `doc diff`, which ignores key order and whitespace.
 (in-package #:aitools.inspect.domain)
 
 ;;; ------------------------------------------------------------ pointers

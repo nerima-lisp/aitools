@@ -15,7 +15,7 @@
                 on-ok
                 on-partial
                 on-error)
- "json get. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
+ "doc get. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (labels ((report-error (code message
                               &key

@@ -1,7 +1,7 @@
 (in-package #:aitools/cli)
 
 (defun %full-command-name (invocation)
-  "The invoked command's full dotted dispatch name (\"read\", \"json.get\"),
+  "The invoked command's full dotted dispatch name (\"read\", \"doc.get\"),
 or NIL when no command was dispatched (bare `--help`/`--version`)."
   (let ((path (invocation-command-path invocation)))
     (when path
@@ -42,7 +42,7 @@ so operands containing spaces remain one argument."
 
 (defun %group-subcommand-repairs (registry argv name)
   "The repair for a group subcommand typed without its group
-(`get` for `json get`, `uuid` for `util uuid`): one `run-instead` repair per
+(`get` for `doc get`, `uuid` for `util uuid`): one `run-instead` repair per
 group whose subcommand list contains a command named NAME, each the grouped
 form of the invocation ARGV named, keeping its globals and operands. NIL when
 NAME is no group's subcommand -- the caller then falls back to the
@@ -75,14 +75,28 @@ invoked. NIL when no command was in scope."
           (command-name command)))))
 
 (defun %unknown-command-repairs (registry argv name)
-  "The repairs for an unresolved dispatch NAME (docs/src/reference/errors.md,
-Unknown command names). A foreign name in the correspondence table gets the table's canonical command
-verbatim (`fmt` -> `aitools transform`, `uuid` -> `aitools util uuid`), without
-operands, even when a group also has a subcommand of that name; the meta suite
-pins each to the table. A bare group subcommand NOT in the table (`get`)
-points at its grouped form and carries the globals and operands so the repair
-runs as given."
-  (cond ((null name) (list (%generic-repair nil)))
-        ((aitools.protocol.domain:correspondence-name-p name) (%unknown-name-repairs name))
-        ((%group-subcommand-repairs registry argv name))
-        (t (%unknown-name-repairs name))))
+  "Return retired structured-document repairs before generic foreign-name suggestions."
+  (let* ((tokens (rest argv))
+         (index (loop for i below (1- (length tokens))
+                      when (and (member (nth i tokens) '("json" "yaml" "toml")
+                                        :test #'string=)
+                                (member (nth (1+ i) tokens)
+                                        '("get" "select" "diff" "set" "delete"
+                                          "merge" "patch" "fmt")
+                                        :test #'string=))
+                        return i))
+         (group (and index (nth index tokens)))
+         (verb (and index (nth (1+ index) tokens)))
+         (retired (and (member name (list group verb
+                                          (and group verb
+                                               (format nil "~A.~A" group verb)))
+                               :test #'string=)
+                       (format nil "~A.~A" group verb))))
+    (cond ((and retired
+                (aitools.protocol.domain:correspondence-name-p retired))
+           (%unknown-name-repairs retired))
+          ((null name) (list (%generic-repair nil)))
+          ((aitools.protocol.domain:correspondence-name-p name)
+           (%unknown-name-repairs name))
+          ((%group-subcommand-repairs registry argv name))
+          (t (%unknown-name-repairs name)))))

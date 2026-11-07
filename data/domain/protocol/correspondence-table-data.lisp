@@ -65,9 +65,9 @@
     (:foreign-names ("mktemp")
      :repairs ((:detail "Create a temporary file or directory in the workspace's state tmp/ area."
                 :command "aitools mktemp")))
-    (:foreign-names ("jq")
-     :repairs ((:detail "Read, query, or edit JSON."
-                :command "aitools json get")))
+    (:foreign-names ("jq" "json.get" "yaml.get" "toml.get")
+     :repairs ((:detail "Read, query, or edit structured documents."
+                :command "aitools doc get")))
     (:foreign-names ("tar" "unzip" "zcat" "gzip" "zip")
      :repairs ((:detail "List, read, extract, or create an archive."
                 :command "aitools archive list")))
@@ -117,7 +117,28 @@
                 :command "aitools util uuid")))
     (:foreign-names ("openssl")
      :repairs ((:detail "Generate cryptographically random bytes."
-                :command "aitools util random"))))
+                :command "aitools util random")))
+    (:foreign-names ("json.select" "yaml.select" "toml.select")
+     :repairs ((:detail "Filter and project a document array."
+                :command "aitools doc select")))
+    (:foreign-names ("json.diff" "yaml.diff" "toml.diff")
+     :repairs ((:detail "Compare two structured documents."
+                :command "aitools doc diff")))
+    (:foreign-names ("json.set" "yaml.set" "toml.set")
+     :repairs ((:detail "Set a value in a structured document."
+                :command "aitools doc set")))
+    (:foreign-names ("json.delete" "yaml.delete" "toml.delete")
+     :repairs ((:detail "Delete a value from a structured document."
+                :command "aitools doc delete")))
+    (:foreign-names ("json.merge" "yaml.merge" "toml.merge")
+     :repairs ((:detail "Apply a merge patch to a structured document."
+                :command "aitools doc merge")))
+    (:foreign-names ("json.patch" "yaml.patch" "toml.patch")
+     :repairs ((:detail "Apply a JSON Patch to a structured document."
+                :command "aitools doc patch")))
+    (:foreign-names ("json.fmt" "yaml.fmt" "toml.fmt")
+     :repairs ((:detail "Format a structured document."
+                :command "aitools doc fmt"))))
   "The :FOREIGN-NAMES are matched by REPAIRS-FOR-UNKNOWN-NAME; :REPAIRS
 gives the matching details and command suggestions in order.")
 
