@@ -210,6 +210,8 @@ an agent able to write the state directory could. Returns its op id."
          (sb-posix:mkdir outside #o755)
          (sb-posix:symlink outside (disk-path inside "link"))
          (expect (entry-state-target (workspace-state inside "link")) :to-equal outside)
+         (expect (aitools.store.application::%real-path inside (disk-path inside "link/pwn.txt"))
+                 :to-equal (format nil "~A/pwn.txt" outside))
          (put-file inside ".aitools-payload-1.tmp" "x")
          (let ((op-id (forge-intent inside (list (make-intent-step :op :replace :path "link/pwn.txt"
                                                                    :temp ".aitools-payload-1.tmp"
