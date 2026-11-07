@@ -52,7 +52,7 @@
 
   (it "stops when the continuation returns :STOP"
     (let ((seen 0))
-      (expect (map-lines (lambda (line start end) (declare (ignore start end)) (setf seen line) (when (= line 2) :stop))
+      (expect (funcall (symbol-function (quote map-lines)) (lambda (line start end) (declare (ignore start end)) (setf seen line) (when (= line 2) :stop))
                          (string-bytes (format nil "a~%b~%c~%")))
               :to-be 2)
       (expect seen :to-be 2)))
