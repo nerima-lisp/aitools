@@ -191,10 +191,10 @@ To add a context or move files between layers, edit its lists in
     ```lisp
     (aitools.protocol.application:register-command
      registry
-     :name "json.get"   ; dispatch name; "read" for an ungrouped command
-     :group "json"      ; NIL for an ungrouped command
+     :name "doc.get"    ; dispatch name; "read" for an ungrouped command
+     :group "doc"       ; NIL for an ungrouped command
      :cli-command (cl-cli:make-command :name "get" ... :handler #'%handler)
-     :schema (aitools.protocol.domain:make-command-schema "json.get" "Summary." ...))
+     :schema (aitools.protocol.domain:make-command-schema "doc.get" "Summary." ...))
     ```
 
     A grouped command's `:cli-command` carries the bare subcommand name; the

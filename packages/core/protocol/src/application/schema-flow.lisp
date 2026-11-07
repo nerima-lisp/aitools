@@ -19,7 +19,7 @@ each keyword to a lowercase, underscore-separated key name."
 
 (defun %invocation-name (schema)
   "The command name as an agent types it: dispatch names use `.` between a
-group and its subcommand (\"json.get\"), the CLI uses a space (\"json get\")."
+group and its subcommand (\"doc.get\"), the CLI uses a space (\"doc get\")."
   (substitute #\Space #\. (aitools.protocol.domain:command-schema-name schema)))
 
 (defun render-command-summary (schema)

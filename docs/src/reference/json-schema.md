@@ -21,7 +21,7 @@ The shapes of individual commands' fields are in
 |---|---|---|
 | `schema_version` | always | `2`. |
 | `status` | always | `"ok"` (exit code 0) or `"partial"` (exit code 3). |
-| `command` | always | The dispatched command name. Multiword commands use spaces (for example, `"json get"` and `"org outline"`). |
+| `command` | always | The dispatched command name. Multiword commands use spaces (for example, `"doc get"` and `"org outline"`). |
 | command fields | per command | Listed in each command's schema. |
 | `next_commands` | when non-empty | Complete aitools invocations that continue the result. |
 | `recovered` | after a recovery | See [Recovered operations](#recovered-operations). |

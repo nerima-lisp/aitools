@@ -75,7 +75,7 @@
   "Record a write in TX-ID. VALIDATE receives VIEW, COMMIT, and REJECT with
 both locks held; VIEW reads staged state for guards such as --expect-hash.
 REPLAYABLE means ARGV can rebuild the op during rebase and is limited to
-content-based selectors, replace, apply, and json writes.
+content-based selectors, replace, apply, and doc writes.
 After unlock, ON-STAGED receives (tx-op results), with NIL tx-op if unchanged.
 ON-REJECTED receives (code message &key candidates diagnostics conflicts
 repairs path); ON-NOT-FOUND and ON-BUSY receive no arguments."

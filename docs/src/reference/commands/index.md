@@ -227,7 +227,7 @@ With no arguments, list every implemented command as {name, summary}. With comma
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `commands` | string, repeatable |  | Command names as typed, such as read, json get, or org todo set. |
+| `commands` | string, repeatable |  | Command names as typed, such as read, doc get, or org todo set. |
 | `--all` | flag |  | Return every command's full detail. |
 
 | Output field | Description |

@@ -14,7 +14,7 @@ infrastructure, and presentation layers. Shared types and services live in
 | core/text | domain, application, infrastructure | Byte decoding, line index, binary sniffing, line endings and BOM, charsets and encoding guesses, MIME, the language table, and byte-format codecs (DEFLATE and gzip via `cl-deflate-kit`, ZIP, and TAR). |
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
 | feature/search | domain, application, infrastructure, presentation | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
-| feature/inspect | domain, application, infrastructure, presentation | `read`, `info`, `check`, `diff`, `json get/select/diff`, `yaml get/select/diff`, `toml get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
+| feature/inspect | domain, application, infrastructure, presentation | `read`, `info`, `check`, `diff`, `doc get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
 | feature/edit | domain, application, infrastructure, presentation | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
 | feature/journal | domain, application, infrastructure, presentation | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation | `run`, `wait`, the `bg` group |
@@ -26,9 +26,9 @@ infrastructure, and presentation layers. Shared types and services live in
 no context; they live in the composition root, `src/schema.lisp` and
 `src/batch.lisp`.
 
-A CLI group can span contexts: `json get` is in inspect and `json set` in
-edit. CLI groups follow what an agent would guess; contexts follow whether a
-command reads or writes.
+A CLI group can span contexts: `doc get` is in inspect and `doc set` in edit.
+CLI groups follow what an agent would guess; contexts follow whether a command
+reads or writes.
 
 ### Placement decisions
 

@@ -120,7 +120,7 @@ Errors: `argument.invalid`, `input.not-found`, `environment.busy`, `environment.
 
 Re-apply a tx's operations onto files that changed outside it, moving its base forward.
 
-Only operations touching drifted paths (or paths an earlier re-applied operation rewrote) are re-run, from their recorded arguments. Content-based operations (--old, --between, --match, replace, apply, json writes) search again; position-based ones (--range, --symbol, --expect-hash) are not re-run and make the rebase a conflict. On any conflict the tx is left unchanged (exit 2).
+Only operations touching drifted paths (or paths an earlier re-applied operation rewrote) are re-run, from their recorded arguments. Content-based operations (--old, --between, --match, replace, apply, doc writes) search again; position-based ones (--range, --symbol, --expect-hash) are not re-run and make the rebase a conflict. On any conflict the tx is left unchanged (exit 2).
 
 | Argument | Type | Default | Description |
 |---|---|---|---|

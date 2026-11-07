@@ -131,7 +131,7 @@ the protocol application layer."
   "TOP-LEVEL accumulates ungrouped commands' cli-command values.
 GROUP-COMMANDS maps each dot-separated group path, including implicit parent
 paths, to its direct subcommands' cli-command values. SCHEMAS maps a full
-dispatch name (\"read\", \"json.get\", or \"org.todo.set\") to its
+dispatch name (\"read\", \"doc.get\", or \"org.todo.set\") to its
 AITOOLS.PROTOCOL.DOMAIN:COMMAND-SCHEMA."
   (top-level nil :type list)
   (group-commands (make-hash-table :test 'equal) :type hash-table)
