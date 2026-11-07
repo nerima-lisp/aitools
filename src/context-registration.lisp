@@ -1,10 +1,8 @@
 ;;;;
-;;;; Builds every feature context's production ports and registers its
-;;;; commands. Only feature contexts have a presentation layer
-;;;; (docs/src/reference/architecture.md, "Contexts"). Every
-;;;; constructor and registration function is named by its qualified symbol,
-;;;; so a renamed or missing one fails the build instead of silently dropping
-;;;; that context's commands.
+;;;; Loads each feature presentation's registration and dependency constructor
+;;;; and registers all declared feature contexts. Their order follows the CLI
+;;;; presentation dependencies; the integration contract checks that every
+;;;; declared feature context has one registration in that order.
 (in-package #:aitools/cli)
 
 (defun %context-dependency-arguments ()
