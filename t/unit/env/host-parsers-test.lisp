@@ -84,6 +84,7 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
             :to-equal '(nil nil))))
 
 (describe "aitools.env.domain metrics parsers"
+  #+linux
   (it "computes aggregate CPU deltas without double-counting guest time"
     (let ((before (parse-cpu-counters "cpu 10 0 10 70 10 0 0 0 8 0"))
           (after (parse-cpu-counters "cpu 30 0 20 120 30 0 0 0 20 0")))
@@ -91,6 +92,7 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
       (expect (cpu-busy-percent before after) :to-equal 30d0)
       (expect (cpu-busy-percent before before) :to-be nil)
       (expect (cpu-busy-percent after before) :to-be nil)))
+  #+linux
   (it-each (("") ("cpu 1") ("cpu x 0 0 0 0 0 0 0") ("cpu0 1 2 3 4 5 6 7 8"))
       "rejects malformed aggregate CPU input ~S" (text)
     (expect (parse-cpu-counters text) :to-be nil))

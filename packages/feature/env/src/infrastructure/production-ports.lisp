@@ -141,8 +141,8 @@ holding `.git`, else the working directory. Does not start git."
     (list (funcall tick-at 0) (funcall tick-at 3)
           (funcall tick-at 1) (funcall tick-at 2) 0 0 0 0)))
 
+#+darwin
 (defun %cpu-counters ()
-  #+darwin
   (let ((host (sb-alien:alien-funcall
                (sb-alien:extern-alien "mach_host_self" (function sb-alien:unsigned-int)))))
     (unwind-protect
@@ -162,13 +162,12 @@ holding `.git`, else the working directory. Does not start git."
       (sb-alien:alien-funcall
        (sb-alien:extern-alien "mach_port_deallocate"
                              (function sb-alien:int sb-alien:unsigned-int sb-alien:unsigned-int))
-       (sb-alien:extern-alien "mach_task_self_" sb-alien:unsigned-int) host)))
-  #-darwin nil)
+       (sb-alien:extern-alien "mach_task_self_" sb-alien:unsigned-int) host))))
 
 (defun make-env-ports-from-boundaries (&key clock environment filesystem host-info
                                          (sleep-seconds #'sleep)
-                                         (cpu-counters #'%cpu-counters)
-                                         (sysctl-mib #'%sysctl-mib)
+                                         #+darwin (cpu-counters #'%cpu-counters)
+                                         #+darwin (sysctl-mib #'%sysctl-mib)
                                          (run-program #'%run-program)
                                          (executable-p #'%executable-p)
                                          (list-directory #'%list-directory)
@@ -184,8 +183,10 @@ tests."
   (aitools.env.application:make-env-ports
    :now-milliseconds (lambda () (cl-boundary-kit:clock-now clock))
    :sleep-seconds sleep-seconds
-   :cpu-counters cpu-counters
-   :sysctl-mib sysctl-mib
+   #+darwin :cpu-counters
+   #+darwin cpu-counters
+   #+darwin :sysctl-mib
+   #+darwin sysctl-mib
    :environment-variable (lambda (name) (cl-boundary-kit:environment-get environment name))
    :environment-variables (lambda () (cl-boundary-kit:environment-list environment))
    :read-file (lambda (path external-format)

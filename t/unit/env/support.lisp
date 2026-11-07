@@ -4,6 +4,7 @@
 ;;;; MAKE-ENV-PORTS-FROM-BOUNDARIES the production ports use, plus recorded
 ;;;; fakes for the adapters cl-boundary-kit has no boundary for.
 (in-package #:aitools.env.test)
+(defparameter *linux-identity* '("Linux" "6.8.0-45-generic" "x86_64"))
 
 (defun octets-from-hex (hex)
   (let ((octets (make-array (floor (length hex) 2) :element-type '(unsigned-byte 8))))
@@ -18,37 +19,38 @@
   (list (cons "/usr/share/zoneinfo/America/New_York" (latin-1-from-hex *new-york-tzif-hex*))
         (cons "/usr/share/zoneinfo/Asia/Tokyo" (latin-1-from-hex *tokyo-tzif-hex*))))
 
-(defparameter *fake-epoch-milliseconds* 1772951400250
-  "2026-03-08T06:30:00.250Z, i.e. 01:30:00.250 EST in New York, half an
-hour before that day's spring-forward.")
-
-(defstruct (fake-host (:copier nil))
-  (runs nil)
-  (programs nil))
+(progn
+  (defparameter *fake-epoch-milliseconds* 1772951400250
+    "2026-03-08T06:30:00.250Z, i.e. 01:30:00.250 EST in New York, half an hour before the spring-forward.")
+  (defstruct (fake-host (:copier nil))
+    (runs nil)
+    (programs nil)))
 
 (defun make-fake-ports (&key (now *fake-epoch-milliseconds*) (environment '(("TZ" . "UTC")))
                           (files *zoneinfo-files*) (directories '("/usr/share/zoneinfo"))
                           (links nil) (executables nil)
                           (identity '("Darwin" "25.6.0" "arm64"))
                           (space '(1000 400))
-                          (sysctl-mibs '((:kern-boottime . 1700000000.125d0)
-                                         (:vm-loadavg . (0.5d0 0.25d0 0.125d0))))
+                          #+darwin (sysctl-mibs '((:kern-boottime . 1700000000.125d0)
+                                                 (:vm-loadavg . (0.5d0 0.25d0 0.125d0))))
                           (host (make-fake-host))
                           (sleep-seconds (lambda (seconds) (declare (ignore seconds))))
-                          (cpu-counters (let ((ticks 0))
-                                          (lambda () (incf ticks)
-                                            (list (* ticks 3) 0 0 (* ticks 37) 0 0 0 0)))))
+                          #+darwin (cpu-counters (let ((ticks 0))
+                                                   (lambda () (incf ticks)
+                                                     (list (* ticks 3) 0 0 (* ticks 37) 0 0 0 0)))))
   "ENV-PORTS over fakes. FILES is an alist path -> content; DIRECTORIES is an
 alist path -> entry names, or a bare path for an existing directory whose
-entries do not matter; LINKS maps path -> target; EXECUTABLES lists
-executable paths. SYSCTL-MIBS maps Darwin MIB names to returned values. HOST's
-PROGRAMS maps a program path to a function of (ARGUMENTS TIMEOUT) returning the
-RUN-PROGRAM values; every call is appended to HOST's RUNS as (PROGRAM ARGUMENTS)."
+entries do not matter. SYSCTL-MIBS maps Darwin MIB names to returned values.
+HOST's PROGRAMS maps a program path to a function of (ARGUMENTS TIMEOUT)
+returning the RUN-PROGRAM values; every call is appended to HOST's RUNS as
+(PROGRAM ARGUMENTS)."
   (aitools.env.infrastructure:make-env-ports-from-boundaries
    :clock (cl-boundary-kit:make-fake-clock :start now)
    :sleep-seconds sleep-seconds
-   :cpu-counters cpu-counters
-   :sysctl-mib (lambda (name) (cdr (assoc name sysctl-mibs)))
+   #+darwin :cpu-counters
+   #+darwin cpu-counters
+   #+darwin :sysctl-mib
+   #+darwin (lambda (name) (cdr (assoc name sysctl-mibs)))
    :environment (cl-boundary-kit:make-test-environment :initial-values environment)
    :filesystem (cl-boundary-kit:make-test-filesystem :initial-files files)
    :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")

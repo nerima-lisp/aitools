@@ -165,10 +165,17 @@ Pages speculative: 1.
   (it "reads uptime and load averages from /proc"
     (expect (parse-proc-uptime "100.25 72.50") :to-equal 100.25d0)
     (expect (parse-proc-load-average "0.75 1.00 2.125 1/120 99")
-            :to-equal '(0.75d0 1d0 2.125d0))
+            :to-equal (quote (0.75d0 1d0 2.125d0)))
     (expect (parse-proc-uptime "100.25") :to-be nil)
     (expect (parse-proc-uptime "-1.0 2.0") :to-be nil)
-    (dolist (text (list "0.75 bad 2.125 1/120 99" "0.75 1.0 2.5 1/120" "0.75 1.0 2.5 bad 99"))
+    (expect (parse-proc-load-average nil) :to-be nil)
+    (dolist (text (list "0.75 bad 2.125 1/120 99"
+                        "0.75 1.0 2.5 1/120"
+                        "0.75 1.0 2.5 bad 99"
+                        "0.75 1.0 2.5 3/2 99"
+                        "0.75 1.0 2.5 1/bad 99"
+                        "0.75 1.0 2.5 1/120 bad"
+                        "-0.75 1.0 2.5 1/120 99"))
       (expect (parse-proc-load-average text) :to-be nil))))
 
 (defun tcp-row (local &key (state "0A") (inode "7"))

@@ -117,18 +117,19 @@ userspace tick (USER_HZ) at 100."
     #-(or linux darwin)
     (t nil)))
 (defun %load-average (ports os)
-  (let ((values
-          #+linux
-          (when (eq os :linux)
-            (aitools.env.domain:parse-proc-load-average
-             (%read-text ports "/proc/loadavg")))
-          #+darwin
-          (when (eq os :darwin)
-            (funcall (env-ports-sysctl-mib ports) :vm-loadavg))
-          #-(or linux darwin) nil))
-    (when (and (listp values) (= (length values) 3)
-               (every (lambda (value) (and (realp value) (>= value 0))) values))
-      (mapcar (lambda (value) (float value 1d0)) values))))
+  #+linux
+  (when (eq os :linux)
+    (aitools.env.domain:parse-proc-load-average
+     (%read-text ports "/proc/loadavg")))
+  #+darwin
+  (when (eq os :darwin)
+    (let ((values (funcall (env-ports-sysctl-mib ports) :vm-loadavg)))
+      (when (and (listp values)
+                 (= (length values) 3)
+                 (every (lambda (value) (and (realp value) (>= value 0))) values))
+        (mapcar (lambda (value) (float value 1d0)) values))))
+  #-(or linux darwin)
+  nil)
 
 (aitools.kernel.domain:define-flow
     (sys-metrics/k ports &key (limit 20) on-ok on-partial on-error)

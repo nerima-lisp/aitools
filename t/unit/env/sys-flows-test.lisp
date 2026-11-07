@@ -68,15 +68,8 @@
                 (cons "/proc/net/dev" *network-linux-text*)
                 (cons "/proc/net/tcp" *proc-net-tcp-text*)
                 (cons "/proc/net/tcp6" *proc-net-tcp6-text*)))
-        (directories
-          '(("/proc" "1" "77" "self" "net")
-            ("/proc/1/fd" "9")
-            ("/proc/77/fd" "0" "3" "4")))
-        (links
-          '(("/proc/77/fd/0" . "/dev/null")
-            ("/proc/77/fd/3" . "socket:[55501]")
-            ("/proc/77/fd/4" . "socket:[55502]")
-            ("/proc/1/fd/9" . "socket:[55501]"))))
+        (directories '(("/proc" "1" "77" "self" "net") ("/proc/1/fd" "9" "10") ("/proc/77/fd" "0" "3" "4" "5")))
+        (links '(("/proc/77/fd/0" . "/dev/null") ("/proc/77/fd/3" . "socket:[55501]") ("/proc/77/fd/4" . "socket:[55502]") ("/proc/77/fd/5" . "socket:[21343]") ("/proc/1/fd/9" . "socket:[55501]") ("/proc/1/fd/10" . "socket:[21342]"))))
     (make-env-ports
      :now-milliseconds (constantly *fake-epoch-milliseconds*)
      :environment-variable

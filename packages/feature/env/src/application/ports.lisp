@@ -8,12 +8,13 @@
 (in-package #:aitools.env.application)
 
 (defstruct (env-ports (:constructor make-env-ports
-                          (&key now-milliseconds environment-variable environment-variables
-                             read-file list-directory read-link executable-p run-program
-                             file-system-space system-identity user-id host-name user-name
-                             workspace-root sysctl-mib
-                             (sleep-seconds #'sleep)
-                             (cpu-counters (constantly nil))))
+    (&key now-milliseconds environment-variable environment-variables
+          read-file list-directory read-link executable-p run-program
+          file-system-space system-identity user-id host-name user-name
+          workspace-root
+          #+darwin sysctl-mib
+          (sleep-seconds #'sleep)
+          #+darwin (cpu-counters (constantly nil))))
                       (:copier nil))
   "NOW-MILLISECONDS () -> Unix epoch milliseconds.
 ENVIRONMENT-VARIABLE (name) -> string or NIL.
@@ -36,8 +37,8 @@ USER-ID () -> integer. HOST-NAME (), USER-NAME () -> string.
 WORKSPACE-ROOT () -> the workspace root directory."
   (now-milliseconds nil :type function :read-only t)
   (sleep-seconds #'sleep :type function :read-only t)
-  (cpu-counters (constantly nil) :type function :read-only t)
-  (sysctl-mib (constantly nil) :type function :read-only t)
+  #+darwin (cpu-counters (constantly nil) :type function :read-only t)
+  #+darwin (sysctl-mib (constantly nil) :type function :read-only t)
   (environment-variable nil :type function :read-only t)
   (environment-variables nil :type function :read-only t)
   (read-file nil :type function :read-only t)

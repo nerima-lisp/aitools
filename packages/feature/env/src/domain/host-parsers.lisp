@@ -101,6 +101,7 @@
     (when (and values (every (lambda (value) (and value (>= value 0))) values))
       (float (first values) 1d0))))
 
+#+linux
 (defun parse-cpu-counters (text)
   "Aggregate Linux counters, excluding guest counters already counted in user/nice."
   (let ((fields (and text (split-fields (first (%split-lines text))))))

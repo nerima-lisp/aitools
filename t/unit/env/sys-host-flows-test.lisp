@@ -3,8 +3,6 @@
 (defun null-or (value)
   (if (json-null-p value) nil value))
 
-(defparameter *linux-identity* '("Linux" "6.8.0-45-generic" "x86_64"))
-
 (defparameter *info-fields* (list "os" "os_version" "arch" "cpus" "user" "uid" "hostname" "uptime_seconds" "shell" "memory" "disk"))
 
 (defun darwin-host ()
@@ -74,7 +72,7 @@
   (it "returns environment.unavailable when uptime is missing or unsupported"
     (dolist (ports
               (list (make-fake-ports :identity *linux-identity* :files nil)
-                    (make-fake-ports :sysctl-mibs nil)
+                    #+darwin (make-fake-ports :sysctl-mibs nil)
                     (make-fake-ports
                      :identity (list "FreeBSD" "14.1" "amd64"))))
       (multiple-value-bind (kind error)
