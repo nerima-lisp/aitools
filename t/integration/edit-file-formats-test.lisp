@@ -171,3 +171,4 @@
           (expect (undo op-id) :to-be :committed)
           (expect (kind "a.tar") :to-be :absent)
           (expect (text "src/a.txt") :to-equal (format nil "alpha~%"))))))))
+

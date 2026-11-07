@@ -84,20 +84,32 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal (format nil "head~%x = 2~%")))))))
 (describe "aitools tx rebase replays doc write commands"
-  (it "replays doc.set against the moved JSON base"
+  (it "replays doc.set with an explicit format across JSON, YAML, and TOML bases"
     (call-with-edit-workspace
      (lambda ()
-       (put "c.json" "{\"a\":1}")
-       (let ((tx (begin-tx)))
-         (expect (run-in tx "doc.set" (list "c.json" "/a" "2")) :to-be :ok)
-         (put "c.json" "{\"a\":1,\"head\":true}")
-         (expect
-          (aitools.store.application:tx-rebase/k
-           (open-store *root*) tx (function replay-record)
-           :on-rebased (lambda (paths) paths)
-           :on-conflict (lambda (conflicts) (declare (ignore conflicts)) :conflict)
-           :on-not-found (lambda () :not-found)
-           :on-busy (lambda () :busy))
-          :to-equal (list "c.json"))
-         (expect (commit-tx tx) :to-be :committed)
-         (expect (text "c.json") :to-equal "{\"a\":2,\"head\":true}"))))))
+       (dolist (format '("json" "yaml" "toml"))
+         (let* ((path (format nil "c.~A" format))
+                (original (cond ((string= format "json") "{\"a\":1}")
+                                ((string= format "yaml") (format nil "a: 1~%"))
+                                (t (format nil "a = 1~%"))))
+                (moved (cond ((string= format "json") "{\"a\":1,\"head\":true}")
+                             ((string= format "yaml") (format nil "a: 1~%head: true~%"))
+                             (t (format nil "a = 1~%head = true~%"))))
+                (expected (cond ((string= format "json") "{\"a\":2,\"head\":true}")
+                                ((string= format "yaml") (format nil "a: 2~%head: true~%"))
+                                (t (format nil "a = 2~%head = true~%")))))
+           (put path original)
+           (let ((tx (begin-tx)))
+             (expect (run-in tx "doc.set" (list path "/a" "2") :format format)
+                     :to-be :ok)
+             (put path moved)
+             (expect
+              (aitools.store.application:tx-rebase/k
+               (open-store *root*) tx (function replay-record)
+               :on-rebased (lambda (paths) paths)
+               :on-conflict (lambda (conflicts) (declare (ignore conflicts)) :conflict)
+               :on-not-found (lambda () :not-found)
+               :on-busy (lambda () :busy))
+              :to-equal (list path))
+             (expect (commit-tx tx) :to-be :committed)
+             (expect (text path) :to-equal expected))))))))

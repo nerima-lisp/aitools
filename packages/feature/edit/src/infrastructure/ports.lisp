@@ -84,12 +84,19 @@ bytes so the limit bounds the read itself."
     (:null (error "validated TOML value contains null"))
     (otherwise value)))
 
-(defun serialize-document (format value)
-  (cond
-    ((string= format "yaml")
-     (yaml-kit:emit (%yaml-native-value value)))
-    ((string= format "toml")
-     (let ((cl-toml-kit:*toml-max-nesting-depth*
-            aitools.edit.application:+max-format-document-depth+))
-       (cl-toml-kit:encode (%toml-native-value value))))
-    (t (error "unsupported YAML/TOML format: ~S" format))))
+(progn
+  (defun serialize-document (format value)
+    (cond
+      ((string= format "yaml")
+       (yaml-kit:emit (%yaml-native-value value)))
+      ((string= format "toml")
+       (let ((cl-toml-kit:*toml-max-nesting-depth*
+              aitools.edit.application:+max-format-document-depth+))
+         (cl-toml-kit:encode (%toml-native-value value))))
+      (t (error "unsupported YAML/TOML format: ~S" format))))
+  (defun replay-format-document-op (argv view commit reject)
+    (aitools.edit.application:replay-edit-op
+     argv view commit reject :serializer (function serialize-document)))
+  (dolist (name '("doc.set" "doc.delete" "doc.merge" "doc.patch" "doc.fmt"))
+    (aitools.journal.application:register-tx-replayer
+     name (function replay-format-document-op))))

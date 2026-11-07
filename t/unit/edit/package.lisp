@@ -241,6 +241,7 @@ rejection code."
                                          :on-busy (lambda () :busy)))
 
 (defun replay-record (record view commit reject)
-  "The store's REPLAY shape adapted to the journal's replayer contract:
-the journal context hands replayers the recorded argv."
-  (replay-edit-op (aitools.store.domain:tx-op-record-argv record) view commit reject))
+  "Replay the recorded argv through its registered command replayer."
+  (let* ((argv (aitools.store.domain:tx-op-record-argv record))
+         (replayer (aitools.journal.application:find-tx-replayer argv)))
+    (funcall replayer argv view commit reject)))

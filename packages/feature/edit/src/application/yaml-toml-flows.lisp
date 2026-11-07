@@ -28,7 +28,7 @@
             (:on-error (code message)
               (aitools.kernel.domain:flow-continue
                 :on-error code message
-                :repairs (%format-repairs command path code nil))))
+                :repairs (%format-repairs format command path code nil))))
           (aitools.kernel.domain:flow-call
             (aitools.inspect.application:parse-toml-write-document/k
              (document-logical-text document)
@@ -39,14 +39,12 @@
             (:on-error (code message)
               (aitools.kernel.domain:flow-continue
                 :on-error code message
-                :repairs (%format-repairs command path code nil))))))
+                :repairs (%format-repairs format command path code nil))))))
     (:on-filtered ())))
 
-(defun %format-repairs (command path code pointer)
-  (let* ((format (first (command-words command)))
-         (file (aitools.protocol.domain:shell-quote path))
-         (schema-command (format nil "aitools schema ~A"
-                                 (command-display-name command))))
+(defun %format-repairs (format command path code pointer)
+  (let* ((file (aitools.protocol.domain:shell-quote path))
+         (schema-command (format nil "aitools ~A --format ~A" (command-display-name command) format)))
     (cond
       ((string= code "input.unsupported-value")
        (list (repair "convert-to-supported-value"
@@ -59,15 +57,18 @@
       ((and pointer (string= code "input.not-found"))
        (list (repair "list-keys"
                      "List the keys or elements at the pointer's parent."
-                     (format nil "aitools ~A get ~A ~A"
-                             format file
+                     (format nil "aitools doc get ~A ~A --format ~A"
+                             file
                              (aitools.protocol.domain:shell-quote
-                              (format-json-pointer (butlast pointer)))))))
+                              (format-json-pointer (butlast pointer)))
+                             format))))
       ((member code '("input.not-found" "selection.no-match") :test #'string=)
        (list (repair (format nil "read-~A" format)
                      (format nil "Read the ~A value to choose a current pointer."
                              (string-upcase format))
-                     (format nil "aitools ~A get ~A" format file))))
+                     (format nil "aitools doc get ~A --format ~A"
+                             file
+                             format))))
       (t
        (default-repairs code command
                         (append (command-words command) (list path))
@@ -121,23 +122,27 @@
       (setf (getf repair-options :format) "<json|yaml|toml>")
       (let* ((argv (options-argv name positionals repair-options))
              (retry-options
-               (append
-                (when (getf options :tx)
-                  (list "--tx" (getf options :tx)))
-                (when (getf options :dry-run)
-                  (list "--dry-run"))
-                (when (or (getf options :stdin)
-                          (getf options :stdin-data))
-                  (list "--stdin"))))
-             (separator (position "--" argv :test #'string=)))
-        (apply #'aitools.protocol.domain:command-line
-               (append
-                (list "aitools")
-                (if separator
-                    (append (subseq argv 0 separator)
-                            retry-options
-                            (subseq argv separator))
-                    (append argv retry-options)))))))
+              (append
+               (when (getf options :tx)
+                 (list "--tx" (getf options :tx)))
+               (when (getf options :dry-run)
+                 (list "--dry-run"))
+               (when (or (getf options :stdin)
+                         (getf options :stdin-data))
+                 (list "--stdin"))))
+             (separator (position "--" argv :test (function string=)))
+             (command
+              (apply (function aitools.protocol.domain:command-line)
+                     (append
+                      (list "aitools")
+                      (if separator
+                          (append (subseq argv 0 separator)
+                                  retry-options
+                                  (subseq argv separator))
+                        (append argv retry-options))))))
+        (repair "specify-format"
+                "Pass --format with the document format, then retry."
+                command))))
 
   (defun %format-plan (format command path transform options
                        &key serializer repair-pointer record-options
@@ -162,10 +167,55 @@
                          (lambda (document value comment-count)
                            (%format-document format document value comment-count serializer)))
                        :repairs-function (unless (string= format "json")
-                                           (function %format-repairs))
+                         (lambda (command path code pointer)
+                           (%format-repairs format command path code pointer)))
                        :extra-function
                        (unless (string= format "json") (function %format-warning-fields)))
      :record-options (or record-options options)
      :record-positionals (or record-positionals
                              (lambda (paths) (list (first paths))))))
 )
+
+(aitools.kernel.domain:define-flow (%format-fmt/k format command ports positionals options &key on-plan on-error)
+  (let* ((path (first positionals))
+         (indent (getf options :indent))
+         (indent-width (and indent (ignore-errors (parse-integer indent))))
+         (json-only-options (or indent (getf options :minify)
+                                (getf options :sort-keys))))
+    (cond
+      ((/= (length positionals) 1)
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         (format nil "~A takes exactly one PATH"
+                 (command-display-name command))))
+      ((and (not (string= format "json")) json-only-options)
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         "--indent, --minify, and --sort-keys are available only for JSON"))
+      ((and indent
+            (or (null indent-width) (< indent-width 0) (> indent-width 16)))
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         (format nil "--indent ~S must be 0 to 16" indent)))
+      ((and indent (getf options :minify))
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         "--indent and --minify cannot be combined"))
+      (t
+       (aitools.kernel.domain:flow-continue
+         :on-plan
+         (%format-plan
+          format command path (function identity) options
+          :serializer (and ports (edit-ports-serialize-document ports))
+          :indent-function
+          (when (string= format "json")
+            (cond
+              ((getf options :minify)
+               (lambda (metadata) (declare (ignore metadata)) nil))
+              (indent
+               (lambda (metadata)
+                 (declare (ignore metadata))
+                 (make-string indent-width :initial-element #\Space)))
+              (t (lambda (metadata) (or metadata "  ")))))
+          :sort-keys (and (string= format "json")
+                          (getf options :sort-keys))))))))
