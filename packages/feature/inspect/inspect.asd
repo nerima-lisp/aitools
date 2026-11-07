@@ -12,7 +12,8 @@
                                               "cl-date-kit"
                                               "cl-codec-kit"
                                               "cl-host-kit"
-                                              "cl-boundary-kit")
+                                              "cl-boundary-kit"
+                                              "cl-crypto-kit")
            :pathname "src/"
            :components ((:module "domain"
                                  :components

@@ -34,11 +34,15 @@
    compatibility path. Success and error constructors accept optional
    `meta`, and either envelope may carry `recovered` after its payload.
 
-## Reserved changes for later tracks
+## Hash and archive contracts
 
-7. **Hash and archive APIs**: crypto-kit and deflate-kit adoption may replace
-   internal implementations only after their required MD5, range, performance,
-   `truncate-at`, `size-hint`, and archive-limit contracts are available.
+7. **Hash and archive APIs**: Inspect calls `cl-crypto-kit:digest-hex` directly
+   for MD5 and SHA-1. The kernel retains `sha256-hex` and `content-hash` for
+   shared content hashes. Call crypto-kit and deflate-kit directly when their
+   inputs and outputs match the aitools contract; keep thin adapters for byte
+   ranges, output limits, trailing padding, error mapping, octet-vector results,
+   and UTF-8 member names. Keep safe archive member-name selection as aitools
+   policy.
 
 ## v0.4.0 downstream contracts
 

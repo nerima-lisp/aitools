@@ -65,8 +65,6 @@
    #:invalid-size-error-text
    ;; digest-kit.lisp
    #:sha256-hex
-   #:sha1-hex
-   #:md5-hex
    #:content-hash
    ;; token-estimate.lisp
    #:approx-token-count
