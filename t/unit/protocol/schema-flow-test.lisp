@@ -30,4 +30,8 @@
   (it "falls back to the summary when no long description was given"
     (let* ((schema (make-command-schema "read" "Read a file."))
            (detail (render-command-detail schema)))
-      (expect (json-alist-value detail "description") :to-equal "Read a file."))))
+      (expect (json-alist-value detail "description") :to-equal "Read a file.")))
+  (it "rejects a non-string description during schema construction"
+    (let ((description (read-from-string "42")))
+      (signals error
+        (make-command-schema "x" "y" :description description)))))
