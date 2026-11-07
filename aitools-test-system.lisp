@@ -77,6 +77,16 @@
                                                           (:file "runner-failure-report-test")
                                                           (:file "structure-test")
                                                           (:file "structure-context-allowances" :depends-on ("structure-test"))
+                                                          ;; Keep dynamically loaded allowances in filtered source trees.
+                                                          (:module "structure-context-data"
+                                                           :pathname "structure-context-allowances/"
+                                                           :depends-on ("structure-context-allowances")
+                                                           :serial t
+                                                           :components
+                                                           ((:file "edit")
+                                                            (:file "org")
+                                                            (:file "search")
+                                                            (:file "store")))
                                                           (:file "structure-source-scanner-reader" :depends-on ("structure-context-allowances"))
                                                           (:file "structure-dead-code-source" :depends-on ("structure-source-scanner" "structure-source-scanner-reader"))
                                                           (:file "structure-dead-code-definitions" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
@@ -101,6 +111,20 @@
                                                           (:file "run-policy-and-coverage-artifact-validation-test"
                                                                  :depends-on ("coverage-artifact-validation"))
                                                           (:file "structure-budget-baseline")
+                                                          ;; Keep dynamically loaded per-context budgets in filtered source trees.
+                                                          (:module "structure-budget-baseline-data"
+                                                           :pathname "structure-budget-baselines/"
+                                                           :depends-on ("structure-budget-baseline")
+                                                           :serial t
+                                                           :components
+                                                           ((:file "edit")
+                                                            (:file "env")
+                                                            (:file "inspect")
+                                                            (:file "process")
+                                                            (:file "store")
+                                                            (:file "text")
+                                                            (:file "vcs")
+                                                            (:file "workspace")))
                                                           (:file "structure-budget-reader")
                                                           (:file "structure-budget-lines-test")
                                                           (:file "structure-budget-literals-test")
