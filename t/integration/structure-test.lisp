@@ -21,7 +21,7 @@
 (in-package #:aitools.integration.structure-test)
 
 (defparameter *core-contexts* '("kernel" "protocol" "workspace" "text" "store"))
-(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "vcs" "org" "env" "util"))
+(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "org" "env" "util"))
 (defparameter *all-contexts* (append *core-contexts* *feature-contexts*))
 
 (defun context-package-name (context layer)
@@ -36,7 +36,7 @@
 (defparameter *effectful-host-packages*
   ;; These host effects remain confined to infrastructure. CL-BOUNDARY-KIT
   ;; objects and fakes are also available in application.
-  '("HOST-KIT" "PROCESS-KIT" "VCS-KIT" "CL-CONCURRENT-KIT"
+  '("HOST-KIT" "PROCESS-KIT" "CL-CONCURRENT-KIT"
     "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
     "SB-GRAY" "SB-UNIX" "UIOP"))
 

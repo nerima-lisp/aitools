@@ -28,23 +28,8 @@
       (expect actual :to-equal expected)))
   (it "registers commands from each context dependency constructor"
     (let* ((registry (aitools.protocol.application:make-command-registry))
-           (schemas
-            (progn
-              (aitools/cli:register-all-context-commands registry)
-              (aitools.protocol.application:all-command-schemas registry)))
-           (names
-            (mapcar (function aitools.protocol.domain:command-schema-name)
-                    schemas)))
-      (expect schemas :to-be-truthy)
-      (when (find-package "AITOOLS.VCS.PRESENTATION")
-        (let ((git
-               (position-if
-                (lambda (name)
-                  (and (>= (length name) 4) (string= "git." name :end2 4)))
-                names))
-              (org
-               (position-if
-                (lambda (name)
-                  (and (>= (length name) 4) (string= "org." name :end2 4)))
-                names)))
-          (expect (and git org (< git org)) :to-be t))))))
+       (schemas
+        (progn
+          (aitools/cli:register-all-context-commands registry)
+          (aitools.protocol.application:all-command-schemas registry))))
+  (expect schemas :to-be-truthy))))
