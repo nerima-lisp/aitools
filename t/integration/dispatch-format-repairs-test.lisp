@@ -1,19 +1,31 @@
 (in-package #:aitools.integration.dispatch-test)
 
 (describe "dispatch group format repairs"
-  (it "points a bare group subcommand name at every group form, keeping the operands"
-    (aitools.test.support:with-workspace
-      (*root* state-home)
+  (it "routes bare and retired group repairs with their operands"
+    (aitools.test.support:with-workspace (*root* state-home)
       (declare (ignore state-home))
-      (multiple-value-bind (code envelope) (run-aitools "get" "/a" "f.json")
+      (multiple-value-bind (code envelope)
+          (run-aitools "get" "f.json" "/a")
         (expect code :to-be 1)
         (expect (value envelope "error" "code") :to-equal "argument.invalid")
         (expect (repair-commands envelope)
                 :to-equal
-                (list (format nil "aitools --root ~A doc get /a f.json" *root*))))
-      (multiple-value-bind (code envelope) (run-plain "status")
+                (list (format nil "aitools --root ~A doc get f.json /a" *root*))))
+      (multiple-value-bind (code envelope)
+          (run-plain "status")
         (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal (quote ("aitools bg status" "aitools tx status"))))
-      (multiple-value-bind (code envelope) (run-plain "uuid")
+        (expect (repair-commands envelope)
+                :to-equal
+                (list "aitools bg status" "aitools tx status")))
+      (multiple-value-bind (code envelope)
+          (run-plain "uuid")
         (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal '("aitools util uuid"))))))
+        (expect (repair-commands envelope) :to-equal '("aitools util uuid")))
+      (dolist (group (list "json" "yaml" "toml"))
+        (dolist (verb (list "get" "select" "diff" "set" "delete" "merge" "patch" "fmt"))
+          (multiple-value-bind (code envelope)
+              (run-aitools group verb)
+            (expect code :to-be 1)
+            (expect (value envelope "error" "code") :to-equal "argument.invalid")
+            (expect (repair-commands envelope)
+                    :to-equal (list (format nil "aitools doc ~A" verb)))))))))

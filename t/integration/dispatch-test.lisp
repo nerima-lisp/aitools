@@ -174,9 +174,9 @@ file is prepared and before the commit point, which recovery discards."
   (it "carries a bare group subcommand's operands over to its grouped form"
     ;; `get` is no foreign name, so its repair is the grouped form of the exact
     ;; command the agent meant, operands included.
-    (multiple-value-bind (code envelope) (run-plain "get" "/a" "f.json")
+    (multiple-value-bind (code envelope) (run-plain "get" "f.json" "/a")
       (expect code :to-be 1)
-      (expect (member "aitools doc get /a f.json" (repair-commands envelope) :test #'string=)
+      (expect (member "aitools doc get f.json /a" (repair-commands envelope) :test #'string=)
               :to-be-truthy))))
 
 (describe "aitools dispatch: an envelope past the JSON writer's output limit"
