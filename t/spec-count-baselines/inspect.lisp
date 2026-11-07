@@ -1,0 +1,1 @@
+(:schema-version 1 :context :inspect :linux-specs 438 :darwin-specs 438 :minimum-executed-specs 438 :source :successful-linux-and-darwin-ci-runs :run-id "40258382670" :linux-job-id 121365093096 :darwin-job-id 121365093340 :revision "3b9fdee10c5c09de89d74c6b1657e0edcbe0e588" :reason "Cross-platform minimum from source-root-matched CI start events.")
