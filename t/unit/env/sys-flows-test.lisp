@@ -1,10 +1,14 @@
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.application network and disk"
+  #+linux
   (it "limits sorted Linux interfaces and reports cumulative units"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-network/k (make-fake-ports :identity '("Linux" "test" "generic")
-                                                  :files (list (cons "/proc/net/dev" *network-linux-text*))) :limit 1)
+        (run-flow (function sys-network/k)
+                  (make-fake-ports
+                   :identity (list "Linux" "test" "generic")
+                   :files (list (cons "/proc/net/dev" *network-linux-text*)))
+                  :limit 1)
       (expect kind :to-be :partial)
       (expect (field fields "total") :to-be 2)
       (expect (field fields "truncated") :to-be t)
@@ -15,6 +19,25 @@
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
       (expect (run-flow #'sys-network/k (make-fake-ports :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
       (expect (fake-host-runs host) :to-equal '(("/usr/sbin/netstat" ("-ibn"))))))
+  #+darwin
+  (it "limits sorted Darwin interfaces from trusted netstat"
+    (let ((host (make-fake-host
+                 :programs (list (cons "/usr/sbin/netstat"
+                                       (exits-with *network-darwin-text*))))))
+      (multiple-value-bind (kind fields)
+          (run-flow (function sys-network/k)
+                    (make-fake-ports :host host)
+                    :limit 1)
+        (expect kind :to-be :partial)
+        (expect (field fields "source") :to-equal "netstat -ibn")
+        (expect (field fields "total") :to-be 2)
+        (expect (field fields "truncated") :to-be t)
+        (expect (object-field (first (field fields "items")) "name")
+                :to-equal "a0")
+        (expect (object-field (first (field fields "items")) "rx_bytes")
+                :to-be 700)
+        (expect (fake-host-runs host)
+                :to-equal (list (list "/usr/sbin/netstat" (list "-ibn")))))))
   (it-each ((0) (1001) (-1) (1.5)) "rejects out of range network limit ~S" (limit)
     (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-ports) :limit limit)
       (expect kind :to-be :error)

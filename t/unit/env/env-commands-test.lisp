@@ -21,15 +21,37 @@
     (gethash name document)))
 
 (describe "aitools.env.presentation commands"
+  #+linux
   (it "emits bounded network JSON and exit 3"
     (multiple-value-bind (code stdout stderr)
-        (dispatch-env (make-fake-ports :identity '("Linux" "test" "generic")
-                                      :files (list (cons "/proc/net/dev" *network-linux-text*)))
-                      "sys" "network" "--limit" "1")
+        (dispatch-env
+         (make-fake-ports
+          :identity (list "Linux" "test" "generic")
+          :files (list (cons "/proc/net/dev" *network-linux-text*)))
+         "sys" "network" "--limit" "1")
       (expect code :to-be 3)
       (expect stderr :to-equal "")
       (expect (json-field stdout "source") :to-equal "/proc/net/dev")
       (expect (gethash "rx_bytes" (aref (json-field stdout "items") 0)) :to-be 700)))
+  #+darwin
+  (it "emits bounded Darwin network JSON and exit 3"
+    (let ((host (make-fake-host
+                 :programs (list (cons "/usr/sbin/netstat"
+                                       (exits-with *network-darwin-text*))))))
+      (multiple-value-bind (code stdout stderr)
+          (dispatch-env (make-fake-ports :host host)
+                        "sys" "network" "--limit" "1")
+        (expect code :to-be 3)
+        (expect stderr :to-equal "")
+        (expect (json-field stdout "status") :to-equal "partial")
+        (expect (json-field stdout "source") :to-equal "netstat -ibn")
+        (expect (json-field stdout "total") :to-be 2)
+        (expect (gethash "name" (aref (json-field stdout "items") 0))
+                :to-equal "a0")
+        (expect (gethash "rx_bytes" (aref (json-field stdout "items") 0))
+                :to-be 700)
+        (expect (fake-host-runs host)
+                :to-equal (list (list "/usr/sbin/netstat" (list "-ibn")))))))
   (it "emits disk capacity for the explicit path"
     (multiple-value-bind (code stdout) (dispatch-env (make-fake-ports) "sys" "disk" "/fixture")
       (expect code :to-be 0)

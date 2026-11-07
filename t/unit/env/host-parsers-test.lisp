@@ -39,6 +39,21 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
 "))
       "rejects missing or malformed Linux network counters ~S" (text)
     (expect (nth-value 1 (parse-network-counters text :linux)) :to-be nil))
+  (it-each ((:missing-separator) (:empty-interface-name) (:non-numeric-counter))
+      "rejects malformed Linux counter rows: ~S" (kind)
+    (let ((row
+            (case kind
+              (:missing-separator
+               (format nil " a0 1 2 3 0 0 0 0 0 4 5 6 0 0 0 0 0~%"))
+              (:empty-interface-name
+               (format nil " : 1 2 3 0 0 0 0 0 4 5 6 0 0 0 0 0~%"))
+              (:non-numeric-counter
+               (format nil " a0: 1 2 invalid 0 0 0 0 0 4 5 6 0 0 0 0 0~%")))))
+      (expect (nth-value 1
+                         (parse-network-counters
+                          (concatenate (quote string) *network-linux-text* row)
+                          :linux))
+              :to-be nil)))
   #+darwin (it-each (("a0 1500") ("a0 1500 192.0.2")
             ("a0 1500 192.0.2 192.0.2.1 x - 100 5 - 400 -"))
       "rejects malformed Darwin rows mixed with valid counters ~S" (row)
@@ -81,7 +96,21 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
   (it "rejects unsupported network counter operating systems"
     (expect (multiple-value-list
              (parse-network-counters *network-linux-text* :other))
-            :to-equal '(nil nil))))
+            :to-equal '(nil nil)))
+  (it "preserves colons in Linux interface aliases"
+    (multiple-value-bind (items valid)
+        (parse-network-counters
+         (concatenate (quote string)
+                      *network-linux-text*
+                      (format nil " eth0:1: 50 1 0 0 0 0 0 0 60 2 0 0 0 0 0 0~%"))
+         :linux)
+      (expect valid :to-be t)
+      (let ((row (find "eth0:1" items
+                       :key (lambda (item) (field item "name"))
+                       :test (function string=))))
+        (expect row :to-be-truthy)
+        (expect (field row "rx_bytes") :to-be 50)
+        (expect (field row "tx_bytes") :to-be 60)))))
 
 (describe "aitools.env.domain metrics parsers"
   #+linux
