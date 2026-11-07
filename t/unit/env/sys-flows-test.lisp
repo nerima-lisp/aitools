@@ -47,11 +47,12 @@
     (push (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))
           (fake-host-programs host))
     host))
-(defun linux-metrics-ports (&key (space '(1000 400)))
+(defun linux-metrics-ports (&key (space '(1000 400))
+      (load-average-text "0.75 1.0 2.5 3/100 42"))
   (let ((stat-reads 0)
         (files
           (list (cons "/proc/uptime" "1234.5 600.0")
-                (cons "/proc/loadavg" "0.75 1.0 2.5 3/100 42")
+                (cons "/proc/loadavg" load-average-text)
                 (cons "/proc/cpuinfo" (format nil "processor : 0~%processor : 1~%"))
                 (cons "/proc/meminfo" (format nil "MemTotal: 16384000 kB~%MemAvailable: 12000000 kB~%"))
                 (cons "/etc/passwd" (format nil "root:x:0:0::/root:/bin/sh~%take:x:1000:100::/home/take:/bin/sh~%"))
@@ -236,6 +237,14 @@
         (run-flow (function sys-metrics/k)
                   (make-fake-ports :sysctl-mibs nil
                                   :host (metrics-host)))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable"))))
+#+linux
+(describe "aitools.env.application sys metrics load average failure"
+  (it "fails when load average is unavailable"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (linux-metrics-ports :load-average-text nil))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
 
