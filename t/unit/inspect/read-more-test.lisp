@@ -134,32 +134,32 @@ c
         (whole-file-reads '())
         (require-boundary #'cl-boundary-kit:boundary-context-require))
     (cl-weave:with-mocked-functions
-        (((symbol-function 'cl-boundary-kit:boundary-context-require)
-          (lambda (context key)
-            (let ((operation (funcall require-boundary context key)))
-              (case key
-                (:text-read-range
-                 (lambda (path start end)
-                   (push (list path start end) range-reads)
-                   (funcall operation path start end)))
-                (:text-call-with-chunks
-                 (lambda (path size callback)
-                   (push (list path size) chunk-reads)
-                   (funcall operation path size callback)))
-                (:text-read-octets
-                 (lambda (path)
-                   (push path whole-file-reads)
-                   (funcall operation path)))
-                (:text-read-sniffed
-                 (lambda (path count continue-p)
-                   (push path whole-file-reads)
-                   (funcall operation path count continue-p)))
-                (otherwise operation)))))
-      (funcall function
-               (lambda ()
-                 (list :ranges (nreverse range-reads)
-                       :chunks (nreverse chunk-reads)
-                       :whole-files (nreverse whole-file-reads))))))))
+     (((symbol-function 'cl-boundary-kit:boundary-context-require)
+       (lambda (context key)
+         (let ((operation (funcall require-boundary context key)))
+           (case key
+             (:text-read-range
+              (lambda (path start end)
+                (push (list path start end) range-reads)
+                (funcall operation path start end)))
+             (:text-call-with-chunks
+              (lambda (path size callback)
+                (push (list path size) chunk-reads)
+                (funcall operation path size callback)))
+             (:text-read-octets
+              (lambda (path)
+                (push path whole-file-reads)
+                (funcall operation path)))
+             (:text-read-sniffed
+              (lambda (path count continue-p)
+                (push path whole-file-reads)
+                (funcall operation path count continue-p)))
+             (otherwise operation))))))
+     (funcall function
+              (lambda ()
+                (list :ranges (nreverse range-reads)
+                      :chunks (nreverse chunk-reads)
+                      :whole-files (nreverse whole-file-reads)))))))
 
 (defun %patterned-octets (size)
   (let ((octets (make-array size :element-type '(unsigned-byte 8))))
