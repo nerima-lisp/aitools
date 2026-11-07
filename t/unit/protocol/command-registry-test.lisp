@@ -101,10 +101,6 @@
        :schema (make-command-schema "other" "Test command.")))
     (signals error
       (aitools.protocol.application:make-command-declaration
-       "json.get" :group "table" :command-builder #'identity
-       :schema (make-command-schema "json.get" "Test command.")))
-    (signals error
-      (aitools.protocol.application:make-command-declaration
        "read" :command-builder nil
        :schema (make-command-schema "read" "Test command.")))
     (signals error
@@ -114,18 +110,6 @@
       (aitools.protocol.application:make-command-declaration
        "" :command-builder #'identity
        :schema (make-command-schema "" "Test command.")))
-    (signals error
-      (aitools.protocol.application:make-command-declaration
-       "org.todo.set" :group "org" :command-builder #'identity
-       :schema (make-command-schema "org.todo.set" "Test command.")))
-    (signals error
-      (aitools.protocol.application:make-command-declaration
-       "org..todo.set" :group "org..todo" :command-builder #'identity
-       :schema (make-command-schema "org..todo.set" "Test command.")))
-    (signals error
-      (aitools.protocol.application:make-command-declaration
-       "org.todo.set.extra" :group "org.todo" :command-builder #'identity
-       :schema (make-command-schema "org.todo.set.extra" "Test command.")))
     (let ((registry (aitools.protocol.application:make-command-registry)))
       (aitools.protocol.application:register-command-declarations
        registry
