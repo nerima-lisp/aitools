@@ -200,11 +200,11 @@ groups to the fixed output order.
 | [`org table align`](org.md#org-table-align) | org | Align one numbered Org table. |
 | [`org table sort`](org.md#org-table-sort) | org | Sort the standard rows of one numbered Org table. |
 | [`org table recalculate`](org.md#org-table-recalculate) | org | Recalculate formulas for one numbered Org table. |
-| [`sys info`](env.md#sys-info) | env | Describe the host: OS, architecture, CPUs, user, memory, and the workspace's disk. |
+| [`sys info`](env.md#sys-info) | env | Describe the host: OS, architecture, CPUs, user, uptime, memory, and the workspace's disk. |
 | [`sys env`](env.md#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](env.md#sys-tools) | env | Find commands on PATH and report the first line of their version output. |
 | [`sys procs`](env.md#sys-procs) | env | List processes whose command line contains PATTERN (case-insensitive), ordered by pid. |
-| [`sys metrics`](env.md#sys-metrics) | env | Sample CPU, memory, and process metrics once without an interactive display. |
+| [`sys metrics`](env.md#sys-metrics) | env | Sample CPU, memory, load average, and process metrics once without an interactive display. |
 | [`sys network`](env.md#sys-network) | env | Read cumulative network interface counters, ordered by name. |
 | [`sys disk`](env.md#sys-disk) | env | Read capacity of the filesystem containing PATH (default: workspace root). |
 | [`sys ports`](env.md#sys-ports) | env | List TCP sockets in LISTEN state with the owning process. |

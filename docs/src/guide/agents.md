@@ -306,6 +306,8 @@ with `repairs` naming the aitools command to use instead:
 | `tar`, `unzip`, `zcat`, `gzip`, `zip` | `aitools archive list` | List, read, extract, or create an archive. |
 | `git` | `aitools run -- git` | Run Git through aitools run. |
 | `uname`, `whoami`, `hostname`, `nproc` | `aitools sys info` | Read system information. |
+| `uptime` | `aitools sys info` | Read system uptime. |
+| `uptime` | `aitools sys metrics` | Read load averages. |
 | `env` | `aitools sys env` | Read environment variables, with secrets masked. |
 | `which` | `aitools sys tools` | Check whether an external tool is available. |
 | `ps` | `aitools sys procs` | List processes (read-only). |

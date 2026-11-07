@@ -11,7 +11,8 @@
                           (&key now-milliseconds environment-variable environment-variables
                              read-file list-directory read-link executable-p run-program
                              file-system-space system-identity user-id host-name user-name
-                             workspace-root (sleep-seconds #'sleep)
+                             workspace-root sysctl-mib
+                             (sleep-seconds #'sleep)
                              (cpu-counters (constantly nil))))
                       (:copier nil))
   "NOW-MILLISECONDS () -> Unix epoch milliseconds.
@@ -27,6 +28,8 @@ RUN-PROGRAM (program arguments timeout-seconds) -> (VALUES STATUS EXIT-CODE
   stdin.
 FILE-SYSTEM-SPACE (path) -> (VALUES TOTAL-BYTES AVAILABLE-BYTES) or NIL.
 SYSTEM-IDENTITY () -> (VALUES SYSNAME RELEASE MACHINE), as uname(2) reports them.
+SYSCTL-MIB (name) -> boot epoch seconds for :KERN-BOOTTIME, three load
+  averages for :VM-LOADAVG, or NIL when the Darwin MIB is unavailable.
 CPU-COUNTERS () -> aggregate (user nice system idle iowait irq softirq steal)
   ticks, or NIL when unavailable. Darwin supplies zero for Linux-only states.
 USER-ID () -> integer. HOST-NAME (), USER-NAME () -> string.
@@ -34,6 +37,7 @@ WORKSPACE-ROOT () -> the workspace root directory."
   (now-milliseconds nil :type function :read-only t)
   (sleep-seconds #'sleep :type function :read-only t)
   (cpu-counters (constantly nil) :type function :read-only t)
+  (sysctl-mib (constantly nil) :type function :read-only t)
   (environment-variable nil :type function :read-only t)
   (environment-variables nil :type function :read-only t)
   (read-file nil :type function :read-only t)

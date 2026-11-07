@@ -1,19 +1,20 @@
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.application sys commands on an unsupported or sparse host"
-  (it "answers sys info on an unknown OS with null CPU and memory and no host command"
+  (it "answers sys info on an unknown OS with environment.unavailable"
     (let ((host (darwin-host)))
-      (multiple-value-bind (kind fields)
-          (run-flow #'sys-info/k (make-fake-ports :identity '("FreeBSD" "14.1" "amd64")
-                                                   :host host))
-        (expect kind :to-be :ok)
-        (expect (field fields "os") :to-equal "freebsd")
-        (expect (null-or (field fields "cpus")) :to-be nil)
-        (expect (null-or (object-field (field fields "memory") "total")) :to-be nil)
-        (expect (object-field (field fields "disk") "total") :to-be 1000)
+      (multiple-value-bind (kind error)
+          (run-flow (function sys-info/k)
+                    (make-fake-ports
+                     :identity (list "FreeBSD" "14.1" "amd64")
+                     :host host))
+        (expect kind :to-be :error)
+        (expect (first error) :to-equal "environment.unavailable")
         (expect (fake-host-runs host) :to-equal nil))
       (multiple-value-bind (kind error)
-          (run-flow #'sys-disk/k (make-fake-ports :identity '("FreeBSD" "14.1" "amd64")))
+          (run-flow (function sys-disk/k)
+                    (make-fake-ports
+                     :identity (list "FreeBSD" "14.1" "amd64")))
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable"))))
 
@@ -26,13 +27,18 @@
       (expect (first error) :to-equal "environment.unavailable")
       (expect (getf (first (getf (cddr error) :repairs)) :command) :to-equal repair)))
 
-  (it "reports null CPUs and memory on Linux without processors or /proc/meminfo"
+  (it "reports null CPUs and memory on Linux while requiring uptime"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-info/k (make-fake-ports :identity *linux-identity* :files (list (cons "/proc/cpuinfo" ""))))
+        (run-flow (function sys-info/k)
+                  (make-fake-ports
+                   :identity *linux-identity*
+                   :files (list (cons "/proc/cpuinfo" "")
+                                (cons "/proc/uptime" "42.0 3.0"))))
       (expect kind :to-be :ok)
       (expect (null-or (field fields "cpus")) :to-be nil)
       (expect (null-or (object-field (field fields "memory") "total")) :to-be nil)
-      (expect (null-or (object-field (field fields "memory") "available")) :to-be nil)))
+      (expect (null-or (object-field (field fields "memory") "available")) :to-be nil)
+      (expect (field fields "uptime_seconds") :to-equal 42d0)))
 
   (it "matches no variable whose name is shorter than the prefix"
     (multiple-value-bind (kind fields)

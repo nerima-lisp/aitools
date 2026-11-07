@@ -153,34 +153,51 @@ would turn load into environment.unavailable.")
          (values (integer-at 0) (integer-at 1)
                  (and vm-stat (aitools.env.domain:parse-vm-stat vm-stat :strict strict))))))
     (t (values nil nil nil))))
+(defun %uptime-seconds (ports os)
+  (case os
+    (:linux
+     (aitools.env.domain:parse-proc-uptime (%read-text ports "/proc/uptime")))
+    (:darwin
+     (let ((boot-seconds (funcall (env-ports-sysctl-mib ports) :kern-boottime)))
+       (when (and (realp boot-seconds) (>= boot-seconds 0))
+         (let ((uptime (- (/ (%now ports) 1000d0) boot-seconds)))
+           (and (>= uptime 0) uptime)))))
+    (t nil)))
 
 (aitools.kernel.domain:define-flow
     (sys-info/k ports &key on-ok on-error)
-  (declare (ignore on-error))
   (multiple-value-bind (sysname release machine)
       (funcall (env-ports-system-identity ports))
-    (multiple-value-bind (cpus memory-total memory-available)
-        (%cpus-and-memory ports (%os-kind sysname))
-      (multiple-value-bind (disk-total disk-available)
-          (funcall (env-ports-file-system-space ports)
-                   (funcall (env-ports-workspace-root ports)))
-        (aitools.kernel.domain:flow-continue
-         :on-ok
-         (list
-          (cons "os" (string-downcase sysname))
-          (cons "os_version" release)
-          (cons "arch" machine)
-          (cons "cpus" (%null-if-nil cpus))
-          (cons "user" (funcall (env-ports-user-name ports)))
-          (cons "uid" (funcall (env-ports-user-id ports)))
-          (cons "hostname" (funcall (env-ports-host-name ports)))
-          (cons "shell" (%null-if-nil (%getenv ports "SHELL")))
-          (cons "memory"
-                (%object (cons "total" (%null-if-nil memory-total))
-                         (cons "available" (%null-if-nil memory-available))))
-          (cons "disk"
-                (%object (cons "total" (%null-if-nil disk-total))
-                         (cons "available" (%null-if-nil disk-available))))))))))
+    (let* ((os (%os-kind sysname))
+           (uptime-seconds (%uptime-seconds ports os)))
+      (if (not (and (realp uptime-seconds) (>= uptime-seconds 0)))
+          (aitools.kernel.domain:flow-continue
+           :on-error
+           "environment.unavailable"
+           "System uptime source is unavailable or malformed.")
+          (multiple-value-bind (cpus memory-total memory-available)
+              (%cpus-and-memory ports os)
+            (multiple-value-bind (disk-total disk-available)
+                (funcall (env-ports-file-system-space ports)
+                         (funcall (env-ports-workspace-root ports)))
+              (aitools.kernel.domain:flow-continue
+               :on-ok
+               (list
+                (cons "os" (string-downcase sysname))
+                (cons "os_version" release)
+                (cons "arch" machine)
+                (cons "cpus" (%null-if-nil cpus))
+                (cons "user" (funcall (env-ports-user-name ports)))
+                (cons "uid" (funcall (env-ports-user-id ports)))
+                (cons "hostname" (funcall (env-ports-host-name ports)))
+                (cons "uptime_seconds" uptime-seconds)
+                (cons "shell" (%null-if-nil (%getenv ports "SHELL")))
+                (cons "memory"
+                      (%object (cons "total" (%null-if-nil memory-total))
+                               (cons "available" (%null-if-nil memory-available))))
+                (cons "disk"
+                      (%object (cons "total" (%null-if-nil disk-total))
+                               (cons "available" (%null-if-nil disk-available))))))))))))
 
 ;;; ----------------------------------------------------------------- sys env
 

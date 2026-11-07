@@ -27,16 +27,21 @@ userspace tick (USER_HZ) at 100."
                         records))))))))))
 
 (defun %darwin-processes (ports)
-  "Records from ps, or :UNAVAILABLE. `started` derives from ps's elapsed
-time against the clock port, to the second."
-  (let ((output (%run-output ports (%darwin-program :ps ports) '("-axww" "-o" "pid=,ppid=,user=,etime=,command="))))
+  "Records from ps, or :UNAVAILABLE. `started` derives from elapsed time
+  against the clock port, to the second."
+  (let ((output (%run-output ports
+                             (%darwin-program :ps ports)
+                             (quote ("-axww" "-o" "pid=,ppid=,user=,etime=,command=")))))
     (if (null output)
         :unavailable
         (let ((now-second (* 1000 (floor (%now ports) 1000))))
           (mapcar (lambda (record)
-                    (list :pid (getf record :pid) :ppid (getf record :ppid) :user (getf record :user)
+                    (list :pid (getf record :pid)
+                          :ppid (getf record :ppid)
+                          :user (getf record :user)
                           :command (getf record :command)
-                          :started-ms (- now-second (* 1000 (getf record :elapsed-seconds)))))
+                          :started-ms (- now-second
+                                         (* 1000 (getf record :elapsed-seconds)))))
                   (aitools.env.domain:parse-ps-output output))))))
 
 (defun %process-item (record)
@@ -107,26 +112,37 @@ time against the clock port, to the second."
        (when before
          (funcall (env-ports-sleep-seconds ports) 1)
          (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))))
+(defun %load-average (ports os)
+  (let ((values
+          (case os
+            (:linux (aitools.env.domain:parse-proc-load-average
+                     (%read-text ports "/proc/loadavg")))
+            (:darwin (funcall (env-ports-sysctl-mib ports) :vm-loadavg))
+            (t nil))))
+    (when (and (listp values) (= (length values) 3)
+               (every (lambda (value) (and (realp value) (>= value 0))) values))
+      (mapcar (lambda (value) (float value 1d0)) values))))
 
 (aitools.kernel.domain:define-flow
     (sys-metrics/k ports &key (limit 20) on-ok on-partial on-error)
   (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
-         (cpu (%metrics-cpu ports os)))
+         (cpu (%metrics-cpu ports os))
+         (load-average (%load-average ports os)))
     (multiple-value-bind (cpus total available)
         (%cpus-and-memory ports os :strict t)
       (let* ((program (case os
                         (:linux (find-executable ports "ps"))
-                        (:darwin (%darwin-program :ps))))
+                        (:darwin (%darwin-program :ps ports))))
              (records
                (and program
                     (aitools.env.domain:parse-process-metrics
                      (%run-output ports program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
-        (if (not (and cpu cpus (plusp cpus) total (plusp total)
+        (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
                       available (<= 0 available total) records))
             (aitools.kernel.domain:flow-continue
              :on-error
              "environment.unavailable"
-             "CPU, memory, or process metrics source is unavailable or malformed")
+             "CPU, load average, memory, or process metrics source is unavailable or malformed")
             (let* ((sorted
                      (stable-sort
                       records
@@ -142,6 +158,10 @@ time against the clock port, to the second."
                             (%object (cons "busy_percent" cpu)
                                      (cons "logical_cpus" cpus)
                                      (cons "basis" "interval_all_cpus")))
+                      (cons "load_average"
+                            (%object (cons "one_minute" (first load-average))
+                                     (cons "five_minutes" (second load-average))
+                                     (cons "fifteen_minutes" (third load-average))))
                       (cons "memory"
                             (%object (cons "total_bytes" total)
                                      (cons "available_bytes" available)

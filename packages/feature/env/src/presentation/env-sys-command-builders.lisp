@@ -3,7 +3,7 @@
 (defun %sys-info-command (ports)
   (make-command
    :name "info"
-   :description "Describe the host: OS, CPU, memory, disk."
+   :description "Describe the host: OS, architecture, CPUs, user, uptime, memory, and disk."
    :handler
    (lambda (invocation)
      (declare (ignore invocation))
@@ -60,7 +60,7 @@
 (defun %sys-metrics-command (ports)
   (make-command
    :name "metrics"
-   :description "Sample CPU, memory, and process metrics once."
+   :description "Sample CPU, memory, load average, and process metrics once."
    :options
    (list
     (make-option

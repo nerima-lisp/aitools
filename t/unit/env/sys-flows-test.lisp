@@ -71,7 +71,8 @@
                                        ((equal path "/proc/meminfo")
                                         (format nil
                                                 "MemTotal: ~D kB~%MemAvailable: 250 kB~%"
-                                                total-memory))))
+                                                total-memory))
+                                       ((equal path "/proc/loadavg") "0.75 1.0 2.5 3/100 42")))
                     :run-program (lambda (program arguments timeout)
                                    (declare (ignore timeout))
                                    (incf runs)
@@ -88,6 +89,7 @@
               (progn
                 (expect (object-field (field fields "cpu") "busy_percent") :to-equal expected-cpu)
                 (expect (object-field (field fields "memory") "available_bytes") :to-be 256000)
+                (expect (mapcar (lambda (name) (object-field (field fields "load_average") name)) (list "one_minute" "five_minutes" "fifteen_minutes")) :to-equal (list 0.75d0 1d0 2.5d0))
                 (expect (field fields "process_cpu_basis") :to-equal "lifetime_average"))
               (expect (first fields) :to-equal "environment.unavailable"))))))
   (it "bounds sampling and process output with deterministic CPU ordering"
@@ -109,10 +111,16 @@
         (expect (second (assoc "/bin/ps" (fake-host-runs host) :test #'equal))
                 :to-equal '("-ax" "-o" "pid=,pcpu=,rss=,comm=")))))
   (it "returns success when all process rows fit"
-    (multiple-value-bind (kind fields) (run-flow #'sys-metrics/k (make-fake-ports :host (metrics-host)))
+    (multiple-value-bind (kind fields)
+        (run-flow (function sys-metrics/k)
+                  (make-fake-ports :host (metrics-host)))
       (expect kind :to-be :ok)
       (expect (length (field fields "items")) :to-be 3)
-      (expect (field fields "truncated") :to-be nil)))
+      (expect (field fields "truncated") :to-be nil)
+      (expect (mapcar (lambda (name)
+                        (object-field (field fields "load_average") name))
+                      (list "one_minute" "five_minutes" "fifteen_minutes"))
+              :to-equal (list 0.5d0 0.25d0 0.125d0))))
   (it-each (("/bin/ps") ("/usr/bin/vm_stat") ("/usr/sbin/sysctl"))
       "fails when metrics source ~S fails" (program)
     (let ((host (metrics-host)))
@@ -141,5 +149,17 @@
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")))
   (it "rejects an unsupported operating system"
-    (expect (run-flow #'sys-metrics/k (make-fake-ports :identity '("Other" "1" "generic"))) :to-be :error)))
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (make-fake-ports
+                   :identity (list "Other" "1" "generic")))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable")))
+  (it "fails when Darwin load averages are unavailable"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (make-fake-ports :sysctl-mibs nil
+                                  :host (metrics-host)))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable"))))
 

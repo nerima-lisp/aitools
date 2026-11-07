@@ -17,8 +17,8 @@
 
 (defparameter *env-command-schemas*
   `((:name "sys.info"
-     :summary "Describe the host: OS, architecture, CPUs, user, memory, and the workspace's disk."
-     :description "Linux reads /proc; Darwin runs sysctl and vm_stat. Memory available is MemAvailable on Linux and free+inactive+speculative pages on Darwin. Unknown values are null."
+     :summary "Describe the host: OS, architecture, CPUs, user, uptime, memory, and the workspace's disk."
+     :description "Linux reads /proc; Darwin reads uptime through the kern.boottime sysctl MIB and uses sysctl and vm_stat for CPU and memory. Unknown `cpus`, `memory.total`, and `memory.available` values are null; an unavailable uptime source returns environment.unavailable."
      :output-fields ((:name "os" :description "Kernel name, lowercase (linux, darwin).")
                      (:name "os_version" :description "Kernel release from uname(2).")
                      (:name "arch" :description "Machine from uname(2): x86_64, aarch64 (Linux), arm64 (Darwin).")
@@ -26,10 +26,11 @@
                      (:name "user" :description "User name.")
                      (:name "uid" :description "Real user id.")
                      (:name "hostname" :description "Host name.")
+                     (:name "uptime_seconds" :description "Elapsed seconds since boot from /proc/uptime on Linux or kern.boottime on Darwin.")
                      (:name "shell" :description "$SHELL, or null.")
                      (:name "memory" :description "{total, available} in bytes.")
                      (:name "disk" :description "{total, available} in bytes for the file system of the workspace root."))
-     :error-codes ("internal.unexpected"))
+     :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.snapshot"
      :summary "Collect host info, metrics, network, disk, and listening TCP ports in one non-atomic response."
      :description "Sequential host observations, not all system state. Each section retains data and a status (ok, partial, unavailable) with a reason. Missing required info values, unknown socket owners, omitted items, or unavailable sections yield partial (exit 3); all unavailable fails (exit 1). Shell is optional. Existing source commands retain their 60-second per-command timeout; there is no overall deadline or memory bound. Output limits do not bound acquisition: socket owner scans and OS calls have no timeout, and subprocess output is fully captured. Disk covers PATH only, not all mounts or I/O; network counters are cumulative, not connectivity; ports cover TCP LISTEN only. Metrics takes a one-second CPU sample. Unlike batch, this fixed read-only composition continues after unavailable sections."
@@ -97,11 +98,12 @@
                      (:name "truncated" :description "Present and true when items were cut at --limit."))
      :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.metrics"
-     :summary "Sample CPU, memory, and process metrics once without an interactive display."
-     :description "CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach host_statistics CPU counters and runs sysctl and vm_stat; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed source is an error. More processes than --limit give partial, truncated true, exit 3."
+     :summary "Sample CPU, memory, load average, and process metrics once without an interactive display."
+     :description "CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach CPU counters, reads vm.loadavg through a sysctl MIB, and runs sysctl and vm_stat for CPU count and memory; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed CPU, load-average, memory, or process source is an error. More processes than --limit give partial, truncated true, exit 3."
      :args ((:name "--limit" :type "integer" :default 20 :description "Maximum process items (at least 1), sorted by CPU descending then PID ascending."))
      :output-fields ((:name "sample_interval_ms" :description "Requested CPU sampling interval, 1000 milliseconds; total command duration can be longer.")
                      (:name "cpu" :description "{busy_percent, logical_cpus, basis: interval_all_cpus}; interval-average busy percentage across all CPUs.")
+                     (:name "load_average" :description "{one_minute, five_minutes, fifteen_minutes}; system load averages over 1, 5, and 15 minutes.")
                      (:name "memory" :description "{total_bytes, available_bytes, available_basis}; Linux MemAvailable or free+buffers+cached, Darwin free+inactive+speculative pages.")
                      (:name "process_cpu_basis" :description "lifetime_average (Linux) or decaying_average (Darwin); not the system CPU sampling interval.")
                      (:name "items" :description "[{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU.")

@@ -41,6 +41,8 @@
    #:parse-meminfo
    #:parse-vm-stat
    #:parse-sysctl-values
+   #:parse-proc-uptime
+   #:parse-proc-load-average
    #:count-cpuinfo-processors
    #:parse-etime
    #:parse-ps-output

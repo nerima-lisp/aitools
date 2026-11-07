@@ -71,6 +71,35 @@
            (+ (parse-integer text :end dot)
               (/ (parse-integer text :start (1+ dot))
                  (expt 10 (- (length text) dot 1))))))))
+(defun parse-proc-load-average (text)
+  "The three load averages from Linux /proc/loadavg, or NIL when malformed."
+  (let* ((fields (and text (split-fields text)))
+         (counts (and fields (= (length fields) 5) (nth 3 fields)))
+         (slash (and counts (position #\/ counts)))
+         (running-text (and slash (subseq counts 0 slash)))
+         (total-text (and slash (subseq counts (1+ slash))))
+         (running (and running-text
+                       (ascii-digits-p running-text)
+                       (parse-integer running-text)))
+         (total (and total-text
+                     (ascii-digits-p total-text)
+                     (parse-integer total-text)))
+         (pid (and fields (= (length fields) 5) (nth 4 fields)))
+         (values (and fields
+                      (= (length fields) 5)
+                      (mapcar (function %metric-decimal) (subseq fields 0 3)))))
+    (when (and values
+               (every (lambda (value) (and value (>= value 0))) values)
+               running total (<= running total)
+               (ascii-digits-p pid))
+      (mapcar (lambda (value) (float value 1d0)) values))))
+(defun parse-proc-uptime (text)
+  "Uptime seconds from Linux /proc/uptime, or NIL when malformed."
+  (let* ((fields (and text (split-fields text)))
+         (values (and fields (= (length fields) 2)
+                      (mapcar #'%metric-decimal fields))))
+    (when (and values (every (lambda (value) (and value (>= value 0))) values))
+      (float (first values) 1d0))))
 
 (defun parse-cpu-counters (text)
   "Aggregate Linux counters, excluding guest counters already counted in user/nice."

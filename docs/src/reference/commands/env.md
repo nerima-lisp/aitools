@@ -4,9 +4,9 @@
 
 ### `sys info` {#sys-info}
 
-Describe the host: OS, architecture, CPUs, user, memory, and the workspace's disk.
+Describe the host: OS, architecture, CPUs, user, uptime, memory, and the workspace's disk.
 
-Linux reads /proc; Darwin runs sysctl and vm_stat. Memory available is MemAvailable on Linux and free+inactive+speculative pages on Darwin. Unknown values are null.
+Linux reads /proc; Darwin reads uptime through the kern.boottime sysctl MIB and uses sysctl and vm_stat for CPU and memory. Unknown `cpus`, `memory.total`, and `memory.available` values are null; an unavailable uptime source returns environment.unavailable.
 
 | Output field | Description |
 |---|---|
@@ -17,11 +17,12 @@ Linux reads /proc; Darwin runs sysctl and vm_stat. Memory available is MemAvaila
 | `user` | User name. |
 | `uid` | Real user id. |
 | `hostname` | Host name. |
+| `uptime_seconds` | Elapsed seconds since boot from /proc/uptime on Linux or kern.boottime on Darwin. |
 | `shell` | $SHELL, or null. |
 | `memory` | {total, available} in bytes. |
 | `disk` | {total, available} in bytes for the file system of the workspace root. |
 
-Errors: `internal.unexpected`.
+Errors: `environment.unavailable`, `internal.unexpected`.
 
 ### `sys env` {#sys-env}
 
@@ -80,9 +81,9 @@ Errors: `environment.unavailable`, `internal.unexpected`.
 
 ### `sys metrics` {#sys-metrics}
 
-Sample CPU, memory, and process metrics once without an interactive display.
+Sample CPU, memory, load average, and process metrics once without an interactive display.
 
-CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach host_statistics CPU counters and runs sysctl and vm_stat; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed source is an error. More processes than --limit give partial, truncated true, exit 3.
+CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach CPU counters, reads vm.loadavg through a sysctl MIB, and runs sysctl and vm_stat for CPU count and memory; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed CPU, load-average, memory, or process source is an error. More processes than --limit give partial, truncated true, exit 3.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -92,6 +93,7 @@ CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes 
 |---|---|
 | `sample_interval_ms` | Requested CPU sampling interval, 1000 milliseconds; total command duration can be longer. |
 | `cpu` | {busy_percent, logical_cpus, basis: interval_all_cpus}; interval-average busy percentage across all CPUs. |
+| `load_average` | {one_minute, five_minutes, fifteen_minutes}; system load averages over 1, 5, and 15 minutes. |
 | `memory` | {total_bytes, available_bytes, available_basis}; Linux MemAvailable or free+buffers+cached, Darwin free+inactive+speculative pages. |
 | `process_cpu_basis` | lifetime_average (Linux) or decaying_average (Darwin); not the system CPU sampling interval. |
 | `items` | [{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU. |

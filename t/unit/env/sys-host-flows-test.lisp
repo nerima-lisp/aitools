@@ -5,8 +5,7 @@
 
 (defparameter *linux-identity* '("Linux" "6.8.0-45-generic" "x86_64"))
 
-(defparameter *info-fields*
-  '("os" "os_version" "arch" "cpus" "user" "uid" "hostname" "shell" "memory" "disk"))
+(defparameter *info-fields* (list "os" "os_version" "arch" "cpus" "user" "uid" "hostname" "uptime_seconds" "shell" "memory" "disk"))
 
 (defun darwin-host ()
   (make-fake-host
@@ -19,7 +18,7 @@
   (make-fake-ports
    :identity *linux-identity*
    :environment '(("SHELL" . "/bin/bash"))
-   :files (list (cons "/proc/cpuinfo" (format nil "processor	: 0~%~%processor	: 1~%"))
+   :files (list (cons "/proc/cpuinfo" (format nil "processor	: 0~%~%processor	: 1~%")) (cons "/proc/uptime" "1234.5 600.0")
                 (cons "/proc/meminfo" *meminfo-text*)
                 (cons "/proc/stat" (format nil "cpu 1~%btime 1700000000~%"))
                 (cons "/etc/passwd" (format nil "root:x:0:0::/root:/bin/sh~%take:x:1000:100::/home/take:/bin/sh~%"))
@@ -38,34 +37,53 @@
    :host host))
 
 (describe "aitools.env.application sys info"
-  (it "fills every field from Darwin sysctl and vm_stat"
+  (it "fills every field from Darwin sysctl and vm_stat, including uptime"
     (let ((host (darwin-host)))
-      (multiple-value-bind (kind fields) (run-flow #'sys-info/k (make-fake-ports :host host
-                                                                                :environment '(("SHELL" . "/bin/zsh"))))
+      (multiple-value-bind (kind fields)
+          (run-flow (function sys-info/k)
+                    (make-fake-ports
+                     :host host
+                     :environment (list (cons "SHELL" "/bin/zsh"))))
         (expect kind :to-be :ok)
-        (expect (mapcar #'car fields) :to-equal *info-fields*)
+        (expect (mapcar (function car) fields) :to-equal *info-fields*)
         (expect (field fields "os") :to-equal "darwin")
         (expect (field fields "arch") :to-equal "arm64")
         (expect (field fields "cpus") :to-be 16)
         (expect (field fields "uid") :to-be 1000)
         (expect (field fields "shell") :to-equal "/bin/zsh")
-        (expect (object-field (field fields "memory") "total") :to-be 137438953472)
-        (expect (object-field (field fields "memory") "available") :to-be (* 16384 (+ 2508908 2336582 97304)))
+        (expect (field fields "uptime_seconds") :to-equal 72951400.125d0)
+        (expect (object-field (field fields "memory") "total")
+                :to-be 137438953472)
+        (expect (object-field (field fields "memory") "available")
+                :to-be (* 16384 (+ 2508908 2336582 97304)))
         (expect (object-field (field fields "disk") "available") :to-be 400))))
 
   (it "fills the same fields from Linux /proc"
-    (multiple-value-bind (kind fields) (run-flow #'sys-info/k (linux-proc-ports))
+    (multiple-value-bind (kind fields)
+        (run-flow (function sys-info/k) (linux-proc-ports))
       (expect kind :to-be :ok)
-      (expect (mapcar #'car fields) :to-equal *info-fields*)
+      (expect (mapcar (function car) fields) :to-equal *info-fields*)
       (expect (field fields "os") :to-equal "linux")
       (expect (field fields "cpus") :to-be 2)
-      (expect (object-field (field fields "memory") "available") :to-be (* 11240304 1024))))
+      (expect (field fields "uptime_seconds") :to-equal 1234.5d0)
+      (expect (object-field (field fields "memory") "available")
+              :to-be (* 11240304 1024))))
 
   (it "reports unknown values as null instead of failing"
     (multiple-value-bind (kind fields) (run-flow #'sys-info/k (make-fake-ports :environment nil))
       (expect kind :to-be :ok)
       (expect (json-null-p (field fields "cpus")) :to-be-truthy)
-      (expect (json-null-p (field fields "shell")) :to-be-truthy))))
+      (expect (json-null-p (field fields "shell")) :to-be-truthy)))
+  (it "returns environment.unavailable when uptime is missing or unsupported"
+    (dolist (ports
+              (list (make-fake-ports :identity *linux-identity* :files nil)
+                    (make-fake-ports :sysctl-mibs nil)
+                    (make-fake-ports
+                     :identity (list "FreeBSD" "14.1" "amd64"))))
+      (multiple-value-bind (kind error)
+          (run-flow (function sys-info/k) ports)
+        (expect kind :to-be :error)
+        (expect (first error) :to-equal "environment.unavailable")))))
 
 (describe "aitools.env.application sys env"
   (it "masks values of secret-named variables and counts them"

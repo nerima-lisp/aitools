@@ -160,7 +160,14 @@ Pages speculative: 1.
                (:address "0.0.0.0" :port 22 :pid 2 :command "b")
                (:address "::" :port 80 :pid 1 :command "a")))
             :to-equal '((:address "0.0.0.0" :port 22 :pid 2 :command "b")
-                        (:address "::" :port 80 :pid 1 :command "a")))))
+                        (:address "::" :port 80 :pid 1 :command "a"))))
+  (it "reads uptime and load averages from /proc"
+    (expect (parse-proc-uptime "100.25 72.50") :to-equal 100.25d0)
+    (expect (parse-proc-load-average "0.75 1.00 2.125 1/120 99")
+            :to-equal '(0.75d0 1d0 2.125d0))
+    (expect (parse-proc-uptime "100.25") :to-be nil)
+    (expect (parse-proc-uptime "-1.0 2.0") :to-be nil)
+    (dolist (text (list "0.75 bad 2.125 1/120 99" "0.75 1.0 2.5 1/120" "0.75 1.0 2.5 bad 99")) (expect (parse-proc-load-average text) :to-be nil))))
 
 (defun tcp-row (local &key (state "0A") (inode "7"))
   "A /proc/net/tcp row whose local address is LOCAL."

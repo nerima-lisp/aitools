@@ -77,6 +77,11 @@
     (:foreign-names ("uname" "whoami" "hostname" "nproc")
      :repairs ((:detail "Read system information."
                 :command "aitools sys info")))
+    (:foreign-names ("uptime")
+     :repairs ((:detail "Read system uptime."
+                :command "aitools sys info")
+               (:detail "Read load averages."
+                :command "aitools sys metrics")))
     (:foreign-names ("env")
      :repairs ((:detail "Read environment variables, with secrets masked."
                 :command "aitools sys env")))

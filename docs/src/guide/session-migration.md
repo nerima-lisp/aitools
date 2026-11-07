@@ -33,10 +33,10 @@ Uses outside the stated subset need external execution.
 | `bc expr` | `util calc`: supported numeric expressions and functions, not variables, assignments, or string expressions. |
 | `uuidgen` | `util uuid`: cryptographic UUID v4 or v7. |
 | `openssl` | `util random`: cryptographic random strings in supported alphabets; not TLS, key management, or digests. |
-| `uname whoami nproc id hostname vm_stat` | `sys info`: supported OS, user, CPU, and memory fields, not groups or every vm_stat counter. |
+| `uname whoami nproc id hostname vm_stat uptime` | `sys info`: supported OS, user, CPU, memory, and uptime in seconds (`uptime_seconds`), not groups or every vm_stat counter. |
 | `env which` | `sys env`, `sys tools`: masking and PATH executable lookup; tools runs version probes and does not resolve shell aliases/functions. |
 | `ps pgrep` | `sys procs`: case-insensitive command-line substring matching, PID order, and limits; not pgrep's full selection language. |
-| `top` | `sys metrics`: noninteractive CPU/memory/process samples; read the reported CPU time bases and units. |
+| `top` | `sys metrics`: noninteractive CPU/memory/process samples and `load_average` values for one, five, and fifteen minutes; read the reported CPU time bases and units. |
 | `df` | `sys disk`: one filesystem containing a path, with total and nonprivileged available bytes; not all mounts or disk I/O. |
 | `netstat` | `sys network`, `sys ports`: cumulative interface counters and TCP listeners; not routes, UDP, or established connections. |
 | `lsof` | `sys ports`: TCP listeners and available owners, not all open files, UDP, or established connections. |
