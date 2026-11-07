@@ -21,7 +21,7 @@
 (in-package #:aitools.integration.structure-test)
 
 (defparameter *core-contexts* '("kernel" "protocol" "workspace" "text" "store"))
-(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "org" "env" "util"))
+(defparameter *feature-contexts* '("search" "inspect" "edit" "journal" "process" "vcs" "org" "env" "util"))
 (defparameter *all-contexts* (append *core-contexts* *feature-contexts*))
 
 (defun context-package-name (context layer)
@@ -34,13 +34,9 @@
   '("CL" "COMMON-LISP" "KEYWORD" "AITOOLS.DATA"))
 
 (defparameter *effectful-host-packages*
-  ;; An adapter's own host interface: SBCL's POSIX, alien, socket and
-  ;; system packages and UIOP are what the effectful kits are built on, and
-  ;; infrastructure is the layer that owns such effects.
-  ;; SB-GRAY adapts caller-owned input streams without closing them; SB-UNIX
-  ;; polls their descriptors so the process feeder can observe cancellation.
-  ;; These host effects remain confined to infrastructure.
-  '("HOST-KIT" "PROCESS-KIT" "CL-CONCURRENT-KIT" "CL-BOUNDARY-KIT"
+  ;; These host effects remain confined to infrastructure. CL-BOUNDARY-KIT
+  ;; objects and fakes are also available in application.
+  '("HOST-KIT" "PROCESS-KIT" "VCS-KIT" "CL-CONCURRENT-KIT"
     "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
     "SB-GRAY" "SB-UNIX" "UIOP"))
 
@@ -76,15 +72,17 @@ is in neither context list)."
                 '("CL-REGEX-KIT" "JSON-KIT"
                   "CL-CODEC-KIT" "CRYPTO-KIT" "CL-DATE-KIT" "DEFLATE-KIT")))
        (:application
-        ;; A core context's application may reach only core contexts
-        ;; ("core 文脈から feature 文脈への参照" is its own violation); a
-        ;; feature context's may reach every context's application.
-        (append (list (context-package-name context :domain))
+        ;; Core contexts may reach only core applications; feature contexts may
+        ;; reach every application. Both may pass boundary values to adapters.
+        (append (list (context-package-name context :domain)
+                      "CL-BOUNDARY-KIT")
                 core-domains
                 (mapcar (lambda (c) (context-package-name c :application))
                         (if (eq core-or-feature :core) *core-contexts* *all-contexts*))))
        (:infrastructure
-        (append (list (context-package-name context :domain) (context-package-name context :application))
+        (append (list (context-package-name context :domain)
+                      (context-package-name context :application)
+                      "CL-BOUNDARY-KIT")
                 *effectful-host-packages*
                 ;; Documented deviation: the envelope writer serializes with
                 ;; json-kit (packages/core/protocol/src/infrastructure/json-writer.lisp).
