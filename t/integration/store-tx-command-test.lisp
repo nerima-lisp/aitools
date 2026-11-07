@@ -150,7 +150,47 @@ redirected to a scratch directory so the CLI opens its own store there."
             (root (tx-root-directory (store-state-directory store))))
         (sb-posix:mkdir (join-path root "junk") #o700)
         (sb-posix:mkdir (join-path root (format-tx-id 3964000000 "00000000")) #o700)
-        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))) :io nil)))
+        (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))) :io nil))
+  (it-each (("existing transaction" :exists :error)
+            ("transaction removed while being read" :removed :skipped))
+           "handles a metadata read failure when transaction is ~A"
+           (label scenario expected)
+           (declare (ignore label))
+           (let ((store nil)
+                 (tx nil)
+                 (faulted nil)
+                 (base-io (make-posix-store-io)))
+             (let* ((base-read (store-io-read-file base-io))
+                    (io (copy-store-io
+                         base-io
+                         :read-file
+                         (lambda (path &rest arguments)
+                           (if (and tx
+                                    (not faulted)
+                                    (string= path
+                                             (join-path (tx-directory (store-state-directory store) tx)
+                                                        "meta.json")))
+                               (progn
+                                 (setf faulted t)
+                                 (when (eq scenario :removed)
+                                   (tx-abort/k store tx
+                                               :on-aborted (lambda (paths) (declare (ignore paths)) nil)
+                                               :on-not-found (lambda () nil)
+                                               :on-busy (lambda () nil)))
+                                 (error 'store-io-error :operation "read" :path path
+                                        :detail "injected failure"))
+                             (apply base-read path arguments))))))
+               (call-with-temp-store
+                (lambda (actual-store)
+                  (setf store actual-store
+                        tx (begin store))
+                  (expect (case scenario
+                            (:exists (handler-case (progn (tx-list store) :returned)
+                                       (store-io-error () :error)))
+                            (:removed (if (null (tx-list store)) :skipped :listed)))
+                          :to-equal expected)
+                  (expect faulted :to-be-truthy))
+                :io io)))))
 
 (describe "aitools.store tx rebase and drop edge cases"
   (it "restages an op on an undrifted path and replays the drifted one"

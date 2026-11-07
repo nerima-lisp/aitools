@@ -119,7 +119,7 @@ removed while being read is skipped."
                           #'string<)
         for status = (and (%tx-exists-p store name)
                           (handler-case (%tx-status store name)
-                            (store-io-error () nil)))
+                            (store-io-error (condition) (when (%tx-exists-p store name) (error condition)))))
         when status collect status))
 
 (aitools.kernel.domain:define-flow
