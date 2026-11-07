@@ -7,7 +7,7 @@
     # cl-nix-forge supports asdf:program-op on Darwin, so aitools can use the
     # same delivery path on both platforms.
     cl-nix-forge = {
-      url = "github:nerima-lisp/cl-nix-forge/v0.6.1";
+      url = "github:nerima-lisp/cl-nix-forge/v0.7.4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
