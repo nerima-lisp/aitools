@@ -122,7 +122,7 @@
     (let ((fields (nth-value 1 (json-select "/itemz/0"))))
       (expect (error-code fields) :to-equal "input.not-found")
       (expect (json-object-get (first (getf fields :candidates)) "pointer") :to-equal "/items")
-      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools json get d.json '' --keys"))))
+      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools doc get d.json '' --keys"))))
 
 (describe "json diff"
   (flet ((diff (a b &rest options)
@@ -168,7 +168,7 @@
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (getf fields :message) :to-equal "--keys needs an object or array; /a~1b is a number")
-      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools json get d.json '/a~1b'"))))
+      (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools doc get d.json '/a~1b'"))))
 
 (describe "json get values"
   (it-each (("/t" "boolean") ("/f" "boolean") ("/n" "null") ("/s" "string")
@@ -206,7 +206,7 @@
 
   (it "names --keys and the first element as next commands of a truncated array"
     (expect (field (nth-value 1 (json-get "/items" :max-bytes "20")) "next_commands")
-            :to-equal '("aitools json get d.json /items --keys" "aitools json get d.json /items/0"))))
+            :to-equal '("aitools doc get d.json /items --keys" "aitools doc get d.json /items/0"))))
 
 (describe "json diff limits"
   (it "is partial past --limit with the total"

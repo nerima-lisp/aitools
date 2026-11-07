@@ -104,7 +104,7 @@
                                     "9223372036854775808")))
               (envelope (aitools-envelope result)))
          (expect (aitools-exit-code result) :to-be 1)
-         (expect envelope :to-match-envelope "status" "error" "command" "toml set")
+         (expect envelope :to-match-envelope "status" "error" "command" "doc set")
          (expect (jget envelope "error" "code") :to-equal "argument.invalid")
          (expect (jget envelope "error" "exit_code") :to-be 1)
          (expect (file-octets ws "overflow.toml") :to-equalp before)))))

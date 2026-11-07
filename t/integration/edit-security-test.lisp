@@ -25,10 +25,10 @@ checksum alone."
     data))
 
 (describe "aitools refuses a redaction marker introduced after the raw input check"
-  (it "refuses a json set whose escaped value decodes to the marker"
+  (it "refuses a doc set whose escaped value decodes to the marker"
     (call-with-edit-workspace (lambda () (put "d.json" "{\"k\":\"v\"}")
       (let ((before (snapshot)))
-        (with-error (code) (run "json.set" '("d.json" "/k" "\"[REDACTED\\u005fSECRET]\""))
+        (with-error (code) (run "doc.set" '("d.json" "/k" "\"[REDACTED\\u005fSECRET]\""))
           (expect code :to-equal "refusal.redacted-input"))
         (expect-unchanged before)))))
 
@@ -118,10 +118,10 @@ checksum alone."
         (expect (some (lambda (command) (search "aitools info b" command)) (repair-commands keys))
                 :to-be-truthy))))))
 
-(describe "aitools JSON writes repair with json get, not the generic file repairs"
-  (it "points a missing pointer at json get of its parent"
+(describe "aitools JSON writes repair with doc get, not the generic file repairs"
+  (it "points a missing pointer at doc get of its parent"
     (call-with-edit-workspace (lambda () (put "d.json" "{\"a\":{\"b\":1}}")
-      (with-error (code message keys) (run "json.set" '("d.json" "/a/missing/deeper" "1"))
+      (with-error (code message keys) (run "doc.set" '("d.json" "/a/missing/deeper" "1"))
         (expect code :to-equal "input.not-found")
         (expect (some (lambda (command) (search "aitools doc get d.json" command)) (repair-commands keys))
                 :to-be-truthy))))))
@@ -137,7 +137,7 @@ checksum alone."
       (with-error (code) (run "write" '("out") :stdin t)
         (expect code :to-equal "refusal.redacted-input")))))
 
-  (it "refuses json set whose raw value holds the marker"
+  (it "refuses doc set whose raw value holds the marker"
     (call-with-edit-workspace (lambda () (put "d.json" "{\"k\":1}")
-      (with-error (code) (run "json.set" '("d.json" "/k" "\"[REDACTED_SECRET]\""))
+      (with-error (code) (run "doc.set" '("d.json" "/k" "\"[REDACTED_SECRET]\""))
         (expect code :to-equal "refusal.redacted-input"))))))

@@ -4,7 +4,7 @@
   (it "sets a value read from --stdin and a cell whose row, column and value are JSON numbers"
     (call-with-edit-workspace (lambda () (put "c.json" "{\"a\":1}")
       (setf *stdin* (bytes "{\"pointer\": \"/b\", \"value\": [true]}"))
-      (expect (run "json.set" '("c.json") :stdin t) :to-be :ok)
+      (expect (run "doc.set" '("c.json") :stdin t) :to-be :ok)
       (expect (text "c.json") :to-equal "{\"a\":1,\"b\":[true]}")
       (put "t.csv" (format nil "id,name~%1,x~%"))
       (setf *stdin* (bytes "{\"row\": 1, \"column\": 2, \"value\": 7}"))
@@ -13,15 +13,15 @@
         (expect (field fields "previous") :to-equal "x"))
       (expect (text "t.csv") :to-equal (format nil "id,name~%1,7~%")))))
 
-  (it "re-indents a one-line file with two spaces and repairs a failed test with json get of its pointer"
+  (it "re-indents a one-line file with two spaces and repairs a failed test with doc get of its pointer"
     (call-with-edit-workspace (lambda () (put "c.json" "{\"a\":{\"b\":1}}")
-      (expect (run "json.fmt" '("c.json")) :to-be :ok)
+      (expect (run "doc.fmt" '("c.json")) :to-be :ok)
       (expect (text "c.json") :to-equal (format nil "{~%  \"a\": {~%    \"b\": 1~%  }~%}"))
       (setf *stdin* (bytes "[{\"op\":\"test\",\"path\":\"/a/b\",\"value\":2}]"))
-      (with-error (code message keys) (run "json.patch" '("c.json") :stdin t)
+      (with-error (code message keys) (run "doc.patch" '("c.json") :stdin t)
         (expect code :to-equal "selection.no-match")
         (expect (repair-commands keys) :to-equal '("aitools doc get c.json")))
-      (with-error (code message keys) (run "json.set" '("c.json" "/a/b/c" "1"))
+      (with-error (code message keys) (run "doc.set" '("c.json" "/a/b/c" "1"))
         (expect code :to-equal "input.not-found")
         (expect (repair-commands keys) :to-equal '("aitools doc get c.json /a/b")))))))
 

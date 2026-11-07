@@ -183,13 +183,13 @@
 
   (it-each (("text that is not UTF-8" "insert" ("a.txt") (:at "end" :stdin t) "input.not-utf8")
             ("a diff that is not UTF-8" "apply" () (:stdin t) "input.not-utf8")
-            ("JSON input that is not JSON" "json.merge" ("c.json") (:stdin t) "input.syntax-error"))
+            ("JSON input that is not JSON" "doc.merge" ("c.json") (:stdin t) "input.syntax-error"))
       "refuses --stdin ~A"
       (name command positionals options code)
     (declare (ignore name))
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%"))
       (put "c.json" "{}")
-      (setf *stdin* (if (string= command "json.merge") (bytes "{nope") (octet-vector 97 #xFF)))
+      (setf *stdin* (if (string= command "doc.merge") (bytes "{nope") (octet-vector 97 #xFF)))
       (let ((before (snapshot)))
         (with-error (actual) (apply #'run command positionals options)
           (expect actual :to-equal code))

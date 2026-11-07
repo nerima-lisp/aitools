@@ -31,10 +31,10 @@
     (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name<\"b\"")))) :to-equal '(1))
     (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>1")))) :to-be nil))
 
-  (it-each (("without filters" nil 3 "aitools json select d.json /items --output count")
-            ("with one filter" ("/score>=20") 2 "aitools json select d.json /items --where '/score>=20' --output count")
+  (it-each (("without filters" nil 3 "aitools doc select d.json /items --output count")
+            ("with one filter" ("/score>=20") 2 "aitools doc select d.json /items --where '/score>=20' --output count")
             ("with multiple filters" ("/score>=20" "/name!=\"beta\"") 2
-             "aitools json select d.json /items --where '/score>=20' --where '/name!=\"beta\"' --output count"))
+             "aitools doc select d.json /items --where '/score>=20' --where '/name!=\"beta\"' --output count"))
       "names the matching count as the next command past --limit ~A"
       (label where total command)
     (declare (ignore label))
