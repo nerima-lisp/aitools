@@ -34,4 +34,5 @@
                         (:file "unit/kernel/token-estimate-test")
                         (:file "unit/kernel/unified-diff-test")
                         (:file "unit/kernel/json-test")
-                        (:file "unit/kernel/json-model-resolve-test")))
+                        (:file "unit/kernel/json-model-resolve-test")
+                        (:file "unit/kernel/json-model-stability-test")))

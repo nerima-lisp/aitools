@@ -1,10 +1,30 @@
 (in-package #:aitools.kernel.test)
 
 (describe "aitools.kernel.domain unified diff"
-  (it "returns an empty diff for identical files"
-    (let ((a (list "one" "two" "three")))
-      (expect (generate-unified-diff a a :path-a "f" :path-b "f") :to-equal "")
-      (expect (generate-diff-hunks a a) :to-be-falsy)))
+  (it "returns an empty diff for identical files and validates stored values"
+  (let ((a (list "one" "two" "three")))
+    (expect (generate-unified-diff a a :path-a "f" :path-b "f") :to-equal "")
+    (expect (generate-diff-hunks a a) :to-be-falsy))
+  (let ((invalid-value (read-from-string "1"))
+        (invalid-count (read-from-string "-1")))
+    (signals type-error (make-diff-line invalid-value "text"))
+    (signals type-error (make-diff-hunk 1 invalid-count 1 0 nil))
+    (signals type-error (make-file-patch invalid-value nil nil))))
+  (it-each ((nil nil)
+              ("before" "after"))
+  "renders hunk lines with optional paths and missing-newline markers"
+  (path-a path-b)
+  (let* ((hunks (generate-diff-hunks
+                 (list "old" "stay") (list "new" "stay")
+                 :context 1 :final-newline-a nil :final-newline-b nil))
+         (text (render-hunks hunks :path-a path-a :path-b path-b)))
+    (expect text :to-contain "@@")
+    (expect text :to-contain "\\ No newline at end of file")
+    (if path-a
+        (progn
+          (expect text :to-contain "--- before")
+          (expect text :to-contain "+++ after"))
+        (expect (search "--- " text) :to-be-falsy))))
 
   (it "generates, parses, and applies a round trip"
     (let* ((a (list "one" "two" "three" "four" "five"))
@@ -75,35 +95,42 @@
       (expect (file-patch-old-path (first (parse-unified-diff diff :strip 0))) :to-equal "a/src/foo.lisp")))
 
   (it "marks only the true last line as having no trailing newline"
-    (let* ((a (list "one" "two"))
-           (b (list "one" "TWO"))
-           (diff (generate-unified-diff a b :path-a "f" :path-b "f"
-                                        :final-newline-a nil :final-newline-b nil)))
-      (expect diff :to-contain "\\ No newline at end of file")
-      (let ((patch (first (parse-unified-diff diff))))
-        (apply-hunks/k a (file-patch-hunks patch)
-                       :on-applied (lambda (lines newline count)
-                                     (declare (ignore count))
-                                     (expect lines :to-equal b)
-                                     (expect newline :to-be-falsy))
-                       :on-conflict (lambda (i h nearby)
-                                      (declare (ignore i h nearby))
-                                      (fail "expected the hunk to apply"))))))
-
-  (it "splits distant edits into separate hunks and merges nearby ones"
-    (let* ((a (loop for i from 1 to 20 collect (format nil "line~D" i)))
-           (b (append (list "HEAD") (subseq a 1 18) (list "TAIL")))
-           (diff (generate-unified-diff a b :path-a "f" :path-b "f" :context 2))
-           (patch (first (parse-unified-diff diff))))
-      (expect (length (file-patch-hunks patch)) :to-be 2)
+  (let* ((a (list "one" "two"))
+         (b (list "one" "TWO"))
+         (diff (generate-unified-diff a b :path-a "f" :path-b "f"
+                                     :final-newline-a nil :final-newline-b nil)))
+    (expect diff :to-contain "\\ No newline at end of file")
+    (let ((patch (first (parse-unified-diff diff))))
       (apply-hunks/k a (file-patch-hunks patch)
                      :on-applied (lambda (lines newline count)
-                                   (declare (ignore newline))
-                                   (expect count :to-be 2)
-                                   (expect lines :to-equal b))
-                     :on-conflict (lambda (i h nearby)
-                                    (declare (ignore i h nearby))
-                                    (fail "expected both hunks to apply")))))
+                                   (declare (ignore count))
+                                   (expect lines :to-equal b)
+                                   (expect newline :to-be-falsy))
+                     :on-conflict (lambda (index hunk nearby)
+                                    (declare (ignore index hunk nearby))
+                                    (fail "expected the hunk to apply"))))))
+
+  (it "splits distant edits and trims long equal edges to context"
+  (let* ((a (loop for i from 1 to 20 collect (format nil "line~D" i)))
+         (b (append (list "HEAD") (subseq a 1 18) (list "TAIL")))
+         (diff (generate-unified-diff a b :path-a "f" :path-b "f" :context 2))
+         (patch (first (parse-unified-diff diff))))
+    (expect (length (file-patch-hunks patch)) :to-be 2)
+    (apply-hunks/k a (file-patch-hunks patch)
+                   :on-applied (lambda (lines newline count)
+                                 (declare (ignore newline))
+                                 (expect count :to-be 2)
+                                 (expect lines :to-equal b))
+                   :on-conflict (lambda (index hunk nearby)
+                                  (declare (ignore index hunk nearby))
+                                  (fail "expected both hunks to apply"))))
+  (let* ((a (loop for i from 1 to 11 collect (format nil "row~D" i)))
+         (b (copy-list a)))
+    (setf (nth 5 b) "changed")
+    (let ((hunks (generate-diff-hunks a b :context 2)))
+      (expect (length hunks) :to-be 1)
+      (expect (diff-hunk-old-start (first hunks)) :to-be 4)
+      (expect (diff-hunk-old-count (first hunks)) :to-be 5))))
 
   (it "reads hunk lines that look like file headers as deletions and insertions"
     (let* ((a (list "select 1;" "-- old comment" "select 2;"))
@@ -170,4 +197,42 @@
     (let* ((diff (format nil "diff --git a/x b/x~%~%--- a/x~%+++ b/x~%@@ -1,3 +1,3 @@~% a~%~%-b~%+c~%x~%"))
            (hunk (first (file-patch-hunks (first (parse-unified-diff diff))))))
       (expect (mapcar (lambda (line) (list (diff-line-op line) (diff-line-text line))) (diff-hunk-lines hunk))
-              :to-equal '((:context "a") (:context "") (:delete "b") (:insert "c"))))))
+              :to-equal '((:context "a") (:context "") (:delete "b") (:insert "c")))))
+
+  (it-each ((#("a") 0 ("a") t)
+            (#("a") 1 ("a") nil)
+            (#("a") 0 ("b") nil))
+    "matches expected lines at index ~D: ~S"
+    (lines index expected matches-p)
+    (expect (aitools.kernel.domain::%lines-match-at lines index expected)
+            :to-be matches-p))
+
+  (it-each ((nil ("new") 0 0 1 1)
+            (("old") nil 1 1 0 0))
+           "generates an insertion or deletion hunk for ~S and ~S"
+           (old-lines new-lines old-start old-count new-start new-count)
+           (let ((hunk (first (generate-diff-hunks old-lines new-lines))))
+             (expect (list (diff-hunk-old-start hunk) (diff-hunk-old-count hunk)
+                           (diff-hunk-new-start hunk) (diff-hunk-new-count hunk))
+                     :to-equal (list old-start old-count new-start new-count))))
+
+  (it-property "round-trips generated line vectors through unified diff"
+               ((old-lines (gen-list
+                            (gen-string :min-length 0 :max-length 4 :alphabet "abc")
+                            :min-length 0 :max-length 8))
+                (new-lines (gen-list
+                            (gen-string :min-length 0 :max-length 4 :alphabet "abc")
+                            :min-length 0 :max-length 8)))
+               (let* ((diff (generate-unified-diff old-lines new-lines
+                                                   :path-a "f" :path-b "f"))
+                      (patch (first (parse-unified-diff diff)))
+                      (hunks (if patch (file-patch-hunks patch) nil)))
+                 (expect (apply-hunks/k
+                          old-lines hunks
+                          :on-applied (lambda (lines final-newline count)
+                                        (declare (ignore final-newline count))
+                                        lines)
+                          :on-conflict (lambda (index hunk nearby)
+                                         (declare (ignore index hunk nearby))
+                                         :conflict))
+                         :to-equal new-lines))))

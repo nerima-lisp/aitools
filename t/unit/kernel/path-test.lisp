@@ -22,12 +22,42 @@
   (it "signals when the path is not inside the root"
     (signals error (path-relative-to "/ws" "/other/a")))
 
-  (it "ignores a trailing separator on either side"
-    (expect (path-inside-p "/ws/" "/ws") :to-be-truthy)
-    (expect (path-relative-to "/ws/" "/ws/a/") :to-equal "a"))
+  (it-each (("/ws/" "/ws/a/" "/ws" "/ws/a" "a" t)
+              ("/ws" "/ws/a" "/ws" "/ws/a" "a" t)
+              ("/" "/a/" "/" "/a" "a" t)
+              ("/" "/" "/" "/" "" t)
+              ("" "" "" "" "" t))
+  "normalizes trailing separators before containment and relative-path checks"
+  (root candidate stripped-root stripped-candidate relative inside-p)
+  (let ((strip (symbol-function
+                (quote aitools.kernel.domain::%strip-trailing-separator))))
+    (expect (funcall strip root) :to-equal stripped-root)
+    (expect (funcall strip candidate) :to-equal stripped-candidate))
+  (expect (path-inside-p root candidate) :to-be inside-p)
+  (expect (path-relative-to root candidate) :to-equal relative))
 
   (it "treats every absolute path as inside the filesystem root"
     (expect (path-inside-p "/" "/") :to-be-truthy)
     (expect (path-inside-p "/" "/a/b") :to-be-truthy)
     (expect (path-relative-to "/" "/a/b") :to-equal "a/b")
-    (expect (path-relative-to "/" "/") :to-equal "")))
+    (expect (path-relative-to "/" "/") :to-equal ""))
+
+  (it-each (("/ws/a" "/real/ws/a" "a")
+            ("/" "/real" ""))
+      "keeps workspace path forms absolute ~A, resolved ~A, and relative ~A"
+      (absolute real relative)
+    (let ((path (make-workspace-path absolute real relative)))
+      (expect (workspace-path-absolute path) :to-equal absolute)
+      (expect (workspace-path-real path) :to-equal real)
+      (expect (workspace-path-relative path) :to-equal relative)))
+  (it-each ((:absolute)
+            (:real)
+            (:relative))
+           "rejects a non-string ~S workspace path field"
+           (field)
+           (let ((value (read-from-string "1")))
+             (signals type-error
+                      (ecase field
+                        (:absolute (make-workspace-path value "/real" "relative"))
+                        (:real (make-workspace-path "/absolute" value "relative"))
+                        (:relative (make-workspace-path "/absolute" "/real" value)))))))

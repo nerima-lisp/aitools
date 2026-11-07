@@ -54,12 +54,11 @@
                (push (cons key variable) continuations)
                (when (and (consp parameter) (consp (cdr parameter)))
                  (push (cons variable (second parameter)) continuation-defaults))))))
-        ((member section '(:required :optional :rest :aux))
+        (t
          (let ((variable (%flow-parameter-variable parameter)))
            (when (%flow-variable-name-starts-with-on-p variable)
              (error "Flow continuation ~S must be declared under &KEY." variable))
-           (when (eq section :rest) (setf section :required))))
-        (t nil)))
+           (when (eq section :rest) (setf section :required))))))
     (values (nreverse continuations) (nreverse continuation-defaults))))
 
 (defun %register-flow-signature (name keys)

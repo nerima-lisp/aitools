@@ -39,7 +39,31 @@
     (expect (selector-accepts-command-p :read :old) :to-be-falsy))
 
   (it "lets read accept --range"
-    (expect (selector-accepts-command-p :read :range) :to-be-truthy)))
+    (expect (selector-accepts-command-p :read :range) :to-be-truthy))
+
+  (it-each ((:range "2:4" nil nil 2 4 nil nil nil nil nil nil nil)
+            (:symbol "main" "defun" nil nil nil "main" "defun" nil nil nil nil nil)
+            (:between "start" "end" t nil nil nil nil "start" "end" t nil nil)
+            (:match "needle" nil t nil nil nil nil nil nil nil "needle" t))
+      "constructs a ~S selector with its supplied fields"
+      (kind input-a input-b option range-start range-end symbol-name symbol-kind
+       between-start between-end exclusive match-pattern invert)
+    (let ((built-selector
+            (case kind
+              (:range (make-range-selector input-a))
+              (:symbol (make-symbol-selector input-a :kind input-b))
+              (:between (make-between-selector input-a input-b :exclusive option))
+              (:match (make-match-selector input-a :invert option)))))
+      (expect (selector-kind built-selector) :to-be kind)
+      (expect (selector-range-start built-selector) :to-be range-start)
+      (expect (selector-range-end built-selector) :to-be range-end)
+      (expect (selector-symbol-name built-selector) :to-be symbol-name)
+      (expect (selector-symbol-kind built-selector) :to-be symbol-kind)
+      (expect (selector-between-start built-selector) :to-be between-start)
+      (expect (selector-between-end built-selector) :to-be between-end)
+      (expect (selector-exclusive built-selector) :to-be exclusive)
+      (expect (selector-match-pattern built-selector) :to-be match-pattern)
+      (expect (selector-invert built-selector) :to-be invert))))
 
 (describe "aitools.kernel.domain parse-range-spec edges"
   (it "accepts an S:E range whose end equals its start"
@@ -77,7 +101,9 @@
 
   (it "reports a built selector the same as its kind"
     (expect (selector-basis (make-symbol-selector "f" :kind "defun")) :to-be :position)
-    (expect (aitools.kernel.domain::selector-uniqueness (make-between-selector "a" "b")) :to-be :ambiguous))
+    (expect (aitools.kernel.domain::selector-uniqueness
+             (make-between-selector "a" "b"))
+            :to-be :ambiguous))
 
   (it "signals for a kind outside the catalog"
     (signals simple-error (selector-basis :regex))
@@ -85,4 +111,76 @@
 
   (it "accepts no selector for a command absent from the acceptance table"
     (dolist (kind '(:old :range :symbol :between :match))
-      (expect (selector-accepts-command-p :write kind) :to-be-falsy))))
+      (expect (selector-accepts-command-p :write kind) :to-be-falsy)))
+
+  (it-each ((:edit :old t)
+            (:edit :range t)
+            (:edit :symbol t)
+            (:edit :between t)
+            (:edit :match t)
+            (:read :old nil)
+            (:read :range t)
+            (:read :symbol t)
+            (:read :between t)
+            (:read :match t)
+            (:transform :old nil)
+            (:transform :range t)
+            (:transform :symbol t)
+            (:transform :between t)
+            (:transform :match t)
+            (:move-lines :old nil)
+            (:move-lines :range t)
+            (:move-lines :symbol t)
+            (:move-lines :between t)
+            (:move-lines :match t)
+            (:archive-read :old nil)
+            (:archive-read :range t)
+            (:archive-read :symbol t)
+            (:archive-read :between t)
+            (:archive-read :match t)
+            (:insert :old nil)
+            (:insert :range t)
+            (:insert :symbol t)
+            (:insert :between t)
+            (:insert :match t)
+            (:replace :old nil)
+            (:replace :range t)
+            (:replace :symbol t)
+            (:replace :between t)
+            (:replace :match t)
+            (:write :old nil)
+            (:write :range nil)
+            (:write :symbol nil)
+            (:write :between nil)
+            (:write :match nil))
+      "command ~S accepts selector ~S: ~S"
+      (command kind accepted)
+    (if accepted
+        (expect (selector-accepts-command-p command kind) :to-be-truthy)
+        (expect (selector-accepts-command-p command kind) :to-be-falsy)))
+  (it-each ((:range-spec)
+              (:symbol-name)
+              (:symbol-kind)
+              (:between-start)
+              (:between-end)
+              (:match-pattern))
+  "rejects non-string selector inputs and invalid selector storage"
+  (field)
+  (let ((value (read-from-string "1"))
+        (invalid-zero (read-from-string "0")))
+    (signals type-error
+      (ecase field
+        (:range-spec (make-range-selector value))
+        (:symbol-name (make-symbol-selector value))
+        (:symbol-kind (make-symbol-selector "name" :kind value))
+        (:between-start (make-between-selector value "end"))
+        (:between-end (make-between-selector "start" value))
+        (:match-pattern (make-match-selector value))))
+    (signals type-error (aitools.kernel.domain::%make-selector :old :range-start invalid-zero))
+    (signals type-error (aitools.kernel.domain::%make-selector :old :range-end invalid-zero))
+    (signals type-error (aitools.kernel.domain::%make-selector :old :exclusive value))
+    (signals type-error (aitools.kernel.domain::%make-selector :old :invert value))
+    (signals type-error (aitools.kernel.domain::%make-selector value))
+    (signals type-error
+      (aitools.kernel.domain::make-selector-catalog-entry
+       :kind :old :basis value :uniqueness :ambiguous)))))

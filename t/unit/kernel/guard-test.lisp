@@ -43,4 +43,13 @@
     (signals simple-error (parse-expect-hash-argument "src/a.lisp=")))
 
   (it "signals for a guard it does not know"
-    (signals error (guard-required-p :expect-size (make-range-selector "1")))))
+    (signals error (guard-required-p :expect-size (make-range-selector "1"))))
+  (it-each ((:path)
+            (:hash))
+           "rejects an invalid expect-hash ~S field"
+           (field)
+           (let ((invalid-value (read-from-string "1")))
+             (signals type-error
+                      (ecase field
+                        (:path (make-expect-hash-entry invalid-value "abc"))
+                        (:hash (make-expect-hash-entry "path" invalid-value)))))))

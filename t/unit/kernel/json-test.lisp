@@ -21,9 +21,66 @@
 (defun json-object-with (&rest members)
   (aitools.edit.domain:make-json-obj members))
 
-(defun model-error-message (thunk)
-  (handler-case (progn (funcall thunk) nil)
-    (json-model-error (condition) (json-model-error-message condition))))
+(progn
+  (defun model-error-message (thunk)
+    (handler-case (progn (funcall thunk) nil)
+      (json-model-error (condition) (json-model-error-message condition))))
+
+  (defun test-json-object (&rest members)
+    (cons :object members))
+
+  (defun test-json-array (&rest elements)
+    (cons :array elements))
+
+  (defun test-json-object-p (value)
+    (and (consp value) (eq (first value) :object)))
+
+  (defun test-json-object-members (object)
+    (loop for (key value) on (rest object) by (function cddr)
+          collect (cons key value)))
+
+  (defun test-json-object-from-members (members)
+    (cons :object
+          (loop for member in members
+                append (list (car member) (cdr member)))))
+
+  (defun test-json-array-p (value)
+    (and (consp value) (eq (first value) :array)))
+
+  (defun test-json-array-elements (array)
+    (rest array))
+
+  (defun test-json-array-from-elements (elements)
+    (cons :array elements))
+
+  (defun test-json-array-insert (array index value)
+    (let ((elements (rest array)))
+      (cons :array
+            (append (subseq elements 0 index)
+                    (list value)
+                    (nthcdr index elements)))))
+
+  (defun test-json-array-remove (array index)
+    (let ((elements (rest array)))
+      (cons :array
+            (append (subseq elements 0 index)
+                    (nthcdr (1+ index) elements)))))
+
+  (defun test-json-value-model (&key object-p)
+  (make-json-value-model
+   :object-p (or object-p (function test-json-object-p))
+   :object-members (function test-json-object-members)
+   :object-from-members (function test-json-object-from-members)
+   :array-p (function test-json-array-p)
+   :array-elements (function test-json-array-elements)
+   :array-from-elements (function test-json-array-from-elements)
+   :array-insert (function test-json-array-insert)
+   :array-remove (function test-json-array-remove)
+   :null-p (lambda (value) (eq value :null))
+   :string-p (function stringp)
+   :string-text (function identity)
+   :string-length (function length)
+   :equal (function test-json-equal))))
 
 (describe "aitools.kernel.domain JSON pointers"
   (it "parses and formats RFC 6901 pointers with ~0 and ~1 escapes"
@@ -112,6 +169,17 @@
 (describe "aitools.kernel.domain JSON number edges"
   (it "reads a multi-digit array index"
     (expect (json-pointer-array-index "12" 20) :to-be 12))
+
+  (it-each ((0.5d0 0.5d0)
+            (1/2 0.5d0)
+            ("0.5" 0.5d0))
+    "coerces JSON number ~S to a double"
+    (number expected)
+    (expect (aitools.kernel.domain::%json-number-double number) :to-equal expected))
+
+  (it "rejects a non-numeric JSON number representation"
+    (signals type-error
+      (aitools.kernel.domain::%json-number-double :invalid)))
 
   (it "treats an exact rational past the double range as signed infinity"
     (expect (test-json-equal (expt 10 400) '(:number "1e400")) :to-be-truthy)

@@ -93,27 +93,85 @@
 
 (describe "aitools.kernel.domain flow lambda lists"
   (it "tracks optional, rest, keyword, and auxiliary parameters"
-    (expect (flow-test-lambda-sections :provided :on-ready (function identity))
-            :to-equal (quote (:provided :aux))))
+  (expect (flow-test-lambda-sections :provided :on-ready (function identity))
+          :to-equal (quote (:provided :aux)))
+  (multiple-value-bind (continuations defaults)
+      (aitools.kernel.domain::%flow-continuations
+       (quote (&optional value &rest arguments &key on-ready &aux marker)))
+    (expect (mapcar (function car) continuations) :to-equal (quote (:on-ready)))
+    (expect defaults :to-equal nil))
+  (expect (macroexpand-1
+           (quote (define-flow (flow-test-expanded &key on-ready)
+                    "A flow docstring."
+                    (declare (ignore on-ready))
+                    nil)))
+          :to-be-truthy)
+  (expect (macroexpand-1
+           (quote (define-flow (flow-test-no-docstring &key on-ready)
+                    on-ready)))
+          :to-be-truthy))
 
-  (it "requires &allow-other-keys to follow &key"
+  (it-each (((&allow-other-keys) t nil)
+            ((&key on-ready &allow-other-keys) nil (:on-ready))
+            ((&key title) nil nil)
+            ((42) nil nil)
+            ((:on-) nil nil)
+            ((&key 42) nil nil))
+    "recognizes flow parameter forms and validates &allow-other-keys placement"
+    (lambda-list invalid-p expected-keys)
+    (if invalid-p
+        (progn
+          (signals error
+            (aitools.kernel.domain::%flow-continuations lambda-list))
+          (signals error
+            (macroexpand-1
+             (quote (define-flow (flow-test-invalid &allow-other-keys) nil)))))
+        (multiple-value-bind (continuations defaults)
+            (aitools.kernel.domain::%flow-continuations lambda-list)
+          (expect (mapcar (function car) continuations) :to-equal expected-keys)
+          (expect defaults :to-equal nil))))
+
+  (it "rejects malformed flow definitions and an empty ampersand marker"
     (signals error
-      (macroexpand-1
-       (quote (define-flow (flow-test-invalid &allow-other-keys) nil)))))
+      (macroexpand-1 (quote (define-flow () nil))))
+    (signals error
+      (macroexpand-1 (quote (define-flow (42) nil))))
+    (signals error
+      (macroexpand-1 (quote (define-flow (flow-test-invalid |&|) nil)))))
 
   (it "rejects unsupported lambda-list keywords"
     (signals error
-      (macroexpand-1
-       (quote (define-flow (flow-test-invalid &unsupported) nil)))))
-
-  (it "rejects an empty ampersand marker as an unsupported keyword"
-    (signals error
-      (macroexpand-1
-       (quote (define-flow (flow-test-invalid |&|) nil)))))
+      (macroexpand-1 (quote (define-flow (flow-test-invalid &unsupported) nil)))))
 
   (it "registers an implicit :ON-* keyword when expanding a flow"
     (macroexpand-1
      (quote (define-flow (flow-test-simple-key &optional (value nil) &key on-ready)
               value)))
     (expect (gethash (quote flow-test-simple-key) aitools.kernel.domain::*flow-signatures*)
-            :to-equal (quote (:on-ready)))))
+            :to-equal (quote (:on-ready))))
+
+  (it "accepts a continuation keyword with a differently named variable"
+    (expect (macroexpand-1
+             (quote (define-flow (flow-test-key-only &key ((:on-ready callback) nil))
+                      callback)))
+            :to-be-truthy))
+
+  (it "rejects a keyword and variable with different continuation names"
+    (signals error
+      (macroexpand-1
+       (quote (define-flow (flow-test-invalid &key ((:other on-success) nil)) nil)))))
+
+  (it-each (((flow-call 42 (:on-success () nil)))
+            ((flow-call (42) (:on-success () nil)))
+            ((flow-call (flow-test-no-signature) (:on-success () nil)))
+            ((flow-call (flow-test-target t) nil))
+            ((flow-call (flow-test-target t) (on-success () nil)))
+            ((flow-call (flow-test-target t) (:on-success)))
+            ((flow-call (flow-test-target t) (:on-success value)))
+            ((flow-call (flow-test-target t)
+               (:on-success () nil)
+               (:on-success () nil)))
+            ((flow-call (flow-test-target t) (:on-success () nil))))
+    "rejects ~S during FLOW-CALL expansion"
+    (form)
+    (signals error (macroexpand-1 form))))
