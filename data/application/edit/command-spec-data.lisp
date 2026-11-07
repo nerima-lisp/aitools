@@ -120,9 +120,6 @@
                (:key :max-entries :name "max-entries" :kind :value :default "1000" :description "Maximum deleted entries, including directories and symlinks.")
                (:key :max-bytes :name "max-bytes" :kind :value :default "64MiB" :description "Maximum total deleted regular-file bytes; not a memory limit."))
      :include (:hash :count :write)
-     :mktemp-area :refuse
-     :mktemp-error-code "refusal.outside-workspace"
-     :mktemp-error-message "rm requires a workspace target"
      :output-fields ((:name "entries" :description "Number of deleted entries, including the target itself.")
                      (:name "bytes" :description "Total regular-file bytes selected for deletion.")))
     (:name "mkdir"

@@ -82,15 +82,21 @@
                       (expect (search "is inside the aitools state directory" message) :to-be-truthy))
                     (expect-unchanged before))))))
           (it "refuses to remove a temporary file outside the workspace"
-              (call-with-edit-workspace (lambda () (let ((temporary (mktemp-path)))
-                  (unwind-protect
+              (call-with-edit-workspace
+               (lambda ()
+                 (aitools.test.support:call-with-temporary-directory
+                  (lambda (directory)
+                    (let ((temporary (uiop:native-namestring (merge-pathnames "file" directory))))
+                      (with-open-file (out (sb-ext:parse-native-namestring temporary)
+                                           :direction :output
+                                           :if-exists :error
+                                           :external-format :utf-8)
+                        (write-string "x" out))
                       (let ((before (snapshot)))
                         (expect (probe-file temporary) :to-be-truthy)
                         (with-error (code message)
                             (run "rm" (list temporary))
                           (expect code :to-equal "refusal.outside-workspace")
-                          (expect message :to-equal "rm requires a workspace target"))
+                          (expect (search "outside the workspace" message) :to-be-truthy))
                         (expect-unchanged before)
-                        (expect (probe-file temporary) :to-be-truthy))
-                    (when (probe-file temporary)
-                      (delete-file temporary))))))))
+                        (expect (probe-file temporary) :to-be-truthy)))))))))
