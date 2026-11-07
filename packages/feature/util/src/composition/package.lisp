@@ -1,2 +1,2 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (eval '(defpackage #:aitools.util.composition (:use #:cl))))
+(in-package #:cl-user)
+(defpackage #:aitools.util.composition (:use #:cl))

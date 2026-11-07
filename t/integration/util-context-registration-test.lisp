@@ -10,6 +10,10 @@
 (describe "aitools util context registration"
   (it "registers util commands from the composition dependencies"
     (let ((aitools/cli::*context-command-registrations* nil))
+      (expect (find-package "AITOOLS.UTIL.COMPOSITION") :to-be-truthy)
+      (progn
+        (expect (delete-package "AITOOLS.UTIL.COMPOSITION") :to-be-truthy)
+        (expect (not (find-package "AITOOLS.UTIL.COMPOSITION")) :to-be-truthy))
       (aitools.test.support:call-with-temporary-directory
        (lambda (directory)
          (dolist (component-name (list "package" "context-registration"))
@@ -33,6 +37,7 @@
                (find :util (aitools/cli::context-command-registrations)
                      :key #'first))
              (registry (aitools.protocol.application:make-command-registry)))
+        (expect (find-package "AITOOLS.UTIL.COMPOSITION") :to-be-truthy)
         (expect registration :to-be-truthy)
         (funcall (second registration)
                  registry
