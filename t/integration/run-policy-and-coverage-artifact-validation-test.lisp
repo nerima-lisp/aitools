@@ -64,16 +64,16 @@
        (error (condition) (princ-to-string condition))))))
 
 (describe "Run policy and coverage artifact validation"
-  (it "rejects 3,608 executed specs and accepts the 3,609 minimum"
+  (it "rejects 3,610 executed specs and accepts the 3,611 minimum"
     (multiple-value-bind (problems executed)
-        (%policy-problems (%passed-test-events 3608))
-      (expect *minimum-executed-specs* :to-equal 3609)
-      (expect executed :to-equal 3608)
+        (%policy-problems (%passed-test-events 3610))
+      (expect *minimum-executed-specs* :to-equal 3611)
+      (expect executed :to-equal 3610)
       (expect (length problems) :to-equal 1))
     (multiple-value-bind (problems executed)
-        (%policy-problems (%passed-test-events 3609))
-      (expect *minimum-executed-specs* :to-equal 3609)
-      (expect executed :to-equal 3609)
+        (%policy-problems (%passed-test-events 3611))
+      (expect *minimum-executed-specs* :to-equal 3611)
+      (expect executed :to-equal 3611)
       (expect (null problems) :to-be-truthy)))
   (it "does not count skipped or todo specs toward the executed-spec minimum"
     (dolist (status (list "skip" "todo"))
@@ -81,12 +81,12 @@
         (setf (gethash "status" event) status)
         (multiple-value-bind (problems executed)
             (%policy-problems
-             (append (%passed-test-events 3608)
+             (append (%passed-test-events 3610)
                      (list event)))
-          (expect executed :to-equal 3608)
+          (expect executed :to-equal 3610)
           (expect
            (find-if (lambda (problem)
-                      (search "only 3608 specs ran" problem))
+                      (search "only 3610 specs ran" problem))
                     problems)
            :to-be-truthy)))))
 
