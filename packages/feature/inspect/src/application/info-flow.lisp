@@ -8,8 +8,8 @@
 (defun %digest-value (algorithm octets)
   (cond
     ((string= algorithm "sha256") (sha256-hex octets))
-    ((string= algorithm "sha1") (sha1-hex octets))
-    (t (md5-hex octets))))
+    ((string= algorithm "sha1") (crypto-kit:digest-hex :sha1 octets))
+    (t (crypto-kit:digest-hex :md5 octets))))
 
 (defun %path-fields (context target)
   (let* ((host (context-host context))

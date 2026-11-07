@@ -12,16 +12,16 @@
             :to-equal "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
 
   (it "computes SHA-1 of \"abc\""
-    (expect (sha1-hex (string-bytes "abc")) :to-equal "a9993e364706816aba3e25717850c26c9cd0d89d"))
+    (expect (crypto-kit:digest-hex :sha1 (string-bytes "abc")) :to-equal "a9993e364706816aba3e25717850c26c9cd0d89d"))
 
   (it "computes SHA-1 of the empty string"
-    (expect (sha1-hex (string-bytes "")) :to-equal "da39a3ee5e6b4b0d3255bfef95601890afd80709"))
+    (expect (crypto-kit:digest-hex :sha1 (string-bytes "")) :to-equal "da39a3ee5e6b4b0d3255bfef95601890afd80709"))
 
   (it "computes MD5 of \"abc\""
-    (expect (md5-hex (string-bytes "abc")) :to-equal "900150983cd24fb0d6963f7d28e17f72"))
+    (expect (crypto-kit:digest-hex :md5 (string-bytes "abc")) :to-equal "900150983cd24fb0d6963f7d28e17f72"))
 
   (it "computes MD5 of the empty string"
-    (expect (md5-hex (string-bytes ""))
+    (expect (crypto-kit:digest-hex :md5 (string-bytes ""))
             :to-equal "d41d8cd98f00b204e9800998ecf8427e"))
 
   (it "uses SHA-256 as the canonical content-hash"
@@ -67,17 +67,17 @@
       (length sha256 sha1 md5)
     (let ((bytes (string-bytes (make-string length :initial-element #\a))))
       (expect (sha256-hex bytes) :to-equal sha256)
-      (expect (sha1-hex bytes) :to-equal sha1)
-      (expect (md5-hex bytes) :to-equal md5))))
+      (expect (crypto-kit:digest-hex :sha1 bytes) :to-equal sha1)
+      (expect (crypto-kit:digest-hex :md5 bytes) :to-equal md5))))
 
 (describe "aitools.kernel.domain digest large input"
   (it "matches fixed hashes for 1 MiB of repeating bytes"
     (let ((bytes (make-array 1048576 :element-type '(unsigned-byte 8))))
       (loop for index below (length bytes)
             do (setf (aref bytes index) (mod index 256)))
-      (expect (md5-hex bytes)
+      (expect (crypto-kit:digest-hex :md5 bytes)
               :to-equal "c35cc7d8d91728a0cb052831bc4ef372")
-      (expect (sha1-hex bytes)
+      (expect (crypto-kit:digest-hex :sha1 bytes)
               :to-equal "ecfc8e86fdd83811f9cc9bf500993b63069923be")
       (expect (sha256-hex bytes)
               :to-equal "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83")
