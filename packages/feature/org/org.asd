@@ -15,7 +15,8 @@
   :components
   ((:module "t" :pathname "t/" :serial t
     :components
-    ((:file "unit/org/package")
+    ((:file "unit/edit/package")
+     (:file "unit/org/package")
      (:file "unit/org/parser-property-test")
      (:module "integration" :pathname "integration/" :serial t
       :components
@@ -29,12 +30,13 @@
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
        (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))))
      (:module "e2e" :pathname "e2e/" :serial t
-      :components ((:file "org-cases")
-                   (:file "org-read-error-cases")
-                   (:file "org-query-cases")
-                   (:file "org-export-cases")
-                   (:file "org-write-cases")
-                   (:file "org-write-edge-cases")
-                   (:file "org-agenda-cases")
-                   (:file "org-write-workflow-cases")
-                   (:file "org-write-table-cases")))))))
+      :components
+      ((:file "org-cases")
+       (:file "org-read-error-cases")
+       (:file "org-query-cases")
+       (:file "org-export-cases")
+       (:file "org-write-cases")
+       (:file "org-write-edge-cases")
+       (:file "org-agenda-cases")
+       (:file "org-write-workflow-cases")
+       (:file "org-write-table-cases")))))))
