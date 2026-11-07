@@ -57,24 +57,27 @@
         (expect
          (multiple-value-list
           (apply
-           (ecase slot-name
-             (:lstat #'aitools.store.application:store-io-lstat)
-             (:read-file #'aitools.store.application:store-io-read-file)
-             (:create-file #'aitools.store.application:store-io-create-file)
-             (:append-file #'aitools.store.application:store-io-append-file)
-             (:rename #'aitools.store.application:store-io-rename)
-             (:unlink #'aitools.store.application:store-io-unlink)
-             (:rmdir #'aitools.store.application:store-io-rmdir)
-             (:mkdir #'aitools.store.application:store-io-mkdir)
-             (:chmod #'aitools.store.application:store-io-chmod)
-             (:chmod-directory-identity #'aitools.store.application:store-io-chmod-directory-identity)
-             (:sync-directory #'aitools.store.application:store-io-sync-directory)
-             (:symlink #'aitools.store.application:store-io-symlink)
-             (:set-mtime #'aitools.store.application:store-io-set-mtime)
-             (:list-directory #'aitools.store.application:store-io-list-directory)
-             (:try-lock #'aitools.store.application:store-io-try-lock)
-             (:unlock #'aitools.store.application:store-io-unlock))
-           wrapped arguments))
+           (funcall
+            (ecase slot-name
+              (:lstat #'aitools.store.application:store-io-lstat)
+              (:read-file #'aitools.store.application:store-io-read-file)
+              (:create-file #'aitools.store.application:store-io-create-file)
+              (:append-file #'aitools.store.application:store-io-append-file)
+              (:rename #'aitools.store.application:store-io-rename)
+              (:unlink #'aitools.store.application:store-io-unlink)
+              (:rmdir #'aitools.store.application:store-io-rmdir)
+              (:mkdir #'aitools.store.application:store-io-mkdir)
+              (:chmod #'aitools.store.application:store-io-chmod)
+              (:chmod-directory-identity
+               #'aitools.store.application:store-io-chmod-directory-identity)
+              (:sync-directory #'aitools.store.application:store-io-sync-directory)
+              (:symlink #'aitools.store.application:store-io-symlink)
+              (:set-mtime #'aitools.store.application:store-io-set-mtime)
+              (:list-directory #'aitools.store.application:store-io-list-directory)
+              (:try-lock #'aitools.store.application:store-io-try-lock)
+              (:unlock #'aitools.store.application:store-io-unlock))
+            wrapped)
+           arguments))
          :to-equal '(:first :second))
         (expect
          (mapcar #'observability-kit:span-record-name
