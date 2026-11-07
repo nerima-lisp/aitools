@@ -61,10 +61,6 @@
 
 (define-workspace-operation host-home-directory :workspace-home-directory ())
 
-(defun host-current-directory (boundaries)
-  (normalize-path
-   (namestring
-    (cl-boundary-kit:working-directory-get
-     (cl-boundary-kit:boundary-context-require boundaries :working-directory)))))
+(defun host-current-directory (boundaries) (let ((directory (cl-boundary-kit:working-directory-get (cl-boundary-kit:boundary-context-require boundaries :working-directory)))) (normalize-path (if (stringp directory) directory (sb-ext:native-namestring directory)))))
 
 (define-workspace-operation host-call-with-ordered-mapper :workspace-call-with-ordered-mapper (thunk))

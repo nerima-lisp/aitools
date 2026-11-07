@@ -126,28 +126,32 @@
                   (lambda (x)
                     (* x x))
                   items))))
-          (it "assembles workspace capabilities in a cl-boundary-kit context"
-              (let* ((environment (cl-boundary-kit:make-test-environment :initial-values (list (cons "HOME" "/home/test"))))
-                     (working-directory (cl-boundary-kit:make-test-working-directory :initial #p"/tmp/"))
-                     (boundaries
-                      (aitools.workspace.application:make-workspace-boundaries :list-directory
-                                                                               (function identity)
-                                                                               :stat
-                                                                               (function identity)
-                                                                               :read-link
-                                                                               (function identity)
-                                                                               :read-octets
-                                                                               (function identity)
-                                                                               :environment
-                                                                               environment
-                                                                               :working-directory
-                                                                               working-directory
-                                                                               :home-directory
-                                                                               (function identity))))
-                (expect (cl-boundary-kit:boundary-context-require boundaries :environment) :to-be environment)
-                (expect (cl-boundary-kit:boundary-context-require boundaries :working-directory) :to-be working-directory)
-                (expect (aitools.workspace.application:host-getenv boundaries "HOME") :to-equal "/home/test")
-                (expect (aitools.workspace.application:host-current-directory boundaries) :to-equal "/tmp"))))
+          (it
+ "assembles workspace capabilities in a cl-boundary-kit context"
+ (let* ((environment
+          (cl-boundary-kit:make-test-environment
+           :initial-values (list (cons "HOME" "/home/test"))))
+        (working-directory
+          (cl-boundary-kit:make-test-working-directory
+           :initial (sb-ext:parse-native-namestring "/tmp/back\\slash/")))
+        (boundaries
+          (aitools.workspace.application:make-workspace-boundaries
+           :list-directory (function identity)
+           :stat (function identity)
+           :read-link (function identity)
+           :read-octets (function identity)
+           :environment environment
+           :working-directory working-directory
+           :home-directory (function identity))))
+   (expect (cl-boundary-kit:boundary-context-require boundaries :environment)
+           :to-be environment)
+   (expect
+    (cl-boundary-kit:boundary-context-require boundaries :working-directory)
+    :to-be working-directory)
+   (expect (aitools.workspace.application:host-getenv boundaries "HOME")
+           :to-equal "/home/test")
+   (expect (aitools.workspace.application:host-current-directory boundaries)
+           :to-equal "/tmp/back\\slash"))))
 
 (describe "aitools workspace production boundary operations" (it "answers NIL for what each reader cannot read"
     (call-with-scratch-directory (lambda (scratch)
@@ -177,19 +181,28 @@
           (expect (length octets) :to-be 70000)
           (expect (every (lambda (octet) (= octet 7)) octets) :to-be t))))))
 
-  (it "reports the root directory as / and any other directory without a trailing slash"
-    ;; The non-root directory is a scratch directory, not a system one: the
-    ;; Nix build sandbox has no /usr.
-    (call-with-scratch-directory (lambda (scratch)
-      (let ((previous (sb-posix:getcwd))
-            (host (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv (constantly nil))))
-        (unwind-protect
-             (progn
-               (sb-posix:chdir "/")
-               (expect (aitools.workspace.application:host-current-directory host) :to-equal "/")
-               (sb-posix:chdir (concatenate 'string scratch "/"))
-               (expect (aitools.workspace.application:host-current-directory host) :to-equal scratch))
-          (sb-posix:chdir previous))))))
+  (it
+ "reports root and non-root working directories, preserving backslashes"
+ (call-with-scratch-directory
+  (lambda (scratch)
+    (let* ((previous (sb-posix:getcwd))
+           (host
+             (aitools.workspace.infrastructure:make-host-workspace-boundaries
+              :getenv (constantly nil)))
+           (backslash-directory (format nil "~A/back\\slash" scratch)))
+      (make-directories backslash-directory)
+      (unwind-protect
+          (progn
+            (sb-posix:chdir "/")
+            (expect (aitools.workspace.application:host-current-directory host)
+                    :to-equal "/")
+            (sb-posix:chdir (format nil "~A/" scratch))
+            (expect (aitools.workspace.application:host-current-directory host)
+                    :to-equal scratch)
+            (sb-posix:chdir backslash-directory)
+            (expect (aitools.workspace.application:host-current-directory host)
+                    :to-equal backslash-directory))
+        (sb-posix:chdir previous))))))
 
   (it "refuses a non-function workspace capability" (expect (handler-case (aitools.workspace.application:make-workspace-boundaries :list-directory (function identity) :stat 42 :read-link (function identity) :read-octets (function identity) :environment (cl-boundary-kit:make-test-environment) :working-directory (cl-boundary-kit:make-test-working-directory) :home-directory (function identity)) (error (condition) (princ-to-string condition))) :to-equal "make-workspace-boundaries: STAT must be a function, got 42")))
 
