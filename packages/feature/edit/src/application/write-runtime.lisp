@@ -23,8 +23,7 @@
                  (aitools.store.application:store-state-directory workspace-store))))
            (or (aitools.workspace.application:resolve-real-path host tmp) tmp)))
         (targets (write-plan-targets write-plan))
-        (command (write-plan-command write-plan))
-        (command-spec (find-command-spec command)))
+        (command (write-plan-command write-plan)))
    (aitools.kernel.domain:flow-call
     (%resolve-targets host workspace-root targets temporary-root)
     (:on-resolved (resolved-paths area)
@@ -34,12 +33,6 @@
           :on-error
           "argument.invalid"
           "--tx cannot stage writes to the mktemp area"))
-        ((and (eq area :temporary)
-              (eq (getf command-spec :mktemp-area) :refuse))
-         (aitools.kernel.domain:flow-continue
-          :on-error
-          (getf command-spec :mktemp-error-code)
-          (getf command-spec :mktemp-error-message)))
         (t
          (let* ((store
                  (if (eq area :temporary)
