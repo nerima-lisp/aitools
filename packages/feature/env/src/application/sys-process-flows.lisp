@@ -100,6 +100,7 @@ userspace tick (USER_HZ) at 100."
 
 (defun %metrics-cpu (ports os)
   (case os
+    #+linux
     (:linux
      (let ((before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))
        (when before
@@ -107,11 +108,14 @@ userspace tick (USER_HZ) at 100."
          (aitools.env.domain:cpu-busy-percent
           before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
           :iowait-may-decrease t))))
+    #+darwin
     (:darwin
      (let ((before (funcall (env-ports-cpu-counters ports))))
        (when before
          (funcall (env-ports-sleep-seconds ports) 1)
-         (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))))
+         (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))
+    #-(or linux darwin)
+    (t nil)))
 (defun %load-average (ports os)
   (let ((values
           #+linux

@@ -17,6 +17,40 @@
                      :identity (list "FreeBSD" "14.1" "amd64")))
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable"))))
+  #+darwin
+  (it "rejects negative Darwin load averages"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (make-fake-ports :host (metrics-host)
+                                   :sysctl-mibs (list (cons :vm-loadavg
+                                                            (list -0.5d0 0.25d0 0.125d0)))))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable")))
+  (it "reports unknown values as null instead of failing"
+    (multiple-value-bind (kind fields)
+        (run-flow (function sys-info/k)
+                  (make-fake-ports
+                   :identity #+darwin '("Darwin" "25.6.0" "arm64")
+                             #+linux '("Linux" "6.8.0-45-generic" "x86_64")
+                   :files #+darwin *zoneinfo-files*
+                          #+linux (list (cons "/proc/uptime" "1.0 0.0"))
+                   :environment nil))
+      (expect kind :to-be :ok)
+      (expect (json-null-p (field fields "cpus")) :to-be-truthy)
+      (expect (json-null-p (field fields "shell")) :to-be-truthy)))
+  #+linux
+  (it "rejects malformed Linux load-average data"
+    (expect (aitools.env.application::%load-average (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42"))) :linux)
+           :to-be nil))
+  #+darwin
+  (it "rejects a Darwin uptime derived from a future boot time"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-info/k)
+                  (make-fake-ports
+                   :now 0
+                   :sysctl-mibs (list (cons :kern-boottime 1d0))))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable")))
 
   (it-each ((sys-procs/k "aitools sys tools ps") (sys-ports/k "aitools sys tools lsof"))
       "answers ~S on an unknown OS with environment.unavailable and `~A`"

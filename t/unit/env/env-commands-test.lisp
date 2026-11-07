@@ -38,13 +38,13 @@
       (expect (json-field stdout "available_bytes") :to-be 400)))
   (it "returns metrics partial JSON with exit 3 and explicit units"
     (multiple-value-bind (code stdout stderr)
-        (dispatch-env (make-fake-ports :host (metrics-host)) "sys" "metrics" "--limit" "1")
+        (dispatch-env (metrics-ports) "sys" "metrics" "--limit" "1")
       (expect code :to-be 3)
       (expect stderr :to-equal "")
       (expect (json-field stdout "sample_interval_ms") :to-be 1000)
       (expect (gethash "rss_bytes" (aref (json-field stdout "items") 0)) :to-be 102400)))
   (it "rejects a zero metrics limit"
-    (expect (dispatch-env (make-fake-ports :host (metrics-host)) "sys" "metrics" "--limit" "0") :to-be 1))
+    (expect (dispatch-env (metrics-ports) "sys" "metrics" "--limit" "0") :to-be 1))
   (it "dispatches a non-atomic snapshot and rejects an unsupported overall timeout"
     (multiple-value-bind (code stdout stderr) (dispatch-env (make-fake-ports) "sys" "snapshot" "--port-limit" "1")
       (expect code :to-be 3)
@@ -97,10 +97,11 @@
 
 (describe "aitools.env.presentation commands end to end"
   (it "runs sys info through dispatch"
-    (multiple-value-bind (code stdout) (dispatch-env (make-fake-ports :host (darwin-host)) "sys" "info")
+    (multiple-value-bind (code stdout)
+        (dispatch-env (metrics-ports) "sys" "info")
       (expect code :to-be 0)
       (expect (json-field stdout "command") :to-equal "sys info")
-      (expect (json-field stdout "cpus") :to-be 16)))
+      (expect (json-field stdout "cpus") :to-be #+linux 2 #+darwin 16)))
 
   (it "passes sys tools names and --timeout to the flow"
     (let* ((seen nil)
