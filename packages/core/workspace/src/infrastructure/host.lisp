@@ -98,6 +98,11 @@ scan nor gets read."
    :read-octets (function read-regular-file-octets)
    :environment (cl-boundary-kit:make-environment :get-fn getenv)
    :working-directory
-   (cl-boundary-kit:make-working-directory :get-fn current-directory)
+   (cl-boundary-kit:make-working-directory
+    :get-fn (lambda ()
+              (let ((directory (funcall current-directory)))
+                (if (stringp directory)
+                    directory
+                    (sb-ext:native-namestring directory)))))
    :home-directory home-directory
    :call-with-ordered-mapper (function call-with-ordered-mapper)))

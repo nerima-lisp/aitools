@@ -75,7 +75,7 @@ reader (NIL for none); OPEN-STORE is passed through."
         :read-octets #'file-octets
         :environment (cl-boundary-kit:make-test-environment)
         :home-directory (constantly "/home/user")
-        :working-directory (cl-boundary-kit:make-test-working-directory :initial cwd))
+        :working-directory (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd)))
        :text-source
        (aitools.text.application:make-text-source
         :file-size (lambda (path) (let ((octets (file-octets path))) (and octets (length octets))))

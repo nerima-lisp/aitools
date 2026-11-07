@@ -89,13 +89,9 @@ missing or unreadable.")
 
 (defun host-current-directory (boundaries)
   "Return the absolute current-directory string without a trailing slash."
-  (let ((directory
-          (cl-boundary-kit:working-directory-get
-           (cl-boundary-kit:boundary-context-require boundaries :working-directory))))
-    (normalize-path
-     (if (stringp directory)
-         directory
-         (sb-ext:native-namestring directory)))))
+  (normalize-path
+   (cl-boundary-kit:working-directory-get
+    (cl-boundary-kit:boundary-context-require boundaries :working-directory))))
 
 (define-workspace-operation
  host-call-with-ordered-mapper

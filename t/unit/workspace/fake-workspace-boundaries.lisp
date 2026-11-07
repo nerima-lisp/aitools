@@ -67,7 +67,7 @@
             (and node (eq (first node) :file) (second node))))
         :environment (cl-boundary-kit:make-test-environment :initial-values environment)
         :working-directory
-        (cl-boundary-kit:make-test-working-directory :initial (pathname cwd))
+        (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd))
         :home-directory (lambda () home))
        nodes))))
 

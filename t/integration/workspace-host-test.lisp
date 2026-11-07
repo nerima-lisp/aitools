@@ -132,8 +132,7 @@
           (cl-boundary-kit:make-test-environment
            :initial-values (list (cons "HOME" "/home/test"))))
         (working-directory
-          (cl-boundary-kit:make-test-working-directory
-           :initial (sb-ext:parse-native-namestring "/tmp/back\\slash/")))
+          (cl-boundary-kit:make-working-directory :get-fn (lambda () "/tmp/back\\slash/")))
         (boundaries
           (aitools.workspace.application:make-workspace-boundaries
            :list-directory (function identity)
@@ -186,10 +185,14 @@
  (call-with-scratch-directory
   (lambda (scratch)
     (let* ((previous (sb-posix:getcwd))
+           (backslash-directory (format nil "~A/back\\slash" scratch))
            (host
              (aitools.workspace.infrastructure:make-host-workspace-boundaries
               :getenv (constantly nil)))
-           (backslash-directory (format nil "~A/back\\slash" scratch)))
+           (pathname-host
+             (aitools.workspace.infrastructure:make-host-workspace-boundaries
+              :getenv (constantly nil)
+              :current-directory (lambda () (sb-ext:parse-native-namestring backslash-directory)))))
       (make-directories backslash-directory)
       (unwind-protect
           (progn
@@ -201,10 +204,12 @@
                     :to-equal scratch)
             (sb-posix:chdir backslash-directory)
             (expect (aitools.workspace.application:host-current-directory host)
+                    :to-equal backslash-directory)
+            (expect (aitools.workspace.application:host-current-directory pathname-host)
                     :to-equal backslash-directory))
         (sb-posix:chdir previous))))))
 
-  (it "refuses a non-function workspace capability" (expect (handler-case (aitools.workspace.application:make-workspace-boundaries :list-directory (function identity) :stat 42 :read-link (function identity) :read-octets (function identity) :environment (cl-boundary-kit:make-test-environment) :working-directory (cl-boundary-kit:make-test-working-directory) :home-directory (function identity)) (error (condition) (princ-to-string condition))) :to-equal "make-workspace-boundaries: STAT must be a function, got 42")))
+  (it "refuses a non-function workspace capability" (expect (handler-case (aitools.workspace.application:make-workspace-boundaries :list-directory (function identity) :stat 42 :read-link (function identity) :read-octets (function identity) :environment (cl-boundary-kit:make-test-environment) :working-directory (cl-boundary-kit:make-working-directory :get-fn (lambda () "/")) :home-directory (function identity)) (error (condition) (princ-to-string condition))) :to-equal "make-workspace-boundaries: STAT must be a function, got 42")))
 
 (describe "aitools workspace scan under a root reached through a symlink"
   (it "maps a start given by its real path into the root named through the link"
