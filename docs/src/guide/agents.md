@@ -13,13 +13,15 @@ plan to use:
 ```sh
 aitools schema                  # [{name, summary}] for every command
 aitools schema edit read        # arguments, output fields, error codes
-aitools schema json get         # a group command, as typed
+aitools schema doc get          # a group command, as typed
 ```
 
 `schema` without arguments returns only names and summaries, so it stays
 short. The detail object lists each argument's type and default, each output
 field, and the error codes the command declares. The
 [command reference](../reference/commands/index.md) and its context pages show the same data.
+Use the same `doc` commands for JSON, YAML, and TOML files; the path extension selects the format,
+and `--format` overrides it.
 
 ## Branch on the exit code first
 
