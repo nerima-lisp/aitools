@@ -19,10 +19,10 @@
 
 (defparameter *context-symbol-allowances*
   (loop for context-data in
-        (%load-context-structure-data-files
-         (merge-pathnames
-          "structure-context-allowances/"
-          (make-pathname :name nil :type nil :defaults *load-truename*)))
+          (%load-context-structure-data-files
+           (merge-pathnames
+            "t/integration/structure-context-allowances/"
+            (asdf:system-source-directory "aitools")))
         append (getf context-data :symbol-allowances)))
 
 (defun %designator-name (designator)

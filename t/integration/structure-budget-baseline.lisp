@@ -8,8 +8,8 @@
 (defparameter *structure-budget-context-data*
   (%load-context-structure-data-files
    (merge-pathnames
-    "structure-budget-baselines/"
-    (make-pathname :name nil :type nil :defaults *load-truename*))))
+    "t/integration/structure-budget-baselines/"
+    (asdf:system-source-directory "aitools"))))
 
 (defparameter *line-budget-generated-exemptions*
   (loop for context-data in *structure-budget-context-data*
