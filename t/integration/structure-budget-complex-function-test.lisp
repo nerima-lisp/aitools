@@ -118,9 +118,9 @@
    :prefix "aitools-complex-function-baseline"))
 
 (describe "aitools complex-function baseline gate"
-  (it "pins the 19-entry complex-function baseline"
+  (it "pins the 17-entry complex-function baseline"
     (expect *complex-function-baseline* :to-be-truthy)
-    (expect (length *complex-function-baseline*) :to-equal 19))
+    (expect (length *complex-function-baseline*) :to-equal 17))
   (it "requires every mapped current function to exist and stay within the depth limit"
     (expect (complex-function-baseline-violations (repository-root)) :to-equal nil))
   (it "rejects a missing current successor"

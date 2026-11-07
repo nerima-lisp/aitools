@@ -9,7 +9,7 @@
 (defpackage #:aitools.search.application
   (:use #:cl #:aitools.search.domain)
   (:import-from #:aitools.protocol.domain
-                #:json-object-from-alist #:json-null #:json-boolean #:repair)
+                #:json-object-from-alist #:json-boolean #:repair)
   (:export
    ;; ports.lisp
    #:search-ports
