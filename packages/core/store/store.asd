@@ -59,6 +59,7 @@
                         (:file "integration/store-lock-test")
                         (:file "integration/store-retry-plan-edge-test")
                         (:file "integration/store-tx-test")
+                        (:file "integration/store-view-hash-test")
                         (:file "integration/store-tx-operations-test")
                         (:file "integration/store-tx-command-test")
                         (:file "integration/store-mtime-test")

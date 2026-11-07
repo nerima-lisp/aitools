@@ -1,0 +1,105 @@
+(in-package #:aitools.store.test)
+(describe "aitools.store path hashes"
+  (it-each ((:file "file" "payload" "payload")
+            (:link "link" "target" "payload")
+            (:dangling "dangling" "missing-target" "missing-target")
+            (:directory-link "directory-link" "directory" "directory")
+            (:nested-dangling "nested/dangling" "missing" "missing"))
+      "hashes the disk view for ~A"
+      (kind path target content)
+    (call-with-temp-store
+     (lambda (store)
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (case kind
+           (:file (put-file store path target))
+           (:link
+            (put-file store target content)
+            (sb-posix:symlink target (disk-path store path)))
+           (:dangling (sb-posix:symlink target (disk-path store path)))
+           (:directory-link
+            (put-file store "directory/seed" "seed")
+            (sb-posix:symlink target (disk-path store path)))
+           (:nested-dangling
+            (put-file store "nested/seed" "seed")
+            (sb-posix:symlink target (disk-path store path))))
+         (expect (path-hash host (store-root store) (disk-view store)
+                            (disk-path store path))
+                 :to-equal (aitools.kernel.domain:content-hash (bytes content)))))
+     :io nil))
+
+  (it-each ((:directory "directory") (:absent "missing"))
+      "returns no hash for a ~A path"
+      (kind path)
+    (call-with-temp-store
+     (lambda (store)
+       (when (eq kind :directory)
+         (put-file store "directory/seed" "seed"))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (expect (path-hash host (store-root store) (disk-view store)
+                            (disk-path store path))
+                 :to-be nil)))
+     :io nil))
+
+  (it "returns no hash for the workspace root"
+    (call-with-temp-store
+     (lambda (store)
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (expect (path-hash host (store-root store) (disk-view store)
+                            (store-root store))
+                 :to-be nil)))
+     :io nil))
+
+  (it "uses the host for paths outside a view and returns nil when bytes cannot be read"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "file" "payload")
+       (put-file store "../outside" "outside")
+       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host))
+              (unreadable-host
+                (aitools.workspace.application:make-workspace-host
+                 :list-directory (lambda (path)
+                                   (aitools.workspace.application:host-list-directory host path))
+                 :stat (lambda (path) (aitools.workspace.application:host-stat host path))
+                 :read-link (lambda (path) (aitools.workspace.application:host-read-link host path))
+                 :read-octets (lambda (path) (declare (ignore path)) nil)
+                 :getenv (lambda (name) (aitools.workspace.application:host-getenv host name))
+                 :home-directory (lambda () (aitools.workspace.application:host-home-directory host))
+                 :current-directory (lambda () (aitools.workspace.application:host-current-directory host))))
+              (outside (disk-path store "../outside")))
+         (expect (path-hash host (store-root store) nil (disk-path store "file"))
+                 :to-equal (aitools.kernel.domain:content-hash (bytes "payload")))
+         (expect (path-hash host (store-root store) nil outside)
+                 :to-equal (aitools.kernel.domain:content-hash (bytes "outside")))
+         (expect (path-hash unreadable-host (store-root store) nil (disk-path store "file"))
+                 :to-be nil)))
+     :io nil))
+
+  (it "hashes the target text when a symlink loop cannot be resolved"
+    (call-with-temp-store
+     (lambda (store)
+       (sb-posix:symlink "loop-b" (disk-path store "loop-a"))
+       (sb-posix:symlink "loop-a" (disk-path store "loop-b"))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (expect (path-hash host (store-root store) (disk-view store)
+                            (disk-path store "loop-a"))
+                 :to-equal (aitools.kernel.domain:content-hash (bytes "loop-b")))))
+     :io nil))
+
+  (it "hashes staged file contents through a symlink in the tx view"
+    (call-with-temp-store
+     (lambda (store)
+       (let ((tx (begin store))
+             (host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (stage store tx (list (write-file-request "staged" (bytes "staged"))))
+         (sb-posix:symlink "staged" (disk-path store "staged-link"))
+         (call-with-tx-view/k
+          store tx
+          :on-view
+          (lambda (view)
+            (expect (path-hash host (store-root store) view (disk-path store "staged"))
+                    :to-equal (aitools.kernel.domain:content-hash (bytes "staged")))
+            (expect (path-hash host (store-root store) view (disk-path store "staged-link"))
+                    :to-equal (aitools.kernel.domain:content-hash (bytes "staged"))))
+          :on-not-found (lambda () (expect :not-found :to-be nil)))))
+     :io nil)))
+
