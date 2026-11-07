@@ -133,7 +133,7 @@ indented line, or NIL when the value is written on one line."
 (defun parse-json-pointer (pointer)
   "RFC 6901 POINTER as a list of reference tokens; signals JSON-EDIT-ERROR
 (argument.invalid) for a malformed pointer. Delegates to the kernel's shared
-pointer module, which the read side (`json get`/`query`/`diff`) uses too;
+pointer module, which the read side (`doc get`/`query`/`diff`) uses too;
 its :INVALID becomes the edit refusal."
   (let ((tokens (aitools.kernel.domain:parse-json-pointer pointer)))
     (if (eq tokens :invalid)
@@ -212,7 +212,7 @@ AITOOLS.KERNEL.DOMAIN:JSON-EQUAL expects."
 (defun json-equal (a b)
   "RFC 6902 `test` equality via the kernel's shared JSON-EQUAL: numbers
 by IEEE double value (RFC 8259), objects regardless of member order, arrays
-element-wise. The read side (`json get`/`diff`) uses the same rule."
+element-wise. The read side (`doc get`/`diff`) uses the same rule."
   (aitools.kernel.domain:json-model-equal *json-value-model* a b))
 
 (defun json-merge-patch (target patch)

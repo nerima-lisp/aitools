@@ -155,32 +155,30 @@
      :include ()
      :output-fields ((:name "path" :description "Absolute real path of the new entry; writes below it are allowed.")
                      (:name "hash" :description "For a file (not --dir): the content hash info reports for it, ready for write --overwrite --expect-hash.")))
-    (:name "json.set"
-     :summary "Set the value at a JSON Pointer (/- appends to an array)."
+    (:name "doc.set"
+     :summary "Set a JSON value in a JSON, YAML, or TOML document at a JSON Pointer; string values need JSON quotes."
      :positionals ((:key :path :name "path") (:key :pointer :name "pointer") (:key :value :name "value" :optional t))
-     :options ()
+     :options ((:key :format :name "format" :kind :value :description "json, yaml, or toml (default: from the path extension)."))
      :include (:stdin :hash :write))
-    (:name "json.delete"
-     :summary "Delete the value at a JSON Pointer."
+    (:name "doc.delete"
+     :summary "Delete a value from a JSON, YAML, or TOML document at a JSON Pointer."
      :positionals ((:key :path :name "path") (:key :pointer :name "pointer"))
-     :options ()
+     :options ((:key :format :name "format" :kind :value :description "json, yaml, or toml (default: from the path extension)."))
      :include (:hash :write))
-    (:name "json.merge"
-     :summary "Apply an RFC 7386 JSON Merge Patch read from --stdin."
+    (:name "doc.merge"
+     :summary "Apply an RFC 7386 JSON Merge Patch from --stdin to a JSON, YAML, or TOML document."
      :positionals ((:key :path :name "path"))
-     :options ()
+     :options ((:key :format :name "format" :kind :value :description "json, yaml, or toml (default: from the path extension)."))
      :include (:stdin :hash :write))
-    (:name "json.patch"
-     :summary "Apply an RFC 6902 JSON Patch read from --stdin; all operations or none."
+    (:name "doc.patch"
+     :summary "Apply an RFC 6902 JSON Patch from --stdin to a JSON, YAML, or TOML document; all operations or none."
      :positionals ((:key :path :name "path"))
-     :options ()
+     :options ((:key :format :name "format" :kind :value :description "json, yaml, or toml (default: from the path extension)."))
      :include (:stdin :hash :write))
-    (:name "json.fmt"
-     :summary "Re-indent a JSON file, keeping key order unless --sort-keys."
+    (:name "doc.fmt"
+     :summary "Format a JSON, YAML, or TOML document; JSON supports --indent, --minify, and --sort-keys."
      :positionals ((:key :path :name "path"))
-     :options ((:key :indent :name "indent" :kind :value :description "Indent width (default: the file's own, else 2).")
-               (:key :minify :name "minify" :kind :flag :description "Write on one line.")
-               (:key :sort-keys :name "sort-keys" :kind :flag :description "Sort object keys."))
+     :options ((:key :format :name "format" :kind :value :description "json, yaml, or toml (default: from the path extension).") (:key :indent :name "indent" :kind :value :description "Indent width; defaults to detected width, or 2.") (:key :minify :name "minify" :kind :flag :description "Write on one line.") (:key :sort-keys :name "sort-keys" :kind :flag :description "Sort object keys."))
      :include (:hash :write))
     (:name "table.set"
      :summary "Set one cell of a CSV or TSV file by data row and column name."
@@ -204,27 +202,7 @@
      :positionals ((:key :path :name "path") (:key :sources :name "src" :rest t))
      :options ((:key :format :name "format" :kind :value :description "zip, tar, tar.gz or gz (default: from the extension)."))
      :include (:scan :write)
-     :output-fields ((:name "entries" :description "Entries written.")))
-    (:name "yaml.set" :summary "Set a JSON value in a YAML document at a JSON Pointer; string values need JSON quotes."
-     :positionals ((:key :path :name "path") (:key :pointer :name "pointer") (:key :value :name "value" :optional t)) :options () :include (:stdin :hash :write))
-    (:name "yaml.delete" :summary "Delete a value from a YAML document at a JSON Pointer."
-     :positionals ((:key :path :name "path") (:key :pointer :name "pointer")) :options () :include (:hash :write))
-    (:name "yaml.merge" :summary "Apply an RFC 7386 JSON Merge Patch from --stdin to a YAML document."
-     :positionals ((:key :path :name "path")) :options () :include (:stdin :hash :write))
-    (:name "yaml.patch" :summary "Apply an RFC 6902 JSON Patch from --stdin to a YAML document; all operations or none."
-     :positionals ((:key :path :name "path")) :options () :include (:stdin :hash :write))
-    (:name "yaml.fmt" :summary "Format a YAML document; a second fmt is a byte-for-byte no-op."
-     :positionals ((:key :path :name "path")) :options () :include (:hash :write))
-    (:name "toml.set" :summary "Set a JSON value in a TOML document at a JSON Pointer; string values need JSON quotes."
-     :positionals ((:key :path :name "path") (:key :pointer :name "pointer") (:key :value :name "value" :optional t)) :options () :include (:stdin :hash :write))
-    (:name "toml.delete" :summary "Delete a value from a TOML document at a JSON Pointer."
-     :positionals ((:key :path :name "path") (:key :pointer :name "pointer")) :options () :include (:hash :write))
-    (:name "toml.merge" :summary "Apply an RFC 7386 JSON Merge Patch from --stdin to a TOML document."
-     :positionals ((:key :path :name "path")) :options () :include (:stdin :hash :write))
-    (:name "toml.patch" :summary "Apply an RFC 6902 JSON Patch from --stdin to a TOML document; all operations or none."
-     :positionals ((:key :path :name "path")) :options () :include (:stdin :hash :write))
-    (:name "toml.fmt" :summary "Format a TOML document. Value entries precede child tables and arrays of tables; order within each group is preserved, groups may reorder, and a second fmt is a byte-for-byte no-op."
-     :positionals ((:key :path :name "path")) :options () :include (:hash :write)))
+     :output-fields ((:name "entries" :description "Entries written."))))
   "One plist per edit command; :NAME is the dispatch name.")
 
 (export '(*edit-command-specs* *edit-option-groups*))

@@ -1,6 +1,6 @@
 ;;;;
-;;;; The `json` write commands and `table set`.
-;;;; A JSON write keeps key order, re-indents with the width the file
+;;;; JSON document reading and the shared JSON-value write pipeline.
+;;;; A JSON format write keeps key order, re-indents with the width the file
 ;;;; already uses, and keeps the file's BOM, line ending and final newline.
 (in-package #:aitools.edit.application)
 
@@ -61,18 +61,18 @@ when it is not JSON."
          (zerop (document-line-count document))))))
 
 (defun %json-repairs (path code repair-pointer)
-  "contract-F3: repairs for a JSON write failure that mirror `json get`
+  "contract-F3: repairs for a JSON write failure that mirror `doc get`
 rather than the generic file repairs. REPAIR-POINTER is the command's pointer
 tokens (set/delete) or NIL (merge/patch/fmt)."
   (let ((file (aitools.protocol.domain:shell-quote path)))
     (flet ((get-cmd (tokens)
              (if tokens
                  (format nil
-                         "aitools json get ~A ~A"
+                         "aitools doc get ~A ~A"
                          file
                          (aitools.protocol.domain:shell-quote
                           (format-json-pointer tokens)))
-                 (format nil "aitools json get ~A" file))))
+                 (format nil "aitools doc get ~A" file))))
       (if (and repair-pointer (string= code "input.not-found"))
           (list
            (repair "list-keys"

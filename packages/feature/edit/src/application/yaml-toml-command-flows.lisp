@@ -126,76 +126,113 @@
                          :record-positionals (lambda (paths) (list (first paths)))
                          :inputs (list text))))))))
 
-(aitools.kernel.domain:define-flow (%format-fmt/k format command ports positionals options &key on-plan on-error)
-  (if (/= (length positionals) 1)
-      (aitools.kernel.domain:flow-continue
-        :on-error "argument.invalid"
-        (format nil "~A fmt takes exactly one PATH"
-                (command-display-name command)))
-      (aitools.kernel.domain:flow-continue
-        :on-plan
-        (%format-plan format command (first positionals) (function identity)
-                      options
-                      :serializer (edit-ports-serialize-document ports)))))
-
 (aitools.kernel.domain:define-flow
-  (%format-command/k format verb ports positionals options &key on-plan on-error)
-  (let ((command (format nil "~A.~A" format verb)))
+  (%format-fmt/k format command ports positionals options &key on-plan on-error)
+  (let* ((indent (getf options :indent))
+         (indent-width (and indent (parse-count indent)))
+         (json-format-p (string= format "json")))
     (cond
-      ((string= verb "set")
-       (aitools.kernel.domain:flow-call
-         (%format-set/k format command ports positionals options)
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "delete")
-       (aitools.kernel.domain:flow-call
-         (%format-delete/k format command ports positionals options)
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "merge")
-       (aitools.kernel.domain:flow-call
-         (%format-stdin-command format command ports positionals options
-                                (lambda (patch)
-                                  (lambda (document)
-                                    (json-merge-patch document patch))))
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
-      ((string= verb "patch")
-       (aitools.kernel.domain:flow-call
-         (%format-stdin-command format command ports positionals options
-                                (lambda (operations)
-                                  (lambda (document)
-                                    (json-apply-patch document operations))))
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message))))
+      ((/= (length positionals) 1)
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         (format nil "~A fmt takes exactly one PATH"
+                 (command-display-name command))))
+      ((and (not json-format-p)
+            (or indent (getf options :minify) (getf options :sort-keys)))
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         "--indent, --minify, and --sort-keys are only valid for JSON documents."))
+      ((and json-format-p indent
+            (not (and indent-width (<= indent-width 16))))
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         (format nil "--indent ~S must be 0 to 16" indent)))
+      ((and json-format-p indent (getf options :minify))
+       (aitools.kernel.domain:flow-continue
+         :on-error "argument.invalid"
+         "--indent and --minify cannot be combined"))
       (t
-       (aitools.kernel.domain:flow-call
-         (%format-fmt/k format command ports positionals options)
-         (:on-plan (plan)
-           (aitools.kernel.domain:flow-continue :on-plan plan))
-         (:on-error (code message)
-           (aitools.kernel.domain:flow-continue :on-error code message)))))))
+       (aitools.kernel.domain:flow-continue
+         :on-plan
+         (%format-plan
+          format command (first positionals) (function identity) options
+          :serializer (edit-ports-serialize-document ports)
+          :sort-keys (and json-format-p (getf options :sort-keys))
+          :indent-function
+          (and json-format-p
+               (lambda (detected)
+                 (cond
+                   ((getf options :minify) nil)
+                   (indent (make-string indent-width :initial-element #\Space))
+                   (t (or detected "  ")))))))))))
 
-(defmacro define-format-write-commands (format-name)
-  (let ((format (string-downcase format-name)))
+(progn
+  (defmacro %with-plan-continuations (flow)
+    `(aitools.kernel.domain:flow-call
+       ,flow
+       (:on-plan (plan)
+         (aitools.kernel.domain:flow-continue :on-plan plan))
+       (:on-error (code message)
+         (aitools.kernel.domain:flow-continue :on-error code message))))
+
+  (aitools.kernel.domain:define-flow
+    (%format-command/k format verb ports positionals options &key on-plan on-error)
+    (let ((command (format nil "doc.~A" verb)))
+      (cond
+        ((string= verb "set")
+         (%with-plan-continuations
+          (%format-set/k format command ports positionals options)))
+        ((string= verb "delete")
+         (%with-plan-continuations
+          (%format-delete/k format command ports positionals options)))
+        ((string= verb "merge")
+         (%with-plan-continuations
+          (%format-stdin-command
+           format command ports positionals options
+           (lambda (patch)
+             (lambda (document)
+               (json-merge-patch document patch))))))
+        ((string= verb "patch")
+         (%with-plan-continuations
+          (%format-stdin-command
+           format command ports positionals options
+           (lambda (operations)
+             (lambda (document)
+               (json-apply-patch document operations))))))
+        (t
+         (%with-plan-continuations
+          (%format-fmt/k format command ports positionals options)))))))
+
+(progn
+  (aitools.kernel.domain:define-flow
+    (%prepare-doc-command/k verb ports positionals options &key on-plan on-error)
+    (let ((path (first positionals)))
+      (cond
+        ((null path)
+         (aitools.kernel.domain:flow-continue
+           :on-error "argument.invalid"
+           (format nil "doc ~A needs PATH" verb)))
+        (t
+         (let ((format (%document-format path (getf options :format))))
+           (if format
+               (%with-plan-continuations
+                (%format-command/k format verb ports positionals options))
+               (aitools.kernel.domain:flow-continue
+                 :on-error "argument.invalid"
+                 (format nil
+                         "Cannot determine the document format for ~A; pass --format json, yaml, or toml."
+                         path)
+                 :repairs (list (%document-format-repair verb positionals)))))))))
+
+  (defmacro define-doc-write-commands ()
     `(progn
-       ,@(loop for verb in '("set" "delete" "merge" "patch" "fmt")
+       ,@(loop for verb in (list "set" "delete" "merge" "patch" "fmt")
                collect
-               (let ((command (format nil "~A.~A" format verb)))
-                 `(define-write-command ,command
-                      (ports env positionals options &key on-plan on-error)
-                    (declare (ignore env))
-                    (aitools.kernel.domain:flow-call
-                      (%format-command/k ,format ,verb ports positionals options)
-                      (:on-plan (plan)
-                        (aitools.kernel.domain:flow-continue :on-plan plan))
-                      (:on-error (code message)
-                        (aitools.kernel.domain:flow-continue :on-error code message)))))))))
+               `(define-write-command ,(format nil "doc.~A" verb)
+                    (ports env positionals options &key on-plan on-error)
+                  (declare (ignore env))
+                  (%with-plan-continuations
+                   (%prepare-doc-command/k ,verb ports positionals options))))))
+
+  (define-doc-write-commands)
+)

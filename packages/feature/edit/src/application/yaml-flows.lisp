@@ -1,4 +1,3 @@
-;;;; YAML write commands.
+;;;; YAML document writes share the structured-document flow.
 (in-package #:aitools.edit.application)
 
-(define-format-write-commands "yaml")

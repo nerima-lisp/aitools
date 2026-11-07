@@ -1,4 +1,3 @@
-;;;; TOML write commands.
+;;;; TOML document writes share the structured-document flow.
 (in-package #:aitools.edit.application)
 
-(define-format-write-commands "toml")
