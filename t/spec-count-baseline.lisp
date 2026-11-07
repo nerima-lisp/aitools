@@ -1,11 +1,10 @@
 (:schema-version 1
- :minimum-executed-specs 3455
- :source :successful-linux-ci-run
- :run-id "40053128378"
- :revision "f031969bb4a55954ac26ff59ff9c5da53fde0650"
- :platform :linux
- :outer-start-events 3455
- :outer-end-events 3455
+ :minimum-executed-specs 3608
+ :source :successful-darwin-ci-run
+ :run-id "42340120820"
+ :revision "3b66acb33b5ddb8726afa36e675b452d6060fde2"
+ :platform :darwin
+ :outer-start-events 3608
+ :outer-end-events 3608
  :nested-e2e-diagnostic-events 544
- :reason "The 3,591-spec floor from successful Linux CI run 40053128378 at revision f031969bb4a55954ac26ff59ff9c5da53fde0650 was reduced by 136 net specs (118 removed VCS tests, 13 removed overview metadata specs, and five net E2E specs: six built-in Git cases replaced by one run passthrough case) to 3,455.
-The base revision 1b20c3abdea1d95a049cdb0481afcfd72072b2a4 was measured by successful Darwin CI run 39040201698, with 3,149 paired outer events and 250 nested E2E diagnostics; this floor is stricter.")
+ :reason "Successful Darwin CI run 42340120820 at revision 3b66acb33b5ddb8726afa36e675b452d6060fde2 reported POLICY_EXECUTED=3608. The minimum and paired outer-event counts use this measured value directly.")
