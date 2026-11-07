@@ -22,7 +22,7 @@ Uses outside the stated subset need external execution.
 | `stat file` | `info`: supported metadata and MIME inference, not all platform fields. |
 | `sed awk cut perl` | `read`, `search`, `table read`, `replace`, `transform`: line or column selection and supported transformations, not arbitrary programs. |
 | `sort uniq tr fmt fold iconv` | `transform`, `transcode`: supported operations and encodings. File updates are not stdin filters. |
-| `jq` | `json get`, `json select`, `json set`, `json delete`, `json merge`, `json patch`, `json fmt`: JSON Pointer and limited filters, not the jq language. |
+| `jq` | `doc get`, `doc select`, `doc set`, `doc delete`, `doc merge`, `doc patch`, `doc fmt`: JSON documents use the `doc` group with format inferred from the path or selected with `--format`; selectors are not the jq language. |
 | `diff cmp comm` | `diff`: supported text and line-set comparisons; check ordering, duplicate handling, binary input, and exit codes. |
 | `cp mv` | `copy`, `move`: workspace-scoped; check symlink treatment and existing destinations. Move does not merge existing directories. |
 | `rm rmdir` | `rm`: journaled, guarded removal. Recursive execution requires `--expect-count`, including the target root, and enforces protected paths and size limits. Inspect `--recursive --dry-run` first to obtain the count without removal. Undo refuses an inaccessible mode `000` tree rather than temporarily broadening permissions. |

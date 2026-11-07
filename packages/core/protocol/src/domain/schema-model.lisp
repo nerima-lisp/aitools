@@ -10,7 +10,7 @@
             (:constructor make-command-schema
                 (name summary &key description (args nil) (output-fields nil) (error-codes nil)))
             (:copier nil))
-  "NAME is the full dispatch name (\"read\", \"json.get\"). ARGS is a list of
+  "NAME is the full dispatch name (\"read\", \"doc.get\"). ARGS is a list of
 plists (:name :type :required :default :description ...) describing
 positionals and options, including which selectors/guards the command
 accepts. OUTPUT-FIELDS is a list of plists (:name :description) describing

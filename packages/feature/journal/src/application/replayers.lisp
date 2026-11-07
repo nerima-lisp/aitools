@@ -6,7 +6,7 @@
 (in-package #:aitools.journal.application)
 
 (defvar *tx-replayers* (make-hash-table :test 'equal)
-  "Dispatch name (\"edit\", \"json.set\") -> replayer function.")
+  "Dispatch name (\"edit\", \"doc.set\") -> replayer function.")
 
 (defun register-tx-replayer (command-name function)
   "Make FUNCTION the `tx rebase` replayer for COMMAND-NAME, the command's

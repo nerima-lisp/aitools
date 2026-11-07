@@ -3,13 +3,13 @@
 ;;;; registry itself lives in AITOOLS.PROTOCOL.APPLICATION so presentation
 ;;;; layers can register without referencing this package; this file is the
 ;;;; one place that interprets registered cli-command values as cl-cli
-;;;; commands, wrapping same-group commands (`json get`, `json set`, ...) into
+;;;; commands, wrapping same-group commands (`doc get`, `doc set`, ...) into
 ;;;; one parent cl-cli command per group.
 (in-package #:aitools/cli)
 
 (defun finalize-app-commands (registry)
   "Build top-level cl-cli commands, recursively nesting every registered group
-path such as `json` or `org.todo`."
+path such as `doc` or `org.todo`."
   (let ((groups (command-registry-group-commands registry)))
     (labels ((direct-child-groups (parent)
                (let ((prefix (concatenate 'string parent ".")))

@@ -43,8 +43,8 @@ are consumed greedily, then one following token is joined as the command leaf
                      (all-command-schemas registry)))))
 
 (defun %typed-name (schema)
-  "SCHEMA's name as an agent types it (`json get`), not the dotted dispatch
-name (`json.get`). `candidates` must read like render-command-summary's
+  "SCHEMA's name as an agent types it (`doc get`), not the dotted dispatch
+name (`doc.get`). `candidates` must read like render-command-summary's
 `name`, not expose the internal dotted form."
   (substitute #\Space #\. (aitools.protocol.domain:command-schema-name schema)))
 
@@ -140,7 +140,7 @@ single name and an array only otherwise."
                                           "subcommand token, e.g. schema org todo set), return "
                                           "those commands' full detail. `--all` returns every command's detail.")
                 :args (list (list :name "commands" :type "string" :required nil :repeatable t
-                                  :description "Command names as typed, such as read, json get, or org todo set.")
+                                  :description "Command names as typed, such as read, doc get, or org todo set.")
                             (list :name "--all" :type "flag" :required nil
                                   :description "Return every command's full detail."))
                 :output-fields (list (list :name "commands"

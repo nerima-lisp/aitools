@@ -80,8 +80,8 @@ explicit read set. It does not isolate the working tree from external writers.
 - **Write set.** Every path the tx wrote. At commit, a path whose file on
   disk no longer matches `base` is a write conflict.
 - **Read set.** A single-file read with `--tx` (`read`, `info`, `check`,
-  `json get`, `json select`, `yaml get`, `yaml select`, `toml get`,
-  `toml select`, `table read`, `archive read`) records the file's disk hash.
+  `doc get`, `doc select`, `table read`, `archive read`) records the file's
+  disk hash.
   At commit, a recorded file that has changed since is a stale read. Reading
   the file again with `--tx` refreshes the record. Scans are not recorded.
 
@@ -117,7 +117,7 @@ rebased path's `base` moves to the current file:
 ```
 
 Content-based operations search again: `--old`, `--between`, and `--match`
-selections, `replace`, `apply`, and the `json` writes. An operation that
+selections, `replace`, `apply`, and the `doc` writes. An operation that
 used `--range` or `--symbol`, or that carried `--expect-hash` (even with a
 content-based selector), is not re-run, because the positions or content it
 relied on may have changed; it makes the rebase fail with exit code 2, and

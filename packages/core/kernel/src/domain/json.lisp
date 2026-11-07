@@ -1,7 +1,7 @@
 ;;;;
 ;;;; RFC 6901 JSON pointers and JSON value equality, shared by the read side
-;;;; (`json get`/`query`/`diff`, which holds json-kit values with numbers
-;;;; already parsed) and the write side (`json set`/`patch`, which keeps each
+;;;; (`doc get`/`select`/`diff`, which holds json-kit values with numbers
+;;;; already parsed) and the write side (`doc set`/`patch`, which keeps each
 ;;;; number's source text so an untouched number is written back unchanged).
 ;;;; Kernel names no JSON library, so JSON-EQUAL reaches either
 ;;;; representation through a classifier function its caller supplies.

@@ -111,7 +111,7 @@ A name that is not a registered command returns `argument.invalid`, exit
 code 1. `src/dispatch.lisp` chooses the `repairs` by the kind of name, in
 this order:
 
-1. **A bare group name** (`json`, `bg`, `tx`) is a real command node with no
+1. **A registered bare group name** (`bg`, `tx`) is a real command node with no
    handler, so the message is `<group> requires a subcommand` and the repair
    is `aitools schema <group>`. That repair is runnable: `aitools schema`
    lists a group's subcommands when given the group name (`%group-schemas`
@@ -136,6 +136,6 @@ $ aitools uuid
 {"schema_version":2,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is the `util` group's subcommand; include the group name.","command":"aitools util uuid"}]}}
 ```
 
-`schema` also reports near-miss candidates as an agent types them (`json get`,
-not the dotted dispatch name `json.get`); `%typed-name` in `src/schema.lisp`
+`schema` also reports near-miss candidates as an agent types them (`doc get`,
+not the dotted dispatch name `doc.get`); `%typed-name` in `src/schema.lisp`
 builds them from the command schemas.
