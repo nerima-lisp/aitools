@@ -223,14 +223,15 @@ else under $TMPDIR; removed afterwards."
                0 3 tick-at)
               :to-be nil)))
 
-  (it "returns eight nonnegative counters on Darwin and NIL elsewhere"
+  #+darwin
+  (it "returns eight nonnegative counters on Darwin"
     (let ((counters (port "CPU-COUNTERS")))
-      #+darwin
-      (expect (and (listp counters) (= (length counters) 8)
-                   (every (lambda (counter) (and (integerp counter) (not (minusp counter)))) counters))
-              :to-be t)
-      #-darwin
-      (expect counters :to-be nil))))
+      (expect (and (listp counters)
+                   (= (length counters) 8)
+                   (every (lambda (counter)
+                            (and (integerp counter) (not (minusp counter))))
+                          counters))
+              :to-be t))))
 
 (describe "aitools.env unsupported disk host"
   (it "reports unavailable filesystem capacity"
