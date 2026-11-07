@@ -13,8 +13,7 @@ all text chunks into one octet vector."
                  (progn (push chunk chunks) (incf total (length chunk)) nil))))
       (declare (dynamic-extent #'take))
       (cond
-        ((null (aitools.text.application:source-call-with-chunks
-                source absolute +read-chunk-size+ #'take))
+        ((null (funcall (cl-boundary-kit:boundary-context-require source :text-call-with-chunks) absolute +read-chunk-size+ #'take))
          (aitools.kernel.domain:flow-continue :on-missing))
         (binary (aitools.kernel.domain:flow-continue :on-binary))
         ((null chunks)

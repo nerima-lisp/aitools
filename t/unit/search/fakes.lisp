@@ -77,26 +77,22 @@ reader (NIL for none); OPEN-STORE is passed through."
         :home-directory (constantly "/home/user")
         :working-directory (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd)))
        :text-source
-       (aitools.text.application:make-text-source
-        :file-size (lambda (path) (let ((octets (file-octets path))) (and octets (length octets))))
-        :read-prefix (lambda (path count)
-                       (let ((octets (file-octets path)))
-                         (and octets (subseq octets 0 (min count (length octets))))))
-        :read-octets #'file-octets
-        ;; Like the host source: no chunk for an empty file, and :STOP from
-        ;; FUNCTION ends the read.
-        :call-with-chunks (lambda (path size function)
-                            (when (member path failing :test #'string=)
-                              (error 'file-error :pathname path))
-                            (let ((octets (and (not (member path unreadable :test #'string=)) (file-octets path))))
-                              (and octets
-                                   (loop with step = (if split-chunks size (max 1 (length octets)))
-                                         for start from 0 below (length octets) by step
-                                         until (eq (funcall function (if (and (zerop start) (>= step (length octets)))
-                                                                         octets
-                                                                         (subseq octets start (min (length octets) (+ start step)))))
-                                                   :stop)
-                                         finally (return t))))))
+       (cl-boundary-kit:make-boundary-context
+        :text-call-with-chunks
+        (lambda (path size function)
+          (when (member path failing :test #'string=)
+            (error 'file-error :pathname path))
+          (let ((octets (and (not (member path unreadable :test #'string=))
+                             (file-octets path))))
+            (and octets
+                 (loop with step = (if split-chunks size (max 1 (length octets)))
+                       for start from 0 below (length octets) by step
+                       until (eq (funcall function
+                                         (if (and (zerop start) (>= step (length octets)))
+                                             octets
+                                             (subseq octets start (min (length octets) (+ start step)))))
+                                 :stop)
+                       finally (return t))))))
        :open-store open-store
        :unix-now (constantly now)
        :read-stdin-octets (if (eq stdin-port :fake)

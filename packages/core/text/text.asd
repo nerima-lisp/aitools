@@ -19,9 +19,7 @@
                                   (:file "archive-data") (:file "archive-format")))
             (:module "application"
                      :components ((:file "package") (:file "source")))
-            (:module "infrastructure"
-                     :components ((:file "package") (:file "host-source")
-                                  (:file "boundaries")))))
+            (:module "infrastructure" :components ((:file "package") (:file "host-source")))))
 (defsystem "aitools/test/text"
            :description "text context tests."
            :depends-on ("aitools/test/base" "aitools/core/text")

@@ -3,7 +3,7 @@
 (defun make-org-write-flow-ports ()
   (aitools.org.infrastructure:make-production-org-ports
    :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
-   :text-source (aitools.text.infrastructure:make-host-text-source)
+   :text-source (make-host-text-source)
    :open-store #'open-store))
 
 (defun run-org-flow (flow ports &rest arguments)

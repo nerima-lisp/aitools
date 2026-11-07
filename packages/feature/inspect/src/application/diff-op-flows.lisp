@@ -13,8 +13,7 @@ the file on disk when that still has the recorded hash."
       (let ((store (context-store context)))
         (or (%blob-or-nil store (entry-state-hash after))
             (let ((disk
-                   (source-read-octets (context-source context)
-                                       (join-path (context-root-real context)
+                   (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path (context-root-real context)
                                                   (change-result-path change)))))
               (and disk
                    (string= (content-hash disk) (entry-state-hash after))

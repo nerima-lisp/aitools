@@ -69,32 +69,41 @@
         (expect-unchanged before)))))
   (it "reports an unreadable content file without creating the output"
     (call-with-edit-workspace (lambda () (put "in.txt" "input")
-      (cl-weave:with-mocked-functions
-          (((symbol-function (quote aitools.text.application:source-file-size))
-            (lambda (source path)
-              (declare (ignore source path))
-              (values nil :unreadable))))
-        (with-error (code message)
-            (run "write" (list "out.txt") :content-file (list "in.txt"))
-          (expect code :to-equal "environment.io")
-          (expect message :to-equal "cannot read in.txt")))
-      (expect (kind "out.txt") :to-be :absent))))
+      (let ((require-boundary #'cl-boundary-kit:boundary-context-require))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'cl-boundary-kit:boundary-context-require)
+              (lambda (context key)
+                (if (eq key :text-file-size)
+                    (lambda (path)
+                      (declare (ignore path))
+                      (values nil :unreadable))
+                    (funcall require-boundary context key))))
+          (with-error (code message)
+              (run "write" (list "out.txt") :content-file (list "in.txt"))
+            (expect code :to-equal "environment.io")
+            (expect message :to-equal "cannot read in.txt"))))
+      (expect (kind "out.txt") :to-be :absent)))))
   (it "reports a content file that disappears during reading as an I/O failure"
     (call-with-edit-workspace (lambda () (put "in.txt" "input")
-      (cl-weave:with-mocked-functions
-          (((symbol-function (quote aitools.text.application:source-file-size))
-            (lambda (source path)
-              (declare (ignore source path))
-              (values 5 nil)))
-           ((symbol-function (quote aitools.text.application:source-read-octets))
-            (lambda (source path)
-              (declare (ignore source path))
-              nil)))
-        (with-error (code message)
-            (run "write" (list "out.txt") :content-file (list "in.txt"))
-          (expect code :to-equal "environment.io")
-          (expect message :to-equal "cannot read in.txt")))
-      (expect (kind "out.txt") :to-be :absent)))))
+      (let ((require-boundary #'cl-boundary-kit:boundary-context-require))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'cl-boundary-kit:boundary-context-require)
+              (lambda (context key)
+                (case key
+                  (:text-file-size
+                   (lambda (path)
+                     (declare (ignore path))
+                     (values 5 nil)))
+                  (:text-read-octets
+                   (lambda (path)
+                     (declare (ignore path))
+                     nil))
+                  (otherwise (funcall require-boundary context key)))))
+          (with-error (code message)
+              (run "write" (list "out.txt") :content-file (list "in.txt"))
+            (expect code :to-equal "environment.io")
+            (expect message :to-equal "cannot read in.txt"))))
+      (expect (kind "out.txt") :to-be :absent))))))
 
 (describe "aitools replace: stdin, scan options and unreadable files"
   (it "reads the pattern and replacement from --stdin"

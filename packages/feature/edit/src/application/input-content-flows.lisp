@@ -6,7 +6,7 @@
 workspace allowed: reads are not bounded by the workspace boundary) as bytes."
   (let ((source (edit-ports-text-source ports))
         (absolute (%absolute-input-path ports path)))
-    (multiple-value-bind (size problem) (aitools.text.application:source-file-size source absolute)
+    (multiple-value-bind (size problem) (funcall (cl-boundary-kit:boundary-context-require source :text-file-size) absolute)
       (cond
         ((eq problem :unreadable)
          (aitools.kernel.domain:flow-continue
@@ -34,7 +34,7 @@ workspace allowed: reads are not bounded by the workspace boundary) as bytes."
              path
              +max-input-bytes+)))
         (t
-         (let ((octets (aitools.text.application:source-read-octets source absolute)))
+         (let ((octets (funcall (cl-boundary-kit:boundary-context-require source :text-read-octets) absolute)))
            (if octets
                (aitools.kernel.domain:flow-continue
                  :on-octets

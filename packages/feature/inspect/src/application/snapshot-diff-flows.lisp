@@ -118,8 +118,7 @@
         (compare-snapshot snapshot current)
       (let* ((modified
               (loop for (old . new) in suspects
-                    for octets = (source-read-octets (context-source context)
-                                                     (join-path
+                    for octets = (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path
                                                       (workspace-root-path
                                                        (inspect-context-root
                                                         context))

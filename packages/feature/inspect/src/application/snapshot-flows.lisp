@@ -121,9 +121,7 @@ ordered mapper."
                                      (lambda (entry)
                                        (and (eq (scan-entry-kind entry) :file)
                                             (let ((octets
-                                                   (source-read-octets
-                                                    text-source
-                                                    (scan-entry-absolute entry))))
+                                                   (funcall (cl-boundary-kit:boundary-context-require text-source :text-read-octets) (scan-entry-absolute entry))))
                                               (and octets (content-hash octets))))))
                                 :emit
                                 (lambda (entry result)

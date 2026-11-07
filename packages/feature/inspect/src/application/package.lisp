@@ -21,16 +21,14 @@
                 #:text-layout-final-newline-p #:utf8-valid-p #:guess-encoding #:guess-mime
                 #:find-encoding #:encoding-name #:*supported-encodings* #:language-for-path
                 #:decode-utf8-strict/k)
-  (:import-from #:aitools.text.application
-                #:source-read-octets #:source-read-range #:source-file-size #:source-call-with-chunks)
-  (:import-from #:aitools.workspace.domain
-                #:join-path #:path-basename #:aitools-temporary-name-p)
   (:import-from #:aitools.workspace.application
                 #:workspace-root-path #:workspace-root-real #:workspace-entry-kind #:workspace-entry-size
                 #:workspace-entry-mtime #:workspace-entry-mode #:workspace-entry-name
                 #:host-stat #:host-list-directory #:resolve-real-path
                 #:call-with-resolved-root/k #:user-path-absolute #:call-with-workspace-scan/k #:workspace-path-ignored-p
                 #:scan-entry-path #:scan-entry-kind #:scan-entry-size #:scan-entry-mtime #:scan-entry-absolute)
+  (:import-from #:aitools.workspace.domain
+                #:join-path #:path-basename #:aitools-temporary-name-p)
   (:import-from #:aitools.store.domain
                 #:entry-state-kind #:entry-state-hash #:entry-state-mode #:entry-state-mtime #:entry-state-equal
                 #:journal-entry-changes #:journal-entry-op-id #:journal-entry-argv

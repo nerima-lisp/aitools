@@ -1,5 +1,5 @@
 ;;;;
-;;;; The production TEXT-SOURCE: reads of regular files. Each read opens with
+;;;; The production text boundary operations read regular files. Each read opens with
 ;;;; O_NONBLOCK and checks the type with fstat on the open descriptor, so a
 ;;;; FIFO or device named by an agent is refused instead of blocking the
 ;;;; process, and the checked file is the one read (no stat-then-open window).
@@ -152,10 +152,11 @@ size, read after one lseek so nothing before START is read."
                              t)))
 
 (defun make-host-text-source ()
-  "The production TEXT-SOURCE over the real filesystem."
-  (make-text-source :file-size #'%file-size
-                    :read-prefix #'%read-prefix
-                    :read-octets #'%read-octets
-                    :call-with-chunks #'%call-with-chunks
-                    :read-sniffed #'%read-sniffed
-                    :read-range #'%read-range))
+  "The production boundary context over the real filesystem."
+  (cl-boundary-kit:make-boundary-context
+   :text-file-size (function %file-size)
+   :text-read-prefix (function %read-prefix)
+   :text-read-octets (function %read-octets)
+   :text-call-with-chunks (function %call-with-chunks)
+   :text-read-sniffed (function %read-sniffed)
+   :text-read-range (function %read-range)))

@@ -13,19 +13,16 @@
           (file-position out offset)
           (write-sequence (sb-ext:string-to-octets "window" :external-format :utf-8) out))
         (multiple-value-bind (octets reported)
-            (aitools.text.application:source-read-range
-             (aitools.text.infrastructure:make-host-text-source) path offset (+ offset 6))
+            (funcall (cl-boundary-kit:boundary-context-require (make-host-text-source) :text-read-range) path offset (+ offset 6))
           (expect (text octets) :to-equal "window")
           (expect reported :to-be size))
         (multiple-value-bind (octets reported)
-            (aitools.text.application:source-read-range
-             (aitools.text.infrastructure:make-host-text-source) path 0 6)
+            (funcall (cl-boundary-kit:boundary-context-require (make-host-text-source) :text-read-range) path 0 6)
           (expect (length octets) :to-be 6)
           (expect (every (function zerop) octets) :to-be t)
           (expect reported :to-be size))
         (multiple-value-bind (octets reported)
-            (aitools.text.application:source-read-range
-             (aitools.text.infrastructure:make-host-text-source) path (- size 2) (+ size 100))
+            (funcall (cl-boundary-kit:boundary-context-require (make-host-text-source) :text-read-range) path (- size 2) (+ size 100))
           (expect (length octets) :to-be 2)
           (expect reported :to-be size)))))))
 

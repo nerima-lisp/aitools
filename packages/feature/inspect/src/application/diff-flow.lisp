@@ -166,11 +166,9 @@ aitools temp files skipped, sorted by path."
                  (eql (cdr (assoc path files-a :test #'string=))
                       (cdr (assoc path files-b :test #'string=)))
                  (equalp
-                  (source-read-octets (context-source context)
-                                      (join-path (file-target-real target-a)
+                  (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path (file-target-real target-a)
                                                  path))
-                  (source-read-octets (context-source context)
-                                      (join-path (file-target-real target-b)
+                  (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path (file-target-real target-b)
                                                  path)))))
               both)))
         (multiple-value-bind (shown-added truncated-added)

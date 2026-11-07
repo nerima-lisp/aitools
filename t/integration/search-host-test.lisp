@@ -20,7 +20,7 @@
    :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv (constantly nil)
                     :home-directory (constantly "/nonexistent-home")
                     :current-directory (constantly root))
-   :text-source (aitools.text.infrastructure:make-host-text-source)
+   :text-source (make-host-text-source)
    :open-store open-store
    :unix-now (constantly 0)))
 

@@ -79,27 +79,50 @@ succeeds) but its bytes cannot be read (EACCES), so the source reports
 
 (defun make-fake-source (nodes)
   (flet ((file (path)
-           "(VALUES octets problem): PROBLEM is :UNREADABLE for a file denied
-by permission (EACCES), NIL for a missing file (contract-F1)."
            (let ((node (gethash (%follow nodes path) nodes)))
              (cond ((or (null node) (not (eq (first node) :file))) (values nil nil))
                    ((fourth node) (values nil :unreadable))
                    (t (values (second node) nil))))))
-    (aitools.text.application:make-text-source
-     :file-size (lambda (path)
-                  (multiple-value-bind (octets problem) (file path)
-                    (if octets (length octets) (values nil problem))))
-     :read-prefix (lambda (path count)
-                    (multiple-value-bind (octets problem) (file path)
-                      (if octets (subseq octets 0 (min count (length octets))) (values nil problem))))
-     :read-octets #'file
-     :call-with-chunks (lambda (path size function)
-                         (let ((octets (file path)))
-                           (when octets
-                             (loop for start from 0 below (length octets) by size
-                                   until (eq (funcall function (subseq octets start (min (length octets) (+ start size))))
-                                             :stop))
-                             t))))))
+    (cl-boundary-kit:make-boundary-context
+     :text-file-size
+     (lambda (path)
+       (multiple-value-bind (octets problem) (file path)
+         (if octets (length octets) (values nil problem))))
+     :text-read-prefix
+     (lambda (path count)
+       (multiple-value-bind (octets problem) (file path)
+         (if octets
+             (subseq octets 0 (min count (length octets)))
+             (values nil problem))))
+     :text-read-octets (function file)
+     :text-call-with-chunks
+     (lambda (path size function)
+       (multiple-value-bind (octets problem) (file path)
+         (if octets
+             (progn
+               (loop for start from 0 below (length octets) by size
+                     until (eq (funcall function (subseq octets start (min (length octets) (+ start size))))
+                               :stop))
+               t)
+             (values nil problem))))
+     :text-read-sniffed
+     (lambda (path count continue-p)
+       (multiple-value-bind (octets problem) (file path)
+         (if octets
+             (let ((prefix (subseq octets 0 (min count (length octets)))))
+               (if (and (funcall continue-p prefix (length octets))
+                        (= (length prefix) count))
+                   octets
+                   prefix))
+             (values nil problem))))
+     :text-read-range
+     (lambda (path start end)
+       (multiple-value-bind (octets problem) (file path)
+         (if octets
+             (let* ((end (min end (length octets)))
+                    (start (min start end)))
+               (values (subseq octets start end) (length octets)))
+             (values nil problem)))))))
 
 (defun make-test-ports (&key files directories symlinks unreadable (cwd "/work") open-store state-directory)
   "INSPECT-PORTS over an in-memory filesystem rooted at CWD (a directory

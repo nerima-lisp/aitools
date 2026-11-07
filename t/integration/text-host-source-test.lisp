@@ -3,19 +3,18 @@
 ;;;; flow over it.
 (in-package #:aitools.text.integration-test)
 
-(defun source () (aitools.text.infrastructure:make-host-text-source))
+(defun source () (make-host-text-source))
 
 (describe "aitools text production source"
   (it "reads sizes, prefixes, whole files, and chunks of oddly named files"
     (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/a*[b].txt")))
         (write-file path "0123456789")
-        (expect (aitools.text.application:source-file-size (source) path) :to-be 10)
-        (expect (text (aitools.text.application::source-read-prefix (source) path 4)) :to-equal "0123")
-        (expect (text (aitools.text.application:source-read-octets (source) path)) :to-equal "0123456789")
+        (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) path) :to-be 10)
+        (expect (text (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-prefix) path 4)) :to-equal "0123")
+        (expect (text (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) path)) :to-equal "0123456789")
         (let ((chunks '()))
-          (expect (aitools.text.application:source-call-with-chunks
-                   (source) path 4 (lambda (chunk) (push (text chunk) chunks) nil))
+          (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-call-with-chunks) path 4 (lambda (chunk) (push (text chunk) chunks) nil))
                   :to-be-truthy)
           (expect (reverse chunks) :to-equal '("0123" "4567" "89")))))))
 
@@ -24,10 +23,10 @@
       (write-file (concatenate 'string scratch "/target") "x")
       (make-symlink "target" (concatenate 'string scratch "/link"))
       (sb-posix:mkfifo (concatenate 'string scratch "/pipe") #o600)
-      (expect (aitools.text.application:source-file-size (source) (concatenate 'string scratch "/link")) :to-be 1)
-      (expect (aitools.text.application:source-read-octets (source) scratch) :to-be-falsy)
-      (expect (aitools.text.application:source-read-octets (source) (concatenate 'string scratch "/pipe")) :to-be-falsy)
-      (expect (aitools.text.application:source-file-size (source) (concatenate 'string scratch "/none")) :to-be-falsy))))
+      (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) (concatenate 'string scratch "/link")) :to-be 1)
+      (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) scratch) :to-be-falsy)
+      (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) (concatenate 'string scratch "/pipe")) :to-be-falsy)
+      (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) (concatenate 'string scratch "/none")) :to-be-falsy))))
 
   (it "tells a file it may not open apart from a missing one"
     (call-with-scratch-directory (lambda (scratch)
@@ -36,22 +35,21 @@
         (sb-posix:chmod path 0)
         (unwind-protect
              (progn
-               (expect (multiple-value-list (aitools.text.application:source-file-size (source) path))
+               (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) path))
                        :to-equal '(nil :unreadable))
-               (expect (multiple-value-list (aitools.text.application:source-read-octets (source) path))
+               (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) path))
                        :to-equal '(nil :unreadable))
-               (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) path 4))
+               (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-prefix) path 4))
                        :to-equal '(nil :unreadable))
-               (expect (multiple-value-list (aitools.text.application:source-call-with-chunks
-                                             (source) path 4 (lambda (chunk) (declare (ignore chunk)) nil)))
+               (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-call-with-chunks) path 4 (lambda (chunk) (declare (ignore chunk)) nil)))
                        :to-equal '(nil :unreadable))
                (dolist (missing (list (concatenate 'string scratch "/none")
                                       (concatenate 'string scratch "/locked/below")))
-                 (expect (multiple-value-list (aitools.text.application:source-file-size (source) missing))
+                 (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) missing))
                          :to-equal '(nil))
-                 (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) missing 4))
+                 (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-prefix) missing 4))
                          :to-equal '(nil))
-                 (expect (multiple-value-list (aitools.text.application:source-read-octets (source) missing))
+                 (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) missing))
                          :to-equal '(nil)))
                (expect (aitools.text.application:call-with-text-file/k
                         (source) path
@@ -96,7 +94,7 @@
             (bytes (make-array 200000 :element-type '(unsigned-byte 8))))
         (dotimes (i (length bytes)) (setf (aref bytes i) (mod (* i 31) 256)))
         (write-file path bytes)
-        (expect (aitools.text.application:source-read-octets (source) path) :to-equalp bytes)))))
+        (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) path) :to-equalp bytes)))))
 
   (it "reads a prefix, then the rest on the same descriptor only when asked"
     (call-with-scratch-directory (lambda (scratch)
@@ -106,21 +104,18 @@
         (dotimes (i (length bytes)) (setf (aref bytes i) (mod (* i 31) 256)))
         (write-file path bytes)
         (flet ((sniff (count continue)
-                 (aitools.text.application:source-read-sniffed
-                  (source) path count (lambda (prefix size) (push (list (length prefix) size) seen) continue))))
+                 (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-sniffed) path count (lambda (prefix size) (push (list (length prefix) size) seen) continue))))
           (expect (sniff 8192 nil) :to-equalp (subseq bytes 0 8192))
           (expect (sniff 8192 t) :to-equalp bytes)
           (expect (sniff 300000 t) :to-equalp bytes)
           (expect (reverse seen) :to-equal '((8192 200000) (8192 200000) (200000 200000))))
         (write-file path "")
-        (expect (aitools.text.application:source-read-sniffed (source) path 8192 (constantly t)) :to-equalp #())
-        (expect (multiple-value-list (aitools.text.application:source-read-sniffed
-                                      (source) scratch 8192 (constantly t)))
+        (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-sniffed) path 8192 (constantly t)) :to-equalp #())
+        (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-sniffed) scratch 8192 (constantly t)))
                 :to-equal '(nil))
         (sb-posix:chmod path 0)
         (unwind-protect
-             (expect (multiple-value-list (aitools.text.application:source-read-sniffed
-                                           (source) path 8192 (constantly t)))
+             (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-sniffed) path 8192 (constantly t)))
                      :to-equal '(nil :unreadable))
           (sb-posix:chmod path #o600))))))
 
@@ -130,10 +125,10 @@
         (write-file target "bytes")
         (dolist (path (list (format nil "~A~Csuffix" target (code-char 0))
                             (format nil "~A~C" target (code-char #xD800))))
-          (expect (multiple-value-list (aitools.text.application:source-file-size (source) path)) :to-equal '(nil))
-          (expect (multiple-value-list (aitools.text.application::source-read-prefix (source) path 2)) :to-equal '(nil))
-          (expect (multiple-value-list (aitools.text.application:source-read-octets (source) path)) :to-equal '(nil))
-          (expect (multiple-value-list (aitools.text.application:source-read-sniffed (source) path 2 (constantly t)))
+          (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) path)) :to-equal '(nil))
+          (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-prefix) path 2)) :to-equal '(nil))
+          (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) path)) :to-equal '(nil))
+          (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-sniffed) path 2 (constantly t)))
                   :to-equal '(nil)))))))
 
   (it "ends chunked reads at end of file and at :STOP"
@@ -143,17 +138,14 @@
             (chunks '()))
         (write-file empty "")
         (write-file full "abcdefgh")
-        (expect (aitools.text.application:source-call-with-chunks
-                 (source) empty 4 (lambda (chunk) (push chunk chunks) nil))
+        (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-call-with-chunks) empty 4 (lambda (chunk) (push chunk chunks) nil))
                 :to-be t)
         (expect chunks :to-equal '())
-        (expect (aitools.text.application:source-call-with-chunks
-                 (source) full 4 (lambda (chunk) (push (text chunk) chunks) :stop))
+        (expect (funcall (cl-boundary-kit:boundary-context-require (source) :text-call-with-chunks) full 4 (lambda (chunk) (push (text chunk) chunks) :stop))
                 :to-be t)
         (expect chunks :to-equal '("abcd"))
         (setf chunks '())
-        (aitools.text.application:source-call-with-chunks
-         (source) full 4 (lambda (chunk) (push (text chunk) chunks) nil))
+        (funcall (cl-boundary-kit:boundary-context-require (source) :text-call-with-chunks) full 4 (lambda (chunk) (push (text chunk) chunks) nil))
         (expect (reverse chunks) :to-equal '("abcd" "efgh"))))))
 
   (it "reads a file that grew or shrank after fstat to its current end"
@@ -231,9 +223,13 @@
         (expect (outcome "b.bin") :to-equal '(:binary "application/octet-stream" 3))
         (expect (outcome "nope") :to-be :missing)))))
 
-  (it "registers the source in a cl-boundary-kit boundary context"
-    (let* ((source (source))
-           (context (aitools.text.infrastructure:with-text-boundaries
-                     (cl-boundary-kit:make-boundary-context) :source source)))
-      (expect (aitools.text.infrastructure::text-source-from-context context) :to-be source))))
+  (it "exposes all host text operations through a boundary context"
+  (let ((context (source)))
+    (dolist (key '(:text-file-size
+                   :text-read-prefix
+                   :text-read-octets
+                   :text-call-with-chunks
+                   :text-read-sniffed
+                   :text-read-range))
+      (expect (cl-boundary-kit:boundary-context-present-p context key) :to-be t)))))
 
