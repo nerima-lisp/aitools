@@ -19,17 +19,16 @@
        "Network limit must be between 1 and 1000.")
       (let* ((os (%os-kind (funcall (env-ports-system-identity ports))))
              (source (case os
-                       (:linux "/proc/net/dev")
-                       (:darwin "netstat -ibn"))))
+                       #+linux (:linux "/proc/net/dev")
+                       #+darwin (:darwin "netstat -ibn"))))
         (if (null source)
             (aitools.kernel.domain:flow-continue
              :on-error
              "environment.unavailable"
              "Network counters are unsupported on this OS.")
             (let ((text (case os
-                          (:linux (%read-text ports source))
-                          (:darwin
-                           (%run-output ports (%darwin-program :netstat) '("-ibn"))))))
+                          #+linux (:linux (%read-text ports source))
+                          #+darwin (:darwin (%run-output ports (%darwin-program :netstat) '("-ibn"))))))
               (multiple-value-bind (items valid)
                   (if text
                       (aitools.env.domain:parse-network-counters text os)

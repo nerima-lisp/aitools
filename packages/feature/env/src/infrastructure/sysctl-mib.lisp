@@ -1,8 +1,7 @@
 (in-package #:aitools.env.infrastructure)
 
+#+darwin
 (defun %sysctl-mib (name)
-  #-darwin (declare (ignore name))
-  #+darwin
   (let* ((boot-time-p (eq name :kern-boottime))
          (expected-size (if boot-time-p 16 24))
          (bytes (make-array expected-size

@@ -33,7 +33,7 @@
                (add-row (string-trim '(#\Space #\Tab) (subseq line 0 colon))
                         (mapcar (lambda (index) (%parse-field-integer (nth index fields)))
                                 '(0 1 2 8 9 10)))))))
-        (:darwin
+        #+darwin (:darwin
          (let* ((header (split-fields (or (first lines) "")))
                 (columns (mapcar (lambda (name) (position name header :test #'equal))
                                  '("Ibytes" "Ipkts" "Ierrs" "Obytes" "Opkts" "Oerrs"))))
@@ -126,7 +126,7 @@
     (loop for line in (and text (%split-lines text))
           for fields = (split-fields line)
           when fields
-            collect (let* ((pid (and (first fields) (%parse-field-integer (first fields))))
+            collect (let* ((pid (%parse-field-integer (first fields)))
                            (cpu (and (second fields) (%metric-decimal (second fields))))
                            (rss (and (third fields) (%parse-field-integer (third fields))))
                            (command (and (fourth fields) (format nil "~{~A~^ ~}" (nthcdr 3 fields)))))

@@ -20,6 +20,15 @@
     (progn
       (format *error-output* "~&DEAD_CODE_FIXTURE_SPEC_PASS: ~A~%" "finds an unused private definition and ignores its string mention")
       (finish-output *error-output*)))
+  (it "includes both Linux and Darwin reader branches in liveness references"
+    (let* ((form (%liveness-read-form-at
+                  "(progn #+linux (linux-source) #+darwin (darwin-source))"
+                  0))
+           (references (%liveness-reference-p form)))
+      (expect (member (quote (:function "LINUX-SOURCE" :local)) references :test (function equal))
+              :to-be-truthy)
+      (expect (member (quote (:function "DARWIN-SOURCE" :local)) references :test (function equal))
+              :to-be-truthy)))
 
   (it "finds an export used only by tests"
     (multiple-value-bind (records violations)

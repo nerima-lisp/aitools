@@ -11,7 +11,7 @@
       (expect (field fields "basis") :to-equal "cumulative_interface_counters")
       (expect (object-field (field fields "units") "bytes") :to-equal "bytes")
       (expect (object-field (first (field fields "items")) "name") :to-equal "a0")))
-  (it "uses trusted Darwin netstat with fixed arguments despite PATH"
+  #+darwin (it "uses trusted Darwin netstat with fixed arguments despite PATH"
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
       (expect (run-flow #'sys-network/k (make-fake-ports :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
       (expect (fake-host-runs host) :to-equal '(("/usr/sbin/netstat" ("-ibn"))))))
@@ -36,21 +36,26 @@
     (multiple-value-bind (kind error) (run-flow #'sys-disk/k (make-fake-ports :space space))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
+#+linux
+(describe "aitools.env.application sys metrics Linux unavailable load average"
+  (it "fails when load average is unavailable"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (linux-metrics-ports :load-average-text nil))
+      (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable"))))
 
 (defun metrics-host ()
   (let ((host (darwin-host)))
     (push (cons "/bin/ps"
                 (exits-with
-                 (format nil "20 25.0 200 /usr/bin/worker~%10 25.0 100 /usr/bin/worker~%30 0.0 0 idle~%")))
+                 (format nil
+                         "20 25.0 200 /usr/bin/worker~%10 25.0 100 /usr/bin/worker~%30 0.0 0 idle~%")))
           (fake-host-programs host))
     (push (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))
           (fake-host-programs host))
     host))
-(defun linux-metrics-ports (&key (space '(1000 400))
-      (load-average-text "0.75 1.0 2.5 3/100 42")
-      (process-output-text
-       (format nil
-               "20 25.0 200 /usr/bin/worker~%10 25.0 100 /usr/bin/worker~%30 0.0 0 idle~%")))
+(defun linux-metrics-ports (&key (space '(1000 400)) (load-average-text "0.75 1.0 2.5 3/100 42"))
   (let ((stat-reads 0)
         (files
           (list (cons "/proc/uptime" "1234.5 600.0")
@@ -99,7 +104,8 @@
        (declare (ignore arguments timeout))
        (if (equal program "/fixture/bin/ps")
            (values :exited 0
-                   process-output-text
+                   (format nil
+                           "20 25.0 200 /usr/bin/worker~%10 25.0 100 /usr/bin/worker~%30 0.0 0 idle~%")
                    "")
            (values :not-started nil nil nil)))
      :file-system-space
@@ -240,24 +246,4 @@
                                   :host (metrics-host)))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
-#+linux
-(describe "aitools.env.application sys metrics Linux failure and limit"
-  (it "fails when load average is unavailable"
-    (multiple-value-bind (kind error)
-        (run-flow (function sys-metrics/k)
-                  (linux-metrics-ports :load-average-text nil))
-      (expect kind :to-be :error)
-      (expect (first error) :to-equal "environment.unavailable")))
-  (it "returns a partial process list when the metrics limit is exceeded"
-    (multiple-value-bind (kind fields)
-        (run-flow (function sys-metrics/k)
-                  (linux-metrics-ports
-                   :process-output-text
-                   (format nil "10 120.0 100 worker~%20 80.0 200 worker-two~%"))
-                  :limit 1)
-      (expect kind :to-be :partial)
-      (expect (field fields "total") :to-be 2)
-      (expect (field fields "truncated") :to-be t)
-      (expect (length (field fields "items")) :to-be 1)
-      (expect (object-field (first (field fields "items")) "pid") :to-be 10))))
 

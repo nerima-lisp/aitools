@@ -36,7 +36,10 @@
             ("2026-03-08T01:30:00.") ("１７００００００００") ("99999999999999999"))
       "rejects ~S with time-syntax-error"
       (text)
-    (signals time-syntax-error (parse-time-input text))))
+    (signals time-syntax-error (parse-time-input text)))
+  (it "rejects an invalid internal time-input kind"
+    (signals type-error
+      (aitools.env.domain::make-time-input (gensym) "iso8601" 0))))
 
 (defun rejection-reason (text)
   (handler-case (progn (parse-time-input text) :parsed)

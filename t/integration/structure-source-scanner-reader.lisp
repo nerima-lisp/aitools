@@ -44,6 +44,7 @@ package, or :UNREADABLE."
         (with-standard-io-syntax
             (let ((*read-eval* nil)
                   (*package* *reader-package*)
+                  (*features* (union (quote (:linux :darwin)) *features* :test (function eq)))
                   (quasiquote-depth 0)
                   (readtable (copy-readtable nil)))
               (labels ((read-quasiquote (stream character)

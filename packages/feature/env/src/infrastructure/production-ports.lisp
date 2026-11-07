@@ -141,8 +141,8 @@ holding `.git`, else the working directory. Does not start git."
     (list (funcall tick-at 0) (funcall tick-at 3)
           (funcall tick-at 1) (funcall tick-at 2) 0 0 0 0)))
 
+#+darwin
 (defun %cpu-counters ()
-  #+darwin
   (let ((host (sb-alien:alien-funcall
                (sb-alien:extern-alien "mach_host_self" (function sb-alien:unsigned-int)))))
     (unwind-protect
@@ -166,8 +166,8 @@ holding `.git`, else the working directory. Does not start git."
 
 (defun make-env-ports-from-boundaries (&key clock environment filesystem host-info
                                          (sleep-seconds #'sleep)
-                                         (cpu-counters (function %cpu-counters))
-                                         (sysctl-mib (function %sysctl-mib))
+                                         #+darwin (cpu-counters (function %cpu-counters))
+                                         #+darwin (sysctl-mib (function %sysctl-mib))
                                          (run-program #'%run-program)
                                          (executable-p #'%executable-p)
                                          (list-directory #'%list-directory)
@@ -180,7 +180,6 @@ holding `.git`, else the working directory. Does not start git."
 milliseconds), ENVIRONMENT, FILESYSTEM, and HOST-INFO; the remaining
 keywords default to the host adapters above and are replaced by fakes in
 tests."
-  #-darwin (declare (ignore cpu-counters sysctl-mib))
   (aitools.env.application:make-env-ports
    :now-milliseconds (lambda () (cl-boundary-kit:clock-now clock))
    :sleep-seconds sleep-seconds
