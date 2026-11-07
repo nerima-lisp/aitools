@@ -229,16 +229,16 @@
     "cl-parser-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1785931427,
-        "narHash": "sha256-IR8GbJVuSKS8fTcuQezTVlJJ3nU802shk2fdiHszcig=",
+        "lastModified": 1792439236,
+        "narHash": "sha256-FupAIG/OsvJQmdKBdqx37av1PcKwC/9np01SxoCMDUk=",
         "owner": "nerima-lisp",
         "repo": "cl-parser-kit",
-        "rev": "6379014e6d85bdaecc57157611baa4ddf4b2b206",
+        "rev": "aad0f88727940ff3f4e8674943e3faa240206f45",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v1.1.1",
+        "ref": "v1.2.0",
         "repo": "cl-parser-kit",
         "type": "github"
       }

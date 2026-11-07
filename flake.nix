@@ -72,7 +72,7 @@
     };
 
     cl-parser-kit = {
-      url = "github:nerima-lisp/cl-parser-kit/v1.1.1";
+      url = "github:nerima-lisp/cl-parser-kit/v1.2.0";
       flake = false;
     };
 
