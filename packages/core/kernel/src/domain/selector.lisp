@@ -61,19 +61,27 @@ layer that owns ARGUMENT.INVALID formatting catches it."
                      (error "range end ~A is before start ~A" end start))
                    (values start end))))))))))
 
+(defmacro define-selector-constructor (name lambda-list kind &body arguments)
+  `(defun ,name ,lambda-list
+     (%make-selector ,kind ,@arguments)))
+
 (defun make-range-selector (spec)
   (multiple-value-bind (start end) (parse-range-spec spec)
     (%make-selector :range :range-start start :range-end end)))
 
-(defun make-symbol-selector (name &key kind)
-  (%make-selector :symbol :symbol-name name :symbol-kind kind))
+(define-selector-constructor make-symbol-selector (name &key kind) :symbol
+  :symbol-name name
+  :symbol-kind kind)
 
-(defun make-between-selector (start-pattern end-pattern &key exclusive)
-  (%make-selector :between :between-start start-pattern :between-end end-pattern
-                  :exclusive (and exclusive t)))
+(define-selector-constructor make-between-selector
+    (start-pattern end-pattern &key exclusive) :between
+  :between-start start-pattern
+  :between-end end-pattern
+  :exclusive (and exclusive t))
 
-(defun make-match-selector (pattern &key invert)
-  (%make-selector :match :match-pattern pattern :invert (and invert t)))
+(define-selector-constructor make-match-selector (pattern &key invert) :match
+  :match-pattern pattern
+  :invert (and invert t))
 
 (defstruct (selector-catalog-entry (:copier nil) (:predicate nil))
   (kind nil :read-only t)
