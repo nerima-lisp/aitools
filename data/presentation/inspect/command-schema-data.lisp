@@ -24,7 +24,7 @@
 (defparameter *inspect-command-schemas*
   '((:name "read"
      :summary "Read a file's lines with line numbers, a selector, and a line limit."
-     :description "One of: a selector, --tail, --as hex, --as strings. --max-lines always applies; when the output stops before the end of the file, next_commands holds the next --range. A binary file read as text returns {binary,size,mime} instead of lines. With --match, line_numbers lists each returned line's number. encoding_errors counts U+FFFD substitutions in the returned lines. approx_tokens is ceil(characters of the returned text / 4). A line longer than 16384 bytes (16384 characters under a non-UTF-8 --encoding) is cut there and listed in cut_lines; the result is partial, and next_commands names the --as hex --bytes dump of the bytes after the cut. A --as strings run longer than 16384 characters is cut the same way and marked cut:true."
+     :description "Use one text selector, --tail, --as hex, or --as strings; these choices are mutually exclusive. --max-lines always applies. When a text read stops before the end of the file, next_commands holds the next --range. A text line longer than 16384 bytes (characters under a non-UTF-8 --encoding) is cut; the result is partial and next_commands names an --as hex --bytes dump of the remaining bytes. A --as strings run longer than 16384 characters is cut and marked cut:true."
      :args ((:name "path" :kind "positional" :type "string" :required t :description "File to read (relative to the working directory).")
             (:name "--tail" :type "integer" :description "The last N lines.")
             (:name "--as" :type "enum" :choices ("text" "hex" "strings") :default "text" :description "Output view; sets mode.")
@@ -77,7 +77,7 @@
                      (:name "bom" :description "Whether the file starts with a UTF-8 BOM.")
                      (:name "mode" :description "Permission bits as four octal digits.")
                      (:name "mtime" :description "Modification time, ISO 8601 UTC; with --tx, the staged time of a file the tx touched, and null for a file the tx otherwise changed.")
-                     (:name "hash" :description "The change-detection hash, the value --expect-hash compares: SHA-256 of the bytes of the regular file the path leads to (symlinks followed); for a symlink that leads to no regular file (dangling, or to a directory), SHA-256 of its target text, reported with --allow-missing for a dangling one; absent for a directory.")
+                     (:name "hash" :description "The change-detection hash, the value --expect-hash compares: SHA-256 of a regular file's bytes, following symlinks. A symlink to a non-file has the SHA-256 of its target text; for a dangling symlink this appears only with --allow-missing. A directory path has no hash.")
                      (:name "approx_tokens" :description "ceil(characters / 4); null for binary files.")
                      (:name "digest" :description "{algorithm,value} with --digest."))
      :error-codes ("argument.invalid" "input.not-found" "environment.busy" "environment.io"))

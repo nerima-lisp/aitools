@@ -1,9 +1,9 @@
 # Using aitools from an agent
 
-Use `aitools` as the CLI for file and text work. Its `run` command invokes
-external programs. This page describes the loop an agent runs against it:
-discover a command, call it, branch on the exit code, and follow the
-`next_commands` and `repairs` the output hands back.
+aitools is meant to be the only tool an agent calls for file and text work.
+This page describes the loop an agent runs against it: discover a command,
+call it, branch on the exit code, and follow the `next_commands` and
+`repairs` the output hands back.
 
 ## Discover commands with `schema`
 
@@ -131,13 +131,12 @@ Workspace, home, and filesystem roots, version-control metadata, and the
 state directory are protected. Keep the returned `op_id` to undo the deletion.
 Stop external writers to the target tree before running the operation.
 Neither a dry run nor the journal reserves the tree against other processes.
-If an operation fails after its durable commit, recovery attempts to finish
-that committed operation; it does not automatically roll it back. Recovery
-refuses a replaced directory or an inaccessible permission checkpoint and
-keeps the intent record. In particular, a crash after setting mode `000`
-but before syncing it can require operator intervention; aitools does not
-temporarily widen permissions to reopen the directory. Inspect diagnostics
-before retrying or changing the affected paths.
+After a write is committed, recovery tries to finish it rather than roll it
+back. It verifies that a directory it changed is still the same directory; if
+that check fails, it leaves the recovery record for an operator. A crash after
+setting mode `000` but before syncing it can require operator intervention;
+aitools does not temporarily widen permissions to reopen the directory.
+Inspect diagnostics before retrying or changing the affected paths.
 
 The journal and undo apply to workspace targets. The `mktemp` scratch area
 is not journaled or undoable, and a failure there can leave partial changes.
@@ -258,8 +257,9 @@ These input, directory, and environment options apply to `run`, not `bg start`.
 Check the child's `exit_code`, `signal`, and `timed_out` separately: a child
 failure or timeout does not make aitools fail. For example, `grep` returns 1
 for no matches while aitools returns 0. If `--grep` results exceed
-`--grep-limit`, aitools returns 3 with `status:"partial"`; the child has
-already run, so do not blindly retry a command that can have side effects.
+[`--grep-limit`](../reference/commands/process.md#run), aitools returns 3 with
+`status:"partial"`; the child has already run, so do not blindly retry a
+command that can have side effects.
 The default output keeps the first 50 and last 150 lines of each stream.
 Head/tail trimming and capture caps do not change the aitools exit code.
 Inspect `truncated` and `capture_capped` before treating output as complete.
@@ -304,9 +304,9 @@ with `repairs` naming the aitools command to use instead:
 | `ln` | `aitools link` | Create a symbolic link inside the workspace. |
 | `touch` | `aitools touch` | Create an empty file or set a file's modification time. |
 | `mktemp` | `aitools mktemp` | Create a temporary file or directory in the workspace's state tmp/ area. |
-| `jq` | `aitools json get` | Read, query, or edit JSON. |
-| `tar`, `unzip`, `zcat`, `gzip`, `zip` | `aitools archive list` | List, read, extract, or create an archive. |
-| `git` | `aitools run -- git` | Run Git through aitools run. |
+| `jq`, `json.get`, `yaml.get`, `toml.get` | `aitools doc get` | Read and query structured documents. |
+| `tar`, `unzip`, `zcat`, `gzip`, `zip` | `aitools archive list` | Use archive list, read, extract, or create for the matching operation. |
+| `git` | `aitools git status` | Read-only git status, log, diff, blame, or show. |
 | `uname`, `whoami`, `hostname`, `nproc` | `aitools sys info` | Read system information. |
 | `env` | `aitools sys env` | Read environment variables, with secrets masked. |
 | `which` | `aitools sys tools` | Check whether an external tool is available. |
@@ -317,15 +317,22 @@ with `repairs` naming the aitools command to use instead:
 | `netstat` | `aitools sys network` | Read cumulative interface counters, not rates or connectivity. |
 | `netstat` | `aitools sys ports` | List listening TCP sockets, not every connection or route. |
 | `date` | `aitools time now` | Read or convert the current or a given time. |
-| `base64`, `xxd` | `aitools util encode` | Encode or decode bytes. |
+| `base64`, `xxd` | `aitools util encode` | Encode bytes with util encode; use util decode to decode them. |
 | `bc`, `expr` | `aitools util calc` | Evaluate an arithmetic expression. |
 | `uuidgen` | `aitools util uuid` | Generate a UUID. |
 | `uuid` | `aitools util uuid` | `uuid` is a group subcommand name; the group prefix is required. |
 | `openssl` | `aitools util random` | Generate cryptographically random bytes. |
+| `json.select`, `yaml.select`, `toml.select` | `aitools doc select` | Filter and project a document array. |
+| `json.diff`, `yaml.diff`, `toml.diff` | `aitools doc diff` | Compare two structured documents. |
+| `json.set`, `yaml.set`, `toml.set` | `aitools doc set` | Set a value in a structured document. |
+| `json.delete`, `yaml.delete`, `toml.delete` | `aitools doc delete` | Delete a value from a structured document. |
+| `json.merge`, `yaml.merge`, `toml.merge` | `aitools doc merge` | Apply a merge patch to a structured document. |
+| `json.patch`, `yaml.patch`, `toml.patch` | `aitools doc patch` | Apply a JSON Patch to a structured document. |
+| `json.fmt`, `yaml.fmt`, `toml.fmt` | `aitools doc fmt` | Format a structured document. |
 <!-- END GENERATED: correspondence -->
 
 A shell command with several rows (`sed`, `perl`) returns every row's repair,
 in table order. A name the table does not list returns the repair
 `aitools schema`. Names that are also aitools commands or groups (`find`,
-`diff`, `mkdir`, `chmod`, `mktemp`, `touch`) run the aitools command
+`diff`, `mkdir`, `chmod`, `mktemp`, `touch`, `git`) run the aitools command
 and never reach this lookup; their rows only document the mapping.
