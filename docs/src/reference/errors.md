@@ -102,7 +102,7 @@ lock, and `internal.unexpected` for an uncaught condition
 | `environment.io` | A read or write fails, including a permission-denied (`EACCES`) read of an existing file. `read`, `info`, `check`, `diff`, Org read commands, and `write --content-file` report this rather than `input.not-found`. A failed rename names the blocking destination. |
 | `environment.busy` | The workspace lock is not acquired within `--lock-timeout`. The repair repeats the same command. |
 | `environment.timeout` | `wait` times out. |
-| `environment.unavailable` | A required external command or OS facility is missing (`git` outside a repository, no source for `sys ports`, an argv that cannot start). |
+| `environment.unavailable` | A required executable cannot be started, or an OS facility is unavailable (for example, no source for `sys ports`). |
 | `internal.unexpected` | An unexpected condition. The repair is `aitools schema <command>` when the command is known. |
 
 ## Unknown command names
@@ -121,8 +121,8 @@ this order:
    holds that name, each the grouped form of the invocation with the group
    token inserted and the globals and operands kept. This is driven by the
    live registry (`%group-subcommand-repairs` in `src/dispatch.lisp`), not by
-   the correspondence table, so `status` returns `aitools bg status`,
-   `aitools git status`, and `aitools tx status`.
+   the correspondence table, so `status` returns `aitools bg status` and
+   `aitools tx status`.
 3. **A shell command name in the correspondence table** (`cat`, `grep`)
    returns that row's repairs, drawn from `aitools.data:*correspondence-table*`
    and shown in [Using aitools from an agent](../guide/agents.md#shell-commands-and-their-aitools-replacements).
