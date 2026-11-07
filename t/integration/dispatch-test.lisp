@@ -142,22 +142,22 @@ file is prepared and before the commit point, which recovery discards."
     (aitools.test.support:with-workspace
       (*root* state-home)
       (declare (ignore state-home))
-      (multiple-value-bind (code envelope) (run-aitools "json")
+      (multiple-value-bind (code envelope) (run-aitools "doc")
         (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal '("aitools schema json"))
-        (multiple-value-bind (code listing) (run-plain "schema" "json")
+        (expect (repair-commands envelope) :to-equal '("aitools schema doc"))
+        (multiple-value-bind (code listing) (run-plain "schema" "doc")
           (expect code :to-be 0)
           (let ((names (map 'list (lambda (command) (value command "name")) (value listing "commands"))))
-            (expect (and (member "json get" names :test #'string=) (member "json set" names :test #'string=)
+            (expect (and (member "doc get" names :test #'string=) (member "doc set" names :test #'string=)
                          t)
                     :to-be t)
-            (expect (every (lambda (name) (eql 0 (search "json " name))) names) :to-be t))))))
+            (expect (every (lambda (name) (eql 0 (search "doc " name))) names) :to-be t))))))
 
   (it "lists schema's candidates in typed form"
     (multiple-value-bind (code envelope) (run-plain "schema" "nope")
       (expect code :to-be 1)
       (let ((candidates (coerce (value envelope "error" "candidates") 'list)))
-        (expect (member "json get" candidates :test #'string=) :to-be-truthy)
+        (expect (member "doc get" candidates :test #'string=) :to-be-truthy)
         (expect (find #\. (format nil "~{~A~}" candidates)) :to-be nil))))
 
   ;; The correspondence table is a static hint (`cat` -> `aitools read`), so
@@ -176,7 +176,7 @@ file is prepared and before the commit point, which recovery discards."
     ;; command the agent meant, operands included.
     (multiple-value-bind (code envelope) (run-plain "get" "/a" "f.json")
       (expect code :to-be 1)
-      (expect (member "aitools json get /a f.json" (repair-commands envelope) :test #'string=)
+      (expect (member "aitools doc get /a f.json" (repair-commands envelope) :test #'string=)
               :to-be-truthy))))
 
 (describe "aitools dispatch: an envelope past the JSON writer's output limit"

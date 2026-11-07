@@ -47,10 +47,10 @@
                 :to-be :conflict)))))
 
   (it "records a canonical argv that parses back to the same command"
-    (let ((argv (options-argv "json.set" '("c.json" "/a" "-1") '(:expect-hash ("h") :dry-run t))))
-      (expect argv :to-equal '("json" "set" "--expect-hash" "h" "--" "c.json" "/a" "-1"))
+    (let ((argv (options-argv "doc.set" '("c.json" "/a" "-1") '(:expect-hash ("h") :dry-run t))))
+      (expect argv :to-equal '("doc" "set" "--expect-hash" "h" "--" "c.json" "/a" "-1"))
       (expect (parse-recorded-argv argv :on-parsed #'list :on-invalid #'identity)
-              :to-equal '("json.set" ("c.json" "/a" "-1") (:expect-hash ("h")))))))
+              :to-equal '("doc.set" ("c.json" "/a" "-1") (:expect-hash ("h")))))))
 
 (describe "aitools edit commands: remaining undo cases"
   (it "restores bytes, modes and existence after apply, json writes, mkdir, overwrites, copy and move of files"
@@ -59,10 +59,10 @@
       (put "x.sh" "x" :mode #o755)
       (let ((before (snapshot)))
         (dolist (call (list (list "apply" '() :stdin-data +git-diff+)
-                            (list "json.delete" '("c.json" "/a"))
-                            (list "json.merge" '("c.json") :stdin-data "{\"z\": 2}")
-                            (list "json.patch" '("c.json") :stdin-data "[{\"op\":\"add\",\"path\":\"/b/0\",\"value\":0}]")
-                            (list "json.fmt" '("c.json") :indent "4")
+                            (list "doc.delete" '("c.json" "/a"))
+                            (list "doc.merge" '("c.json") :stdin-data "{\"z\": 2}")
+                            (list "doc.patch" '("c.json") :stdin-data "[{\"op\":\"add\",\"path\":\"/b/0\",\"value\":0}]")
+                            (list "doc.fmt" '("c.json") :indent "4")
                             (list "mkdir" '("new/dir"))
                             (list "write" '("x.sh") :content '("y") :overwrite t :expect-hash (list (hash "x.sh")))
                             (list "copy" '("x.sh" "copied.sh"))

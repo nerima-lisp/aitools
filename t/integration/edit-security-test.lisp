@@ -123,7 +123,7 @@ checksum alone."
     (call-with-edit-workspace (lambda () (put "d.json" "{\"a\":{\"b\":1}}")
       (with-error (code message keys) (run "json.set" '("d.json" "/a/missing/deeper" "1"))
         (expect code :to-equal "input.not-found")
-        (expect (some (lambda (command) (search "aitools json get d.json" command)) (repair-commands keys))
+        (expect (some (lambda (command) (search "aitools doc get d.json" command)) (repair-commands keys))
                 :to-be-truthy))))))
 
 (describe "aitools refuses raw redaction markers on every write entry point"

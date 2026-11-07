@@ -1,5 +1,5 @@
 ;;;;
-;;;; The `json`, `table`, `archive`, and `snapshot` groups end to end through
+;;;; The `doc`, `table`, `archive`, and `snapshot` groups end to end through
 ;;;; dispatch, and `read` of a path that is neither a file nor a directory.
 ;;;; Workspace helpers come from inspect-cli-test.lisp.
 (in-package #:aitools.integration.inspect-cli-test)
@@ -10,22 +10,22 @@
 (defun envelope-list (envelope &rest keys)
   (coerce (apply #'value-at envelope keys) 'list))
 
-(describe "json commands through dispatch"
+(describe "doc commands through dispatch"
   (it "parses json get's pointer, --keys, --raw, and --max-bytes"
     (aitools.test.support:with-workspace (workspace state)
       (declare (ignore state))
       (let ((file (ws-file workspace "d.json" "{\"a\": {\"b\": [1, 2]}, \"s\": \"x\"}")))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "get" file "/a" "--keys")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "get" file "/a" "--keys")
           (expect code :to-be 0)
-          (expect envelope :to-match-envelope '("status" "ok" "command" "json get"))
+          (expect envelope :to-match-envelope '("status" "ok" "command" "doc get"))
           (expect (envelope-list envelope "keys") :to-equal '("b")))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "get" file "/s" "--raw")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "get" file "/s" "--raw")
           (expect code :to-be 0)
           (expect (value-at envelope "text") :to-equal "x"))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "get" file "/a" "--max-bytes" "4")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "get" file "/a" "--max-bytes" "4")
           (expect code :to-be 3)
           (expect (value-at envelope "value_preview") :to-equal "{\"b\""))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "get" file "/a" "--max-bytes" "big")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "get" file "/a" "--max-bytes" "big")
           (expect code :to-be 1)
           (expect (value-at envelope "error" "code") :to-equal "argument.invalid")))))
 
@@ -35,15 +35,15 @@
       (let ((file (ws-file workspace "i.json" "[{\"id\": 1, \"n\": 5, \"k\": \"a\"}, {\"id\": 2, \"n\": 9, \"k\": \"a\"},
                                             {\"id\": 3, \"n\": 7, \"k\": \"b\"}]")))
         (multiple-value-bind (code envelope)
-            (run-aitools "--root" workspace "json" "select" file "" "--where" "/n>4" "--where" "/k=a"
+            (run-aitools "--root" workspace "doc" "select" file "" "--where" "/n>4" "--where" "/k=a"
                          "--pick" "/id" "--pick" "/n" "--sort-by" "/n" "--desc")
           (expect code :to-be 0)
           (expect (mapcar (lambda (item) (value-at item "value" "/id")) (envelope-list envelope "items")) :to-equal '(2 1))
           (expect (value-at envelope "items" 0 "value" "/n") :to-be 9))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "select" file "" "--output" "count")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "select" file "" "--output" "count")
           (expect code :to-be 0)
           (expect (value-at envelope "count") :to-be 3))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "select" file "" "--limit" "1")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "select" file "" "--limit" "1")
           (expect code :to-be 3)
           (expect (value-at envelope "total") :to-be 3)))))
 
@@ -52,7 +52,7 @@
       (declare (ignore state))
       (let ((a (ws-file workspace "a.json" "{\"x\": 1, \"y\": 2}"))
             (b (ws-file workspace "b.json" "{\"x\": 2}")))
-        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "json" "diff" a b "--limit" "1")
+        (multiple-value-bind (code envelope) (run-aitools "--root" workspace "doc" "diff" a b "--limit" "1")
           (expect code :to-be 3)
           (expect (value-at envelope "total") :to-be 2)
           (expect (length (envelope-list envelope "ops")) :to-be 1))))))
