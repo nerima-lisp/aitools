@@ -20,7 +20,7 @@ or NIL when no command was dispatched (bare `--help`/`--version`)."
 
 (defun %groups-with-subcommand (registry name)
   "The group names whose subcommand list contains a command named NAME, sorted
-so the repairs read in a stable order (`bg`, `git`, `tx` for `status`)."
+so the repairs read in a stable order (`bg`, `tx` for `status`)."
   (sort (loop for group being the hash-keys of (command-registry-group-commands registry)
                 using (hash-value subcommands)
               when (find name subcommands :key #'command-name :test #'string=)

@@ -15,7 +15,7 @@
                       (format nil "aitools --root ~A yaml get /a f.json" *root*))))
       (multiple-value-bind (code envelope) (run-plain "status")
         (expect code :to-be 1)
-        (expect (repair-commands envelope) :to-equal '("aitools bg status" "aitools git status" "aitools tx status")))
+        (expect (repair-commands envelope) :to-equal (quote ("aitools bg status" "aitools tx status"))))
       (multiple-value-bind (code envelope) (run-plain "uuid")
         (expect code :to-be 1)
         (expect (repair-commands envelope) :to-equal '("aitools util uuid"))))))

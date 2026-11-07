@@ -26,7 +26,8 @@
             ("touch" "aitools touch")
             ("mktemp" "aitools mktemp")
             ("ps" "aitools sys procs")
-            ("lsof" "aitools sys ports"))
+            ("lsof" "aitools sys ports")
+            ("git" "aitools run -- git"))
       "maps ~S to its matching operation ~S"
       (name command)
     (expect (mapcar (lambda (repair) (getf repair :command))

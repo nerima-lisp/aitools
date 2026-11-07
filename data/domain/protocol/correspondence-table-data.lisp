@@ -72,8 +72,8 @@
      :repairs ((:detail "List, read, extract, or create an archive."
                 :command "aitools archive list")))
     (:foreign-names ("git")
-     :repairs ((:detail "Read-only git status, log, diff, blame, or show."
-                :command "aitools git status")))
+     :repairs ((:detail "Run Git through aitools run."
+                :command "aitools run -- git")))
     (:foreign-names ("uname" "whoami" "hostname" "nproc")
      :repairs ((:detail "Read system information."
                 :command "aitools sys info")))

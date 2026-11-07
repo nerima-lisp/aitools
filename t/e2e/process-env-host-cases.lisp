@@ -1,12 +1,8 @@
 (in-package #:aitools.e2e.test)
 
 ;;;;
-;;;; Correspondence table rows 40-41: Git operations and host environment.
+;;;; Correspondence table rows 40-41: external Git and host environment.
 ;;;; The shared TRIMMED helper is in t/e2e/process-env-cases.lisp.
-
-(defun make-history (workspace)
-  "Two commits of f, a staged and an unstaged change to f, and an untracked u."
-  (shell workspace "printf 'l1\\nl2\\n' > f && git add f && git commit -qm first && printf 'l1\\nL2\\nl3\\n' > f && git commit -qam second && printf 'x\\n' > f && git add f && printf 'y\\n' > f && printf 'u\\n' > u"))
 
 (describe "aitools environment child-process trace span (e2e)"
   (it "records env.system-query with the command parent"
@@ -21,60 +17,16 @@
          (expect (aitools-exit-code result) :to-be 0)
          (expect-child-process-span (aitools-envelope result) "env.system-query" "ok"))))))
 
-(define-row-case (40 "git status --porcelain is git status" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (let* ((envelope (run-ok ws '("git" "status")))
-         (codes (make-hash-table :test #'equal)))
-    (dolist (entry (jlist (jget envelope "staged")))
-      (setf (gethash (jget entry "path") codes) (list (jget entry "status") " ")))
-    (dolist (entry (jlist (jget envelope "unstaged")))
-      (setf (gethash (jget entry "path") codes)
-            (list (or (first (gethash (jget entry "path") codes)) " ") (jget entry "status"))))
-    (expect (sorted (append (loop for path being the hash-keys of codes using (hash-value (x y))
-                                  collect (format nil "~A~A ~A" x y path))
-                            (mapcar (lambda (path) (format nil "?? ~A" path)) (jlist (jget envelope "untracked")))))
-            :to-equal (sorted (text-lines (oracle ws '("git") "git status --porcelain=v1" nil))))))
-
-(define-row-case (40 "git log is git log" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (expect (mapcar (lambda (item) (format nil "~A ~A" (jget item "sha") (jget item "subject")))
-                  (jlist (jget (run-ok ws '("git" "log")) "items")))
-          :to-equal (text-lines (oracle ws '("git") "git log --format='%H %s'" nil))))
-
-(define-row-case (40 "git diff --numstat matches added and deleted counts from aitools git diff --output stat" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (dolist (staged '(nil t))
-    (expect (mapcar (lambda (file) (format nil "~D~C~D~C~A" (jget file "added") #\Tab (jget file "deleted") #\Tab (jget file "path")))
-                    (jlist (jget (run-ok ws (append '("git" "diff" "--output" "stat") (and staged '("--staged")))) "files")))
-            :to-equal (text-lines (oracle ws '("git") (format nil "git diff --numstat~:[~; --staged~]" staged) nil)))))
-
-(define-row-case (40 "git diff's changed lines are git diff's hunks" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (expect (loop for file in (jlist (jget (run-ok ws '("git" "diff")) "files"))
-                append (loop for hunk in (jlist (jget file "hunks")) append (jlist (jget hunk "lines"))))
-          :to-equal (remove-if (lambda (line) (or (search "---" line :end2 (min 3 (length line)))
-                                                  (search "+++" line :end2 (min 3 (length line)))))
-                               (text-lines (oracle ws '("git" "grep") "git diff | grep -E '^[-+ ]'" nil)))))
-
-(define-row-case (40 "git blame after restoring f to HEAD reports committed lines" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (shell ws "git checkout -q HEAD -- f")
-  (expect (mapcar (lambda (line) (format nil "~A ~A" (jget line "sha") (jget line "text")))
-                  (jlist (jget (run-ok ws '("git" "blame" "f")) "lines")))
-          :to-equal (text-lines (oracle ws '("git" "perl")
-                                        "git blame --line-porcelain f | perl -ne 'if (/^([0-9a-f]{40}) /) { $s = $1 } elsif (/^\\t(.*)/) { print \"$s $1\\n\" }'"
-                                        nil))))
-
-(define-row-case (40 "git show rev:path is git show" :foreign ("git") :git t) (ws)
-  (make-history ws)
-  (expect (lines-text (jget (run-ok ws '("git" "show" "HEAD~1:f")) "lines"))
-          :to-equal (oracle ws '("git") "git show HEAD~1:f" (format nil "l1~%l2~%"))))
-
 (define-row-case (41 "uname -s and -m are sys info's os and arch" :foreign ("uname")) (ws)
   (let ((envelope (run-ok ws '("sys" "info"))))
     (expect (jget envelope "os") :to-equal (string-downcase (trimmed (oracle ws '("uname") "uname -s" nil))))
     (expect (jget envelope "arch") :to-equal (trimmed (oracle ws '("uname") "uname -m" nil)))
     (expect (jget envelope "os_version") :to-equal (trimmed (oracle ws '("uname") "uname -r" nil)))))
+(define-row-case (40 "git status runs through run" :foreign ("git") :git t) (ws)
+  (put ws "f" "content")
+  (let ((result (run-ok ws (list "run" "--" "git" "status" "--porcelain")))
+        (expected (oracle ws (list "git") "git status --porcelain" (format nil "?? f~%"))))
+    (expect (lines-text (jget result "stdout" "head")) :to-equal expected)))
 
 (define-row-case (41 "whoami is sys info's user" :foreign ("whoami")) (ws)
   (expect (jget (run-ok ws '("sys" "info")) "user") :to-equal (trimmed (oracle ws '("whoami") "whoami" nil))))

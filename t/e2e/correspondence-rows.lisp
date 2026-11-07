@@ -47,7 +47,7 @@
     "| `tar -xzf`、`unzip`、`tar -czf`、`zip -r`、`gzip` | `archive extract --to`、`archive create` |"
     "| `cmd \\| grep`、`cmd \\| head`、`cmd \\| tail`、`cmd > file`、ANSI 色の除去 | `run --grep`、`--head`、`--tail`、`--stdout-to`、既定の ANSI 除去 |"
     "| `cmd &`、`nohup`、`tail -f`、`sleep`、ポートの待機、`timeout` | `bg start`、`bg logs --from`、`wait`、`run --timeout` |"
-    "| `git status`、`git log`、`git diff`、`git blame`、`git show rev:path` | `git status`、`git log`、`git diff`、`git blame`、`git show` |"
+    "| `git status`、`git log`、`git diff`、`git blame`、`git show rev:path` | `run -- git …` |"
     "| `uname`、`whoami`、`hostname`、`nproc`、`env`、`which`、`ps`、`lsof -i` | `sys info`、`sys env`、`sys tools`、`sys procs`、`sys ports` |"
     "| `date`、`date -d '+1 day'`、`TZ=… date`、2 時刻の差 | `time now`、`time convert --add 1d`、`--tz`、`time diff` |"
     "| `base64`、`base64 -d > file`、`xxd -r -p`、URL エンコード | `util encode`、`util decode --to`、`util encode url` |"
