@@ -2,33 +2,6 @@
 ;;;; Correspondence table rows 28-30: file operations and metadata.
 (in-package #:aitools.e2e.test)
 
-(defun tree-snapshot (workspace directory)
-  "Every entry under DIRECTORY as (relative kind mode content-or-target),
-sorted: an observer independent of both aitools and the shell tools."
-  (let ((root (ws-path workspace directory)))
-    (labels ((walk (path prefix)
-               (loop for entry in (sorted (mapcar (lambda (p)
-                                                     (let ((name (if (uiop:directory-pathname-p p)
-                                                                     (car (last (pathname-directory p)))
-                                                                     (file-namestring p))))
-                                                       name))
-                                                   (append (uiop:subdirectories path)
-                                                           (uiop:directory-files path))))
-                     for relative = (if prefix (format nil "~A/~A" prefix entry) entry)
-                     for native-path = (format nil "~A~A" (native path) entry)
-                     for stat = (sb-posix:lstat native-path)
-                     for mode = (sb-posix:stat-mode stat)
-                     for kind = (cond ((= (logand mode #o170000) #o120000) :symlink)
-                                      ((= (logand mode #o170000) #o040000) :dir)
-                                      (t :file))
-                     collect (list relative kind (logand mode #o7777)
-                                   (case kind
-                                     (:symlink (sb-posix:readlink native-path))
-                                     (:file (read-octets native-path))))
-                     when (eq kind :dir)
-                       append (walk (uiop:ensure-directory-pathname native-path) relative))))
-      (if (probe-file root) (walk root nil) :absent))))
-
 (defun put-twin-trees (workspace)
   (dolist (side '("a" "o"))
     (put workspace (format nil "~A/f.txt" side) (format nil "file~%") :mode #o640)

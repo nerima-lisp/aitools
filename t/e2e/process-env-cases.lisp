@@ -3,25 +3,6 @@
 ;;;; and waiting.
 (in-package #:aitools.e2e.test)
 
-(defun trimmed (text)
-  (string-trim '(#\Newline #\Space) text))
-
-(defun expect-child-process-span (envelope name outcome)
-  (let* ((spans (jlist (jget envelope "meta" "trace" "spans")))
-         (command (find-if (lambda (span)
-                             (and (string= (jget span "kind") "command")
-                                  (null (jget span "parent_span_id"))))
-                           spans))
-         (child (find name spans :key (lambda (span) (jget span "name")) :test #'string=)))
-    (expect command :to-be-truthy)
-    (expect child :to-be-truthy)
-    (multiple-value-bind (parent present-p) (gethash "parent_span_id" command)
-      (expect present-p :to-be t)
-      (expect parent :to-be nil))
-    (expect (jget child "kind") :to-equal "child_process")
-    (expect (jget child "outcome") :to-equal outcome)
-    (expect (jget child "parent_span_id") :to-be (jget command "span_id"))))
-
 (describe "aitools child-process trace spans (e2e)"
   (it "records process.run with outcomes and the command parent"
     (:tags (quote (:trace-positive)))

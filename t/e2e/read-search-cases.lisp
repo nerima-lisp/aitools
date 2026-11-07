@@ -1,22 +1,12 @@
 ;;;;
 ;;;; Correspondence table rows 1-5: reading and inspecting. Rows 6-11 are in
-;;;; search-find-cases.lisp, which uses the helpers defined here.
+;;;; search-find-cases.lisp, which uses shared harness helpers.
 (in-package #:aitools.e2e.test)
 
 (defparameter +five-lines+ (format nil "alpha~%beta~%gamma~%delta~%epsilon~%"))
 
 (defun read-text (workspace &rest arguments)
   (lines-text (jget (run-ok workspace (list* "read" arguments)) "lines")))
-
-(defun sorted (strings)
-  (sort (copy-list strings) #'string<))
-
-(defun strip-dot-slash (path)
-  (if (and (>= (length path) 2) (string= "./" path :end2 2)) (subseq path 2) path))
-
-(defun oracle-lines (workspace tools script fixed)
-  "The oracle's output lines with a leading ./ removed, sorted."
-  (sorted (mapcar #'strip-dot-slash (text-lines (oracle workspace tools script fixed)))))
 
 ;;; Row 1
 

@@ -27,3 +27,28 @@
     :serial t
     :components ((:file "package") (:file "posix-syscall")
                  (:file "posix-file-io") (:file "posix-io")))))
+(defsystem "aitools/test/store"
+           :description "store context tests."
+           :depends-on ("aitools/test/base" "aitools/core/store")
+           :pathname "../../../t/"
+           :serial t
+           :components ((:file "unit/store/package")
+                        (:file "unit/store/domain-test")
+                        (:file "unit/store/domain-record-test")
+                        (:file "unit/store/record-codec-test")
+                        (:file "unit/store/tx-model-test")
+                        (:file "integration/store-write-protocol-test")
+                        (:file "integration/store-journal-undo-test")
+                        (:file "integration/store-recovery-test")
+                        (:file "integration/store-recovery-process-test")
+                        (:file "integration/store-lock-test")
+                        (:file "integration/store-retry-plan-edge-test")
+                        (:file "integration/store-tx-test")
+                        (:file "integration/store-tx-operations-test")
+                        (:file "integration/store-tx-command-test")
+                        (:file "integration/store-mtime-test")
+                        (:file "integration/store-security-test")
+                        (:file "integration/store-security-write-test")
+                        (:file "integration/store-security-gc-test")
+                        (:file "integration/store-security-concurrency-test")
+                        (:module "e2e" :pathname "e2e/" :serial t :components ((:file "store-trace-cases")))))

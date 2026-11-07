@@ -1,125 +1,129 @@
 (in-package #:asdf-user)
 
+(progn
+  (defun %registered-aitools-test-systems ()
+    (let ((prefix "aitools/test/"))
+      (sort
+       (remove-if-not
+        (lambda (name)
+          (and (stringp name)
+               (> (length name) (length prefix))
+               (string= prefix name :end2 (length prefix))))
+        (asdf:registered-systems))
+       #'string<)))
+  (defun %load-aitools-test-systems (&optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
+    (let* ((registered (%registered-aitools-test-systems))
+           (shared "aitools/test/shared")
+           (contexts (remove-if (lambda (name)
+                                  (member name
+                                          (list "aitools/test/base" "aitools/test/shared")
+                                          :test (function string=)))
+                                registered)))
+      (when (and (uiop:getenv "AITOOLS_COVERAGE") context)
+        (error "AITOOLS_TEST_CONTEXT cannot be combined with AITOOLS_COVERAGE."))
+      (unless (member shared registered :test (function string=))
+        (error "No registered shared test system ~S." shared))
+      (if context
+          (let ((selected (format nil "aitools/test/~A" context)))
+            (unless (member selected contexts :test (function string=))
+              (error "No registered test system for context ~S." context))
+            (asdf:load-system selected))
+        (progn
+          (unless contexts
+            (error "No context test systems are registered."))
+          (dolist (system contexts)
+            (asdf:load-system system))
+          (asdf:load-system shared)))))
+  (defsystem "aitools/test/shared"
+             :description "Shared, structural, integration, and end-to-end tests."
+             :depends-on ("aitools/test/base" "aitools" "aitools/cli" "cl-weave")
+             :pathname "."
+             :components ((:module "t" :pathname "t/" :components
+                                   ((:file "unit/trace-context-test")
+                                    (:file "unit/trace-store-io-test" :depends-on ("unit/trace-context-test"))
+                                    (:module "structure" :pathname "structure/" :serial t
+                                             :components ((:file "cps-contract-reader")
+                                                          (:file "cps-contract-analysis")
+                                                          (:file "cps-contract-analysis-positional")
+                                                          (:file "cps-contract-analysis-positional-flow")
+                                                          (:file
+                                                           "cps-contract-analysis-positional-flow-rules")
+                                                          (:file
+                                                           "cps-contract-analysis-positional-flow-walker")
+                                                          (:file
+                                                           "cps-contract-analysis-positional-flow-z-tail")
+                                                          (:file "cps-contract-analysis-source")
+                                                          (:file "cps-contract-analysis-positional-inventory")
+                                                          (:file "cps-contract-test")
+                                                          (:file "cps-contract-positional-test")
+                                                          (:file "cps-contract-z-positional-terminal-test")))
+                                    (:module "integration"
+                                             :pathname "integration/"
+                                             :components ((:file "dispatch-test")
+                                                          (:file "dispatch-format-repairs-test"
+                                                                 :depends-on ("dispatch-test"))
+                                                          (:file "dispatch-partial-test"
+                                                                 :depends-on ("dispatch-test"))
+                                                          (:file "schema-test"
+                                                                 :depends-on ("dispatch-test"))
+                                                          (:file "dispatch-recovery-failure-test")
+                                                          (:file "dispatch-invocation-test")
+                                                          (:file "batch-test")
+                                                          (:file "batch-trace-test")
+                                                          (:file "batch-atomic-test")
+                                                          (:file "batch-failure-test")
+                                                          (:file "cli-schema-drift-test")
+                                                          (:file "skill-contract-test")
+                                                          (:file "runner-failure-report-test")
+                                                          (:file "structure-test")
+                                                          (:file "structure-context-allowances" :depends-on ("structure-test"))
+                                                          (:file "structure-source-scanner-reader" :depends-on ("structure-context-allowances"))
+                                                          (:file "structure-dead-code-source" :depends-on ("structure-source-scanner" "structure-source-scanner-reader"))
+                                                          (:file "structure-dead-code-definitions" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
+                                                          (:file "structure-dead-code-symbols" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
+                                                          (:file "structure-dead-code-reference-core" :depends-on ("structure-dead-code-symbols" "structure-source-scanner-reader" "structure-source-scanner"))
+                                                          (:file "structure-dead-code-reference-bindings" :depends-on ("structure-dead-code-reference-core"))
+                                                          (:file "structure-dead-code-reference-definitions" :depends-on ("structure-dead-code-reference-core"))
+                                                          (:file "structure-dead-code-reference-forms" :depends-on ("structure-dead-code-reference-core" "structure-dead-code-reference-bindings" "structure-dead-code-reference-definitions" "structure-dead-code-symbols"))
+                                                          (:file "structure-dead-code-reference-index" :depends-on ("structure-dead-code-reference-diagnostics" "structure-dead-code-reference-core" "structure-dead-code-reference-forms" "structure-dead-code-definitions" "structure-dead-code-symbols"))
+                                                          (:file "structure-dead-code-reference-diagnostics" :depends-on ("structure-dead-code-reference-forms" "structure-source-scanner-reader" "structure-source-scanner"))
+                                                          (:file "structure-dead-code-scan" :depends-on ("structure-dead-code-reference-diagnostics" "structure-dead-code-reference-index" "structure-dead-code-definitions" "structure-dead-code-source" "structure-source-scanner"))
+                                                          (:file "structure-source-scanner" :depends-on ("structure-context-allowances" "structure-source-scanner-reader"))
+                                                          (:file "structure-dead-code-fixtures-test" :depends-on ("structure-dead-code-scan"))
+                                                          (:file "structure-dead-code-qualified-roots-test" :depends-on ("structure-dead-code-scan"))
+                                                          (:file "structure-dead-code-reader-roots-test" :depends-on ("structure-dead-code-scan"))
+                                                          (:file "structure-dead-code-production-scan-test" :depends-on ("structure-dead-code-scan"))
+                                                          (:file "store-structure-contract-test" :depends-on ("structure-context-allowances"))
+                                                          (:file "coverage-baseline-reader")
+                                                          (:file "coverage-baseline-test")
+                                                          (:file "structure-timeout-test")
+                                                          (:file "coverage-artifact-validation")
+                                                          (:file "run-policy-and-coverage-artifact-validation-test"
+                                                                 :depends-on ("coverage-artifact-validation"))
+                                                          (:file "structure-budget-baseline")
+                                                          (:file "structure-budget-reader")
+                                                          (:file "structure-budget-lines-test")
+                                                          (:file "structure-budget-literals-test")
+                                                          (:file "structure-budget-complexity-test")
+                                                          (:file "structure-budget-complex-function-test"
+                                                                 :depends-on ("structure-budget-complexity-test"))
+                                                          (:file "structure-budget-complexity-fixture-test"
+                                                                 :depends-on ("structure-budget-complexity-test"))
+                                                          (:file "context-registration-test")))
+                                    ;; Keep the correspondence meta-test last so its cases see earlier rows.
+                                    (:module "e2e" :pathname "e2e/" :serial t
+                                             :components ((:file "process-env-host-cases")
+                                                         (:file "trace-byte-parity-cases")
+                                                         (:file "byte-gate-test")
+                                                         (:file "byte-gate-inventory-test" :depends-on ("byte-gate-test"))
+                                                         (:file "meta-test"))))))))
 (defsystem "aitools/test"
-           :description "Full suite: shared, structural, integration, and end-to-end tests."
-           :depends-on ("aitools/test/base" "aitools" "aitools/cli" "cl-weave")
+           :description "Run shared tests or dynamically discovered context tests."
+           :depends-on ("aitools/test/base")
            :pathname "."
-           :components ((:module "t"
-                                 :pathname "t/"
-                                 :components ((:module "structure" :pathname "structure/" :serial t
-                                                       :components ((:file "cps-contract-reader")
-                                                                    (:file "cps-contract-analysis")
-                                                                    (:file "cps-contract-analysis-positional")
-                                                                    (:file "cps-contract-analysis-positional-flow")
-                                                                    (:file
-                                                                    "cps-contract-analysis-positional-flow-rules")
-                                                                    (:file
-                                                                    "cps-contract-analysis-positional-flow-walker")
-                                                                    (:file
-                                                                    "cps-contract-analysis-positional-flow-z-tail")
-                                                                    (:file "cps-contract-analysis-source")
-                                                                    (:file "cps-contract-analysis-positional-inventory")
-                                                                    (:file "cps-contract-test")
-                                                                    (:file "cps-contract-positional-test")
-                                                                    (:file "cps-contract-z-positional-terminal-test")))
-                                              (:module "integration"
-                                                       :pathname "integration/"
-                                                       :components ((:file "dispatch-test")
-                                                                    (:file "dispatch-format-repairs-test"
-                                                                           :depends-on ("dispatch-test"))
-                                                                    (:file "dispatch-partial-test"
-                                                                           :depends-on ("dispatch-test"))
-                                                                    (:file "schema-test"
-                                                                           :depends-on ("dispatch-test"))
-                                                                    (:file "dispatch-recovery-failure-test")
-                                                                    (:file "dispatch-invocation-test")
-                                                                    (:file "batch-test")
-                                                                    (:file "batch-trace-test")
-                                                                    (:file "env-host-trace-test")
-                                                                    (:file "process-ports-launch-trace-test")
-                                                                    (:file "batch-atomic-test")
-                                                                    (:file "batch-failure-test")
-                                                                    (:file "cli-schema-drift-test")
-                                                                    (:file "org-dispatch-test")
-                                                                    (:file "org-write-dispatch-test") (:file "org-write-edge-test")
-                                                                    (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
-                                                                    (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
-                                                                    (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))
-                                                                    (:file "skill-contract-test")
-                                                                    (:file "runner-failure-report-test")
-                                                                    (:file "structure-test")
-                                                                    (:file "structure-context-allowances" :depends-on ("structure-test"))
-                                                                    (:file "structure-source-scanner-reader" :depends-on ("structure-context-allowances"))
-                                                                    (:file "structure-dead-code-source" :depends-on ("structure-source-scanner" "structure-source-scanner-reader"))
-                                                                    (:file "structure-dead-code-definitions" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
-                                                                    (:file "structure-dead-code-symbols" :depends-on ("structure-dead-code-source" "structure-source-scanner"))
-                                                                    (:file "structure-dead-code-reference-core" :depends-on ("structure-dead-code-symbols" "structure-source-scanner-reader" "structure-source-scanner"))
-                                                                    (:file "structure-dead-code-reference-bindings" :depends-on ("structure-dead-code-reference-core"))
-                                                                    (:file "structure-dead-code-reference-definitions" :depends-on ("structure-dead-code-reference-core"))
-                                                                    (:file "structure-dead-code-reference-forms" :depends-on ("structure-dead-code-reference-core" "structure-dead-code-reference-bindings" "structure-dead-code-reference-definitions" "structure-dead-code-symbols"))
-                                                                    (:file "structure-dead-code-reference-index" :depends-on ("structure-dead-code-reference-diagnostics" "structure-dead-code-reference-core" "structure-dead-code-reference-forms" "structure-dead-code-definitions" "structure-dead-code-symbols"))
-                                                                    (:file "structure-dead-code-reference-diagnostics" :depends-on ("structure-dead-code-reference-forms" "structure-source-scanner-reader" "structure-source-scanner"))
-                                                                    (:file "structure-dead-code-scan" :depends-on ("structure-dead-code-reference-diagnostics" "structure-dead-code-reference-index" "structure-dead-code-definitions" "structure-dead-code-source" "structure-source-scanner"))
-                                                                    (:file "structure-source-scanner" :depends-on ("structure-context-allowances" "structure-source-scanner-reader"))
-                                                                    (:file "structure-dead-code-fixtures-test" :depends-on ("structure-dead-code-scan"))
-                                                                    (:file "structure-dead-code-qualified-roots-test" :depends-on ("structure-dead-code-scan"))
-                                                                    (:file "structure-dead-code-reader-roots-test" :depends-on ("structure-dead-code-scan"))
-                                                                    (:file "structure-dead-code-production-scan-test" :depends-on ("structure-dead-code-scan"))
-                                                                    (:file "store-structure-contract-test" :depends-on ("structure-context-allowances"))
-                                                                    (:file "coverage-baseline-reader")
-                                                                    (:file "coverage-baseline-test")
-                                                                    (:file "structure-timeout-test")
-                                                                    (:file "coverage-artifact-validation")
-                                                                    (:file "run-policy-and-coverage-artifact-validation-test"
-                                                                     :depends-on ("coverage-artifact-validation"))
-                                                                    (:file "structure-budget-baseline")
-                                                                    (:file "structure-budget-reader")
-                                                                    (:file "structure-budget-lines-test")
-                                                                    (:file "structure-budget-literals-test")
-                                                                    (:file "structure-budget-complexity-test")
-                                                                    (:file "structure-budget-complex-function-test"
-                                                                           :depends-on ("structure-budget-complexity-test"))
-                                                                    (:file "structure-budget-complexity-fixture-test"
-                                                                           :depends-on ("structure-budget-complexity-test"))))
-                                              ;; Keep the correspondence meta-test last so its cases see earlier rows.
-                                              (:module "e2e"
-                                                       :pathname "e2e/"
-                                                       :components ((:file "package")
-                                                                    (:file "harness")
-                                                                    (:file "byte-capture")
-                                                                    (:file "harness-cases")
-                                                                    (:file "trace-harness")
-                                                                    (:file "correspondence-rows")
-                                                                    (:file "read-search-cases")
-                                                                    (:file "search-find-cases")
-                                                                    (:file "edit-cases")
-                                                                    (:file "edit-envelope-compatibility")
-                                                                    (:file "transform-file-cases")
-                                                                    (:file "file-operation-cases")
-                                                                    (:file "format-cases")
-                                                                    (:file "yaml-toml-read-cases")
-                                                                    (:file "yaml-toml-write-cases")
-                                                                    (:file "yaml-toml-write-errors")
-                                                                    (:file "yaml-toml-write-format-cases")
-                                                                    (:file "archive-failure-cases")
-                                                                    (:file "org-cases")
-                                                                    (:file "org-read-error-cases")
-                                                                    (:file "org-query-cases")
-                                                                    (:file "org-export-cases") (:file "org-write-cases") (:file "org-write-edge-cases") (:file "org-agenda-cases") (:file "org-write-workflow-cases") (:file "org-write-table-cases")
-                                                                    (:file "process-env-cases")
-                                                                    (:file "process-env-host-cases")
-                                                                    (:file "process-env-util-cases")
-                                                                    (:file "store-trace-cases")
-                                                                    (:file "trace-byte-parity-cases")
-                                                                    (:file "byte-gate")
-                                                                    (:file "byte-gate-inventory-reader" :depends-on ("byte-gate"))
-                                                                    (:file "byte-gate-report" :depends-on ("byte-gate"))
-                                                                    (:file "byte-gate-compare" :depends-on ("byte-gate" "byte-gate-report"))
-                                                                    (:file "byte-gate-test" :depends-on ("byte-gate-compare" "byte-gate-inventory-reader"))
-                                                                    (:file "byte-gate-inventory-test" :depends-on ("byte-gate-test"))
-                                                                    (:file "meta-test"))))))
            :perform (test-op (op system)
                              (declare (ignore op system))
+                             (%load-aitools-test-systems)
                              (unless (uiop:symbol-call
                                       :aitools/test :%call-with-test-runner-reporting
                                       (lambda () (uiop:symbol-call :aitools/test :run-tests)))

@@ -22,3 +22,27 @@
             (:module "infrastructure"
                      :components ((:file "package") (:file "host-source")
                                   (:file "boundaries")))))
+(defsystem "aitools/test/text"
+           :description "text context tests."
+           :depends-on ("aitools/test/base" "aitools/core/text")
+           :pathname "../../../t/"
+           :serial t
+           :components ((:file "unit/text/package")
+                        (:file "unit/text/layout-test")
+                        (:file "unit/text/charset-test")
+                        (:file "unit/text/guess-test")
+                        (:file "unit/text/codec-test-support")
+                        (:file "unit/text/codec-test")
+                        (:file "unit/text/codec-gzip-test")
+                        (:file "unit/text/archive-test")
+                        (:file "unit/text/archive-zip-test")
+                        (:file "unit/text/archive-zip-signature-test")
+                        (:file "unit/text/archive-zip-date-test")
+                        (:file "unit/text/archive-tar-test")
+                        (:file "unit/text/archive-safety-test")
+                        (:file "unit/text/source-test")
+                        (:file "unit/text/source-range-test")
+                        (:file "integration/text-archive-fixtures")
+                        (:file "integration/text-archive-interop-test")
+                        (:file "integration/text-host-source-test")
+                        (:file "integration/text-host-source-range-test")))

@@ -99,3 +99,46 @@
                  (:file "archive-commands")
                  (:file "snapshot-commands")
                  (:file "context-registration")))))
+
+(defsystem "aitools/test/inspect"
+  :description "Inspection context tests."
+  :depends-on ("aitools/test/base" "aitools/feature/inspect" "aitools/cli")
+  :pathname "../../../"
+  :components
+  ((:module "t" :pathname "t/" :serial t
+    :components
+    ((:file "unit/inspect/package")
+     (:file "unit/inspect/support")
+     (:file "unit/inspect/context-test")
+     (:file "unit/inspect/read-test")
+     (:file "unit/inspect/read-more-test")
+     (:module "yaml-toml-read-tests" :pathname "unit/inspect/" :serial t
+      :components ((:file "yaml-values-test")
+                   (:file "toml-values-test")
+                   (:file "yaml-flows-test")
+                   (:file "toml-flows-test")))
+     (:file "unit/inspect/json-query-test")
+     (:file "unit/inspect/json-query-property-test")
+     (:file "unit/inspect/table-test")
+     (:file "unit/inspect/table-edge-test")
+     (:file "unit/inspect/archive-test")
+     (:file "unit/inspect/archive-size-limit-test")
+     (:file "unit/inspect/archive-list-test")
+     (:file "unit/inspect/snapshot-test")
+     (:file "unit/inspect/info-check-diff-test")
+     (:file "unit/inspect/text-content-counts-test")
+     (:file "unit/inspect/diff-edge-test")
+     (:file "unit/inspect/inspect-file-error-test")
+     (:file "unit/inspect/selection-test")
+     (:file "unit/inspect/selector-property-test")
+     (:module "integration" :pathname "integration/" :serial t
+      :components ((:file "inspect-snapshot-test")
+                   (:file "inspect-cli-test")
+                   (:file "inspect-cli-commands-test")
+                   (:file "inspect-yaml-toml-read-test")
+                   (:file "inspect-cli-store-test")))
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components ((:file "read-search-cases")
+                   (:file "format-cases")
+                   (:file "yaml-toml-read-cases")
+                   (:file "diff-cases")))))))

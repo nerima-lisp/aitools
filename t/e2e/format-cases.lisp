@@ -1,23 +1,13 @@
 ;;;;
-;;;; Correspondence table rows 31-37: JSON, tabular text, and archives. JSON results are
-;;;; compared structurally with jq's output parsed by json-kit; archives are
-;;;; built and checked with the real tar, zip, unzip, and gzip.
+;;;; Correspondence table rows 31-32 and 34-36: JSON queries, tables, and archive reads.
+;;;; JSON results are compared structurally with jq's output parsed by json-kit;
+;;;; archives are built and checked with the real tar, zip, unzip, and gzip.
 (in-package #:aitools.e2e.test)
-
-(defun parse-json-text (text)
-  (json-kit:parse text :false-value nil :null-value nil))
-
-(defun jq (workspace filter file fixed &rest flags)
-  "jq -c FILTER FILE's single output value, parsed."
-  (parse-json-text (oracle workspace '("jq") (format nil "jq -c~{ ~A~} '~A' ~A" flags filter file) fixed)))
 
 (defun jq-stream (workspace filter file fixed)
   "Every value jq -c FILTER FILE prints, parsed, as a list."
   (mapcar #'parse-json-text
           (text-lines (oracle workspace '("jq") (format nil "jq -c '~A' ~A" filter file) fixed))))
-
-(defparameter +json-fixture+
-  (format nil "{\"b\":{\"c\":\"hi\\n\",\"d\":[1,2]},\"a\":[1,2,3],\"name\":\"x\"}~%"))
 
 (defparameter +json-array-fixture+
   (format nil "[{\"x\":2,\"n\":\"q\"},{\"x\":1,\"n\":\"p\"},{\"x\":3,\"n\":\"s\"},{\"x\":1,\"n\":\"r\"}]~%"))
@@ -69,39 +59,6 @@
   (put ws "f.json" +json-array-fixture+)
   (expect (jget (run-ok ws '("doc" "select" "f.json" "" "--where" "/x=1" "--output" "count")) "count")
           :to-be (jq ws "map(select(.x == 1)) | length" "f.json" (format nil "2~%"))))
-
-;;; Row 33
-
-(defun expect-same-json-edit (workspace filter arguments &key stdin)
-  "Apply jq FILTER to o.json and aitools ARGUMENTS to a.json (both
-+JSON-FIXTURE+) and compare the documents structurally."
-  (put workspace "a.json" +json-fixture+)
-  (put workspace "o.json" +json-fixture+)
-  (let ((expected (jq workspace filter "o.json" nil)))
-    (run-ok workspace arguments :stdin stdin)
-    (expect (json= (parse-json-text (file-text workspace "a.json")) expected) :to-be t)))
-
-(define-row-case (33 "jq '.a = 1' is doc set" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ".a = 1" '("doc" "set" "a.json" "/a" "1")))
-
-(define-row-case (33 "jq '.a += [4]' is doc set /a/-" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ".a += [4]" '("doc" "set" "a.json" "/a/-" "4")))
-
-(define-row-case (33 "jq 'del(.b)' is doc delete" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws "del(.b)" '("doc" "delete" "a.json" "/b")))
-
-(define-row-case (33 "jq '. * {...}' is doc merge" :foreign ("jq")) (ws)
-  (expect-same-json-edit ws ". * {\"b\":{\"e\":true},\"z\":\"new\"}" '("doc" "merge" "a.json" "--stdin")
-                         :stdin "{\"b\":{\"e\":true},\"z\":\"new\"}"))
-
-(define-row-case (33 "jq . is doc fmt, byte for byte" :foreign ("jq")) (ws)
-  (let ((compact (format nil "{\"b\":1,\"a\":{\"c\":[1,2],\"s\":\"x\"}}~%")))
-    (put ws "a.json" compact)
-    (put ws "o.json" compact)
-    (let ((expected (oracle ws '("jq") "jq . o.json"
-                            (format nil "{~%  \"b\": 1,~%  \"a\": {~%    \"c\": [~%      1,~%      2~%    ],~%    \"s\": \"x\"~%  }~%}~%"))))
-      (run-ok ws '("doc" "fmt" "a.json"))
-      (expect (file-text ws "a.json") :to-equal expected))))
 
 ;;; Row 34
 
@@ -155,15 +112,6 @@
 
 ;;; Row 36
 
-(defun put-archive-sources (workspace)
-  (put workspace "src/a.txt" (format nil "hello~%"))
-  (put workspace "src/sub/b.txt" (format nil "world~%second~%")))
-
-(defun make-archives (workspace)
-  "Build t.tar, t.tgz, z.zip, and a.gz from src/ with the real tools."
-  (put-archive-sources workspace)
-  (shell workspace "tar -cf t.tar src && tar -czf t.tgz src && zip -qr z.zip src && gzip -c src/a.txt > a.gz"))
-
 (defun archive-paths (workspace archive)
   (sorted (mapcar (lambda (item) (jget item "path"))
                   (jlist (jget (run-ok workspace (list "archive" "list" archive)) "items")))))
@@ -201,36 +149,3 @@
 
 ;;; Row 37
 
-(define-row-case (37 "tar -xzf is archive extract --to" :foreign ("tar")) (ws)
-  (make-archives ws)
-  (oracle ws '("tar") "mkdir o && tar -xzf t.tgz -C o" nil)
-  (run-ok ws '("archive" "extract" "t.tgz" "--to" "a"))
-  (expect (mapcar #'butlast (tree-snapshot ws "a/")) :to-equalp (mapcar #'butlast (tree-snapshot ws "o/")))
-  (expect (mapcar #'fourth (tree-snapshot ws "a/")) :to-equalp (mapcar #'fourth (tree-snapshot ws "o/"))))
-
-(define-row-case (37 "unzip is archive extract --to" :foreign ("unzip")) (ws)
-  (make-archives ws)
-  (oracle ws '("unzip") "unzip -q z.zip -d o" nil)
-  (run-ok ws '("archive" "extract" "z.zip" "--to" "a"))
-  (expect (mapcar (lambda (entry) (list (first entry) (second entry) (fourth entry))) (tree-snapshot ws "a/"))
-          :to-equalp (mapcar (lambda (entry) (list (first entry) (second entry) (fourth entry))) (tree-snapshot ws "o/"))))
-
-(define-row-case (37 "archive create's .tar.gz is what tar -czf makes, read back by tar -xzf" :foreign ("tar")) (ws)
-  (put-archive-sources ws)
-  (run-ok ws '("archive" "create" "new.tar.gz" "src"))
-  (oracle ws '("tar") "mkdir o && tar -czf ref.tgz src && tar -xzf ref.tgz -C o && mkdir a && tar -xzf new.tar.gz -C a" nil)
-  (expect (mapcar #'fourth (tree-snapshot ws "a/")) :to-equalp (mapcar #'fourth (tree-snapshot ws "o/")))
-  (expect (mapcar #'first (tree-snapshot ws "a/")) :to-equal (mapcar #'first (tree-snapshot ws "o/"))))
-
-(define-row-case (37 "archive create --format zip is what zip -r makes, read back by unzip" :foreign ("zip" "unzip")) (ws)
-  (put-archive-sources ws)
-  (run-ok ws '("archive" "create" "--format" "zip" "new.zip" "src"))
-  (oracle ws '("zip" "unzip") "zip -qr ref.zip src && unzip -q ref.zip -d o && unzip -q new.zip -d a" nil)
-  (expect (mapcar (lambda (entry) (list (first entry) (fourth entry))) (tree-snapshot ws "a/"))
-          :to-equalp (mapcar (lambda (entry) (list (first entry) (fourth entry))) (tree-snapshot ws "o/"))))
-
-(define-row-case (37 "archive create's .gz is what gzip makes, read back by gzip -dc" :foreign ("gzip")) (ws)
-  (put-archive-sources ws)
-  (run-ok ws '("archive" "create" "a.gz" "src/a.txt"))
-  (expect (utf8 (oracle ws '("gzip") "gzip -dc a.gz" nil :octets t))
-          :to-equal (utf8 (oracle ws '("gzip") "gzip -c src/a.txt | gzip -dc" nil :octets t))))

@@ -21,3 +21,21 @@
    (:module "infrastructure"
     :components ((:file "package") (:file "host")
                  (:file "ordered-mapper") (:file "boundaries")))))
+(defsystem "aitools/test/workspace"
+           :description "workspace context tests."
+           :depends-on ("aitools/test/base" "aitools/core/workspace")
+           :pathname "../../../t/"
+           :serial t
+           :components ((:file "unit/workspace/package")
+                        (:file "unit/workspace/fake-host")
+                        (:file "unit/workspace/wildmatch-test")
+                        (:file "unit/workspace/gitignore-test")
+                        (:file "unit/workspace/root-boundary-test")
+                        (:file "unit/workspace/git-data-test")
+                        (:file "unit/workspace/scan-test")
+                        (:file "unit/workspace/scan-options-test")
+                        (:file "unit/workspace/scan-worker-pool-test")
+                        (:file "unit/workspace/scan-git-config-test")
+                        (:file "integration/workspace-test-support")
+                        (:file "integration/workspace-gitignore-parity-test")
+                        (:file "integration/workspace-host-test")))
