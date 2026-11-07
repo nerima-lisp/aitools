@@ -102,7 +102,7 @@
     };
 
     cl-toml-kit = {
-      url = "github:nerima-lisp/cl-toml-kit/v0.2.0";
+      url = "github:nerima-lisp/cl-toml-kit/v0.3.0";
       flake = false;
     };
 

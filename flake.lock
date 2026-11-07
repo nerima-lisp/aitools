@@ -297,16 +297,16 @@
     "cl-toml-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1792402535,
-        "narHash": "sha256-45S4B3eBnsuMVbHHMDpKfg3oTTIEbh7m614evJETfRE=",
+        "lastModified": 1792642174,
+        "narHash": "sha256-ZEmuKTG0SvAsBjauKMKQHcrBbMO3EkCpZgAS0aAO7v8=",
         "owner": "nerima-lisp",
         "repo": "cl-toml-kit",
-        "rev": "2307be4c2c469ccc6b3b2b2065481b2e1a6905b3",
+        "rev": "45194f8c13da53af8bc0fe22c4ad5cf338193035",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v0.2.0",
+        "ref": "v0.3.0",
         "repo": "cl-toml-kit",
         "type": "github"
       }

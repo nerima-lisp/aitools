@@ -89,5 +89,6 @@ bytes so the limit bounds the read itself."
     ((string= format "yaml")
      (yaml-kit:emit (%yaml-native-value value)))
     ((string= format "toml")
-     (cl-toml-kit:encode (%toml-native-value value)))
+     (let ((cl-toml-kit:*toml-max-nesting-depth* 512))
+       (cl-toml-kit:encode (%toml-native-value value))))
     (t (error "unsupported YAML/TOML format: ~S" format))))

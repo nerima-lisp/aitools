@@ -125,7 +125,9 @@
 
 (defun parse-toml-write-document (text &key max-depth)
   (handler-case
-      (let ((native (cl-toml-kit:parse text)))
+      (let* ((cl-toml-kit:*toml-max-nesting-depth*
+              (or max-depth cl-toml-kit:*toml-max-nesting-depth*))
+             (native (cl-toml-kit:parse text)))
         (%toml-write-check-value native nil 0 max-depth)
         (values (%toml-to-json native nil)
                 (length (cl-toml-kit:toml-comment-spans text))))
