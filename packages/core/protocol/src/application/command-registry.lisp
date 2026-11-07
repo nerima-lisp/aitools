@@ -23,7 +23,6 @@
 (defun %validate-command-declaration-values (name group command-builder schema)
   (labels ((valid-dotted-path-p (path)
              (and (stringp path)
-                  (plusp (length path))
                   (not (char= #\. (char path 0)))
                   (not (char= #\. (char path (1- (length path)))))
                   (not (search ".." path))
