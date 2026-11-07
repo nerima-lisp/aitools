@@ -29,4 +29,5 @@
                  (:file "sys-snapshot-flow")))
    (:module "infrastructure"
     :components ((:file "package")
+                 (:file "sysctl-mib")
                  (:file "production-ports")))))

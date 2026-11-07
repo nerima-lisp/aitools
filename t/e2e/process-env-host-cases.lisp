@@ -36,6 +36,11 @@
 
 (define-row-case (41 "hostname is sys info's hostname" :foreign ("hostname")) (ws)
   (expect (jget (run-ok ws '("sys" "info")) "hostname") :to-equal (trimmed (oracle ws '("hostname") "hostname" nil))))
+(define-row-case (41 "uptime is available alongside sys info uptime_seconds" :foreign ("uptime")) (ws)
+  (let ((shell-uptime (trimmed (oracle ws (list "uptime") "uptime" nil)))
+        (uptime-seconds (jget (run-ok ws (list "sys" "info")) "uptime_seconds")))
+    (expect (plusp (length shell-uptime)) :to-be t)
+    (expect (and (realp uptime-seconds) (>= uptime-seconds 0)) :to-be t)))
 
 (define-row-case (41 "nproc is sys info's cpus" :foreign ("nproc")) (ws)
   (expect (jget (run-ok ws '("sys" "info")) "cpus")

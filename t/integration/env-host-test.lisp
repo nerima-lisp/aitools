@@ -28,22 +28,6 @@ at load time would hold the adapter functions compiled then."
         (expect (< 0 (object-field memory "available") (object-field memory "total")) :to-be-truthy)
         (expect (<= 0 (object-field disk "available") (object-field disk "total")) :to-be-truthy)
         (expect (plusp (object-field disk "total")) :to-be-truthy))))
-  (it "reads host uptime from a production port"
-    (multiple-value-bind (kind fields)
-        (run-flow (function sys-info/k) (host-ports))
-      (expect kind :to-be :ok)
-      (expect (and (realp (field fields "uptime_seconds"))
-                   (>= (field fields "uptime_seconds") 0))
-              :to-be t)))
-  (it "reads host load averages from a production port"
-    (multiple-value-bind (kind fields)
-        (run-flow (function sys-metrics/k) (host-ports) :limit 10000)
-      (expect (member kind (list :ok :partial)) :to-be-truthy)
-      (let ((averages (field fields "load_average")))
-        (dolist (name (list "one_minute" "five_minutes" "fifteen_minutes"))
-          (let ((value (object-field averages name)))
-            (expect (and (realp value) (>= value 0)) :to-be t))))))
-
   (it "lists this test process in sys procs without touching it"
     (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (host-ports) :limit 100000)
       (expect kind :to-be :ok)

@@ -395,6 +395,7 @@
 ["aitools e2e row 41 > row 41: ps -p is sys procs",1]
 ["aitools e2e row 41 > row 41: top's process snapshot is sys metrics",1]
 ["aitools e2e row 41 > row 41: uname -s and -m are sys info's os and arch",1]
+["aitools e2e row 41 > row 41: uptime is available alongside sys info uptime_seconds",1]
 ["aitools e2e row 41 > row 41: which is sys tools",1]
 ["aitools e2e row 41 > row 41: whoami is sys info's user",1]
 ["aitools e2e row 42 > row 42: TZ=Asia/Tokyo date is time now --tz Asia/Tokyo",1]

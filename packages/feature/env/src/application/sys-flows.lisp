@@ -159,9 +159,9 @@ would turn load into environment.unavailable.")
      (aitools.env.domain:parse-proc-uptime (%read-text ports "/proc/uptime")))
     (:darwin
      (let ((boot-seconds (funcall (env-ports-sysctl-mib ports) :kern-boottime)))
-       (when (and (realp boot-seconds) (>= boot-seconds 0))
+       (when (realp boot-seconds)
          (let ((uptime (- (/ (%now ports) 1000d0) boot-seconds)))
-           (and (>= uptime 0) uptime)))))
+           uptime))))
     (t nil)))
 
 (aitools.kernel.domain:define-flow

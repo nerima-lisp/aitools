@@ -225,6 +225,7 @@
                                               (:file "unit/env/sys-host-flows-test")
                                               (:file "unit/env/env-commands-test")
                                               (:file "integration/env-host-test")
+                                              (:file "integration/env-sysctl-test")
                                               (:file "unit/util/package")
                                               (:file "unit/util/codec-test")
                                               (:file "unit/util/data-tables-test")
