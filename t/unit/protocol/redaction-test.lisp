@@ -118,6 +118,12 @@
       (prefix)
     (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
             :to-equal "value [REDACTED_SECRET] end"))
+  (it "keeps literal-prefix cases in sync with the configured prefixes"
+    (expect (append aitools.data:*redaction-literal-prefixes*
+                    aitools.data:*redaction-slack-prefixes*)
+            :to-equal
+            (list "ghp_" "gho_" "github_pat_" "sk-"
+                  "xoxb-" "xoxp-" "xoxa-" "xoxr-" "xoxs-" "xoxo-")))
 
   (it "ignores empty configured patterns while retaining valid ones"
     (let ((aitools.data:*redaction-literal-prefixes*
