@@ -129,8 +129,7 @@ c
       (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "z/target-near.txt"))))
 
 (defun call-with-source-read-spies (function)
-  (let ((range-reads '())
-        (chunk-reads '())
+  (let ((range-reads '()) (chunk-reads '())
         (whole-file-reads '())
         (require-boundary #'cl-boundary-kit:boundary-context-require))
     (cl-weave:with-mocked-functions
