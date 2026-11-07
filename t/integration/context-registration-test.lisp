@@ -56,4 +56,27 @@
           (expect (multiple-value-list
                    (funcall with-span :io "coverage" #'values arguments))
                   :to-equal '(0 :payload))))))
-  (it "keeps context registrations ordered after registration files reload" (let ((expected (%declared-feature-presentation-contexts))) (dolist (system-name (asdf:system-depends-on (asdf:find-system "aitools/cli"))) (when (%feature-presentation-context system-name) (asdf:operate (quote asdf:load-op) (asdf:find-component system-name (quote ("composition" "context-registration"))) :force t))) (expect (mapcar (function first) (aitools/cli::context-command-registrations)) :to-equal expected))))
+  (it "keeps context registrations ordered after registration files reload"
+  (let ((expected (%declared-feature-presentation-contexts)))
+    (expect expected :to-be-truthy)
+    (let ((aitools/cli::*context-command-registrations* nil))
+      (dolist (system-name (asdf:system-depends-on (asdf:find-system "aitools/cli")))
+        (when (%feature-presentation-context system-name)
+          (asdf:operate (quote asdf:load-op)
+                        (asdf:find-component system-name
+                                             (quote ("composition" "context-registration")))
+                        :force t)))
+      (let ((registrations (aitools/cli::context-command-registrations)))
+        (expect (mapcar (function first) registrations) :to-equal expected)
+        (progn
+          (expect (every (lambda (registration)
+                           (and (= (length registration) 3)
+                                (functionp (second registration))
+                                (functionp (third registration))))
+                         registrations)
+                  :to-be t)
+          (let ((registry
+                  (aitools.protocol.application:make-command-registry)))
+            (aitools/cli:register-all-context-commands registry)
+            (expect (aitools.protocol.application:all-command-schemas registry)
+                    :to-be-truthy))))))))
