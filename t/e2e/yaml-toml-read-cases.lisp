@@ -2,7 +2,7 @@
 (in-package #:aitools.e2e.test)
 
 (defun expect-format-read-error (workspace format path code reason action)
-  (let* ((result (aitools workspace (list "doc" "get" path "")))
+  (let* ((result (aitools workspace (list "doc" "get" path "" "--format" format)))
          (envelope (aitools-envelope result))
          (error (jget envelope "error")))
     (expect (aitools-exit-code result) :to-be 1)
@@ -13,7 +13,7 @@
     (expect (jget error "message") :to-contain reason)
     (expect (jget error "repairs" 0 "action") :to-equal action)
     (expect (jget error "repairs" 0 "command")
-            :to-equal "aitools schema doc get")
+            :to-equal (format nil "aitools doc get --format ~A" format))
     (expect (jget error "repairs" 0 "detail")
             :to-equal (if (string= code "input.syntax-error")
                           "Fix the YAML/TOML syntax or TOML integer range, then retry."
@@ -144,8 +144,7 @@
          (expect (jget (aitools-envelope wrong-format) "error" "code")
                  :to-equal "input.syntax-error")
          (expect (jget (aitools-envelope wrong-format) "error" "exit_code") :to-be 1)
-         (expect (jget (aitools-envelope wrong-format) "error" "repairs" 0 "command")
-                 :to-equal "aitools schema doc diff")))))
+         (expect (jget (aitools-envelope wrong-format) "error" "repairs" 0 "command") :to-equal "aitools doc diff --format toml")))))
 
   (it "requires an explicit format for extensionless and unsupported paths"
     (aitools-binary)
@@ -170,7 +169,6 @@
        (expect (jget (run-ok ws '("doc" "get" "values.yml" "/value"))
                      "value" "value")
                :to-be 42))))
-
   (it "rejects YAML unsupported values and YAML/TOML parse errors with repairs"
     (aitools-binary)
     (call-with-workspace

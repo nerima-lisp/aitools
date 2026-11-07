@@ -1,8 +1,9 @@
 (in-package #:aitools.e2e.test)
 
 (defun format-write-arguments (format verb path)
-  (declare (ignore format))
   (append (list "doc" verb path)
+          (when format
+            (list "--format" format))
           (cond ((string= verb "set") '("/key" "\"updated\""))
                 ((string= verb "delete") '("/drop"))
                 ((member verb '("merge" "patch") :test #'string=) '("--stdin")))))
@@ -102,7 +103,7 @@
            (dolist (verb '("set" "delete" "merge" "patch" "fmt"))
              (put ws path commented)
              (let* ((before (file-octets ws path))
-                    (write (invoke-format-write ws format verb path))
+                    (write (invoke-format-write ws nil verb path))
                     (after (file-octets ws path))
                     (rewritten (utf8 after)))
                (expect-format-warnings write 3)
@@ -111,7 +112,7 @@
                (expect (search "# second" rewritten) :to-be nil)
                (expect (search "# inline" rewritten) :to-be nil))
              (put ws path clean)
-             (expect-format-warnings (invoke-format-write ws format verb path) 0))
+             (expect-format-warnings (invoke-format-write ws nil verb path) 0))
            (put ws path commented)
            (let ((before (file-octets ws path))
                  (dry-run (invoke-format-write ws format "set" path :dry-run t)))
@@ -141,3 +142,73 @@
          (expect patched :to-match-envelope "status" "ok" "command" "doc patch"))
        (expect (jget (run-ok ws '("doc" "get" "patch.json" "")) "value" "key")
                :to-equal "new")))))
+
+(describe "doc command format matrix"
+  (it "gets, selects, diffs, and writes every verb for each format"
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (dolist (format (list "json" "yaml" "toml"))
+         (let* ((path (format nil "matrix.~A" format))
+                (other (format nil "other.~A" format))
+                (source
+                  (cond ((string= format "json")
+                         "{\"key\":\"old\",\"drop\":true,\"items\":[{\"id\":1},{\"id\":2}]}")
+                        ((string= format "yaml")
+                         (format nil "key: old~%drop: true~%items:~%  - id: 1~%  - id: 2~%"))
+                        (t (format nil "key = \"old\"~%drop = true~%items = [{id = 1}, {id = 2}]~%"))))
+                (changed
+                  (cond ((string= format "json")
+                         "{\"key\":\"changed\",\"drop\":true,\"items\":[{\"id\":1},{\"id\":3}]}")
+                        ((string= format "yaml")
+                         (format nil "key: changed~%drop: true~%items:~%  - id: 1~%  - id: 3~%"))
+                        (t (format nil "key = \"changed\"~%drop = true~%items = [{id = 1}, {id = 3}]~%")))))
+           (put ws path source)
+           (put ws other changed)
+           (expect (jget (run-ok ws (list "doc" "get" path "/items/0/id"
+                                          "--format" format))
+                         "value")
+                   :to-be 1)
+           (let ((selected (run-ok ws (list "doc" "select" path "/items" "--where" "/id>1" "--pick" "/id" "--format" format))))
+             (expect (jget selected "total") :to-be 1)
+             (expect (jget selected "items" 0 "value" "/id") :to-be 2))
+           (expect (plusp (jget (run-ok ws (list "doc" "diff" path other
+                                                "--format" format))
+                               "total"))
+                   :to-be t)
+           (dolist (verb (list "set" "delete" "merge" "patch" "fmt"))
+             (expect (jget (invoke-format-write ws nil verb path) "command")
+                     :to-equal (format nil "doc ~A" verb)))
+           (expect (jget (run-ok ws (list "doc" "get" path "/key"
+                                          "--format" format))
+                         "value")
+                   :to-equal "updated"))))))
+  (it "doc get JSON, YAML, and TOML array continuations"
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (put ws "values.json" "[1, 2]")
+       (put ws "values.yaml" (format nil "- one~%- two~%"))
+       (put ws "values.toml" "items = [1, 2]")
+       (dolist (case (list (list "json" "values.json" "" nil "/0")
+                           (list "yaml" "values.yaml" "" "yaml" "/0")
+                           (list "toml" "values.toml" "/items" "toml" "/items/0")))
+         (let* ((path (second case))
+                (pointer (third case))
+                (format-override (fourth case))
+                (next-pointer (fifth case))
+                (arguments
+                  (append (list "doc" "get" path pointer "--max-bytes" "1")
+                          (when format-override
+                            (list "--format" format-override))))
+                (result (aitools ws arguments))
+                (envelope (aitools-envelope result))
+                (next (jget envelope "next_commands" 1)))
+           (expect (aitools-exit-code result) :to-be 3)
+           (expect envelope :to-match-envelope "status" "partial" "command" "doc get")
+           (expect (length (jget envelope "next_commands")) :to-be 2)
+           (expect (search "doc get" next) :to-be-truthy)
+           (expect (search next-pointer next) :to-be-truthy)
+           (when format-override
+             (expect (search (format nil "--format ~A" format-override) next)
+                     :to-be-truthy))))))))
