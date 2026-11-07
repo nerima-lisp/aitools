@@ -104,11 +104,20 @@
     (expect (redact-secrets "key sk-abcdEF1234567890abcdEF12 next") :to-equal "key [REDACTED_SECRET] next")
     (expect (redact-secrets "slack xoxb-1234-5678-abcdefTOKEN (bot)") :to-equal "slack [REDACTED_SECRET] (bot)"))
 
-  (it "masks every configured literal and Slack prefix"
-    (dolist (prefix (append aitools.data:*redaction-literal-prefixes*
-                            aitools.data:*redaction-slack-prefixes*))
-      (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
-              :to-equal "value [REDACTED_SECRET] end")))
+  (it-each (("ghp_")
+            ("gho_")
+            ("github_pat_")
+            ("sk-")
+            ("xoxb-")
+            ("xoxp-")
+            ("xoxa-")
+            ("xoxr-")
+            ("xoxs-")
+            ("xoxo-"))
+      "masks configured literal and Slack prefix ~S"
+      (prefix)
+    (expect (redact-secrets (format nil "value ~Aabc123 end" prefix))
+            :to-equal "value [REDACTED_SECRET] end"))
 
   (it "ignores empty configured patterns while retaining valid ones"
     (let ((aitools.data:*redaction-literal-prefixes*
