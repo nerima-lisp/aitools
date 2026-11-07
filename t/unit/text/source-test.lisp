@@ -131,7 +131,20 @@
               :on-unreadable (lambda (path) (declare (ignore path)) :unreadable))
            (error (condition) (princ-to-string condition)))))
     (expect result :to-equal
-            "No :ON-TOO-LARGE continuation was supplied for 5 bytes"))))
+            "No :ON-TOO-LARGE continuation was supplied for 5 bytes")))
+  (it "fails fast when a text-file size limit lacks an on-too-large continuation"
+      (let ((result
+             (handler-case
+                 (call-with-text-file/k
+                  (fake-source `(("/large" . ,(string-bytes "12345"))))
+                  "/large"
+                  :max-bytes 4
+                  :on-text (lambda (octets layout) (declare (ignore octets layout)) :text)
+                  :on-binary (lambda (prefix size) (declare (ignore prefix size)) :binary)
+                  :on-missing (lambda (path) (declare (ignore path)) :missing))
+               (error (condition) (princ-to-string condition)))))
+        (expect result :to-equal
+                "No :ON-TOO-LARGE continuation was supplied for 5 bytes"))))
 
 (describe "aitools.text.infrastructure make-host-text-source"
   (it "provides all file operations as boundary keys"
