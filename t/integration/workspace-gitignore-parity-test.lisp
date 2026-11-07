@@ -124,6 +124,27 @@
         (write-file (concatenate 'string repository "/new-untracked.txt") "x")
         (write-file (concatenate 'string repository "/new.log") "x")
         (expect-parity scratch repository)))))
+  (it
+ "matches git with a separate gitdir inside the workspace root"
+ (unless (program-path "git")
+   (skip "git is not on PATH; parity with git ls-files not checked"))
+ (call-with-scratch-directory
+  (lambda (scratch)
+    (let* ((repository (format nil "~A/repo" scratch))
+           (git-directory (format nil "~A/.git-state" repository)))
+      (make-directories repository)
+      (git scratch scratch "init" "-q" "--separate-git-dir" git-directory
+           repository)
+      ;; ls-files reports its transient in-tree index.lock, which is gone by scan time.
+      (write-file (format nil "~A/.gitignore" repository)
+                  (format nil "*.log~%!keep.log~%.git-state/index.lock~%"))
+      (dolist (file (list "keep.log" "skip.log" "plain.txt"
+                          "nested/other.log" "other.txt"))
+        (write-file (format nil "~A/~A" repository file) file))
+      (git scratch repository "add" "-A")
+      (git scratch repository "commit" "-q" "-m" "fixture")
+      (write-file (format nil "~A/new.log" repository) "ignored")
+      (expect-parity scratch repository :minimum 4)))))
 
   (it "matches git with core.excludesFile set (the XDG default then unused)"
     (unless (program-path "git") (skip "git is not on PATH; parity with git ls-files not checked"))
