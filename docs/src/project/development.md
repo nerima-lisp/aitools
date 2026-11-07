@@ -2,33 +2,50 @@
 
 ## Running the tests
 
-Inside the development shell, the dependencies are already on
-`CL_SOURCE_REGISTRY`:
+Start the development shell:
 
 ```sh
 nix develop
-sbcl --script run-tests.lisp
 ```
 
-Outside it, place a checkout of every dependency somewhere under
-`$HOME/src/nerima-lisp/` and point `CL_SOURCE_REGISTRY` there: cl-cli,
-cl-weave, cl-json-kit, cl-regex-kit, cl-codec-kit,
-cl-host-kit, cl-boundary-kit, cl-concurrent-kit, cl-process-kit, and their
-own dependencies cl-date-kit, cl-log-kit, and cl-parser-kit, at
-the tags `flake.nix` pins:
+Inside that shell, run the full suite, one context, or full coverage:
+
+```sh
+sbcl --script run-tests.lisp
+AITOOLS_TEST_CONTEXT=search sbcl --script run-tests.lisp
+AITOOLS_COVERAGE=1 sbcl --script run-tests.lisp
+```
+
+Outside it, set `CL_SOURCE_REGISTRY` to a parent directory containing a
+checkout directory for each dependency. For example, put these pinned
+checkouts below `$HOME/src/nerima-lisp`:
+
+- Direct dependencies: cl-cli, cl-weave, cl-json-kit, cl-regex-kit,
+  cl-codec-kit, cl-host-kit, cl-boundary-kit, cl-concurrent-kit,
+  and cl-process-kit.
+- Transitive dependencies: cl-date-kit, cl-log-kit, and cl-parser-kit.
+
+Use the versions pinned in `flake.nix`.
 
 ```sh
 export CL_SOURCE_REGISTRY="$HOME/src/nerima-lisp//:"
 sbcl --script run-tests.lisp
 ```
 
-`run-tests.lisp` registers the checkout itself with `(:directory root)` and
-inherits the rest of the registry, then runs `asdf:test-system "aitools"`.
-It exits 1 with a one-line message if the test operation signals an error,
-and 0 otherwise. The policy in `t/package.lisp` rejects failures, errors,
+The `//:` suffix makes ASDF search the dependency trees below that directory.
+`run-tests.lisp` adds this checkout to ASDF automatically, then
+loads `aitools` and runs `asdf:test-system "aitools/test"`. That operation
+discovers registered `aitools/test/<context>` systems through ASDF. With
+`AITOOLS_TEST_CONTEXT` set, it loads only that context's tests; without it, it
+loads every context system and `aitools/test/shared`.
+`run-tests.lisp` exits 1 with a one-line message if the ASDF test operation
+signals an error, and exits 0 otherwise. The policy in `t/package.lisp`
+rejects failures, errors,
 too few executed specs, and skips or todos outside its explicit allowlist.
-Read cl-weave's report for the executed count and any allowed unrun specs.
-There is no per-context filter.
+The per-spec report printed to stdout includes the executed count and any
+allowed unrun specs.
+`AITOOLS_COVERAGE` always measures the full test set and cannot be combined
+with `AITOOLS_TEST_CONTEXT`.
 
 For the full-suite host gate against the Nix-delivered binary, run:
 
@@ -56,11 +73,12 @@ JSON results appear only after all specs finish. If the run is interrupted,
 use stderr's `[start]` and `[end]` lines to identify the last attempted spec;
 an incomplete run is not a passing gate.
 
-The Nix test gate uses `timeoutSeconds = 1800`. The host runner uses
+The Linux `checks.x86_64-linux.default` test gate uses
+`timeoutSeconds = 1800`. The host runner uses
 `timeout -k 30s 1800s`: it sends the timeout signal after 1800 seconds and
 forces termination after another 30 seconds if the process is still running.
 
-## The gate
+## Flake checks
 
 ```sh
 nix flake check --print-build-logs
@@ -101,10 +119,11 @@ nix flake check path:. --print-build-logs
 nix run path:.#test --print-build-logs
 ```
 
-The distribution filter keeps `.lisp` and `.asd` files and the skill document,
-but excludes scratch directories whose names start with `.release-probe.`,
-`.session-audit-`, or `.store-fd-probe.`. Including a new test file does not
-register its specs: add it to `aitools.asd` as described below.
+The distribution filter keeps `.lisp` and `.asd` files plus
+`skills/aitools/SKILL.md`, but excludes scratch directories whose names start
+with `.release-probe.`, `.session-audit-`, or `.store-fd-probe.`. Including a
+new test file does not register its specs: add it to its test system as
+described below.
 
 To build one check or the binary alone:
 
@@ -138,7 +157,7 @@ evaluates a large `.asd` such as `aitools.asd` within Nix's default
 ## Test layout
 
 ```text
-t/unit/<context>/     domain and application, with ports built from fakes
+t/unit/<context>/     domain and application specs with fake dependencies
 t/integration/        the structure test, gitignore parity with git,
                       real-filesystem adapters, crash recovery, CLI round trips
 t/perf/               allocation tests
@@ -157,63 +176,90 @@ step and check the next run's `recovered` result.
 
 ## The component lists
 
-`aitools.asd` lists every context's files inline, grouped by context. Each
-context contributes four kinds of file:
+Each context's ASD under `packages/` owns its library and test systems.
+`aitools.asd` loads those ASD files and
+composes the root systems; it also owns the shared data system and CLI
+composition root. The production components, test components, and count-floor
+files are:
 
 - **library** files (`domain/`, `application/`, `infrastructure/`), relative
-  to the context's `src/` (for example `packages/feature/env/src/`), in load order.
-  They go into the `aitools` system, not the repository-root `src/`.
-- **presentation** files, also under the context's `src/`; only `aitools/cli`
-  loads them.
-- **data** files, relative to the repository's `data/`. Every context's data
-  files load before any library file, into the shared `aitools.data` package.
-- **test** files, relative to `t/`, loaded into `aitools/test`.
+  to each context's `src/` (for example `packages/feature/env/src/`), in that
+  context's ASD. The root `aitools` system depends on the context systems.
+- **presentation** files, also under the context's `src/`, are registered by
+  context ASDs and loaded through `aitools/cli`.
+- **data** files, relative to the repository's `data/`, are listed in the
+  shared `aitools/data` system in `aitools.asd`. They load before the library
+  systems into the shared `aitools.data` package.
+- **test** files, relative to `t/`, are listed under `aitools/test/<context>`
+  in their context ASDs. Shared package and support files live in
+  `aitools/test/base`; shared, structural, integration, and end-to-end tests
+  live in `aitools/test/shared`. The root `aitools/test` system discovers
+  registered context systems dynamically.
+- **spec-count floors** live in `t/spec-count-baselines/<context>.lisp` and
+  are checked by the shared `t/spec-count-baselines/loader.lisp`.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
 store, then feature search, inspect, journal, edit, process, env, util.
 A context loads after every context whose application package it calls:
 journal before edit (edit registers its `tx rebase` replayers with journal),
-inspect before edit, and edit before util.
+inspect before edit and edit before util.
 
-To add a context or move files between layers, edit its lists in
-`aitools.asd` directly.
+To add or move context library or presentation files, edit that context's ASD.
+Update `aitools.asd` when adding shared data or changing root system
+dependencies. To add or move context tests, edit that context's
+`aitools/test/<context>` components in its ASD. Shared test components belong
+in `aitools-test-system.lisp`.
 
 ## Adding a command
 
 1. Put the logic in the owning context: pure rules in `domain/`, the flow in
-   `application/` as a function that selects one supplied success or error
-   callback and calls it once to return the result.
-2. In `presentation/`, build the cl-cli command and a
-   `make-command-schema` value, and call
-   `aitools.protocol.application:register-command` from
-   `register-<context>-commands (registry ports)`:
+   `application/` as a function that accepts `:on-ok`, `:on-partial`, and
+   `:on-error` continuations, then calls exactly one with the result fields.
+2. In `presentation/`, define command builders and schemas, then pass command
+   declarations to `aitools.protocol.application:register-command-declarations`
+   from `register-<context>-commands (registry dependency-value)`:
 
     ```lisp
-    (aitools.protocol.application:register-command
+    (aitools.protocol.application:register-command-declarations
      registry
-     :name "json.get"   ; dispatch name; "read" for an ungrouped command
-     :group "json"      ; NIL for an ungrouped command
-     :cli-command (cl-cli:make-command :name "get" ... :handler #'%handler)
-     :schema (aitools.protocol.domain:make-command-schema "json.get" "Summary." ...))
+     (list
+      (aitools.protocol.application:define-command
+       "json.get"
+       (:group "json"
+        :command-builder #'%get-command
+        :schema (%schema "json.get"))))
+     dependency-value)
     ```
 
-    A grouped command's `:cli-command` carries the bare subcommand name; the
-    composition root builds the group wrapper (`finalize-app-commands` in
-    `src/registry.lisp`).
-3. Wrap the flow in the handler with
-   `aitools.protocol.application:call-with-command-result/k`.
-4. If the context needs new effects, add callable adapters to its ports
-   structure and wire their real filesystem or process implementations in
-   `make-production-<context>-ports` in `infrastructure/`. Application flows
-   use those ports; tests can supply fake adapters.
-5. Keep table data (patterns, summaries, option descriptions where the
-   context keeps them as data) in `data/<layer>/<context>/*-data.lisp`.
-6. Add specs under `t/`, list the new files in `aitools.asd`, and
-   [regenerate the reference](#regenerating-the-reference).
-
-`src/context-registration.lisp` finds `register-<context>-commands` and
-`make-production-<context>-ports` by name for each feature context, so a new
-command in an existing context needs no change in `src/`.
+    `define-command` takes the command name and its options. Its command
+    builder receives the dependency value and produces the cl-cli command;
+    `register-command-declarations` applies the declaration's group and schema.
+3. For a new feature context, define a dependency constructor in its
+   `presentation/context-registration.lisp` and declare the context with
+   `aitools/cli::define-context-command-registration`, passing the context
+   name, `register-<context>-commands`, and the constructor. Existing contexts
+   use this same registration file; update their constructor when a command
+   needs new effects. The context owns the constructor's input contract and
+   returned dependency value; consult its signature for inputs. That signature
+   can change without changing the registration macro contract. The macro
+   stores the constructor without inspecting its inputs or result. The
+   composition root passes the constructor's returned value to the registration
+   function unchanged.
+4. Each command builder returns a cl-cli command with a handler. The handler
+   returns a command result for dispatch by calling the application flow through
+   `aitools.protocol.application:call-with-command-result/k`. That function
+   returns the command result produced by the flow's one continuation. If the
+   flow needs a new effect, add an effect
+   function to the context dependency value. The dependency constructor combines
+   production effect functions in infrastructure; tests provide fake functions
+   through a context-owned value with the same contract.
+5. Put static tables shared across files or consumed by reference generation
+   in `data/<layer>/<context>/*-data.lisp`. Keep computed values and behavior
+   in their owning layer.
+6. Add specs under `t/`. List production files in the context's ASD components
+   and tests in its `aitools/test/<context>` system. Shared tests go in
+   `aitools-test-system.lisp`. [Regenerate the reference](#regenerating-the-reference)
+   when a command schema changes.
 
 ## Regenerating the reference
 
