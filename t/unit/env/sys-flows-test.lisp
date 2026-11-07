@@ -164,5 +164,13 @@
                   (make-fake-ports :sysctl-mibs nil
                                   :host (metrics-host)))
       (expect kind :to-be :error)
+      (expect (first error) :to-equal "environment.unavailable")))
+  (it "rejects negative Darwin load averages"
+    (multiple-value-bind (kind error)
+        (run-flow (function sys-metrics/k)
+                  (make-fake-ports :host (metrics-host)
+                                   :sysctl-mibs (list (cons :vm-loadavg
+                                                            (list -0.5d0 0.25d0 0.125d0)))))
+      (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
 
