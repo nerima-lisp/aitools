@@ -15,9 +15,9 @@
             ((string-equal extension "toml") :toml)))))
 
 (aitools.kernel.domain:define-flow
- (doc-inspect-flow flow ports action paths arguments format options
-                   &key on-ok on-partial on-error)
- (declare (type function flow on-ok on-partial on-error))
+ (doc-inspect-flow ports action paths arguments format options
+                   &key operation on-ok on-partial on-error)
+ (declare (type function operation on-ok on-partial on-error))
  (let* ((formats (mapcar (lambda (path)
                            (%document-format path format))
                          paths))
@@ -34,11 +34,11 @@
           (list
            (repair "specify-format"
                    "Pass --format with the format that matches the document."
-                   (apply #'aitools.protocol.domain:command-line
+                   (apply (function aitools.protocol.domain:command-line)
                           (append (list "aitools" "doc" action)
                                   arguments
                                   (list "--format" "<json|yaml|toml>")))))))
-       (apply flow
+       (apply operation
               (append
                (list ports)
                arguments
