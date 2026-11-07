@@ -1,7 +1,7 @@
 ;;;;
 ;;;; The registration API every feature context's presentation layer targets.
-;;;; A context exports `register-<context>-commands (registry ports)`, which
-;;;; calls REGISTER-COMMAND once per command. The registry lives in protocol,
+;;;; Context registration receives a registry and an opaque dependency value.
+;;;; Command registration calls REGISTER-COMMAND once per command. The registry lives in protocol,
 ;;;; not in the composition root, because presentation may reference protocol
 ;;;; but not aitools/cli, and presentation modules load before aitools/cli.
 ;;;; CLI-COMMAND values are opaque here: the presentation layer builds them
@@ -14,12 +14,7 @@
                           (name &key group command-builder schema))
             (:copier nil)
             (:predicate nil))
-           "A command's protocol-level declaration.
-
-COMMAND-BUILDER is called with the context's PORTS value and must return the
-opaque CLI command. SCHEMA is the already-built COMMAND-SCHEMA. The
-declaration deliberately contains no cl-cli types, keeping registration in
-the protocol application layer."
+           "The builder receives a context dependency value. The CLI command stays opaque until composition."
            (name nil :type string :read-only t)
            (group nil :type (or null string) :read-only t)
            (command-builder nil :type function :read-only t)
@@ -109,7 +104,6 @@ the protocol application layer."
     (values group command-builder schema)))
 
 (defmacro define-command (name options)
-  "Construct a validated COMMAND-DECLARATION from a command name and options."
   (multiple-value-bind (group command-builder schema)
       (%parse-define-command-options options)
     (%validate-command-literal-form :name name)
@@ -139,10 +133,7 @@ AITOOLS.PROTOCOL.DOMAIN:COMMAND-SCHEMA."
   (schema-order nil :type list))
 
 (defun register-command (registry &key name group cli-command schema)
-  "Register one command. NAME is the bare command when GROUP is NIL, or GROUP
-followed by a dot and one subcommand token. GROUP is a dot-separated path;
-the registry creates any missing parent paths for nested groups. CLI-COMMAND
-is named as the final token, and the composition root supplies the wrappers."
+  "Nested groups create parent entries. The CLI command stays opaque to protocol."
   (check-type name string)
   (if group
       (let ((groups (command-registry-group-commands registry))
@@ -172,8 +163,7 @@ is named as the final token, and the composition root supplies the wrappers."
   (when (nth-value 1 (gethash name (command-registry-schemas registry)))
     (error "Command ~S is already registered." name)))
 
-(defun register-command-declarations (registry declarations ports)
-  "Register DECLARATIONS in list order and return REGISTRY."
+(defun register-command-declarations (registry declarations dependencies)
   (check-type registry command-registry)
   (check-type declarations list)
   (let ((seen nil))
@@ -187,7 +177,7 @@ is named as the final token, and the composition root supplies the wrappers."
   (let ((built
          (mapcar (lambda (declaration)
                    (cons declaration
-                         (funcall (command-declaration-command-builder declaration) ports)))
+                         (funcall (command-declaration-command-builder declaration) dependencies)))
                  declarations)))
     (dolist (entry built registry)
       (let ((declaration (car entry)))

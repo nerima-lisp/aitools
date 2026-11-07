@@ -101,7 +101,7 @@
        (list
         (%test-command-declaration
          "org.todo.set"
-         (lambda (ports) (declare (ignore ports)) :set-command)
+         (lambda (dependencies) (declare (ignore dependencies)) :set-command)
          "org.todo"))
        nil)
       (let ((groups (aitools.protocol.application:command-registry-group-commands registry)))
@@ -113,21 +113,21 @@
               :to-equal '("org.todo.set")))))
 
 (describe "aitools.protocol.application command declaration registration"
-  (it "builds a declaration once with the supplied ports"
+  (it "builds a declaration once with the supplied dependencies"
     (let ((calls nil)
           (registry (aitools.protocol.application:make-command-registry)))
       (let ((declaration
               (%test-command-declaration
                "util.echo"
-               (lambda (ports)
-                 (push ports calls)
+               (lambda (dependencies)
+                 (push dependencies calls)
                  :cli-command)
                "util")))
         (aitools.protocol.application:register-command-declarations
          registry
          (list declaration)
-         :ports)
-        (expect calls :to-equal '(:ports))
+         :dependencies)
+        (expect calls :to-equal '(:dependencies))
         (expect (mapcar #'command-schema-name
                         (aitools.protocol.application:all-command-schemas registry))
                 :to-equal '("util.echo")))))
@@ -137,15 +137,15 @@
           (registry (aitools.protocol.application:make-command-registry)))
       (aitools.protocol.application:register-command-declarations
        registry
-       (list (%test-command-declaration "read" (lambda (ports) (declare (ignore ports)))))
+       (list (%test-command-declaration "read" (lambda (dependencies) (declare (ignore dependencies)))))
        nil)
       (signals error
         (aitools.protocol.application:register-command-declarations
          registry
          (list (%test-command-declaration
                 "read"
-                (lambda (ports)
-                  (declare (ignore ports))
+                (lambda (dependencies)
+                  (declare (ignore dependencies))
                   (incf calls))))
          nil))
       (expect calls :to-be 0)
@@ -161,10 +161,10 @@
          registry
          (list (%test-command-declaration
                 "read"
-                (lambda (ports) (declare (ignore ports)) (incf calls)))
+                (lambda (dependencies) (declare (ignore dependencies)) (incf calls)))
                (%test-command-declaration
                 "read"
-                (lambda (ports) (declare (ignore ports)) (incf calls))))
+                (lambda (dependencies) (declare (ignore dependencies)) (incf calls))))
          nil))
       (expect calls :to-be 0)
       (expect (aitools.protocol.application:all-command-schemas registry)
@@ -177,12 +177,12 @@
        registry
        (list (%test-command-declaration
               "first"
-              (lambda (ports) (push (list :first ports) calls) :first-command))
+              (lambda (dependencies) (push (list :first dependencies) calls) :first-command))
              (%test-command-declaration
               "second"
-              (lambda (ports) (push (list :second ports) calls) :second-command)))
-       :ports)
-      (expect (reverse calls) :to-equal '((:first :ports) (:second :ports)))
+              (lambda (dependencies) (push (list :second dependencies) calls) :second-command)))
+       :dependencies)
+      (expect (reverse calls) :to-equal '((:first :dependencies) (:second :dependencies)))
       (expect (mapcar #'command-schema-name
                       (aitools.protocol.application:all-command-schemas registry))
               :to-equal '("first" "second"))))
@@ -195,11 +195,11 @@
          registry
          (list (%test-command-declaration
                 "first"
-                (lambda (ports) (declare (ignore ports)) (push :first calls) :first-command))
+                (lambda (dependencies) (declare (ignore dependencies)) (push :first calls) :first-command))
                (%test-command-declaration
                 "second"
-                (lambda (ports)
-                  (declare (ignore ports))
+                (lambda (dependencies)
+                  (declare (ignore dependencies))
                   (push :second calls)
                   (error "Builder failed."))))
          nil))
