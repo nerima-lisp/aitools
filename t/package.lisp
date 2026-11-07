@@ -130,15 +130,16 @@ the reported path."
                         (not (and env-var (uiop:getenv env-var)))))))
              *allowed-unrun-specs*)))
 
-(defun %policy-problems (events)
+(defun %policy-problems (events &optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
   "Why the run fails even though no spec failed, as a list of strings."
-  (let ((executed (count-if (lambda (event)
+  (let ((minimum (%minimum-executed-specs-for-context context))
+        (executed (count-if (lambda (event)
                               (member (%event-field event "status") '("pass" "fail" "error") :test #'string=))
                             events))
         (problems '()))
-    (when (< executed *minimum-executed-specs*)
-      (push (format nil "only ~D specs ran; at least ~D are expected (*MINIMUM-EXECUTED-SPECS*)"
-                    executed *minimum-executed-specs*)
+    (when (< executed minimum)
+      (push (format nil "only ~D specs ran; at least ~D are expected for ~A"
+                    executed minimum (or context "the full suite"))
             problems))
     (dolist (event events)
       (when (and (member (%event-field event "status") '("skip" "todo") :test #'string=)
@@ -214,29 +215,28 @@ the reported path."
         (%report-test-outcomes events stream))))
 
 (defun run-tests (&key (timeout-ms +default-test-timeout-ms+))
-  "Run every registered cl-weave spec with TIMEOUT-MS per spec and the spec report on
-*STANDARD-OUTPUT*, and signal, so the ASDF test operation fails, when a spec failed,
-when too few ran, or when a spec was skipped for a reason
-*ALLOWED-UNRUN-SPECS* does not list."
+  "Run registered cl-weave specs with a per-spec timeout and fail on test or run-policy errors."
   (setf *last-test-outcomes* nil)
-  (let* ((json (make-string-output-stream))
-         (events
-           (call-with-spec-progress
-            (lambda ()
-              (cl-weave:run nil :timeout-ms timeout-ms
-                            :reporter :json :stream json))))
-         (report (json-kit:parse (get-output-stream-string json))))
-    (setf *last-test-outcomes* events)
-    (cl-weave:explain! events)
-    (multiple-value-bind (problems executed)
-        (%policy-problems (coerce (gethash "events" report) (quote list)))
-      (dolist (problem problems)
-        (format t "~&aitools/test: ~A~%" problem))
-      (unless (and (cl-weave:results-status events) (null problems))
-        (error "aitools test suite failed"))
-      (format t "~&aitools/test: successful completion with 0 failures, ~D specs run~%"
-              executed))
-    (%report-test-outcomes events))
+  (let ((context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
+    (%validate-context-test-systems context)
+    (let* ((json (make-string-output-stream))
+           (events
+            (call-with-spec-progress
+             (lambda ()
+               (cl-weave:run nil :timeout-ms timeout-ms
+                             :reporter :json :stream json))))
+           (report (json-kit:parse (get-output-stream-string json))))
+      (setf *last-test-outcomes* events)
+      (cl-weave:explain! events)
+      (multiple-value-bind (problems executed)
+          (%policy-problems (coerce (gethash "events" report) 'list) context)
+        (dolist (problem problems)
+          (format t "~&aitools/test: ~A~%" problem))
+        (unless (and (cl-weave:results-status events) (null problems))
+          (error "aitools test suite failed"))
+        (format t "~&aitools/test: successful completion with 0 failures, ~D specs run~%"
+                executed))
+      (%report-test-outcomes events)))
   t)
 (defun %call-with-test-runner-reporting (thunk)
   (handler-case
