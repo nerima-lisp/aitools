@@ -15,7 +15,7 @@ infrastructure, and presentation layers. Shared types and services live in
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
 | feature/search | domain, application, infrastructure, presentation, composition | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
 | feature/inspect | domain, application, infrastructure, presentation, composition | `read`, `info`, `check`, `diff`, `json get/select/diff`, `yaml get/select/diff`, `toml get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
-| feature/edit | domain, application, infrastructure, presentation, composition | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
+| feature/edit | domain, application, infrastructure, presentation, composition | File and archive editing commands, from `edit` through `archive create` in the [command index](commands/index.md#command-index) |
 | feature/journal | domain, application, infrastructure, presentation, composition | `history`, `undo`, the `tx` group |
 | feature/process | domain, application, infrastructure, presentation, composition | `run`, `wait`, the `bg` group |
 | feature/org | domain, application, infrastructure, presentation, composition | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
@@ -24,9 +24,7 @@ infrastructure, and presentation layers. Shared types and services live in
 
 Context-owned feature registrations live in
 `packages/feature/<ctx>/src/composition/context-registration.lisp`. Each file
-connects its registrar and dependency constructor to `aitools/cli`. The
-registration macro treats the constructor and its returned dependency value
-as opaque, so a context can change the value's representation independently.
+connects its command registrar and dependency-value constructor to `aitools/cli`.
 
 `schema` and `batch` read or run commands of every context, so they belong to
 no context; they live in the composition root, `src/schema.lisp` and
@@ -249,6 +247,7 @@ omitted.
 | edit | `run-write-command/k`, `check-expect-count/k`, `require-expect-hash/k`, `resolve-extra-path/k`, `read-stdin/k`, `read-stdin-text/k`, `read-stdin-json/k`, `read-input-file/k`, `read-content/k`, `read-content-text/k`, `read-file-octets/k`, `read-document/k`, `parse-selector/k`, `resolve-lines/k`, `scan-files/k`, `compile-pattern/k`, `decode-text-document/k`, `parse-json-text/k`, `find-old/k`, `compile-search-pattern/k` | `call-with-regex-refusals` |
 | journal | none of its own; its flows call the store's `/k` functions | none |
 | process | `run-command/k`, `wait-until/k`, `wait-command/k`, `bg-start/k`, `bg-logs/k`, `bg-status/k`, `bg-stop/k` | `call-with-bg-log` and `with-bg-log` |
+| org | `org-outline/k`, `org-query/k`, `org-export/k`, `org-todo-set/k`, `org-property-set/k`, `org-property-delete/k`, `org-planning-set/k`, `org-planning-delete/k`, `org-agenda/k`, `org-clock-in/k`, `org-clock-out/k`, `org-clock-report/k`, `org-table-align/k`, `org-table-sort/k`, `org-table-recalculate/k` | none |
 | env | `resolve-zone/k`, `time-now/k`, `time-convert/k`, `time-diff/k`, `sys-info/k`, `sys-env/k`, `sys-tools/k`, `sys-procs/k`, `sys-ports/k` | none |
 | util | `resolve-input/k`, `evaluate-expression/k`, `decode-text/k` | none |
 | composition root | `call-with-invocation-workspace/k` (ready, busy, invalid timeout) | none |
@@ -330,14 +329,10 @@ branch.
   `src/`; `program-op` builds the `aitools` executable.
 - `aitools/test`: the cl-weave suites under `t/`.
 
-The delivered binary is built in two SBCL processes (`overrideOutputs` in
-`flake.nix`). The first compiles every fasl of the `aitools/cli` closure and
-never dumps an image. The second runs `program-op` through cl-nix-forge's
-`mkExecutable` over that precompiled tree, so the dumping process loads the
-fasls without compiling and the dumped core never shares a heap with the
-compiler. See [Development](../project/development.md#building-the-binary).
+The delivered binary is built in two SBCL processes. See
+[Development](../project/development.md#building-the-binary) for the build steps.
 
 `aitools.asd` loads each context's ASD in order: core kernel, protocol,
 workspace, text, store, then feature search, inspect, journal, edit, process,
-env, util. See
+org, env, util. See
 [Development](../project/development.md#the-component-lists).

@@ -63,12 +63,12 @@
   order.
 - **Generated outputs**: regenerate the shared outputs with
   `docs/tools/generate-reference.lisp` to avoid parallel edits to generated files:
-  `data/domain/protocol/correspondence-table-data.lisp`,
-  the generated table in `docs/src/guide/agents.md`, and
-  `docs/src/reference/commands/index.md`.
+  the generated table in `docs/src/guide/agents.md`,
+  `docs/src/reference/errors.md`, and the command index and context pages under
+  `docs/src/reference/commands/`. The correspondence table reads its source
+  data from `data/domain/protocol/correspondence-table-data.lisp`.
 
 ## Verification obligations for v0.4.0 downstream contracts
 
 - Add an e2e or integration expectation for each downstream contract above before the v0.4.0 release.
 - Tests must reject the old envelope shape.
-- Envelope version 2 is the active contract for this migration.
