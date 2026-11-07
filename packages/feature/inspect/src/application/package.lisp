@@ -68,12 +68,6 @@
    #:json-get-flow
    #:json-select-flow
    #:json-diff-flow
-   #:yaml-get-flow
-   #:yaml-select-flow
-   #:yaml-diff-flow
-   #:toml-get-flow
-   #:toml-select-flow
-   #:toml-diff-flow
    ;; === end json-query flows ===
    ;; === table flows ===
    #:table-read-flow
