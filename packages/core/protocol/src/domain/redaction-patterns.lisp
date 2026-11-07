@@ -160,22 +160,6 @@ at whitespace or the end of line."
   (and (= (- end start) (length +redacted-secret+))
        (string= +redacted-secret+ text :start2 start :end2 end)))
 
-(defun %find-pem-spans (text)
-  "Return spans from private-key BEGIN markers through the line containing the
-next `-----END` marker. Skip a BEGIN marker with no later END marker."
-  (let ((length (length text)) (search-start 0) spans)
-    (loop
-      (let ((begin (%find-pem-private-key-marker "BEGIN" text search-start length)))
-        (unless begin (return spans))
-        (let ((end-marker (search "-----END" text :start2 begin)))
-          (if (null end-marker)
-              (setf search-start (+ begin (length "-----BEGIN")))
-              (let* ((dash-after (search "-----" text :start2 (+ end-marker 8)))
-                     (line-end (or (position #\Newline text :start (or dash-after end-marker))
-                                   length)))
-                (push (cons begin line-end) spans)
-                (setf search-start line-end))))))))
-
 (defun %merge-spans (spans)
   "Sort SPANS by start and merge any that touch or overlap, so a value that
 happens to satisfy two matchers (e.g. a `sk-...` token assigned to
@@ -199,7 +183,7 @@ happens to satisfy two matchers (e.g. a `sk-...` token assigned to
 (defun %redact-patterns (text)
   ;; Coerce once so the token scan can use SCHAR.
   (let* ((simple (coerce text 'simple-string))
-         (spans (%merge-spans (%collect-token-spans simple (%find-pem-spans simple)))))
+         (spans (%merge-spans (%collect-token-spans simple nil))))
     (if (null spans)
         (values text 0)
         (values (%replace-spans simple spans) (length spans)))))
