@@ -28,3 +28,12 @@
     ((:file "package")
      (:file "os-random")
      (:file "ports")))))
+(defsystem "aitools/feature/util/presentation"
+  :description "Utility CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/util" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "util-commands")
+                 (:file "context-registration")))))

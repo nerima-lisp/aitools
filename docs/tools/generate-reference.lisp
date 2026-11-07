@@ -90,31 +90,15 @@
       (format out "Errors: ~{`~A`~^, ~}.~%~%" codes))))
 
 (defun doc-context-registrations ()
-  "((CONTEXT REGISTER-FUNCTION MAKE-PORTS) ...) in feature context order,
-mirroring `register-all-context-commands' in src/context-registration.lisp.
-Each context is registered into its own registry so its schemas can be grouped
-under the matching `# The <context> context' heading."
-  (list (list "search" #'aitools.search.presentation:register-search-commands
-              #'aitools.search.infrastructure:make-production-search-ports)
-        (list "inspect" #'aitools.inspect.presentation:register-inspect-commands
-              #'aitools.inspect.infrastructure:make-production-inspect-ports)
-        (list "edit" #'aitools.edit.presentation:register-edit-commands
-              #'aitools.edit.infrastructure:make-production-edit-ports)
-        (list "journal" #'aitools.journal.presentation:register-journal-commands
-              #'aitools.journal.infrastructure:make-production-journal-ports)
-        (list "process" #'aitools.process.presentation:register-process-commands
-              #'aitools.process.infrastructure:make-production-process-ports)
-        (list "org" #'aitools.org.presentation:register-org-commands
-              #'aitools.org.infrastructure:make-production-org-ports)
-        (list "env" #'aitools.env.presentation:register-env-commands
-              #'aitools.env.infrastructure:make-production-env-ports)
-        (list "util" #'aitools.util.presentation:register-util-commands
-              #'aitools.util.infrastructure:make-production-util-ports)))
+  "((CONTEXT REGISTER-FUNCTION DEPENDENCY-FUNCTION) ...) in feature order."
+  (loop for (context register-function dependency-function)
+          in (aitools/cli::context-command-registrations)
+        collect (list (string-downcase (string context))
+                      register-function
+                      dependency-function)))
 
-(defun doc-port-arguments ()
-  "The shared keyword arguments every `make-production-<context>-ports'
-accepts, as `%port-arguments' in src/context-registration.lisp builds them.
-Constructing production ports does no I/O, so it is safe from a doc tool."
+(defun doc-dependency-arguments ()
+  "Shared keyword arguments passed to context dependency constructors."
   (list :state-directory-function #'aitools/cli::current-state-directory
         :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
         :text-source (aitools.text.infrastructure:make-host-text-source)
@@ -122,14 +106,14 @@ Constructing production ports does no I/O, so it is safe from a doc tool."
 
 (defun context-schemas ()
   "((CONTEXT . SCHEMAS) ...) in registration order, one entry per feature
-context, then (\"composition root\" . SCHEMAS) for commands src/ registers."
-  (let ((arguments (doc-port-arguments))
+context, then a composition-root group for commands src/ registers."
+  (let ((arguments (doc-dependency-arguments))
         (seen (make-hash-table :test 'equal))
         (groups '()))
     (dolist (entry (doc-context-registrations))
-      (destructuring-bind (context register-function make-ports) entry
+      (destructuring-bind (context register-function dependency-function) entry
         (let ((registry (aitools.protocol.application:make-command-registry)))
-          (funcall register-function registry (apply make-ports arguments))
+          (funcall register-function registry (apply dependency-function arguments))
           (let ((schemas (aitools.protocol.application:all-command-schemas registry)))
             (dolist (schema schemas)
               (setf (gethash (aitools.protocol.domain:command-schema-name schema) seen) t))

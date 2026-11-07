@@ -28,3 +28,12 @@
     :components ((:file "package") (:file "host")
                  (:file "signal-host-helpers") (:file "signal-host")
                  (:file "runner") (:file "bg-launcher") (:file "ports")))))
+(defsystem "aitools/feature/process/presentation"
+  :description "Process CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "commands")
+                 (:file "context-registration")))))

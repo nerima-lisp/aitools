@@ -99,3 +99,12 @@
                         t
                         :components
                         ((:file "package") (:file "ports")))))
+(defsystem "aitools/feature/edit/presentation"
+  :description "Document and file editing CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/edit" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "commands")
+                 (:file "context-registration")))))

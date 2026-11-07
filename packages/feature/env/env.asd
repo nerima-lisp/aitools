@@ -30,3 +30,15 @@
    (:module "infrastructure"
     :components ((:file "package")
                  (:file "production-ports")))))
+(defsystem "aitools/feature/env/presentation"
+  :description "Environment and time CLI commands."
+  :depends-on ("aitools/cli/foundation" "aitools/feature/env" "cl-cli")
+  :pathname "src/"
+  :components
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "env-command-support")
+                 (:file "env-sys-command-builders")
+                 (:file "env-time-command-builders")
+                 (:file "env-commands")
+                 (:file "context-registration")))))
