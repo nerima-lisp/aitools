@@ -3,12 +3,14 @@
 (in-package #:aitools.inspect.presentation)
 
 (defun %run-doc-flow (ports invocation flow action paths arguments flow-options)
-  (apply #'run-flow
-         (append (list #'aitools.inspect.application::doc-inspect-flow
-                       flow ports action paths arguments
-                       (option-value invocation :format))
+  (apply (function run-flow)
+         (append
+           (list (function aitools.inspect.application::doc-inspect-flow)
+                 ports action paths arguments
+                 (option-value invocation :format)
                  flow-options
-                 (context-arguments invocation))))
+                 :operation flow)
+           (context-arguments invocation))))
 
 (defun %repeated-option (name description &key value-name)
   (make-option :name name :kind :value :multiple-p t :value-name value-name :description description))
