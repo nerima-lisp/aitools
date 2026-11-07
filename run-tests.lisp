@@ -1,19 +1,4 @@
-;;;;
-;;;; Lisp-level test entry point:
-;;;;
-;;;;     sbcl --script run-tests.lisp
-;;;;
-;;;; Registers this checkout on ASDF's source registry, inherits the caller's
-;;;; configuration for sibling dependencies (cl-cli, cl-weave, and every kit
-;;;; -- set CL_SOURCE_REGISTRY to the nerima-lisp checkout root so ASDF can
-;;;; find them), and runs the test system. The exit goes through a
-;;;; HANDLER-CASE around ASDF:TEST-SYSTEM so a
-;;;; failing suite is a named one-line diagnostic and a deliberate exit
-;;;; rather than an escaping backtrace, and the zero exit means only "TEST-OP
-;;;; signalled nothing" -- read the "successful completion" line for whether
-;;;; any spec actually ran. See docs/src/project/development.md,
-;;;; "Running the tests", for the environment it expects.
-
+;;;; Set AITOOLS_TEST_CONTEXT=<context> to run one context; see docs/src/project/development.md.
 (require :asdf)
 
 (defun script-directory ()
@@ -80,8 +65,14 @@
   (defun coverage-system-files (system)
     (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES" system :include-dependencies nil))
   (defun coverage-candidate-files ()
-    (loop for system in (cons "aitools/cli" (asdf:system-depends-on (asdf:find-system "aitools")))
-          append (coverage-system-files system)))
+    (loop for system in (asdf:registered-systems)
+          when (and (stringp system)
+                    (or (coverage-prefix-p "aitools/core/" system)
+                        (coverage-prefix-p "aitools/feature/" system)
+                        (member system
+                                (list "aitools/data" "aitools/cli/foundation" "aitools/cli")
+                                :test (function string=))))
+            append (coverage-system-files system)))
 (defun classify-coverage-inputs (include root)
   (unless include
     (error "No ASDF source files were included for coverage"))
@@ -229,7 +220,6 @@
                         (getf stats :expression-total) (getf stats :branch-covered)
                         (getf stats :branch-total))))
             (require-context-coverage-baselines measured)))))))
-
 
 (handler-case
     (let ((root (script-directory)))
