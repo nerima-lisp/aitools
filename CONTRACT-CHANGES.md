@@ -1,17 +1,17 @@
 # Contract change list
 
-This list records the contracts approved by the refactoring specification.
-Context tracks must follow these contracts and reflect them in tests and
-documentation.
-
-## W0 foundation contracts
+## Foundation contracts
 
 1. **Command declarations**: protocol application now exposes
    `define-command`, `command-declaration`, and declaration registration
    functions. A declaration carries a string name, optional group, command
-   builder, and schema. The `define-command` macro accepts an opaque per-context
-   dependency constructor, so changing its returned value from ports to boundary
-   objects does not change the macro contract.
+   builder, and schema. `define-command` takes the command name and an options
+   list with `:group`, `:command-builder`, and `:schema`. The separate
+   `register-command-declarations` function receives the constructed dependency
+   value. The context-registration macro
+   `define-context-command-registration` accepts an opaque per-context
+   dependency constructor; changing its returned value from ports to boundary
+   objects does not change the registration contract.
 2. **Continuation convention**: functions that can produce an `ok`, `partial`,
    or `error` result accept the canonical `:on-ok`, `:on-partial`, and `:on-error`
    keyword continuations. Positional continuation arguments are rejected. Pure
@@ -22,12 +22,11 @@ documentation.
    timeout to each registered cl-weave spec, including unit, integration, and
    e2e specs. External process calls retain explicit operation-specific
    timeouts.
-4. **Operation deadline gate**: operations covered by FR-028, including
-   external-process, HTTP, socket, `wait`, and `sys snapshot` calls, have an
-   overall deadline. Structure tests require timeout arguments on network calls
-   and reject `process-kit:run` calls without `:timeout`. Detached background
-   spawning is not represented by that API and remains the documented
-   exception.
+4. **Operation deadlines**: external-process, HTTP, socket, `wait`, and
+   `sys snapshot` operations have an overall deadline. Structure tests require
+   timeout arguments on network calls and reject `process-kit:run` calls
+   without `:timeout`. Detached background spawning is not represented by that
+   API and remains the documented exception.
 5. **Test support API**: common workspace, CLI, file/byte, tool discovery,
    and envelope matcher helpers are exported from `aitools.test.support`.
 6. **Envelope/schema v2**: response envelopes use `schema_version: 2`; the
@@ -56,16 +55,24 @@ documentation.
 - **Context-scoped tests**: select one context with
   `AITOOLS_TEST_CONTEXT=<ctx>` and the `aitools/test/<ctx>` system. For example,
   `AITOOLS_TEST_CONTEXT=env` selects `aitools/test/env` and that context's test
-  count floor.
+  count floor. VCS tests temporarily remain in the shared system and cannot be
+  selected with `AITOOLS_TEST_CONTEXT=vcs`; remove those tests with the VCS
+  bridge when retiring that feature.
+- **Command registration order**: the feature presentation systems' order in
+  `aitools/cli` dependencies determines registration order. An integration
+  test checks that each declared feature context has one registration in that
+  order. The legacy `register-vcs-commands` bridge inserts VCS commands
+  immediately before the Org context's registrations to preserve the existing
+  command-group order. Remove this bridge when VCS is deleted.
 - **Generated outputs**: regenerate the shared outputs with
   `docs/tools/generate-reference.lisp` to avoid parallel edits to generated files:
   `data/domain/protocol/correspondence-table-data.lisp`,
   the generated table in `docs/src/guide/agents.md`, and
   `docs/src/reference/commands/index.md`.
 
-## Verification obligations
+## Verification obligations for v0.4.0 downstream contracts
 
-- Every item must have an e2e or integration expectation before release.
+- Add an e2e or integration expectation for each downstream contract above before the v0.4.0 release.
 - Tests must reject the old envelope shape.
 - Envelope version 2 is the active contract for this migration.
 
