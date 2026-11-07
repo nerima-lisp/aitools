@@ -216,6 +216,7 @@
                                               (:file "unit/env/time-input-test")
                                               (:file "unit/env/tzif-test")
                                               (:file "unit/env/host-parsers-test")
+                                              (:file "unit/env/network-test")
                                               (:file "unit/env/host-values-test")
                                               (:file "unit/env/host-system-parsers-test")
                                               (:file "unit/env/time-flows-test")
