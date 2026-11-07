@@ -11,5 +11,6 @@
           ("edit" (:infrastructure) "YAML-KIT" "EMIT" "serialize the YAML document")
           ("edit" (:infrastructure) "CL-TOML-KIT" "+TOML-FALSE+" "map JSON false values to the TOML false sentinel")
           ("edit" (:infrastructure) "CL-TOML-KIT" "ENCODE" "serialize the TOML document")
+          ("edit" (:infrastructure) "CL-TOML-KIT" "*TOML-MAX-NESTING-DEPTH*" "enforce the application nesting limit during TOML encoding")
         )
 ))
