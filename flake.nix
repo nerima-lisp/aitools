@@ -77,7 +77,7 @@
     };
 
     cl-weave = {
-      url = "github:nerima-lisp/cl-weave/v1.4.0";
+      url = "github:nerima-lisp/cl-weave/v1.5.0";
       flake = false;
     };
 
