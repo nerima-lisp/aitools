@@ -173,4 +173,42 @@
           (expect (list (store-io-error-operation condition) (store-io-error-path condition))
                   :to-equal (list "mkdir" blocker)))
         (expect (disk-text plain "a.txt") :to-be :absent))) :io nil)))
+(describe "aitools.store required write boundaries"
+  (it-each ((:sync-directory "checkpoint" "mkdir" "directory identity unavailable" :unrecoverable)
+            (:chmod-directory-identity "finalize-directory" nil nil :recoverable))
+      "keeps the committed mkdir intent when ~A is unavailable"
+      (capability operation recovery-operation recovery-detail recovery-status)
+    (call-with-temp-store
+     (lambda (plain)
+       (seed-state plain)
+       (let* ((state-directory (store-state-directory plain))
+              (state-home (subseq state-directory 0 (position #\/ state-directory :from-end t)))
+              (boundaries (cl-boundary-kit:boundary-context-with
+                           (store-boundaries plain) capability nil))
+              (broken (make-store boundaries (store-root plain) state-home))
+              (condition (handler-case
+                             (progn
+                               (commit broken (list (mkdir-request "private" :mode #o500)))
+                               nil)
+                           (store-committed-error (condition) condition))))
+         (expect condition :to-be-truthy)
+         (expect (store-io-error-operation condition) :to-equal operation)
+         (expect (length (intent-files plain)) :to-be 1)
+         (let ((recovery (handler-case
+                             (list :recovered (recover plain))
+                           (store-committed-error (condition)
+                             (list :failed condition)))))
+           (if (eq recovery-status :recoverable)
+               (progn
+                 (expect (first recovery) :to-be :recovered)
+                 (expect (second recovery) :to-be :recovered)
+                 (expect (disk-mode plain "private") :to-be #o500)
+                 (expect (intent-files plain) :to-equal nil))
+               (progn
+                 (expect (first recovery) :to-be :failed)
+                 (expect (store-io-error-operation (second recovery)) :to-equal recovery-operation)
+                 (expect (store-io-error-detail (second recovery)) :to-equal recovery-detail)
+                 (expect (disk-mode plain "private") :to-be #o700)
+                 (expect (length (intent-files plain)) :to-be 1))))))
+     :io nil)))
 
