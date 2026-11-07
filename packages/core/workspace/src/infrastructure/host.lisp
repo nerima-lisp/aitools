@@ -87,12 +87,6 @@ scan nor gets read."
   (let ((cwd (sb-posix:getcwd)))
     (if (string= cwd "/") cwd (string-right-trim "/" cwd))))
 
-(defun %set-current-directory (path)
-  (let ((directory (namestring (pathname path))))
-    (sb-posix:chdir directory)
-    (setf *default-pathname-defaults* (pathname directory))
-    directory))
-
 (defun make-host-workspace-boundaries (&key (getenv (function host-kit:getenv))
                                            (home-directory (function %home-directory))
                                            (current-directory (function %current-directory)))
@@ -104,7 +98,6 @@ scan nor gets read."
    :read-octets (function read-regular-file-octets)
    :environment (cl-boundary-kit:make-environment :get-fn getenv)
    :working-directory
-   (cl-boundary-kit:make-working-directory
-    :get-fn current-directory :set-fn (function %set-current-directory))
+   (cl-boundary-kit:make-working-directory :get-fn current-directory)
    :home-directory home-directory
    :call-with-ordered-mapper (function call-with-ordered-mapper)))
