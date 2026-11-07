@@ -123,7 +123,6 @@
                                                             (:file "process")
                                                             (:file "store")
                                                             (:file "text")
-                                                            (:file "vcs")
                                                             (:file "workspace")))
                                                           (:file "structure-budget-reader")
                                                           (:file "structure-budget-lines-test")

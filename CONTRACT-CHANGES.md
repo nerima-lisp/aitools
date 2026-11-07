@@ -55,15 +55,12 @@
 - **Context-scoped tests**: select one context with
   `AITOOLS_TEST_CONTEXT=<ctx>` and the `aitools/test/<ctx>` system. For example,
   `AITOOLS_TEST_CONTEXT=env` selects `aitools/test/env` and that context's test
-  count floor. VCS tests temporarily remain in the shared system and cannot be
-  selected with `AITOOLS_TEST_CONTEXT=vcs`; remove those tests with the VCS
-  bridge when retiring that feature.
+  count floor. Without the selector, the runner loads every context test system
+  and the shared system.
 - **Command registration order**: the feature presentation systems' order in
   `aitools/cli` dependencies determines registration order. An integration
   test checks that each declared feature context has one registration in that
-  order. The legacy `register-vcs-commands` bridge inserts VCS commands
-  immediately before the Org context's registrations to preserve the existing
-  command-group order. Remove this bridge when VCS is deleted.
+  order.
 - **Generated outputs**: regenerate the shared outputs with
   `docs/tools/generate-reference.lisp` to avoid parallel edits to generated files:
   `data/domain/protocol/correspondence-table-data.lisp`,
