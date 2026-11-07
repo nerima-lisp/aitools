@@ -217,4 +217,27 @@
            (expect (search "--format" command) :to-be-truthy)
            (expect (search "--tx tx-id" command) :to-be-truthy)
            (expect (search "--dry-run" command) :to-be-truthy)
-           (expect (search "--stdin -- -extensionless" command) :to-be-truthy)))))))
+           (expect (search "--stdin -- -extensionless" command) :to-be-truthy))))))
+  (it "repairs missing JSON pointers and files with doc get"
+    (call-with-cli-workspace
+     (lambda ()
+       (put "source.json" "{\"parent\":{},\"key\":1}")
+       (dolist (test-case
+                (list (list (list "doc" "delete" "source.json" "/parent/missing")
+                            "aitools doc get source.json /parent")
+                      (list (list "doc" "fmt" "missing.json")
+                            "aitools doc get missing.json")
+                      (list (list "doc" "fmt" "missing.yaml" "--format" "yaml")
+                            "aitools doc get missing.yaml --format yaml")
+                      (list (list "doc" "fmt" "missing.toml" "--format" "toml")
+                            "aitools doc get missing.toml --format toml")))
+         (multiple-value-bind (code envelope)
+             (apply (function run-aitools) (first test-case))
+           (expect code :to-be 1)
+           (expect (envelope-value envelope "error" "code")
+                   :to-equal "input.not-found")
+           (expect (search (second test-case)
+                           (envelope-value
+                            (aref (envelope-value envelope "error" "repairs") 0)
+                            "command"))
+                   :to-be-truthy)))))))

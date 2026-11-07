@@ -104,7 +104,16 @@
                 (expect (search "doc get" command) :to-be-truthy)
                 (expect (search (format nil "~A --format ~A" next-pointer document-format)
                                 command)
-                        :to-be-truthy)))))))))
+                        :to-be-truthy))))))))
+  (it "routes missing YAML and TOML documents through doc get"
+    (aitools.test.support:with-workspace (workspace state)
+      (declare (ignore state))
+      (dolist (format (list "yaml" "toml"))
+        (multiple-value-bind (code envelope)
+            (run-aitools "--root" workspace "doc" "get"
+                         (format nil "~A/missing.~A" workspace format) "/" "--format" format)
+          (expect code :to-be 1)
+          (expect (value-at envelope "error" "code") :to-equal "input.not-found"))))))
 
 (describe "table commands through dispatch"
   (it "parses table read's --columns list, repeated --where, --range, --limit, and reading options"

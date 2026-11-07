@@ -164,7 +164,15 @@
             (expect-error "argument.invalid" "doc.patch" (list "doc.yaml"))
             (expect-error "argument.invalid" "doc.fmt" nil)
             (expect reads :to-be 0)
-            (expect (snapshot) :to-equal before))))))))
+            (expect (snapshot) :to-equal before)))))))
+  (it "checks the absent-path guard on the shared set flow"
+    (let ((result
+            (aitools.kernel.domain:flow-call
+             (aitools.edit.application::%format-set/k "yaml" "doc.set" nil nil nil)
+             (:on-error (code message) (list code message))
+             (:on-plan (plan) (declare (ignore plan)) :unexpected))))
+      (expect (first result) :to-equal "argument.invalid")
+      (expect (search "needs PATH" (second result)) :to-be-truthy))))
 (describe "aitools.edit YAML write input limits"
   (it "accepts a document at the byte limit and rejects one byte over"
     (call-with-edit-workspace (lambda () (let* ((limit aitools.edit.application::+max-format-document-bytes+)

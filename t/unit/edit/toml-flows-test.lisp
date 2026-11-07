@@ -130,7 +130,17 @@
           (run "doc.fmt" (list "absent.toml"))
         (declare (ignore message keys))
         (expect status :to-be :error)
-        (expect code :to-equal "input.not-found"))))))
+        (expect code :to-equal "input.not-found")))))
+  (it "rejects unsupported TOML source values through doc fmt"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "non-finite.toml" "value = inf")
+       (multiple-value-bind (status code message keys)
+           (run "doc.fmt" (list "non-finite.toml"))
+         (declare (ignore message))
+         (expect status :to-be :error)
+         (expect code :to-equal "input.unsupported-value")
+         (expect (plusp (length (getf keys :repairs))) :to-be t))))))
 
 (describe "aitools.edit TOML write argument errors"
   (it "rejects invalid arguments before reading or changing a file"

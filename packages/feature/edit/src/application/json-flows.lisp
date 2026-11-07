@@ -97,12 +97,22 @@ tokens (set/delete) or NIL (merge/patch/fmt)."
      (lambda (code message &key candidates diagnostics conflicts repairs
                    ((:path ignored-path)))
        (declare (ignore ignored-path))
-       (funcall on-rejected code
-                message
-                :candidates candidates
-                :diagnostics diagnostics
-                :conflicts conflicts
-                :repairs repairs))
+       (let ((repair-suggestions
+             (or repairs
+                 (if repairs-function
+                     (funcall repairs-function
+                              (write-context-command context)
+                              path
+                              code
+                              repair-pointer)
+                     (%json-repairs path code repair-pointer)))))
+         (funcall on-rejected
+                  code
+                  message
+                  :candidates candidates
+                  :diagnostics diagnostics
+                  :conflicts conflicts
+                  :repairs repair-suggestions)))
      :on-json
      (lambda (value document metadata)
        (handler-case
