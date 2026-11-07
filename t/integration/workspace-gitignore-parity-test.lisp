@@ -156,7 +156,9 @@
                 :current-directory (lambda () worktree)))
                (root
                 (aitools.workspace.application:call-with-resolved-root/k
-                 boundaries :root worktree :on-resolved identity
+                 boundaries
+                 :root worktree
+                 :on-resolved (function identity)
                  :on-error (lambda (reason path) (error "root ~A ~A" reason path))))
                (repository (aitools.workspace.application:workspace-root-repository root)))
           (expect-parity scratch worktree)
