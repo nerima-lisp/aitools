@@ -35,6 +35,60 @@
   (sort (loop for entry being the hash-values of (tx-index-paths index)
               when (tx-staged-changed-p entry) collect entry)
         #'string< :key #'tx-path-path))
+(defun %recheck-tx-symlink-targets (store index)
+  (let* ((view (%make-store-view store index))
+         (checker (make-archive-symlink-prefix-checker
+                   view "" nil :deletions-visible t)))
+    (labels ((refuse (path)
+               (error (quote store-refusal)
+                      :code "refusal.outside-workspace"
+                      :message
+                      (format nil
+                              "Symlink ~A has an unsafe target or crosses the workspace boundary"
+                              path)))
+             (enter (cursor component path)
+               (multiple-value-bind (next status)
+                   (funcall checker :enter cursor component)
+                 (if (eq status :clear) next (refuse path))))
+             (parent (cursor path)
+               (multiple-value-bind (next status)
+                   (funcall checker :parent cursor)
+                 (if (eq status :clear) next (refuse path))))
+             (components (path)
+               (loop with start = 0
+                     for end = (position #\/ path :start start)
+                     for component = (subseq path start end)
+                     unless (zerop (length component)) collect component
+                     while end
+                     do (setf start (1+ end))))
+             (unsafe-target-p (target)
+               (or (not (stringp target))
+                   (zerop (length target))
+                   (char= (char target 0) #\/)
+                   (position #\\ target)
+                   (position (code-char 0) target)
+                   (and (> (length target) 1)
+                        (alpha-char-p (char target 0))
+                        (char= (char target 1) #\:)))))
+      (dolist (entry (sort
+                     (loop for entry being the hash-values of (tx-index-paths index)
+                           when (eq (entry-state-kind (tx-path-staged entry)) :symlink)
+                             collect entry)
+                     (function string<)
+                     :key (function tx-path-path)))
+        (let ((state (tx-path-staged entry))
+              (path (tx-path-path entry)))
+          (when (eq (entry-state-kind state) :symlink)
+            (let ((target (entry-state-target state)))
+              (when (unsafe-target-p target) (refuse path))
+              (let ((cursor (funcall checker :start)))
+                (dolist (component (components (parent-relative-path path)))
+                  (setf cursor (enter cursor component path)))
+                (dolist (component (components target))
+                  (setf cursor
+                        (cond ((string= component ".") cursor)
+                              ((string= component "..") (parent cursor path))
+                              (t (enter cursor component path)))))))))))))
 
 (aitools.kernel.domain:define-flow
     (tx-diff/k store tx-id &key on-diff on-not-found)
@@ -117,7 +171,12 @@ reverse path order (contents before their directory)."
                          (lambda ()
                            (aitools.kernel.domain:flow-continue :on-committed nil '())))
                          (aitools.kernel.domain:flow-call
-                             (%plan-and-commit/k store argv requests :tx-id tx-id)
+                             (%plan-and-commit/k
+                              store argv requests
+                              :tx-id tx-id
+                              :precommit-check
+                              (lambda ()
+                                (%recheck-tx-symlink-targets store index)))
                            (:on-committed (op-id results)
                              (lambda ()
                                (aitools.kernel.domain:flow-continue
