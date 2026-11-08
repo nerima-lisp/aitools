@@ -10,9 +10,10 @@
 ;;;;   commands        docs/src/reference/commands/index.md and one page per
 ;;;;                   context, from the COMMAND-SCHEMA values each context
 ;;;;                   registers (what `aitools schema --all` prints).
-;;;;   correspondence  docs/src/guide/agents.md, from
-;;;;                   AITOOLS.DATA:*CORRESPONDENCE-TABLE*, the table the
-;;;;                   unknown-command repairs are drawn from.
+;;;;   correspondence  docs/src/guide/agents.md, from the shell names in
+;;;;                   AITOOLS.DATA:*CORRESPONDENCE-TABLE*.
+;;;;   retired-document-commands  docs/src/guide/agents.md, from the retired
+;;;;                   names and current repairs in the same table.
 ;;;;   errors          docs/src/reference/errors.md, from
 ;;;;                   AITOOLS.DATA:*PROTOCOL-ERROR-CODES* and each command
 ;;;;                   schema's declared error codes.
@@ -34,6 +35,12 @@
                (#\| (write-string "\\|" out))
                (#\Newline (write-char #\Space out))
                (t (write-char char out))))))
+(defun retired-document-command-name-p (name)
+  (let ((separator (position #\. name)))
+    (and separator
+         (member (subseq name 0 separator)
+                 (list "json" "yaml" "toml")
+                 :test (function string=)))))
 
 (defun display-name (schema)
   (substitute #\Space #\. (aitools.protocol.domain:command-schema-name schema)))
@@ -171,9 +178,25 @@ context, then (\"composition root\" . SCHEMAS) for commands src/ registers."
   (with-output-to-string (out)
     (format out "| Shell command | aitools command | What it does |~%|---|---|---|~%")
     (dolist (row aitools.data:*correspondence-table*)
-      (let ((names (format nil "~{`~A`~^, ~}" (getf row :foreign-names))))
-        (dolist (repair (getf row :repairs))
-          (format out "| ~A | `~A` | ~A |~%" names (getf repair :command) (cell (getf repair :detail))))))))
+      (let ((names (remove-if (function retired-document-command-name-p)
+                              (getf row :foreign-names))))
+        (when names
+          (let ((display-names (format nil "~{`~A`~^, ~}" names)))
+            (dolist (repair (getf row :repairs))
+              (format out "| ~A | `~A` | ~A |~%"
+                      display-names (getf repair :command)
+                      (cell (getf repair :detail))))))))))
+(defun retired-document-section ()
+  (with-output-to-string (out)
+    (format out "| Retired command names | Current command |~%|---|---|~%")
+    (dolist (row aitools.data:*correspondence-table*)
+      (let ((names (remove-if-not (function retired-document-command-name-p)
+                                  (getf row :foreign-names))))
+        (when names
+          (let ((display-names (format nil "~{`~A`~^, ~}" names)))
+            (dolist (repair (getf row :repairs))
+              (format out "| ~A | `~A` |~%"
+                      display-names (getf repair :command)))))))))
 
 (defun errors-section ()
   (let ((groups (context-schemas)))
@@ -239,6 +262,8 @@ context, then (\"composition root\" . SCHEMAS) for commands src/ registers."
                  text check-only))))
           (replace-region "docs/src/guide/agents.md" "correspondence"
                           (correspondence-section) check-only)
+          (replace-region "docs/src/guide/agents.md" "retired-document-commands"
+                          (retired-document-section) check-only)
           (replace-region "docs/src/reference/errors.md" "errors"
                           (errors-section) check-only)
           (uiop:quit 0))

@@ -57,8 +57,6 @@ the path it returns are allowed.
 
 ## Read in bounded pieces
 
-Every read has a limit, and a cut result says how to continue:
-
 ```console
 $ aitools read nums.txt --max-lines 3
 {"schema_version":2,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
@@ -304,7 +302,7 @@ with `repairs` naming the aitools command to use instead:
 | `ln` | `aitools link` | Create a symbolic link inside the workspace. |
 | `touch` | `aitools touch` | Create an empty file or set a file's modification time. |
 | `mktemp` | `aitools mktemp` | Create a temporary file or directory in the workspace's state tmp/ area. |
-| `jq`, `json.get`, `yaml.get`, `toml.get` | `aitools doc get` | Read and query structured documents. |
+| `jq` | `aitools doc get` | Read and query structured documents. |
 | `tar`, `unzip`, `zcat`, `gzip`, `zip` | `aitools archive list` | Use archive list, read, extract, or create for the matching operation. |
 | `git` | `aitools run -- git` | Run Git through aitools run. |
 | `uname`, `whoami`, `hostname`, `nproc` | `aitools sys info` | Read system information. |
@@ -324,13 +322,6 @@ with `repairs` naming the aitools command to use instead:
 | `uuidgen` | `aitools util uuid` | Generate a UUID. |
 | `uuid` | `aitools util uuid` | `uuid` is a group subcommand name; the group prefix is required. |
 | `openssl` | `aitools util random` | Generate cryptographically random bytes. |
-| `json.select`, `yaml.select`, `toml.select` | `aitools doc select` | Filter and project a document array. |
-| `json.diff`, `yaml.diff`, `toml.diff` | `aitools doc diff` | Compare two structured documents. |
-| `json.set`, `yaml.set`, `toml.set` | `aitools doc set` | Set a value in a structured document. |
-| `json.delete`, `yaml.delete`, `toml.delete` | `aitools doc delete` | Delete a value from a structured document. |
-| `json.merge`, `yaml.merge`, `toml.merge` | `aitools doc merge` | Apply a merge patch to a structured document. |
-| `json.patch`, `yaml.patch`, `toml.patch` | `aitools doc patch` | Apply a JSON Patch to a structured document. |
-| `json.fmt`, `yaml.fmt`, `toml.fmt` | `aitools doc fmt` | Format a structured document. |
 <!-- END GENERATED: correspondence -->
 
 A shell command with several rows (`sed`, `perl`) returns every row's repair,
@@ -338,3 +329,21 @@ in table order. A name the table does not list returns the repair
 `aitools schema`. Names that are also aitools commands or groups (`find`,
 `diff`, `mkdir`, `chmod`, `mktemp`, `touch`) run the aitools command
 and never reach this lookup; their rows only document the mapping.
+
+## Retired structured-document command names
+
+The former dotted `json.*`, `yaml.*`, and `toml.*` command names no longer
+dispatch. Use the matching `doc` subcommand.
+
+<!-- BEGIN GENERATED: retired-document-commands -->
+| Retired command names | Current command |
+|---|---|
+| `json.get`, `yaml.get`, `toml.get` | `aitools doc get` |
+| `json.select`, `yaml.select`, `toml.select` | `aitools doc select` |
+| `json.diff`, `yaml.diff`, `toml.diff` | `aitools doc diff` |
+| `json.set`, `yaml.set`, `toml.set` | `aitools doc set` |
+| `json.delete`, `yaml.delete`, `toml.delete` | `aitools doc delete` |
+| `json.merge`, `yaml.merge`, `toml.merge` | `aitools doc merge` |
+| `json.patch`, `yaml.patch`, `toml.patch` | `aitools doc patch` |
+| `json.fmt`, `yaml.fmt`, `toml.fmt` | `aitools doc fmt` |
+<!-- END GENERATED: retired-document-commands -->

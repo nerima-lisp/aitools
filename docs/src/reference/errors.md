@@ -86,9 +86,9 @@ lock, and `internal.unexpected` for an uncaught condition
 | `argument.invalid` | Argument parsing fails, a value has the wrong type or range, options that exclude each other are combined, or a required guard or input is missing. It also covers `chmod --mode` setting a setuid, setgid, or sticky bit, an invalid date for `touch --mtime`, a non-numeric `table agg` column, and unknown command names. `org query` uses it for an invalid or non-minute-aligned `--at`, an unknown `--tz`, or an unsupported `--dst-policy`. Malformed `--range` and non-ASCII digits in numeric options are invalid too. |
 | `input.not-found` | A file, symbol, JSON Pointer, archive entry, op, tx, bg process, or snapshot does not exist (a true `ENOENT`). Files and entries come with `candidates`. A file that exists but cannot be read is `environment.io`, not this code. |
 | `input.not-utf8` | A text edit or Org read command receives bytes that are not valid UTF-8. |
-| `input.unsupported-format` | A file is not in a format the command handles (`json`, `table`, `archive`, `check`), an encoding is unsupported, or `org export` encounters unsupported syntax or a file, ID, or internal link. |
+| `input.unsupported-format` | A file is not in a format the command handles (`doc`, `table`, `archive`, `check`), an encoding is unsupported, or `org export` encounters unsupported syntax or a file, ID, or internal link. |
 | `input.unsupported-language` | The `code` group, `--symbol`, or `transform --op comment` meets a language outside the pattern table. |
-| `input.syntax-error` | `check` finds a syntax error; a regular expression, diff, Org document, or Org match expression is malformed; a regex exceeds its step limit; a value does not parse (`util decode`, `util calc`, `time convert`); or `transcode` meets bytes it cannot decode. YAML and TOML `doc` reads and writes use this for malformed input; `doc set --stdin`, `doc merge --stdin`, and `doc patch --stdin` use it for malformed JSON. TOML integer range errors use it too. Org parse and match errors include source diagnostics. |
+| `input.syntax-error` | `check` finds a syntax error; a regular expression, diff, Org document, or Org match expression is malformed; a regex exceeds its step limit; a value does not parse (`util decode`, `util calc`, `time convert`); or `transcode` meets bytes it cannot decode. Structured-document reads and writes use this for malformed input; `doc set --stdin`, `doc merge --stdin`, and `doc patch --stdin` use it for malformed JSON. TOML integer range errors use it too. Org parse and match errors include source diagnostics. |
 | `input.unsupported-value` | A YAML or TOML `doc` read or write encounters a value outside the JSON subset, such as a custom YAML tag, a cyclic alias, duplicate or non-string mapping keys, multiple YAML documents, or a non-finite float. |
 | `selection.no-match` | A selector matches nothing, an `apply` hunk does not fit, or a JSON Patch `test` fails. When a command can suggest alternatives, it includes them in `candidates`; the entries depend on the command. |
 | `selection.ambiguous` | A selector that must be unique matches more than once. The matches come as `candidates`. |
@@ -111,22 +111,26 @@ A name that is not a registered command returns `argument.invalid`, exit
 code 1. `src/dispatch.lisp` chooses the `repairs` by the kind of name, in
 this order:
 
-1. **A bare group name** (`json`, `bg`, `tx`) is a real command node with no
+1. **A bare group name** (`doc`, `bg`, `tx`) is a real command node with no
    handler, so the message is `<group> requires a subcommand` and the repair
    is `aitools schema <group>`. That repair is runnable: `aitools schema`
    lists a group's subcommands when given the group name (`%group-schemas`
    in `src/schema.lisp`), so it no longer fails with `input.not-found`.
-2. **A group subcommand typed without its group** (`get`, `status`, `logs`)
+2. **A retired document command name** (`json.get`, `yaml.get`, or
+   `toml.get`; tokenized input such as `json get`) is resolved through its
+   correspondence-table entry and returns the current `doc` command's repair.
+   These names are not registered command aliases.
+3. **A group subcommand typed without its group** (`get`, `status`, `logs`)
    returns one `run-instead` repair per group whose subcommand list
    holds that name, each the grouped form of the invocation with the group
    token inserted and the globals and operands kept. This is driven by the
    live registry (`%group-subcommand-repairs` in `src/dispatch-names.lisp`), not by
    the correspondence table, so `status` returns `aitools bg status` and
    `aitools tx status`.
-3. **A correspondence-table name** (`cat`, `grep`, `uuid`)
+4. **A shell name in the correspondence table** (`cat`, `grep`, `uuid`)
    returns that row's repairs, drawn from `aitools.data:*correspondence-table*`
    and shown in [Using aitools from an agent](../guide/agents.md#shell-commands-and-their-aitools-replacements).
-4. **Any other name** gets the repair `aitools schema`.
+5. **Any other name** gets the repair `aitools schema`.
 
 ```console
 $ aitools cat hello.lisp
@@ -136,6 +140,6 @@ $ aitools uuid
 {"schema_version":2,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is the `util` group's subcommand; include the group name.","command":"aitools util uuid"}]}}
 ```
 
-`schema` also reports near-miss candidates as an agent types them (`json get`,
-not the dotted dispatch name `json.get`); `%typed-name` in `src/schema.lisp`
+`schema` also reports near-miss candidates as an agent types them (`doc get`,
+not the dotted dispatch name `doc.get`); `%typed-name` in `src/schema.lisp`
 builds them from the command schemas.

@@ -502,7 +502,7 @@ Set a JSON value in a JSON, YAML, or TOML document at a JSON Pointer; string val
 | `path` (positional, required) | string |  |  |
 | `pointer` (positional, required) | string |  |  |
 | `value` (positional) | string |  |  |
-| `--format` | string |  | json, yaml, or toml (default: from the path extension). |
+| `--format` | enum: `json`, `yaml`, `toml` |  | json, yaml, or toml (default: from the path extension). |
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
@@ -528,7 +528,7 @@ Delete a value from a JSON, YAML, or TOML document at a JSON Pointer.
 |---|---|---|---|
 | `path` (positional, required) | string |  |  |
 | `pointer` (positional, required) | string |  |  |
-| `--format` | string |  | json, yaml, or toml (default: from the path extension). |
+| `--format` | enum: `json`, `yaml`, `toml` |  | json, yaml, or toml (default: from the path extension). |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
@@ -551,7 +551,7 @@ Apply an RFC 7386 JSON Merge Patch from --stdin to a JSON, YAML, or TOML documen
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  |  |
-| `--format` | string |  | json, yaml, or toml (default: from the path extension). |
+| `--format` | enum: `json`, `yaml`, `toml` |  | json, yaml, or toml (default: from the path extension). |
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
@@ -576,7 +576,7 @@ Apply an RFC 6902 JSON Patch from --stdin to a JSON, YAML, or TOML document; all
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  |  |
-| `--format` | string |  | json, yaml, or toml (default: from the path extension). |
+| `--format` | enum: `json`, `yaml`, `toml` |  | json, yaml, or toml (default: from the path extension). |
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
@@ -601,7 +601,7 @@ Format a JSON, YAML, or TOML document; JSON supports --indent, --minify, and --s
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  |  |
-| `--format` | string |  | json, yaml, or toml (default: from the path extension). |
+| `--format` | enum: `json`, `yaml`, `toml` |  | json, yaml, or toml (default: from the path extension). |
 | `--indent` | string |  | Indent width; defaults to detected width, or 2. |
 | `--minify` | flag |  | Write on one line. |
 | `--sort-keys` | flag |  | Sort object keys. |
