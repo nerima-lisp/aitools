@@ -100,10 +100,9 @@ walk; the write protocol's temp files are left out, as every scan excludes them.
       (aitools.kernel.domain:flow-continue :on-rejected code message))))
 
 (defun %hash-view-relative (root real)
-  "REAL relative to ROOT (\"\" for ROOT itself), or NIL when outside it."
+  "REAL relative to ROOT (empty for ROOT itself), or NIL when outside it."
   (and real (aitools.kernel.domain:path-inside-p root real)
-       (let ((relative (aitools.kernel.domain:path-relative-to root real)))
-         (if (string= relative ".") "" relative))))
+       (aitools.kernel.domain:path-relative-to root real)))
 
 (defun %hash-child-path (directory name)
   (if (zerop (length directory)) name (concatenate 'string directory "/" name)))
