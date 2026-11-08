@@ -97,7 +97,6 @@
    #:archive-member-mtime
    #:archive-member-link-target
    #:archive-entry-path-problem
-   #:archive-link-target-problem
    ;; codec-crc32.lisp
    #:crc32
    ;; codec-deflate.lisp
