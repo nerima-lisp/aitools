@@ -32,9 +32,10 @@
                (expect kind :to-be :ok)
                (json-object-get (first (field fields "items")) "path")))
            (steps (aitools.edit.domain:plan-archive-extraction
-                   gzip :gz "" :archive-path "bundle.gz"
-                   :max-bytes 100 :max-entries 1
-                   :lookup-kind (lambda (path) (declare (ignore path)) :absent))))
+ gzip :gz "" :archive-path "bundle.gz"
+ :max-bytes 100 :max-entries 1
+ :lookup-kind (lambda (path) (declare (ignore path)) :absent)
+ :make-prefix-checker (constantly nil))))
       (expect listed-name :to-equal "bundle")
       (expect (mapcar #'aitools.edit.domain:extract-step-path steps)
               :to-equal (list listed-name))))

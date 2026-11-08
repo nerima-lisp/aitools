@@ -109,9 +109,57 @@
 (defun member-file (name text &key (mode #o644))
   (aitools.text.domain:make-archive-member :name name :kind :file :data (bytes text) :mode mode))
 
-(defun extract-plan (octets format &key (lookup (constantly :absent)) (max-bytes 1000000) (max-entries 1000) selected)
-  (plan-archive-extraction octets format "out" :archive-path "a.zip" :max-bytes max-bytes :max-entries max-entries
-                                               :selected selected :lookup-kind lookup))
+(defun %test-archive-path-key (path)
+  (format nil "~{~A~^/~}"
+          (mapcar (lambda (component)
+                    (aitools.text.domain:normalize-text
+                     (sb-unicode:casefold
+                      (aitools.text.domain:normalize-text component :nfd))
+                     :nfd))
+                  (remove "." (aitools.workspace.domain:path-components path)
+                          :test (function string=)))))
+
+(defun make-test-archive-prefix-checker
+    (destination lookup archive-symlink-paths)
+  (let ((archive-links (make-hash-table :test 'equal)))
+    (dolist (path archive-symlink-paths)
+      (setf (gethash
+             (%test-archive-path-key
+              (aitools.workspace.domain:join-path destination path))
+             archive-links)
+            t))
+    (lambda (action &optional cursor component)
+      (ecase action
+        (:start nil)
+        (:enter
+         (let* ((next (append cursor (list component)))
+                (path (format nil "~{~A~^/~}" next))
+                (relative (aitools.workspace.domain:join-path destination path)))
+           (values next
+                   (if (or (gethash (%test-archive-path-key relative) archive-links)
+                           (eq (funcall lookup relative) :symlink))
+                       :symlink
+                       :clear))))
+        (:parent
+         (if (null cursor)
+             (values cursor :outside)
+             (values (butlast cursor) :clear)))
+        (:finish
+         (values cursor :clear))))))
+
+(defun extract-plan
+    (octets format &key (lookup (constantly :absent))
+                      (max-bytes 1000000) (max-entries 1000) selected)
+  (plan-archive-extraction
+   octets format "out" :archive-path "a.zip"
+   :max-bytes max-bytes
+   :max-entries max-entries
+   :selected selected
+   :lookup-kind lookup
+   :make-prefix-checker
+   (lambda (archive-symlink-paths)
+     (make-test-archive-prefix-checker
+      "out" lookup archive-symlink-paths))))
 
 (describe "aitools.edit.domain archive extraction plans"
   (it "plans every entry below the destination"
