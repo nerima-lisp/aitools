@@ -19,7 +19,10 @@
                    (list (list "a/B" "..") (list "s" "a/B/.."))))
       (expect (archive-symlink-refusal
                (mapcar (lambda (link) (archive-symlink (first link) (second link))) links))
-              :to-equal "refusal.outside-workspace")))
+              :to-equal "refusal.outside-workspace"))
+    (expect (archive-symlink-refusal
+             (list (archive-symlink "s" "../escape")))
+            :to-equal "refusal.outside-workspace"))
 
   (it "matches folded and normalized names when checking archive symlink traversal"
   (let ((decomposed (format nil "e~C" (code-char #x301)))

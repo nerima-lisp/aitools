@@ -57,15 +57,17 @@ last component. For example, with `D -> .`, a target of `D/..` is refused. To
 find archive symlinks, path prefixes use Unicode NFD normalization and full
 case folding: `x/d/..` matches `X/D`.
 
-Targets that cross an existing destination symlink are refused, including when
-the symlink is the target's final component. Archive entries are also refused
-when their parent path crosses an archive or destination symlink.
+For an archive symlink's target, planning refuses paths that cross an existing
+destination symlink, even when that symlink is the target's final component.
+Planning also refuses archive entries whose parent paths cross archive or
+destination symlinks.
 
 Entry selection with `--entry`, duplicate-name checks, and hard-link target
 lookup preserve case and Unicode spelling after empty and `.` path components
 are removed. Thus `README` and `readme` are distinct entries on a case-sensitive
-filesystem. On a case-insensitive filesystem, both may pass planning, but the
-write is refused if the filesystem aliases the paths.
+filesystem. On a case-insensitive filesystem, both may pass planning;
+`archive extract` then refuses the commit if the destination filesystem aliases
+the paths.
 
 The `--to` path names the extraction root and is resolved through the existing
 write-target path handling: an in-workspace destination symlink is followed,

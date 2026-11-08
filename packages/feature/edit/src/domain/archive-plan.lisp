@@ -133,11 +133,12 @@ Case-folded NFD keys are used only to detect traversal through archive symlinks.
                  (dolist (component components)
                    (check-link-prefix name directory symlink-names)
                    (cond ((string= component "..")
-                          (unless directory
-                            (refuse "refusal.outside-workspace"
-                                    "archive symlink ~S points outside the extraction (~A)"
-                                    name target))
-                          (setf directory (butlast directory)))
+                          (if (null directory)
+                              (refuse "refusal.outside-workspace"
+                                      "archive symlink ~S points outside the extraction (~A)"
+                                      name
+                                      (aitools.text.domain:archive-link-target-problem name target))
+                            (setf directory (butlast directory))))
                          ((string= component "."))
                          (t (setf directory (append directory (list component)))))
                    (check-link-prefix name directory symlink-names))))
@@ -207,7 +208,8 @@ Case-folded NFD keys are used only to detect traversal through archive symlinks.
               (dolist (record chosen)
                 (let* ((entry (first record))
                        (name (second record))
-                       (problem (aitools.text.domain:archive-entry-path-problem name))
+                       (problem (aitools.text.domain:archive-entry-path-problem
+                                (aitools.text.domain:archive-entry-name entry)))
                        (kind (aitools.text.domain:archive-entry-kind entry))
                        (path (aitools.workspace.domain:join-path destination name)))
                   (when problem
@@ -246,12 +248,3 @@ Case-folded NFD keys are used only to detect traversal through archive symlinks.
                     (:other
                      (refuse "input.unsupported-format" "archive entry ~S is a device or special file" name)))))
               (nreverse steps)))))))
-
-(defun build-archive (format members &key name)
-  "The bytes of an archive of FORMAT holding MEMBERS (text-domain
-ARCHIVE-MEMBERs); :GZ takes exactly one file member and stores NAME."
-  (ecase format
-    (:zip (aitools.text.domain:write-zip members))
-    (:tar (aitools.text.domain:write-tar members))
-    (:tar-gz (aitools.text.domain:gzip-compress (aitools.text.domain:write-tar members)))
-    (:gz (aitools.text.domain:gzip-compress (aitools.text.domain:archive-member-data (first members)) :name name))))

@@ -8,10 +8,10 @@
   component. Archive-symlink checks treat case and canonically equivalent
   Unicode names as the same path. Entry selection, duplicate-name checks, and
   hard-link lookup preserve case and Unicode spelling after empty and `.` path
-  components are removed. Case-only file or symlink path collisions work on
-  case-sensitive filesystems and are refused during the write on case-insensitive
-  filesystems.
-- `aitools sys info` now returns `environment.unavailable` when its uptime source
+  components are removed. Case-sensitive filesystems keep case-only paths
+  distinct; `archive extract` refuses commits when a case-insensitive destination
+  filesystem aliases those paths.
+- `aitools sys info` returns `environment.unavailable` when its uptime source
   is missing or malformed; previously, its response could contain a `null`
   uptime. CPU and memory values are optional, but uptime is required for a
   complete system information response.
