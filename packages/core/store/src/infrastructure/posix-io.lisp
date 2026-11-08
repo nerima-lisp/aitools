@@ -110,6 +110,9 @@ waits between lock attempts."
   (let ((root (and root (%strip-trailing-slash root))))
     (make-store-io
      :lstat #'%lstat
+     :open-search-root #'%open-search-root
+     :open-search-entry #'%open-search-entry
+     :close-search-directory #'%close-search-directory
      :read-file #'%read-file
      :create-file (lambda (path octets &rest keys) (apply #'%create-file root path octets keys))
      :append-file #'%append-file
