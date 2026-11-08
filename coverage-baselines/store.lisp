@@ -1,7 +1,7 @@
 (:context :store
  :state :measured
  :source :linux-ci
- :expression-covered 7427
- :expression-total 7807
+ :expression-covered 7606
+ :expression-total 7836
  :branch-covered 685
  :branch-total 810)
