@@ -86,6 +86,24 @@
                 :to-equal "from.txt")
         (expect (aitools.test.support:json-alist-value (second changes) "action")
                 :to-equal "moved")))
+    (it-each ((:before) (:after))
+             "omits a diff when the ~A content is binary"
+             (side)
+             (let* ((text (bytes "text"))
+                    (binary (concatenate (quote aitools.store.domain:octets) text #(0)))
+                    (before (if (eq side :before) binary text))
+                    (after (if (eq side :after) binary text))
+                    (result (make-change-result
+                             :path "a.txt" :action :modified
+                             :before (aitools.store.domain:file-state
+                                      (aitools.kernel.domain:content-hash before) #o644)
+                             :after (aitools.store.domain:file-state
+                                     (aitools.kernel.domain:content-hash after) #o644)
+                             :before-content before :after-content after))
+                    (change (first (changes->json (list result))))
+                    (absent :not-present))
+               (expect (aitools.test.support:json-alist-value change "diff" absent)
+                       :to-be absent)))
 
     (it "cuts diffs at the requested line limits and reports the longest cut"
       (multiple-value-bind (changes longest)
