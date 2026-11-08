@@ -63,7 +63,8 @@ an agent able to write the state directory could. Returns its op id."
   (it-each ((".GIT/config" ".GIT/config")
           ("link/pwn.txt" "link/pwn.txt")
           ("state directory" :state-marker)
-          ("symlink into .git" :git-link))
+          ("symlink into .git" :git-link)
+          ("invalid relative path" "../outside/pwn.txt"))
       "discards a record targeting ~A"
       (label path-case)
     (call-with-temp-store (lambda (store) (let* ((base (base-directory store))
