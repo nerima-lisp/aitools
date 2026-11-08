@@ -179,6 +179,7 @@
                                               (:file "integration/edit-files-refusals-test")
                                               (:file "integration/edit-tx-and-limits-test")
                                               (:file "integration/edit-cli-test")
+                                              (:file "integration/edit-json-repair-test" :depends-on ("integration/edit-cli-test"))
                                               (:file "integration/edit-security-test")
                                               (:file "integration/edit-tx-replay-test")
                                               (:file "integration/edit-text-write-commands-test")
