@@ -99,8 +99,6 @@
                              (:file "presentation/registry")
                              (:file "presentation/file-commands")
                              (:file "presentation/json-commands")
-                             (:file "presentation/yaml-commands")
-                             (:file "presentation/toml-commands")
                              (:file "presentation/table-commands")
                              (:file "presentation/archive-commands")
                              (:file "presentation/snapshot-commands")))
