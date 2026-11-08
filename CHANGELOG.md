@@ -9,7 +9,7 @@
 
 ## v0.4.0
 
-- Security: Plan-time archive checks reject targets that traverse archive symlinks before their final component (for example, `x/d -> ..` followed by `s -> x/d/..`), existing destination symlinks, and symlink parents. Case-folded NFD path keys catch aliases and duplicate entry names.
+- Security: `archive extract` rejects targets that leave the extraction root or traverse an archive symlink before their final component. With `x/d -> ..`, a target of `x/d/x/d/../../outside` is refused. It also rejects target paths that cross existing symlinks under the extraction root and entries whose parents cross archive or destination symlinks. `--to` is resolved before planning: an in-workspace symlink target is used as the extraction root, while a target outside the workspace is refused. Case-folded NFD path keys make case and canonical-equivalent names compare equal for symlink and duplicate checks.
 - Remove the top-level `delete` command. Use `rm` for files, symlinks, empty directories, and recursive trees.
 - Map the shell command `rmdir` to `aitools rm`; `rmdir` is not an aitools
   command. Calling the removed top-level `delete` command returns
