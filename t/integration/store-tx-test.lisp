@@ -116,6 +116,10 @@ append TEXT to PATH as the view shows it."
                               (expect (actions results) :to-equal '(("a.txt" :modified) ("b.txt" :created)))
                               (expect (octets-string (change-result-before-content (first results))) :to-equal "a")
                               (expect (octets-string (change-result-after-content (first results))) :to-equal "a+1"))
+                   :on-not-found (lambda () (expect :not-found :to-be nil)))
+        (stage store tx (list (write-file-request "a.txt" (bytes "a"))))
+        (tx-diff/k store tx
+                   :on-diff (lambda (results) (expect (actions results) :to-equal '(("b.txt" :created))))
                    :on-not-found (lambda () (expect :not-found :to-be nil))))) :io nil))
 
   (it "answers not-found for an unknown or malformed tx id"
