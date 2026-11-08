@@ -94,6 +94,18 @@
       (aitools.edit.infrastructure::serialize-document
        "toml"
        (aitools.protocol.domain:json-null))))
+  (it "uses the schema repair fallback for an unsupported YAML patch operation"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "patch.yaml" (format nil "a: 1~%"))
+       (multiple-value-bind (status code message keys)
+           (run "doc.patch" (list "patch.yaml")
+                :stdin-data "[{\"op\":\"unknown\",\"path\":\"/a\"}]")
+         (declare (ignore message))
+         (expect status :to-be :error)
+         (expect code :to-equal "argument.invalid")
+         (expect (getf (first (getf keys :repairs)) :command)
+                 :to-equal "aitools schema doc patch")))))
 
   (it "rejects invalid source documents and carries format repairs"
     (call-with-edit-workspace (lambda () (put "bad-tag.yaml" (format nil "keep: !custom value~%target: 2~%"))
