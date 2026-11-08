@@ -224,3 +224,25 @@
       (expect (first case-form) :to-be (quote case))
       (expect (length (cddr case-form)) :to-be 32))))
 
+(describe "aitools.store mktemp preparation cleanup"
+  (it "removes replacement temps when preparation fails without an intent"
+    (call-with-temp-store (lambda (plain)
+      (let* ((state-home (concatenate 'string (base-directory plain) "/state"))
+             (workspace (posix-store-under (store-root plain) state-home))
+             (tmp (tmp-directory (store-state-directory workspace))))
+        (seed-state workspace)
+        (sb-posix:mkdir tmp #o700)
+        (let ((temporary (posix-store-under tmp state-home)))
+          (expect (commit temporary (list (write-file-request "a.txt" (bytes "old"))))
+                  :to-be :committed)
+          (expect
+           (handler-case
+               (call-with-fault-at :after-temp
+                 (lambda () (commit temporary (list (write-file-request "a.txt" (bytes "new")))))
+                 :mode :error)
+             (injected-fault () :failed))
+           :to-be :failed)
+          (expect (temp-files temporary) :to-equal '())
+          (expect (intent-files temporary) :to-equal '())
+          (expect (disk-text temporary "a.txt") :to-equal "old"))))
+     :io nil)))
