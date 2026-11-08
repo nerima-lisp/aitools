@@ -62,19 +62,23 @@ an agent able to write the state directory could. Returns its op id."
 
   (it-each ((".GIT/config" ".GIT/config")
           ("link/pwn.txt" "link/pwn.txt")
-          ("state directory" :state-marker))
+          ("state directory" :state-marker)
+          ("symlink into .git" :git-link))
       "discards a record targeting ~A"
       (label path-case)
     (call-with-temp-store (lambda (store) (let* ((base (base-directory store))
              (inside (make-store (store-boundaries store) (store-root store) (disk-path store "state"))))
         (seed-state inside)
         (sb-posix:mkdir (concatenate 'string base "/outside") #o755)
-        (sb-posix:symlink "../outside" (disk-path store "link"))
+        (when (eq path-case :git-link) (sb-posix:mkdir (disk-path store ".git") #o755))
+        (sb-posix:symlink (if (eq path-case :git-link) ".git" "../outside") (disk-path store "link"))
         (let ((target (if (eq path-case :state-marker)
                           (format nil "state/~A/commit/x.json"
                                   (subseq (store-state-directory inside)
                                           (1+ (position #\/ (store-state-directory inside) :from-end t))))
-                          path-case)))
+                          (if (eq path-case :git-link)
+                              "link/config"
+                              path-case))))
           (put-file store ".aitools-payload-1.tmp" "x")
           (let ((op-id (forge-intent inside (list (make-intent-step :op :replace :path target
                                                                     :temp ".aitools-payload-1.tmp" :kind :file
@@ -84,7 +88,9 @@ an agent able to write the state directory could. Returns its op id."
               (expect entries :to-equal (list (cons op-id "discarded"))))))
         (expect (exists-p (concatenate 'string base "/outside/pwn.txt")) :to-be nil)
         (expect (exists-p (disk-path store "state/marker.txt")) :to-be nil)
-        (expect (exists-p (disk-path store ".GIT")) :to-be nil)
+        (unless (eq path-case :git-link)
+          (expect (exists-p (disk-path store ".GIT")) :to-be nil))
+        (expect (exists-p (disk-path store ".git/config")) :to-be nil)
         (expect (intent-files inside) :to-equal '()))) :io nil))
 
   (it "refuses a write request into .git or the state directory before anything is prepared"
