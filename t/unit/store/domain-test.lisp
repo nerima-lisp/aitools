@@ -88,6 +88,15 @@
     (multiple-value-bind (status results) (plan '() (list (write-file-request "a/b/c.txt" (bytes "x"))))
       (expect status :to-be :planned)
       (expect (actions results) :to-equal '(("a" :created) ("a/b" :created) ("a/b/c.txt" :created)))))
+  (it "does not treat a deleted override as a child of its parent"
+    (multiple-value-bind (status results)
+        (plan (list (cons "d" (directory-state))
+                    (cons "d/child" "x"))
+              (list (delete-request "d/child")
+                    (delete-request "d")))
+      (expect status :to-be :planned)
+      (expect (actions results)
+              :to-equal '(("d/child" :deleted) ("d" :deleted)))))
 
   (it "keeps the existing mode on modify and uses 644 for a new file"
     (multiple-value-bind (status results)
