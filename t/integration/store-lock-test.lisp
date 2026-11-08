@@ -208,3 +208,25 @@ lock is held."
                 (expect (disk-text store "a.txt") :to-equal "a-old"))
            (kill-child pid))))
      :io nil)))
+
+(describe "aitools.store state-directory creation race"
+  (it "accepts a directory created between lstat and mkdir"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((base (store-boundaries plain))
+              (real-mkdir (store-operation base :mkdir))
+              (raced nil)
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base :mkdir
+                 (lambda (path &rest keys)
+                   (apply real-mkdir path keys)
+                   (unless raced
+                     (setf raced t)
+                     (error 'store-io-error :operation "mkdir" :path path
+                                            :detail "File exists")))))
+              (store (make-store boundaries (store-root plain) (state-home-of plain))))
+         (expect (with-workspace-lock (store 1000 :on-timeout :busy) :acquired)
+                 :to-be :acquired)
+         (expect raced :to-be-truthy)))
+     :io nil)))
