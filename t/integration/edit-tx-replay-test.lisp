@@ -56,6 +56,20 @@
       (expect (replay-argv '("edit" "--between" "^a$" "^c$" "--exclusive" "--new" "B" "x.txt"))
               :to-equal (list :reject "input.not-found" "x.txt does not exist")))))
 
+  (it "requires a serializer to replay structured document commands"
+    (call-with-edit-workspace
+     (lambda ()
+       (let ((result
+               (replay-edit-op
+                (list "doc" "fmt" "doc.yaml")
+                (aitools.store.application:disk-view (open-store *root*))
+                (lambda (requests) (list :commit requests))
+                (lambda (code message &rest keys)
+                  (declare (ignore keys))
+                  (list :reject code message)))))
+         (expect result :to-equal
+                 (list :reject "argument.invalid" "doc.fmt cannot be replayed"))))))
+
   (it "parses a flag, a two-word command it does not know as one word, and positionals after --"
     (destructuring-bind (name positionals options)
         (parse-recorded-argv '("edit" "--exclusive" "--between" "a" "b" "--new" "x" "--" "-f")
