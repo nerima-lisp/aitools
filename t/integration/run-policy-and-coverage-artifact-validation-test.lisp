@@ -94,10 +94,10 @@
                 :to-equal (%minimum-executed-specs-for-context))
         (expect (%minimum-executed-specs-for-context nil) :to-equal aggregate)
         (expect aggregate :to-equal *all-minimum-executed-specs*)
-        (multiple-value-bind (problems executed)
+        (multiple-value-bind (problems executed context-counts)
             (%policy-problems full-events nil)
-          (expect executed :to-equal aggregate)
-          (expect (null problems) :to-be-truthy))
+          (expect (list executed (null problems) (mapcar (function car) context-counts))
+                  :to-equal (list aggregate t (mapcar (function car) context-entries))))
         (dolist (underfilled-context context-entries)
           (let* ((context (car underfilled-context))
                  (events
@@ -109,9 +109,10 @@
                                   minimum)
                                 (car entry)
                                 source-files))))
-            (multiple-value-bind (problems executed)
+            (multiple-value-bind (problems executed context-counts)
                 (%policy-problems events nil)
-              (expect executed :to-equal (1- aggregate))
+              (expect (list executed (cdr (assoc context context-counts)))
+                      :to-equal (list (1- aggregate) (1- (getf (cdr underfilled-context) :minimum-executed-specs))))
               (expect
                (find-if (lambda (problem)
                           (search (format nil "context ~A has only" context) problem))
@@ -226,12 +227,10 @@
               (list (%coverage-source-path "source")
                     (%coverage-source-path "test"))))
      :to-be-truthy))
-
   (it "rejects an empty coverage sidecar"
     (expect (search "Coverage sidecar is empty"
                     (%coverage-validation-error "" (%valid-coverage-report-html)))
             :to-be-truthy))
-
   (it "rejects an empty coverage HTML report"
   (expect (search "Coverage HTML report is empty"
                   (%coverage-validation-error (%valid-coverage-sidecar-text) ""))

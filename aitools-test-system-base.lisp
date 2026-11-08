@@ -15,7 +15,8 @@
            :components ((:module "t"
                                  :pathname "t/"
                                  :components ((:file "package")
-                                              (:file "spec-count-baselines/loader")
+                                              (:file "spec-count-baselines/loader" :depends-on ("package"))
+                                              (:file "test-runner" :depends-on ("package" "spec-count-baselines/loader"))
                                               (:module "support"
                                                        :pathname "support/"
                                                        :components ((:file "package")

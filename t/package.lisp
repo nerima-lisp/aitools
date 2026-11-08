@@ -27,38 +27,8 @@
 
 (in-package #:aitools/test)
 
-(progn
-  (defconstant +default-test-timeout-ms+ 60000)
-  (defvar *last-test-outcomes* nil))
-
-(defparameter *spec-count-baseline*
-  (let ((pathname (merge-pathnames "t/spec-count-baseline.lisp"
-                                   (asdf:system-source-directory "aitools/test/base"))))
-    (with-open-file (stream pathname)
-      (let* ((*read-eval* nil)
-             (baseline (read stream nil :eof))
-             (minimum (getf baseline :minimum-executed-specs))
-             (starts (getf baseline :outer-start-events))
-             (ends (getf baseline :outer-end-events))
-             (nested (getf baseline :nested-e2e-diagnostic-events)))
-        (unless (and (listp baseline) (evenp (length baseline))
-                     (= (getf baseline :schema-version) 1)
-                     (or (and (eq (getf baseline :source) :successful-darwin-ci-run)
-                              (eq (getf baseline :platform) :darwin))
-                         (and (eq (getf baseline :source) :successful-linux-ci-run)
-                              (eq (getf baseline :platform) :linux)))
-                     (stringp (getf baseline :run-id))
-                     (stringp (getf baseline :revision))
-                     (integerp minimum) (plusp minimum)
-                     (integerp starts) (= starts minimum)
-                     (integerp ends) (= ends minimum)
-                     (integerp nested) (not (minusp nested))
-                     (stringp (getf baseline :reason))
-                     (plusp (length (getf baseline :reason))))
-          (error "Invalid executed-spec baseline: ~S" baseline))
-        (unless (eq (read stream nil :eof) :eof)
-          (error "Executed-spec baseline contains trailing data: ~A" pathname))
-        baseline))))
+(defconstant +default-test-timeout-ms+ 60000)
+(defvar *last-test-outcomes* nil)
 
 (defvar *minimum-executed-specs* 0
   "Fewer executed specs (passed, failed or errored; not skipped or todo) than the data-backed baseline fails the run.")
@@ -161,7 +131,8 @@ the reported path."
                       :test #'string=))
             events))
          (executed (length executed-events))
-         (problems '()))
+         (problems '())
+         (context-counts nil))
     (when (< executed minimum)
       (push (format nil "only ~D specs ran; at least ~D are expected for ~A"
                     executed minimum (or context "the full suite"))
@@ -186,6 +157,7 @@ the reported path."
           (let* ((context (car entry))
                  (minimum (getf (cdr entry) :minimum-executed-specs))
                  (context-executed (gethash context counts)))
+            (push (cons context context-executed) context-counts)
             (when (< context-executed minimum)
               (push (format nil "context ~A has only ~D specs run; at least ~D are expected"
                             context context-executed minimum)
@@ -197,102 +169,4 @@ the reported path."
                       (%event-field event "pathString") (%event-field event "status")
                       (%event-field event "reason"))
               problems)))
-    (values (nreverse problems) executed)))
-(progn
-  (defun %report-test-outcomes (events &optional (stream *standard-output*))
-    (let ((outcomes
-            (remove-if-not
-             (lambda (event)
-               (member (cl-weave::test-event-status event) (list :fail :error :skip)))
-             (cl-weave::normalize-run-results events))))
-      (when outcomes
-        (format stream "~&aitools/test: failed, errored, or skipped specs (~D):~%"
-                (length outcomes))
-        (dolist (event outcomes)
-          (let* ((status (cl-weave::test-event-status event))
-                 (condition (cl-weave::test-event-condition event))
-                 (reason (cl-weave::test-event-reason event))
-                 (assertion (cl-weave::test-event-assertion event)))
-            (format stream "  [~(~A~)] ~A"
-                    status (cl-weave::path-string (cl-weave::test-event-path event)))
-            (when condition
-              (format stream " condition ~A: ~A" (type-of condition) condition))
-            (when assertion
-              (format stream " assertion ~A expected ~S, got ~S"
-                      (cl-weave::assertion-detail-matcher assertion)
-                      (cl-weave::assertion-detail-expected assertion)
-                      (cl-weave::assertion-detail-actual assertion)))
-            (when (or reason (eq status :skip))
-              (format stream " reason: ~A" (or reason "unspecified")))
-            (terpri stream)))
-        (finish-output stream))
-      (length outcomes)))
-  (defun %report-json-test-outcomes (events &optional (stream *standard-output*))
-    (let ((outcomes
-           (remove-if-not
-            (lambda (event)
-              (member (gethash "status" event) (list "fail" "error" "skip")
-                      :test (function string=)))
-            events)))
-      (when outcomes
-        (format stream "~&aitools/test: failed, errored, or skipped specs (~D):~%"
-                (length outcomes))
-        (dolist (event outcomes)
-          (let* ((status (gethash "status" event))
-                 (condition (gethash "condition" event))
-                 (raw-reason (gethash "reason" event))
-                 (reason (unless (or (null raw-reason)
-                                     (json-kit:json-null-p raw-reason))
-                           raw-reason))
-                 (assertion (gethash "assertion" event)))
-            (format stream "  [~A] ~A" status (gethash "pathString" event))
-            (when (and condition (not (json-kit:json-null-p condition)))
-              (format stream " condition ~A" condition))
-            (when (and assertion (hash-table-p assertion))
-              (format stream " assertion ~A expected ~S, got ~S"
-                      (gethash "matcher" assertion)
-                      (gethash "expected" assertion)
-                      (gethash "actual" assertion)))
-            (when (or reason (string= status "skip"))
-              (format stream " reason: ~A" (or reason "unspecified")))
-            (terpri stream)))
-        (finish-output stream))
-      (length outcomes)))
-  (defun %report-test-runner-outcomes (events &optional (stream *standard-output*))
-    (if (and (consp events) (eq (car events) :json))
-        (%report-json-test-outcomes (cdr events) stream)
-        (%report-test-outcomes events stream))))
-
-(defun run-tests (&key (timeout-ms +default-test-timeout-ms+))
-  "Run registered cl-weave specs with a per-spec timeout and fail on test or run-policy errors."
-  (setf *last-test-outcomes* nil)
-  (let ((context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
-    (%validate-context-test-systems context)
-    (let* ((json (make-string-output-stream))
-           (events
-            (call-with-spec-progress
-             (lambda ()
-               (cl-weave:run nil :timeout-ms timeout-ms
-                             :reporter :json :stream json))))
-           (report (json-kit:parse (get-output-stream-string json))))
-      (setf *last-test-outcomes* events)
-      (cl-weave:explain! events)
-      (multiple-value-bind (problems executed)
-          (%policy-problems (coerce (gethash "events" report) 'list) context)
-        (dolist (problem problems)
-          (format t "~&aitools/test: ~A~%" problem))
-        (unless (and (cl-weave:results-status events) (null problems))
-          (error "aitools test suite failed"))
-        (format t "~&aitools/test: successful completion with 0 failures, ~D specs run~%"
-                executed))
-      (%report-test-outcomes events)))
-  t)
-(defun %call-with-test-runner-reporting (thunk)
-  (handler-case
-      (funcall thunk)
-    (error (condition)
-      (format t "~&aitools tests failed: ~A: ~A~%"
-              (type-of condition) condition)
-      (%report-test-runner-outcomes *last-test-outcomes*)
-      (finish-output *standard-output*)
-      (error condition))))
+    (values (nreverse problems) executed (nreverse context-counts))))

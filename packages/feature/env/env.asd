@@ -60,6 +60,7 @@
      (:file "unit/env/sys-flow-edge-test")
      (:file "unit/env/sys-host-flows-test")
      (:file "unit/env/env-commands-test")
+     (:file "unit/env/network-test")
      (:module "integration" :pathname "integration/" :serial t
       :components ((:file "env-host-test")
                    (:file "env-host-trace-test")))

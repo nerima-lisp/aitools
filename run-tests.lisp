@@ -1,13 +1,11 @@
 ;;;; Set AITOOLS_TEST_CONTEXT=<context> to run one context; see docs/src/project/development.md.
 (require :asdf)
-
 (defun script-directory ()
   (make-pathname :name nil
                  :type nil
                  :defaults (or *load-truename*
                                *compile-file-truename*
                                (error "Unable to determine the script location"))))
-
 ;; Context systems live in packages/*/*.asd, so the checkout tree must be
 ;; registered. The source tree contains no generated or scratch ASDF systems.
 (defun configure-local-source-registry (root)
@@ -15,130 +13,45 @@
    `(:source-registry
      (:tree ,root)
      :inherit-configuration)))
-
-(defun coverage-context-directory-prefixes (root)
-  (let ((groups (list (cons :composition (list "src/")))))
-    (dolist (system
-             (sort
-              (remove-if-not
-               (lambda (name)
-                 (and (stringp name)
-                      (or (coverage-prefix-p "aitools/core/" name)
-                          (coverage-prefix-p "aitools/feature/" name))))
-               (asdf:registered-systems))
-              #'string<))
-      (let* ((prefix (if (coverage-prefix-p "aitools/core/" system)
-                         "aitools/core/"
-                       "aitools/feature/"))
-             (suffix (subseq system (length prefix)))
-             (slash (position #\/ suffix))
-             (context-name (if slash (subseq suffix 0 slash) suffix))
-             (context (intern (string-upcase context-name) :keyword))
-             (directory (coverage-relative-path
-                         (asdf:system-source-directory system)
-                         root))
-             (directory-prefix
-              (if (and (plusp (length directory))
-                       (char/= (char directory (1- (length directory))) #\/))
-                  (concatenate 'string directory "/")
-                directory))
-             (entry (assoc context groups)))
-        (unless entry
-          (push (cons context nil) groups)
-          (setf entry (assoc context groups)))
-        (push directory-prefix (cdr entry))))
-    (mapcar (lambda (entry)
-              (cons (car entry)
-                    (remove-duplicates (nreverse (cdr entry)) :test #'string=)))
-            groups)))
-(defparameter *coverage-exclusion-rules* '(("data/" . "Shared data tables have no single executable-context owner.")))
-(defun coverage-prefix-p (prefix string)
-  (and (<= (length prefix) (length string))
-       (string= prefix string :end2 (length prefix))))
-(defun coverage-relative-path (pathname root)
-  (let ((relative (namestring (enough-namestring pathname root))))
-    (when (or (coverage-prefix-p "/" relative)
-              (coverage-prefix-p "../" relative)
-              (string= relative ".."))
-      (error "Coverage input is outside the project root: ~A" relative))
-    relative))
-(defun coverage-system-files (system)
-  (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES" system :include-dependencies nil))
-(defun coverage-candidate-files ()
-  (loop for system in (asdf:registered-systems)
-        when (and (stringp system)
-                  (or (coverage-prefix-p "aitools/core/" system)
-                      (coverage-prefix-p "aitools/feature/" system)
-                      (member system
-                              (list "aitools/data" "aitools/cli/foundation" "aitools/cli")
-                              :test (function string=))))
-        append (coverage-system-files system)))
-(defun classify-coverage-inputs (include root)
-  (unless include
-    (error "No ASDF source files were included for coverage"))
-  (let* ((context-prefixes (coverage-context-directory-prefixes root))
-         (groups (mapcar (lambda (entry) (cons (car entry) nil))
-                         context-prefixes))
-         (excluded nil))
-    (dolist (pathname include)
-      (let* ((relative (coverage-relative-path pathname root))
-             (context (find-if (lambda (entry)
-                                 (find-if (lambda (prefix)
-                                            (coverage-prefix-p prefix relative))
-                                          (cdr entry)))
-                               context-prefixes))
-             (rule (find-if (lambda (entry)
-                              (coverage-prefix-p (car entry) relative))
-                            *coverage-exclusion-rules*)))
-        (cond
-         (context (push pathname (cdr (assoc (car context) groups))))
-         (rule (push (list :rule (car rule) :path relative :reason (cdr rule))
-                     excluded))
-         (t (error "Unclassified coverage input: ~A" relative)))))
-    (dolist (group groups)
-      (unless (cdr group)
-        (error "Coverage context has no included ASDF source files: ~S" (car group)))
-      (setf (cdr group) (nreverse (cdr group))))
-    (values groups (nreverse excluded))))
-  (defun assert-coverage-baseline (statistics baseline context)
-    (dolist (metric '(:expression :branch))
-      (multiple-value-bind (covered total)
-          (require-positive-coverage-counts statistics context metric)
-        (multiple-value-bind (base-covered base-total)
-            (require-positive-coverage-counts baseline context metric)
-          (unless (>= (* covered base-total) (* base-covered total))
-            (error "~A ~A coverage ~D/~D fell below baseline ~D/~D"
-                   context metric covered total base-covered base-total))
-          (format t
-                  "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
-                  context metric covered total base-covered base-total))))
-    t)
-  (defun coverage-statistics-for (pathnames &optional context baseline &key new-baseline-p)
-    (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                                         :include-pathnames pathnames))
-           (current-count
-             (when (or new-baseline-p
-                       (getf baseline :uncovered-in-package-expressions))
-               (uncovered-in-package-expression-count
-                (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
-                                  :include-pathnames pathnames)))))
-      (cond
-        (new-baseline-p
-         (let ((measured (copy-list statistics)))
-           (setf (getf measured :uncovered-in-package-expressions) current-count)
-           measured))
-        ((getf baseline :uncovered-in-package-expressions)
-         (adjust-context-expression-total statistics context current-count baseline))
-        (t statistics))))
-  (defun measure-context-coverage (root groups)
-    (mapcar (lambda (group)
-              (let* ((context (car group)) (pathnames (cdr group))
-                     (baseline (read-coverage-baseline-if-present root context)))
-                (list context (length pathnames)
-                      (coverage-statistics-for pathnames context baseline
-                                               :new-baseline-p (null baseline))
-                      baseline)))
-            groups))
+(defun assert-coverage-baseline (statistics baseline context)
+  (dolist (metric '(:expression :branch))
+    (multiple-value-bind (covered total)
+        (require-positive-coverage-counts statistics context metric)
+      (multiple-value-bind (base-covered base-total)
+          (require-positive-coverage-counts baseline context metric)
+        (unless (>= (* covered base-total) (* base-covered total))
+          (error "~A ~A coverage ~D/~D fell below baseline ~D/~D"
+                 context metric covered total base-covered base-total))
+        (format t
+                "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
+                context metric covered total base-covered base-total))))
+  t)
+(defun coverage-statistics-for (pathnames &optional context baseline &key new-baseline-p)
+  (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                                       :include-pathnames pathnames))
+         (current-count
+          (when (or new-baseline-p
+                    (getf baseline :uncovered-in-package-expressions))
+            (uncovered-in-package-expression-count
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                               :include-pathnames pathnames)))))
+    (cond
+     (new-baseline-p
+      (let ((measured (copy-list statistics)))
+        (setf (getf measured :uncovered-in-package-expressions) current-count)
+        measured))
+     ((getf baseline :uncovered-in-package-expressions)
+      (adjust-context-expression-total statistics context current-count baseline))
+     (t statistics))))
+(defun measure-context-coverage (root groups)
+  (mapcar (lambda (group)
+            (let* ((context (car group)) (pathnames (cdr group))
+                   (baseline (read-coverage-baseline-if-present root context)))
+              (list context (length pathnames)
+                    (coverage-statistics-for pathnames context baseline
+                                             :new-baseline-p (null baseline))
+                    baseline)))
+          groups))
 (defun run-coverage (root)
   (asdf:load-system "cl-weave")
   (uiop:symbol-call "CL-WEAVE" "REQUIRE-COVERAGE-SUPPORT")
@@ -170,58 +83,67 @@
              (report (get-output-stream-string json))
              (parsed (uiop:symbol-call :json-kit :parse report))
              (events (coerce (gethash "events" parsed) 'list)))
-        (progn
-          (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
-                (cons :json events))
-          (multiple-value-bind (problems executed)
-              (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events)
+        (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
+              (cons :json events))
+        (multiple-value-bind (problems executed context-counts)
+            (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events nil)
+          (let* ((statistics (coverage-statistics-for selected :aggregate aggregate-baseline))
+                 (measured (measure-context-coverage root groups))
+                 (aggregate
+                   (append
+                    (coverage-measurement-record
+                     :aggregate (length selected) statistics aggregate-baseline)
+                    (list :executed-spec-count executed)))
+                 (contexts
+                   (mapcar
+                    (lambda (entry)
+                      (append
+                       (coverage-measurement-record
+                        (first entry) (second entry) (third entry) (fourth entry))
+                       (list :executed-spec-count
+                             (cdr (assoc (first entry) context-counts)))))
+                    measured)))
+            (write-context-measurements root aggregate contexts exclusions)
+            (format t "~&aitools coverage suite: ~D specs run~%" executed)
+            (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
+                    (getf statistics :expression-covered)
+                    (getf statistics :expression-total)
+                    (getf statistics :branch-covered)
+                    (getf statistics :branch-total))
+            (format t "~&coverage context measurements: ~A~%"
+                    (namestring
+                     (merge-pathnames "coverage/context-measurements.sexp" root)))
+            (format t "~&coverage exclusions:~%")
+            (if exclusions
+                (dolist (entry exclusions)
+                  (format t "  ~A via ~A: ~A~%"
+                          (getf entry :path) (getf entry :rule) (getf entry :reason)))
+              (format t "  none~%"))
+            (dolist (entry measured)
+              (let ((stats (third entry))
+                    (spec-count (cdr (assoc (first entry) context-counts))))
+                (format t "~&coverage context ~A specs run: ~D~%"
+                        (first entry) spec-count)
+                (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
+                        (first entry) (getf stats :expression-covered)
+                        (getf stats :expression-total)
+                        (getf stats :branch-covered) (getf stats :branch-total))))
+            (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
+                              (merge-pathnames "coverage.json" root)
+                              (merge-pathnames "coverage/cover-index.html" root)
+                              selected)
+            (assert-coverage-baseline statistics aggregate-baseline :aggregate)
+            (dolist (entry measured)
+              (when (fourth entry)
+                (assert-coverage-baseline
+                 (third entry) (fourth entry) (first entry))))
+            (require-context-coverage-baselines measured)
             (dolist (problem problems)
               (format t "~&aitools coverage: ~A~%" problem))
             (unless (null problems)
               (error "aitools coverage test policy failed"))
-            (format t "~&aitools coverage suite: ~D specs run~%" executed)))
-        (let* ((statistics (coverage-statistics-for selected :aggregate aggregate-baseline))
-               (measured (measure-context-coverage root groups))
-               (aggregate (coverage-measurement-record
-                           :aggregate (length selected) statistics aggregate-baseline))
-               (contexts (mapcar (lambda (entry)
-                                   (coverage-measurement-record
-                                    (first entry) (second entry) (third entry)
-                                    (fourth entry)))
-                                 measured)))
-          (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
-                            (merge-pathnames "coverage.json" root)
-                            (merge-pathnames "coverage/cover-index.html" root)
-                            selected)
-          (write-context-measurements root aggregate contexts exclusions)
-          (assert-coverage-baseline statistics aggregate-baseline :aggregate)
-          (dolist (entry measured)
-            (when (fourth entry)
-              (assert-coverage-baseline
-               (third entry) (fourth entry) (first entry))))
-          (unless passed (error "aitools coverage suite failed"))
-          (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
-                  (getf statistics :expression-covered)
-                  (getf statistics :expression-total)
-                  (getf statistics :branch-covered)
-                  (getf statistics :branch-total))
-          (format t "~&coverage context measurements: ~A~%"
-                  (namestring
-                   (merge-pathnames "coverage/context-measurements.sexp" root)))
-          (format t "~&coverage exclusions:~%")
-          (if exclusions
-              (dolist (entry exclusions)
-                (format t "  ~A via ~A: ~A~%"
-                        (getf entry :path) (getf entry :rule) (getf entry :reason)))
-            (format t "  none~%"))
-          (progn
-            (dolist (entry measured)
-              (let ((stats (third entry)))
-                (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
-                        (first entry) (getf stats :expression-covered)
-                        (getf stats :expression-total) (getf stats :branch-covered)
-                        (getf stats :branch-total))))
-            (require-context-coverage-baselines measured)))))))
+            (unless passed
+              (error "aitools coverage suite failed"))))))))
 
 (handler-case
     (let ((root (script-directory)))

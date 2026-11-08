@@ -110,6 +110,12 @@
     (expect (jget envelope "arch") :to-equal (trimmed (oracle ws '("uname") "uname -m" nil)))
     (expect (jget envelope "os_version") :to-equal (trimmed (oracle ws '("uname") "uname -r" nil)))))
 
+(define-row-case (41 "uptime is available alongside sys info uptime_seconds" :foreign ("uptime")) (ws)
+  (let ((output (trimmed (oracle ws '("uptime") "uptime" nil)))
+        (envelope (run-ok ws '("sys" "info"))))
+    (expect output :to-be-truthy)
+    (expect (>= (jget envelope "uptime_seconds") 0) :to-be t)))
+
 (describe "aitools environment child-process trace span (e2e)"
   (it "records env.system-query with the command parent"
     (:tags (quote (:trace-positive)))
