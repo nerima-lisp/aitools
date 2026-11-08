@@ -6,7 +6,7 @@
 
 Replace text selected by --old or a selector; --new '' deletes it.
 
---old matches exactly first, then line-wise ignoring leading and trailing whitespace (re-indenting --new to the file). Line selectors replace whole lines including their newline. --stdin reads {"old":"...","new":"..."} or {"edits":[{"old":"...","new":"..."},{"between":["START_RE","END_RE"],"new":"..."},{"match":"REGEX","expect_count":N,"new":"..."}]}. In edits[], choose one of old, between, or match; between takes [start regex, end regex], and match requires expect_count. Edits run in order and all or nothing; each selector is checked against the current content after earlier edits.
+--old tries exact matching first, then line-wise matching after trimming surrounding whitespace; --new is re-indented to match the file. Line selectors replace full lines, including their newline. With --stdin, pass either one operation (`{"old":"...","new":"..."}`) or an object with an `edits` array (`{"edits":[...]}`). Each array entry uses one selector: `old`, `between` with start and end regexes, or `match` with `expect_count`; each entry also supplies `new`. Entries run in order, and each selector sees content after earlier entries.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -23,7 +23,7 @@ Replace text selected by --old or a selector; --new '' deletes it.
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -34,7 +34,7 @@ Replace text selected by --old or a selector; --new '' deletes it.
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 | `strategy` | exact or whitespace, for --old. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
@@ -63,7 +63,7 @@ Insert content at the start or end of a file, or before/after the lines a select
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -74,7 +74,7 @@ Insert content at the start or end of a file, or before/after the lines a select
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 | `inserted_at` | Line numbers (after the write) where each inserted block starts. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
@@ -109,7 +109,7 @@ Replaces every non-overlapping match per line (whole file with --multiline). Tem
 | `--stdin` | flag |  | Read the input from standard input (never read otherwise). |
 | `--stdin-data` | string |  | The --stdin input given inline; history records --stdin writes this way. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -120,7 +120,7 @@ Replaces every non-overlapping match per line (whole file with --multiline). Tem
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 | `changes[].count` | Replacements made in that file. |
 | `skipped` | [{path,reason}] files left out by scan options. |
 
@@ -175,7 +175,7 @@ Apply line operations (sort, unique, wrap, comment, ...) to a file or a selectio
 | `--match` | string |  | Every line matching RE. |
 | `--invert` | flag |  | With --match: the lines that do not match. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -186,7 +186,7 @@ Apply line operations (sort, unique, wrap, comment, ...) to a file or a selectio
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 | `removed_lines` | Lines removed, for ops that remove lines. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
@@ -208,7 +208,7 @@ Move selected lines to another place in the same file or into another file.
 | `--match` | string |  | Every line matching RE. |
 | `--invert` | flag |  | With --match: the lines that do not match. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -219,7 +219,7 @@ Move selected lines to another place in the same file or into another file.
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 
 Errors: `argument.invalid`, `input.not-found`, `refusal.outside-workspace`, `refusal.redacted-input`, `refusal.exists`, `refusal.not-a-file`, `environment.busy`, `environment.io`, `internal.unexpected`, `refusal.target-changed`, `selection.count-mismatch`, `selection.no-match`, `selection.ambiguous`, `input.syntax-error`, `input.unsupported-language`, `input.not-utf8`.
 
@@ -369,7 +369,7 @@ A tree needs --recursive and --expect-count (including its root); preview with -
 | `--max-entries` | string | `1000` | Maximum deleted entries, including directories and symlinks. |
 | `--max-bytes` | string | `64MiB` | Maximum total deleted regular-file bytes; not a memory limit. |
 | `--expect-hash` | string, repeatable |  | Guard: HASH (the target) or PATH=HASH; refusal.target-changed when it differs. The hash is the one `aitools info PATH` reports: SHA-256 of the regular file the path leads to (symlinks followed), or for a symlink leading to no regular file, SHA-256 of its target text. |
-| `--expect-count` | string |  | Guard: the number of selected lines or replacements. |
+| `--expect-count` | string |  | Guard: expected number of selected lines, replacements, or entries to remove. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |
 
@@ -380,7 +380,7 @@ A tree needs --recursive and --expect-count (including its root); preview with -
 | `tx` | With --tx: the tx the write was staged in, instead of op_id. |
 | `tx_op` | With --tx: the staged op's number. |
 | `dry_run` | With --dry-run: true; nothing was written. |
-| `expect_count` | With --dry-run of a --match or replace selection: the lines or replacements it selected, the value a real run passes as --expect-count. |
+| `expect_count` | With --dry-run, the selected count to pass as --expect-count on a real run. |
 | `entries` | Number of deleted entries, including the target itself. |
 | `bytes` | Total regular-file bytes selected for deletion. |
 

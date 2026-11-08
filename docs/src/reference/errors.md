@@ -4,7 +4,7 @@
 
 | Exit code | Meaning |
 |---|---|
-| 0 | Success (`status:"ok"`). `run` returns 0 whenever it could start the child; the child's own code is the `exit_code` field. |
+| 0 | Success (`status:"ok"`). `run` returns 0 when it starts the child, including when the child fails or times out; exceeding `--grep-limit` returns 3 with `status:"partial"`. The child's own code is in `exit_code`. |
 | 1 | General error: bad arguments, missing input, boundary violation, I/O failure, lock timeout, syntax error. |
 | 2 | A precondition did not hold: a selector matched nothing or more than one place, a count or hash guard did not match, or the target changed before `tx commit` or `undo`. |
 | 3 | A read was cut at a limit (`status:"partial"`). The output is a success, not an error, and carries no `error.code`. Writes never return 3. |

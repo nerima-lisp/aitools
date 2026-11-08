@@ -16,7 +16,7 @@
 (defparameter *edit-command-specs*
   '((:name "edit"
      :summary "Replace text selected by --old or a selector; --new '' deletes it."
-     :description "--old matches exactly first, then line-wise ignoring leading and trailing whitespace (re-indenting --new to the file). Line selectors replace whole lines including their newline. --stdin reads {\"old\":\"...\",\"new\":\"...\"} or {\"edits\":[{\"old\":\"...\",\"new\":\"...\"},{\"between\":[\"START_RE\",\"END_RE\"],\"new\":\"...\"},{\"match\":\"REGEX\",\"expect_count\":N,\"new\":\"...\"}]}. In edits[], choose one of old, between, or match; between takes [start regex, end regex], and match requires expect_count. Edits run in order and all or nothing; each selector is checked against the current content after earlier edits."
+     :description "--old tries exact matching first, then line-wise matching after trimming surrounding whitespace; --new is re-indented to match the file. Line selectors replace full lines, including their newline. With --stdin, pass either one operation (`{\"old\":\"...\",\"new\":\"...\"}`) or an object with an `edits` array (`{\"edits\":[...]}`). Each array entry uses one selector: `old`, `between` with start and end regexes, or `match` with `expect_count`; each entry also supplies `new`. Entries run in order, and each selector sees content after earlier entries."
      :positionals ((:key :path :name "path"))
      :options ((:key :old :name "old" :kind :value :description "Text to replace; exact, then whitespace-insensitive.")
                (:key :new :name "new" :kind :value :description "Replacement; '' deletes the selection."))
