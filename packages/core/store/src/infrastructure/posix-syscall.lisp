@@ -11,7 +11,7 @@
 ;; which would keep the workspace locked until that process exited.
 (defconstant +at-fdcwd+ #+darwin -2 #-darwin -100)
 (defconstant +at-removedir+ #+darwin #x80 #-darwin #x200)
-(defconstant +o-cloexec+ #+darwin #x1000000 #-darwin #x80000)
+(progn (defconstant +o-cloexec+ #+darwin #x1000000 #-darwin #x80000) (defconstant +o-path+ #+linux #x200000 #-linux 0) (defconstant +o-search+ #+darwin #x40100000 #-darwin 0) (defconstant +o-symlink+ #+darwin #x200000 #-darwin 0) (defconstant +o-evtonly+ #+darwin #x8000 #-darwin 0))
 
 (defun %errno-error (operation path errno)
   (error 'store-io-error :operation operation :path path :errno errno
@@ -68,12 +68,98 @@ handles, not as an SBCL stream condition."
          (char= (char path length) #\/)
          (subseq path (1+ length)))))
 
-(defun %open-directory-at (dirfd name path &key (follow nil))
-  (%alien-call ("open" path) "openat"
-               (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int &optional sb-alien:unsigned-int)
-               dirfd name
-               (logior sb-posix:o-rdonly sb-posix:o-directory +o-cloexec+ (if follow 0 sb-posix:o-nofollow))
-               0))
+(progn
+  (defun %open-directory-at (dirfd name path &key (follow nil))
+    (%alien-call ("open" path) "openat"
+                 (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int &optional sb-alien:unsigned-int)
+                 dirfd name
+                 (logior sb-posix:o-rdonly sb-posix:o-directory +o-cloexec+ (if follow 0 sb-posix:o-nofollow))
+                 0))
+  (defun %openat (dirfd name flags path)
+    (%alien-call ("open" path) "openat"
+                 (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int &optional sb-alien:unsigned-int)
+                 dirfd name flags 0))
+  (defun %mode-kind (mode)
+    (let ((type (logand mode sb-posix:s-ifmt)))
+      (cond ((= type sb-posix:s-ifreg) :file)
+            ((= type sb-posix:s-ifdir) :directory)
+            ((= type sb-posix:s-iflnk) :symlink)
+            (t :other))))
+  (defun %descriptor-info (fd path)
+    (let* ((stat (%syscall ("fstat" path) (sb-posix:fstat fd)))
+           (kind (%mode-kind (sb-posix:stat-mode stat)))
+           (identity (format nil "~D:~D" (sb-posix:stat-dev stat) (sb-posix:stat-ino stat))))
+      (values kind identity)))
+  (defun %search-directory-flags ()
+    (logior +o-cloexec+ #+darwin +o-search+ #+linux +o-path+ #+linux sb-posix:o-directory))
+  (defun %open-search-root (path)
+    (let ((fd (%alien-call ("open" path) "open"
+                           (function sb-alien:int sb-alien:c-string sb-alien:int &optional sb-alien:unsigned-int)
+                           path (%search-directory-flags) 0)))
+      (handler-case
+          (multiple-value-bind (kind identity) (%descriptor-info fd path)
+            (unless (eq kind :directory)
+              (error 'aitools.store.application:store-io-error
+                     :operation "open" :path path :detail "workspace root is not a directory"))
+            (values fd identity))
+        (error (condition)
+          (sb-posix:close fd)
+          (error condition)))))
+  (defun %open-entry-linux (dirfd name path)
+    (handler-case
+        (let ((fd (%openat dirfd name (logior +o-path+ sb-posix:o-nofollow +o-cloexec+) path)))
+          (handler-case
+              (multiple-value-bind (kind identity) (%descriptor-info fd path)
+                (if (eq kind :directory)
+                    (values kind fd identity)
+                    (progn (sb-posix:close fd) (values kind nil nil))))
+            (error (condition)
+              (sb-posix:close fd)
+              (error condition))))
+      (aitools.store.application:store-io-error (condition)
+        (if (member (aitools.store.application:store-io-error-errno condition)
+                    (list sb-posix:enoent sb-posix:enotdir))
+            (values :absent nil nil)
+            (error condition)))))
+  (defun %open-entry-darwin-metadata (dirfd name path)
+    (handler-case
+        (let ((fd (%openat dirfd name
+                           (logior +o-symlink+ +o-evtonly+ sb-posix:o-nonblock +o-cloexec+)
+                           path)))
+          (handler-case
+              (multiple-value-bind (kind identity) (%descriptor-info fd path)
+                (if (eq kind :directory)
+                    (values kind fd identity)
+                    (progn (sb-posix:close fd) (values kind nil nil))))
+            (error (condition)
+              (sb-posix:close fd)
+              (error condition))))
+      (aitools.store.application:store-io-error (condition)
+        (if (member (aitools.store.application:store-io-error-errno condition)
+                    (list sb-posix:enoent sb-posix:enotdir))
+            (values :absent nil nil)
+            (error condition)))))
+  (defun %open-entry-darwin (dirfd name path)
+    (handler-case
+        (let ((fd (%openat dirfd name (logior +o-search+ sb-posix:o-nofollow +o-cloexec+) path)))
+          (handler-case
+              (multiple-value-bind (kind identity) (%descriptor-info fd path)
+                (if (eq kind :directory)
+                    (values kind fd identity)
+                    (progn (sb-posix:close fd) (values kind nil nil))))
+            (error (condition)
+              (sb-posix:close fd)
+              (error condition))))
+      (aitools.store.application:store-io-error (condition)
+        (let ((errno (aitools.store.application:store-io-error-errno condition)))
+          (cond ((= errno sb-posix:enoent) (values :absent nil nil))
+                ((= errno sb-posix:enotdir) (%open-entry-darwin-metadata dirfd name path))
+                (t (error condition)))))))
+  (defun %open-search-entry (dirfd name path)
+    #+darwin (%open-entry-darwin dirfd name path)
+    #+linux (%open-entry-linux dirfd name path))
+  (defun %close-search-directory (fd)
+    (sb-posix:close fd)))
 
 (defun %call-with-parent (root path function)
   "Call FUNCTION with (dirfd name) naming PATH: a pinned descriptor of its

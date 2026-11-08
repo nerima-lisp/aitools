@@ -15,6 +15,9 @@
    #:make-store-io
    #:store-io-p
    #:store-io-lstat
+   #:store-io-open-search-root
+   #:store-io-open-search-entry
+   #:store-io-close-search-directory
    #:store-io-read-file
    #:store-io-create-file
    #:store-io-append-file
@@ -107,4 +110,6 @@
    #:tx-rebase/k
    ;; tx-commit.lisp
    #:tx-diff/k
-   #:tx-commit/k #:copy-store-io))
+   #:tx-commit/k
+   #:copy-store-io
+   #:make-archive-symlink-prefix-checker))
