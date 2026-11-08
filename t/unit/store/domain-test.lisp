@@ -239,6 +239,7 @@
     (let ((id (workspace-id "/")))
       (expect (subseq id 0 5) :to-equal "root-")
       (expect (length id) :to-be 21))
+    (expect (join-path "/state" "") :to-equal "/state")
     (expect (join-path "/" "var" "log") :to-equal "/var/log"))
   (it "uses a safe root name for dot paths"
     (expect (subseq (workspace-id "/srv/.") 0 5) :to-equal "root-")))
