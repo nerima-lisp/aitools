@@ -212,3 +212,28 @@
                  (expect (length (intent-files plain)) :to-be 1))))))
      :io nil)))
 
+(describe "aitools.store directory modes in the mktemp area"
+  (it "finalizes restrictive parent modes after nested writes"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((state-home (concatenate 'string (base-directory plain) "/state"))
+              (workspace (posix-store-under (store-root plain) state-home))
+              (tmp (tmp-directory (store-state-directory workspace))))
+         (seed-state workspace)
+         (sb-posix:mkdir tmp #o700)
+         (let ((temporary (posix-store-under tmp state-home)))
+           (unwind-protect
+                (progn
+                  (expect
+                   (commit temporary
+                           (list (mkdir-request "private" :mode #o400)
+                                 (mkdir-request "private/nested" :mode #o750)
+                                 (write-file-request "private/nested/file" (bytes "data"))))
+                   :to-be :committed)
+                  (expect (disk-mode temporary "private") :to-be #o400)
+                  (sb-posix:chmod (disk-path temporary "private") #o700)
+                  (expect (disk-mode temporary "private/nested") :to-be #o750)
+                  (expect (disk-text temporary "private/nested/file") :to-equal "data"))
+             (when (probe-file (disk-path temporary "private"))
+               (sb-posix:chmod (disk-path temporary "private") #o700))))))
+     :io nil)))
