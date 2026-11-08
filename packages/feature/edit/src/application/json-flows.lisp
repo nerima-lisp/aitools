@@ -72,7 +72,10 @@ tokens (set/delete) or NIL (merge/patch/fmt)."
                          file
                          (aitools.protocol.domain:shell-quote
                           (format-json-pointer tokens)))
-                 (format nil "aitools doc get ~A" file))))
+                 (format nil
+                         "aitools doc get ~A ~A"
+                         file
+                         (aitools.protocol.domain:shell-quote "")))))
       (if (and repair-pointer (string= code "input.not-found"))
           (list
            (repair "list-keys"

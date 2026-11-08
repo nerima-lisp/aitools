@@ -85,7 +85,7 @@
         (list
          (repair "whole-document"
                  "Start from the document's top-level keys."
-                 (format nil "aitools ~A get~@[ --format ~A~]" group format-override))))
+                 (format nil "aitools schema ~A get" group))))
        (aitools.kernel.domain:flow-continue :on-tokens tokens))))
 
 (aitools.kernel.domain:define-flow
@@ -150,7 +150,7 @@
         (list
          (repair "default-size"
                  "Use the default limit."
-                 (format nil "aitools ~A get~@[ --format ~A~]" group format-override)))))))
+                 (format nil "aitools schema ~A get" group)))))))
 
 (defun %json-get-fields (context target group pointer value keys raw max-bytes
                                   &key format-override)

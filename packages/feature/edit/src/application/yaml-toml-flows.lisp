@@ -44,7 +44,8 @@
 
 (defun %format-repairs (format command path code pointer)
   (let* ((file (aitools.protocol.domain:shell-quote path))
-         (schema-command (format nil "aitools ~A --format ~A" (command-display-name command) format)))
+         (schema-command
+          (format nil "aitools schema ~A" (command-display-name command))))
     (cond
       ((string= code "input.unsupported-value")
        (list (repair "convert-to-supported-value"
@@ -66,8 +67,9 @@
        (list (repair (format nil "read-~A" format)
                      (format nil "Read the ~A value to choose a current pointer."
                              (string-upcase format))
-                     (format nil "aitools doc get ~A --format ~A"
+                     (format nil "aitools doc get ~A ~A --format ~A"
                              file
+                             (aitools.protocol.domain:shell-quote "")
                              format))))
       (t
        (default-repairs code command

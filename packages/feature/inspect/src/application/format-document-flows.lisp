@@ -11,7 +11,7 @@
              :conflicts conflicts :repairs repairs))
           (repair-command (kind detail)
             (list (repair kind detail
-                          (command-line context (list "doc" action "--format" "yaml") :tx :none)))))
+                          (aitools.protocol.domain:command-line "aitools" "schema" "doc" action)))))
    (multiple-value-bind (octets problem)
        (read-target-octets context target)
      (if (null octets)
@@ -57,7 +57,7 @@
              :conflicts conflicts :repairs repairs))
           (repair-command (kind detail)
             (list (repair kind detail
-                          (command-line context (list "doc" action "--format" "toml") :tx :none)))))
+                          (aitools.protocol.domain:command-line "aitools" "schema" "doc" action)))))
    (multiple-value-bind (octets problem)
        (read-target-octets context target)
      (if (null octets)

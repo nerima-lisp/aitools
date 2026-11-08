@@ -20,7 +20,7 @@
       (setf *stdin* (bytes "[{\"op\":\"test\",\"path\":\"/a/b\",\"value\":2}]"))
       (with-error (code message keys) (run "doc.patch" '("c.json") :stdin t)
         (expect code :to-equal "selection.no-match")
-        (expect (repair-commands keys) :to-equal '("aitools doc get c.json")))
+        (expect (repair-commands keys) :to-equal '("aitools doc get c.json ''")))
       (with-error (code message keys) (run "doc.set" '("c.json" "/a/b/c" "1"))
         (expect code :to-equal "input.not-found")
         (expect (repair-commands keys) :to-equal '("aitools doc get c.json /a/b")))))))

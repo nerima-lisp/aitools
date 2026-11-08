@@ -20,7 +20,7 @@
                       (list
                        (repair "where-example"
                                "Compare a member of each element, e.g. /status=\"open\"."
-                               (format nil "aitools ~A select~@[ --format ~A~]" group format-override)))))
+                               (format nil "aitools schema ~A select" group)))))
              (aitools.kernel.domain:flow-call
               (make-comparison/k tokens operator right)
               (:on-comparison (comparison)
@@ -33,7 +33,7 @@
                                 (list
                                  (repair "fix-pattern"
                                          "Correct the regular expression."
-                                         (format nil "aitools ~A select~@[ --format ~A~]" group format-override))))))))))))
+                                         (format nil "aitools schema ~A select" group))))))))))))
    (if failure
        (aitools.kernel.domain:flow-continue
         :on-error (first failure) (second failure)

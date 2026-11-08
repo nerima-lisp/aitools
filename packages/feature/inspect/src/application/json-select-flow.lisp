@@ -50,7 +50,7 @@
            (repair
             "pointer-syntax"
             "Write members as /name or /a/b."
-            (format nil "aitools ~A select~@[ --format ~A~]" (%format-group format) format-override))))
+            (format nil "aitools schema ~A select" (%format-group format)))))
          (aitools.kernel.domain:flow-call
           (%pointer-tokens pointer (%format-group format) :format-override format-override)
           (:on-tokens (tokens)
@@ -125,7 +125,7 @@
                                  (repair
                                   "fix-pattern"
                                   "Simplify the regular expression."
-                                  (format nil "aitools ~A select~@[ --format ~A~]" (%format-group format) format-override))))
+                                  (format nil "aitools schema ~A select" (%format-group format)))))
                                (multiple-value-bind (fields truncated)
                                    (%select-fields context target pointer array indexes
                                    pick output limit
