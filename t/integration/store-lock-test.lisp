@@ -35,6 +35,19 @@ lock is held."
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
         (kill-child pid))) :io nil))
+  (it "answers busy when the lock is not released within --lock-timeout"
+    (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 3)))
+        (expect (commit-changes/k store '("write")
+                                  (lambda (commit reject)
+                                    (declare (ignore reject))
+                                    (funcall commit (list (write-file-request "x" (bytes "x")))))
+                                  :lock-timeout-ms 200
+                                  :on-committed (lambda (&rest args) (declare (ignore args)) :committed)
+                                  :on-rejected (lambda (&rest args) (declare (ignore args)) :rejected)
+                                  :on-busy (lambda () :busy))
+                :to-be :busy)
+        (expect (disk-text store "x") :to-be :absent)
+        (kill-child pid))) :io nil))
   (it "accepts a lock acquired after the deadline"
     (call-with-temp-store
      (lambda (plain)
@@ -164,3 +177,34 @@ lock is held."
   (it "attempts acquisition immediately"
     (call-with-temp-store (lambda (store) (expect (with-workspace-lock (store 0 :on-timeout :busy) :acquired)
               :to-be :acquired)) :io nil)))
+
+(describe "aitools.store recovery lock timeout"
+  (it "returns busy without changing prepared state while another process holds the lock"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "a-old")
+       (expect
+        (call-with-fault-at
+         :after-prepare
+         (lambda ()
+           (commit store (list (write-file-request "a.txt" (bytes "a-new"))))))
+        :to-be-truthy)
+       (let ((pid (hold-lock-in-child store 3)))
+         (unwind-protect
+              (let ((intents (intent-files store))
+                    (temps (temp-files store)))
+                (expect (length intents) :to-be 1)
+                (expect temps :to-be-truthy)
+                (expect
+                 (recover/k store
+                            :lock-timeout-ms 200
+                            :on-rolled-forward (lambda (op-id) (declare (ignore op-id)))
+                            :on-discarded (lambda (op-id) (declare (ignore op-id)))
+                            :on-none (lambda () :none)
+                            :on-busy (lambda () :busy))
+                 :to-be :busy)
+                (expect (intent-files store) :to-equal intents)
+                (expect (temp-files store) :to-equal temps)
+                (expect (disk-text store "a.txt") :to-equal "a-old"))
+           (kill-child pid))))
+     :io nil)))
