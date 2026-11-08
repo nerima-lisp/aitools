@@ -57,6 +57,8 @@ the path it returns are allowed.
 
 ## Read in bounded pieces
 
+Every read has a limit, and a cut result says how to continue:
+
 ```console
 $ aitools read nums.txt --max-lines 3
 {"schema_version":2,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}

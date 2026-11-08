@@ -108,7 +108,7 @@ lock, and `internal.unexpected` for an uncaught condition
 ## Unknown command names
 
 A name that is not a registered command returns `argument.invalid`, exit
-code 1. `src/dispatch.lisp` chooses the `repairs` by the kind of name, in
+code 1. `src/dispatch-names.lisp` chooses the `repairs` by the kind of name, in
 this order:
 
 1. **A bare group name** (`doc`, `bg`, `tx`) is a real command node with no
@@ -120,16 +120,16 @@ this order:
    `toml.get`; tokenized input such as `json get`) is resolved through its
    correspondence-table entry and returns the current `doc` command's repair.
    These names are not registered command aliases.
-3. **A group subcommand typed without its group** (`get`, `status`, `logs`)
+3. **A shell name in the correspondence table** (`cat`, `grep`, `uuid`)
+   returns that row's repairs, drawn from `aitools.data:*correspondence-table*`
+   and shown in [Using aitools from an agent](../guide/agents.md#shell-commands-and-their-aitools-replacements).
+4. **A group subcommand typed without its group** (`get`, `status`, `logs`)
    returns one `run-instead` repair per group whose subcommand list
    holds that name, each the grouped form of the invocation with the group
    token inserted and the globals and operands kept. This is driven by the
-   live registry (`%group-subcommand-repairs` in `src/dispatch-names.lisp`), not by
-   the correspondence table, so `status` returns `aitools bg status` and
-   `aitools tx status`.
-4. **A shell name in the correspondence table** (`cat`, `grep`, `uuid`)
-   returns that row's repairs, drawn from `aitools.data:*correspondence-table*`
-   and shown in [Using aitools from an agent](../guide/agents.md#shell-commands-and-their-aitools-replacements).
+   live registry (`%group-subcommand-repairs` in `src/dispatch-names.lisp`),
+   not by the correspondence table, so `status` returns `aitools bg status`
+   and `aitools tx status`.
 5. **Any other name** gets the repair `aitools schema`.
 
 ```console
@@ -137,7 +137,7 @@ $ aitools cat hello.lisp
 {"schema_version":2,"status":"error","command":"cat","error":{"code":"argument.invalid","message":"unknown command cat","exit_code":1,"repairs":[{"action":"run-instead","detail":"Read a file with line numbers and range control.","command":"aitools read"}]}}
 
 $ aitools uuid
-{"schema_version":2,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is the `util` group's subcommand; include the group name.","command":"aitools util uuid"}]}}
+{"schema_version":2,"status":"error","command":"uuid","error":{"code":"argument.invalid","message":"unknown command uuid","exit_code":1,"repairs":[{"action":"run-instead","detail":"`uuid` is a group subcommand name; the group prefix is required.","command":"aitools util uuid"}]}}
 ```
 
 `schema` also reports near-miss candidates as an agent types them (`doc get`,
