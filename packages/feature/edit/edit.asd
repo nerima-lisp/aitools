@@ -34,7 +34,8 @@
                          (:file "mtime")
                          (:file "table")
                          (:file "split")
-                         (:file "archive-plan")))
+                         (:file "archive-plan")
+                         (:file "archive-build")))
                (:module "application"
                         :depends-on
                         ("domain")
