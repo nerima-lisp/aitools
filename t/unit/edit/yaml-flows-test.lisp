@@ -89,6 +89,11 @@
   (it "rejects unsupported serializer formats"
     (signals error
       (aitools.edit.infrastructure::serialize-document "other" nil)))
+  (it "rejects JSON null at the TOML serializer boundary"
+    (signals error
+      (aitools.edit.infrastructure::serialize-document
+       "toml"
+       (aitools.protocol.domain:json-null))))
 
   (it "rejects invalid source documents and carries format repairs"
     (call-with-edit-workspace (lambda () (put "bad-tag.yaml" (format nil "keep: !custom value~%target: 2~%"))
