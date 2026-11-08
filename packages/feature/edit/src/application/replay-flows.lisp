@@ -5,12 +5,7 @@
     "replace"
     "apply"
     "transform"
-    "move-lines"
-    "doc.set"
-    "doc.delete"
-    "doc.merge"
-    "doc.patch"
-    "doc.fmt")
+    "move-lines")
   "Commands whose ops `tx rebase` may re-run after their plans are prepared without a workspace environment.")
 
 (aitools.kernel.domain:define-flow
