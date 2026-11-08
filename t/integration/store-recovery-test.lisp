@@ -122,6 +122,22 @@ unchanged-p all-applied-p) after recovery."
       (expect status :to-be :recovered)
       (expect actions :to-equal '("rolled-forward"))
       (expect applied :to-be-truthy)))
+  (it "replays a deletion after unlink already applied"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "gone.txt" "bye")
+       (expect
+        (call-with-fault-at :after-apply-step
+                           (lambda () (commit store (list (delete-request "gone.txt")))))
+        :to-be-truthy)
+       (expect (disk-text store "gone.txt") :to-be :absent)
+       (multiple-value-bind (status entries) (recover store)
+         (expect status :to-be :recovered)
+         (expect (mapcar (function cdr) entries)
+                 :to-equal (list "rolled-forward")))
+       (expect (disk-text store "gone.txt") :to-be :absent)
+       (expect (intent-files store) :to-equal (list)))
+     :io nil))
 
   (it-each ((1) (2) (3))
       "never leaves a multi-file write half applied at apply step ~D"
