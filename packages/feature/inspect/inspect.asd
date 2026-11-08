@@ -88,7 +88,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/inspect" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t :components ((:file "package") (:file "registry") (:file "file-commands") (:file "json-commands") (:file "yaml-commands") (:file "toml-commands") (:file "table-commands") (:file "archive-commands") (:file "snapshot-commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "registry") (:file "file-commands") (:file "json-commands") (:file "table-commands") (:file "archive-commands") (:file "snapshot-commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/inspect"
   :description "Inspection context tests."
