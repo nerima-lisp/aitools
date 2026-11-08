@@ -93,7 +93,7 @@
   (uiop:symbol-call "CL-WEAVE" "RESET-COVERAGE")
   (let ((*harvest-sb-cover-marks-after-source-load* t))
     (asdf:load-system "aitools" :force t)
-    (asdf:load-system "aitools/cli" :force t)
+    (asdf:load-system "aitools/cli")
     (asdf:load-system "aitools/test")
     (uiop:symbol-call :asdf-user :%load-aitools-test-systems))
   (let* ((include (coverage-candidate-files))
