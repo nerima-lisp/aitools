@@ -22,19 +22,13 @@ infrastructure, and presentation layers. Shared types and services live in
 | feature/env | domain, application, infrastructure, presentation, composition | The `sys` and `time` groups |
 | feature/util | domain, application, infrastructure, presentation, composition | The `util` group |
 
-Context-owned feature registrations live in
-`packages/feature/<ctx>/src/composition/context-registration.lisp`. Each file
-connects its registrar and dependency constructor to `aitools/cli`. The
-registration macro treats the constructor and its returned dependency value
-as opaque, so a context can change the value's representation independently.
-
 `schema` and `batch` read or run commands of every context, so they belong to
 no context; they live in the composition root, `src/schema.lisp` and
 `src/batch.lisp`.
 
-A CLI group can span contexts: `doc get` is in inspect and `doc set` in
-edit. CLI groups follow what an agent would guess; contexts follow whether a
-command reads or writes.
+CLI groups organize user-facing commands and can span contexts: `doc get` is
+in inspect, while `doc set` is in edit. Contexts organize implementation
+ownership and dependency boundaries.
 
 ### Placement decisions
 
@@ -82,18 +76,20 @@ production implementations.
 | composition | Context registration and dependency construction | That context's presentation and infrastructure, `aitools/cli` |
 
 The `define-flow`, `flow-call`, and `flow-continue` macros live in
-`aitools.kernel.domain`. The kernel domain wraps `crypto-kit:digest-hex` from
-`cl-crypto-kit` to compute standard digests and content hashes. The function
-maps an octet vector to a lowercase hexadecimal digest without I/O. The kernel
-domain has no application dependencies, so domain and application flows can
-share the DSL without reversing the dependency direction.
+`aitools.kernel.domain`. Both domain and application packages can use this
+dependency-free DSL without reversing the dependency direction.
+
+The kernel domain also wraps `crypto-kit:digest-hex` from `cl-crypto-kit` to
+compute standard digests and content hashes. The function maps an octet vector
+to a lowercase hexadecimal digest without I/O.
 
 Store application uses `resilience-kit:make-retry-policy` only to describe
 lock retry behavior. Its infrastructure adapter wraps the monotonic-clock and
 sleep callbacks from `store-io` with `cl-boundary-kit` boundaries, invokes
 `resilience-kit:call-with-retry`, and maps
 `resilience-kit:retry-exhausted` to `NIL`. Store application then calls its
-timeout continuation when no lock was acquired.
+timeout continuation when no lock was acquired. In other words, `NIL` means
+that lock acquisition timed out.
 
 Each context/layer pair is one package, `aitools.<context>.<layer>`
 (`aitools.search.domain`). Table data lives in the shared `aitools.data`
@@ -110,8 +106,10 @@ in the protocol tests. The scanner needs no branch change.
 
 `t/integration/structure-test.lisp` enforces the table. For every
 `packages/<core|feature>/<context>/src/<layer>/*.lisp` file, it strips
-comments and string literals and looks for package-qualified references
-(`name:` or `name::`) to any package it knows. A reference that the file's
+comments, strings, and character literals and looks for package-qualified
+references (`name:` or `name::`) to any package it knows. It also checks package
+designators in `DEFPACKAGE` clauses such as `:USE`, `:IMPORT-FROM`,
+`:SHADOWING-IMPORT-FROM`, and `:LOCAL-NICKNAMES`. A dependency that the file's
 layer may not make is a violation.
 
 The structure test also supports context-specific symbol allowances, each
@@ -132,12 +130,13 @@ reference every layer.
 Some existing application flows still use context-specific port structures,
 such as `search-ports`
 (`packages/feature/search/src/application/ports.lisp`) and Store's `store-io`
-(`packages/core/store/src/application/port.lisp`). The downstream contract
-allows application code to use `cl-boundary-kit` boundary objects and fakes
-directly; contexts replace their port structures as they migrate. For contexts
-that still use ports, infrastructure exports a constructor such as
-`make-production-<context>-ports (&key ... &allow-other-keys)` that builds the
-production value without doing I/O.
+(`packages/core/store/src/application/port.lisp`). The project is migrating
+these dependencies to `cl-boundary-kit` values assembled by infrastructure;
+tests supply fakes through each context's dependency value. See steps 3 and 4
+of [Adding a command](../project/development.md#adding-a-command) for the
+migration procedure. Contexts that still use ports expose an infrastructure
+constructor such as `make-production-<context>-ports (&key ...
+&allow-other-keys)` that builds the production value without doing I/O.
 
 Context-owned feature registration modules live under
 `packages/feature/<ctx>/src/composition/context-registration.lisp`.
@@ -149,7 +148,6 @@ runtime dependencies and passes the result unchanged to the registrar. The
 order follows `aitools/cli`'s feature presentation dependencies, which an
 integration test checks.
 
-Application and infrastructure code may use `cl-boundary-kit` boundaries.
 Infrastructure builds production boundaries, while application flows may
 receive those objects directly with fakes supplied by tests. Store retains a
 separate port for lower-level filesystem operations because
@@ -255,10 +253,6 @@ omitted.
 
 ### Resources
 
-The following table describes four resources managed by a `call-with-X`
-function and its `with-X` macro. For each listed resource, it states how
-normal, error, and crash-like exits are handled:
-
 | Resource | Form | Used by |
 |---|---|---|
 | Intent record and the write protocol's temporary files | `call-with-prepared-intent/k`, `with-prepared-intent` (`packages/core/store/src/application/write-preparation.lisp`) | `commit-changes/k` (`write-protocol.lisp`) |
@@ -270,9 +264,11 @@ normal, error, and crash-like exits are handled:
 the commit point removes the temporary files and, best effort, the
 incomplete intent record, then lets the error propagate; the workspace was
 never touched. A non-error unwind (the test fault injector's `:throw` mode)
-leaves the prepared state exactly as a dead process would, for the next
-recovery to discard. A normal return is the commit, so a complete intent
-record survives for recovery to roll forward. `call-with-temp-file` and
+skips the error-only cleanup and leaves the prepared state for recovery,
+matching the store data left by a dead process. The unwind still releases the
+flock; actual process death lets the operating system release it. A normal
+return is the commit, so a complete intent record survives for recovery to
+roll forward. `call-with-temp-file` and
 `call-with-temp-dir` remove the temporary path after their function returns
 or unwinds; after a successful rename there is nothing left to remove. The
 bg log is reopened with `O_APPEND|O_NOFOLLOW` at mode `0600` and closed on
@@ -285,22 +281,24 @@ than 7 days when it runs
 
 ### Traversals with emit continuations
 
-These call a function per element; the function can return `:stop` to end
-the traversal where the traversal supports it.
+Each function invokes a callback for every element. A callback's `:stop`
+return ends only the traversals marked yes.
 
-| Function | Elements | File |
-|---|---|---|
-| `call-with-workspace-scan/k` | Directory entries, in path order | `packages/core/workspace/src/application/scan.lisp` |
-| `map-lines` | Lines of a byte buffer | `packages/core/text/src/domain/line-index.lisp` |
-| `map-matches`, `map-selected-lines` | Regex matches and selected lines | `packages/feature/search/src/domain/matcher.lisp` |
-| `map-word-occurrences` | Identifier occurrences for `code refs` | `packages/feature/search/src/domain/code.lisp` |
-| `map-journal-entries` | Journal entries | `packages/core/store/src/application/journal.lisp` |
-| `scan-lisp-delimiters` | Delimiters for `check --format lisp` | `packages/feature/inspect/src/domain/lisp-scan.lisp` |
+| Function | Elements | Stops on `:stop` | File |
+|---|---|---|---|
+| `call-with-workspace-scan/k` | Directory entries, in path order | yes | `packages/core/workspace/src/application/scan.lisp` |
+| `map-lines` | Lines of a byte buffer | yes | `packages/core/text/src/domain/line-index.lisp` |
+| `map-matches`, `map-selected-lines` | Regex matches and selected lines | no | `packages/feature/search/src/domain/matcher-scan.lisp` |
+| `map-word-occurrences` | Identifier occurrences for `code refs` | no | `packages/feature/search/src/domain/code.lisp` |
+| `map-journal-entries` | Journal entries | yes | `packages/core/store/src/application/journal.lisp` |
+| `scan-lisp-delimiters` | Delimiters for `check --format lisp` | yes | `packages/feature/inspect/src/domain/lisp-scan.lisp` |
 
-The search hot path declares its per-line continuations `dynamic-extent`
-(`packages/feature/search/src/domain/results.lisp`, `matcher.lisp`), and
-`t/perf/search-allocation-test.lisp` checks that allocation does not grow
-with the number of non-matching lines. See
+The search hot path marks its per-line callbacks `dynamic-extent` in
+`packages/feature/search/src/domain/results.lisp`,
+`packages/feature/search/src/domain/matcher-scan.lisp`, and
+`packages/feature/search/src/domain/code.lisp`. The declaration limits their
+lifetime to the call. `t/perf/search-allocation-test.lisp` checks that
+allocation does not grow with the number of non-matching lines. See
 [Benchmarks](benchmarks.md#allocation).
 
 ### Deliberately value-returning
@@ -339,5 +337,5 @@ compiler. See [Development](../project/development.md#building-the-binary).
 
 `aitools.asd` loads each context's ASD in order: core kernel, protocol,
 workspace, text, store, then feature search, inspect, journal, edit, process,
-env, util. See
+org, env, util. See
 [Development](../project/development.md#the-component-lists).
