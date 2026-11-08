@@ -199,13 +199,19 @@
                          (funcall native-lstat path)
                        (if (eq kind :absent)
                            (let* ((slash (position #\/ path :from-end t))
-                                  (alias (format nil "~A~A"
-                                                 (if slash (subseq path 0 (1+ slash)) "")
-                                                 (string-downcase
-                                                  (if slash (subseq path (1+ slash)) path)))))
-                             (if (string= alias path)
-                                 (values kind mode target mtime links identity)
-                                 (funcall native-lstat alias)))
+                                  (parent (if slash
+                                              (if (zerop slash) "/" (subseq path 0 slash))
+                                              "."))
+                                  (name (if slash (subseq path (1+ slash)) path))
+                                  (alias
+                                    (find name
+                                          (funcall
+                                           (aitools.store.application:store-io-list-directory base-io)
+                                           parent)
+                                          :test (function string-equal))))
+                             (if alias
+                                 (funcall native-lstat (format nil "~A/~A" parent alias))
+                                 (values kind mode target mtime links identity)))
                            (values kind mode target mtime links identity))))))
               (store (make-store io (store-root plain)
                                  (subseq (store-state-directory plain) 0
