@@ -98,6 +98,12 @@
        (expect (aitools.store.application::%path-violation store "loop-a/pwn.txt")
                :to-equal "cannot be resolved (symlink loop)"))
      :io nil))
+  (it "rejects an invalid relative path before resolving a write target"
+    (call-with-temp-store
+     (lambda (store)
+       (expect (aitools.store.application::%path-violation store "../outside/pwn.txt")
+               :to-equal "is not a workspace-relative path"))
+     :io nil))
 
   (it "hashes staged file contents through a symlink in the tx view"
     (call-with-temp-store
