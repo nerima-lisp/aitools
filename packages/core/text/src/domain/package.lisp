@@ -53,9 +53,6 @@
    #:guess-mime
    ;; normalize.lisp
    #:normalize-text
-   ;; archive-model.lisp
-   #:archive-path-components
-   #:archive-path-key
    ;; lines.lisp
    #:split-text-lines
    #:decode-text-lines

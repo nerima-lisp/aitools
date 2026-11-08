@@ -48,11 +48,20 @@ Built-in reads are not restricted to the workspace. Built-in writes outside it, 
 symlink that leaves it, or into the workspace's `.git/` fail with
 `refusal.outside-workspace`. `archive extract` entry paths and
 `copy --recursive` children go through the same boundary, so an archive entry
-or nested directory that resolves into `.git/` is refused. `archive extract`
-rejects symlink targets during planning if they leave the destination after
-following symlinks from the archive. It also rejects targets that cross a
-symlink already in the destination. Before writing, it rejects archive entries
-whose parent path crosses an archive or destination symlink.
+or nested directory that resolves into `.git/` is refused. During planning,
+`archive extract` rejects symlink targets that leave the extraction root or
+traverse an archive symlink before their final component. For example, with
+`x/d -> ..`, a target of `x/d/x/d/../../outside` is refused because it
+traverses `x/d` before the last component. It also rejects target paths that
+cross existing symlinks below the extraction root and entries whose parent
+path crosses an archive or destination symlink.
+
+For these checks, path keys normalize each component to Unicode NFD and apply
+full Unicode case folding. Names such as `X/D` and `x/d` compare equal, and
+duplicate entry names with equal keys are refused. The `--to` path names the
+extraction root. A destination symlink is resolved before planning: an
+in-workspace target is used as the root, and a target outside the workspace is
+refused.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. The state
 directory lives outside the root, so writes there are refused too. The one

@@ -75,12 +75,21 @@ input.not-found (a SELECTED name absent), input.unsupported-format (device
 or other special entries). Archive paths are compared after case folding
 and Unicode canonical normalization."
   (let ((budget max-bytes))
-    (labels ((path-components (path)
-               (aitools.text.domain:archive-path-components path))
+    (labels ((path-components (path &key keep-dots)
+               (let ((components (aitools.workspace.domain:path-components path)))
+                 (if keep-dots
+                     components
+                     (remove "." components :test (function string=)))))
              (path-name (components)
                (format nil "~{~A~^/~}" components))
              (path-key (path)
-               (aitools.text.domain:archive-path-key path))
+               (format nil "~{~A~^/~}"
+                       (mapcar (lambda (component)
+                                 (aitools.text.domain:normalize-text
+                                  (sb-unicode:casefold
+                                   (aitools.text.domain:normalize-text component :nfd))
+                                  :nfd))
+                               (path-components path))))
              (parent-paths (path)
                (let ((parents (butlast (path-components path))))
                  (loop for end from 1 to (length parents)
@@ -95,22 +104,31 @@ and Unicode canonical normalization."
                            :symlink)
                    (refuse "refusal.outside-workspace"
                            "archive entry ~S has existing symlink parent ~S" name parent))))
-             (check-existing-link-target (name target)
-               (let ((directory (butlast (path-components name))))
-                 (dolist (component (aitools.text.domain:archive-path-components
-                                    target :keep-dots t))
-                   (cond ((string= component "..")
-                          (setf directory (butlast directory)))
-                         ((string= component "."))
-                         (t (setf directory (append directory (list component)))))
-                   (when (and directory
-                              (eq (funcall lookup-kind
-                                           (aitools.workspace.domain:join-path
-                                            destination (path-name directory)))
-                                  :symlink))
-                     (refuse "refusal.outside-workspace"
-                             "archive symlink ~S traverses existing symlink ~S"
-                             name (path-name directory))))))
+             (check-existing-link-target (name target symlink-names)
+               (let ((directory (butlast (path-components name)))
+                     (components (path-components target :keep-dots t)))
+                 (loop for remaining on components
+                       for component = (car remaining)
+                       do (progn
+                            (when (and (rest remaining)
+                                       directory
+                                       (member (path-key (path-name directory))
+                                               symlink-names :test (function string=)))
+                              (refuse "refusal.outside-workspace"
+                                      "archive symlink ~S traverses archive symlink ~S"
+                                      name (path-name directory)))
+                            (cond ((string= component "..")
+                                   (setf directory (butlast directory)))
+                                  ((string= component "."))
+                                  (t (setf directory (append directory (list component)))))
+                            (when (and directory
+                                       (eq (funcall lookup-kind
+                                                    (aitools.workspace.domain:join-path
+                                                     destination (path-name directory)))
+                                           :symlink))
+                              (refuse "refusal.outside-workspace"
+                                      "archive symlink ~S traverses existing symlink ~S"
+                                      name (path-name directory)))))))
              (take (data)
                ;; DATA was inflated with the budget left as its :MAX-OUTPUT, so
                ;; it never overdraws it: the inflater signals first.
@@ -190,7 +208,7 @@ and Unicode canonical normalization."
                               name target :symlink-names symlink-names)
                          (refuse "refusal.outside-workspace" "archive symlink ~S points outside the extraction (~A)"
                                  name target))
-                       (check-existing-link-target name target)
+                       (check-existing-link-target name target symlink-names)
                        (push (make-extract-step :symlink path :target target) steps)))
                     (:hardlink
                      (let* ((target (%archive-entry-link-target entry))
