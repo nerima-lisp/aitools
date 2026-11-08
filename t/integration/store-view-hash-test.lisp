@@ -104,6 +104,19 @@
        (expect (aitools.store.application::%path-violation store "../outside/pwn.txt")
                :to-equal "is not a workspace-relative path"))
      :io nil))
+  (it "rejects a symlink into .git when the store root is /"
+    (call-with-temp-store
+     (lambda (store)
+       (let* ((git-dir (disk-path store ".git"))
+              (link-dir (disk-path store "linked"))
+              (relative (concatenate 'string (subseq link-dir 1) "/config"))
+              (root-store (make-store (store-boundaries store) "/" (disk-path store "state"))))
+         (sb-posix:mkdir git-dir #o755)
+         (sb-posix:symlink git-dir link-dir)
+         (expect (store-root root-store) :to-equal "/")
+         (expect (aitools.store.application::%path-violation root-store relative)
+                 :to-equal "is inside a .git directory")))
+     :io nil))
 
   (it "hashes staged file contents through a symlink in the tx view"
     (call-with-temp-store
