@@ -1,5 +1,7 @@
 (in-package #:aitools/test)
 
+(defvar *context-registration-provider-calls* 0)
+
 (defun %feature-presentation-context (system-name)
   (when (stringp system-name)
     (let* ((prefix "aitools/feature/")
@@ -34,18 +36,25 @@
                (aitools/cli:register-all-context-commands registry)
                (aitools.protocol.application:all-command-schemas registry))))
       (expect schemas :to-be-truthy)
-      (let ((aitools/cli::*context-command-registrations* nil))
+      (let ((aitools/cli::*context-command-registrations* nil)
+            (*context-registration-provider-calls* 0))
         (eval '(aitools/cli::define-context-command-registration
-                :coverage-fixture #'identity #'identity))
-        (expect (mapcar #'first (aitools/cli::context-command-registrations))
-                :to-equal '(:coverage-fixture))
+                :coverage-fixture
+                (progn (incf *context-registration-provider-calls*) #'identity)
+                (progn (incf *context-registration-provider-calls*) #'identity)))
+        (expect *context-registration-provider-calls* :to-equal 0)
         (eval '(aitools/cli::define-context-command-registration
-                :coverage-fixture #'car #'cdr))
-        (let ((registration
-                (first (aitools/cli::context-command-registrations))))
-          (expect (first registration) :to-equal :coverage-fixture)
-          (expect (eq (second registration) #'car) :to-be t)
-          (expect (eq (third registration) #'cdr) :to-be t)))
+                :coverage-fixture
+                (progn (incf *context-registration-provider-calls*) #'car)
+                (progn (incf *context-registration-provider-calls*) #'cdr)))
+        (expect *context-registration-provider-calls* :to-equal 0)
+        (let ((registrations (aitools/cli::context-command-registrations)))
+          (expect *context-registration-provider-calls* :to-equal 2)
+          (expect (mapcar #'first registrations) :to-equal '(:coverage-fixture))
+          (let ((registration (first registrations)))
+            (expect (first registration) :to-equal :coverage-fixture)
+            (expect (eq (second registration) #'car) :to-be t)
+            (expect (eq (third registration) #'cdr) :to-be t))))
       (let* ((with-span
                (getf (aitools/cli::%context-dependency-arguments) :with-span))
              (arguments (list 0 :payload)))
