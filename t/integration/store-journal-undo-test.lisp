@@ -110,3 +110,31 @@
           (expect (member (aitools.kernel.domain:content-hash (bytes "v1"))
                           (funcall (store-operation (store-boundaries store) :list-directory) blobs) :test #'string=)
                   :to-be-truthy)))) :io nil)))
+(describe "aitools.store journal entry filtering"
+  (it "filters journal entries and stops at the newest result"
+    (call-with-temp-store
+     (lambda (store)
+       (commit store (list (write-file-request "a.txt" (bytes "a"))))
+       (commit store (list (write-file-request "b.txt" (bytes "b"))))
+       (let* ((entries (read-journal store))
+              (first-op (journal-entry-op-id (first entries)))
+              (second-op (journal-entry-op-id (second entries)))
+              (matching nil)
+              (nonmatching nil)
+              (stopped nil))
+         (expect (length entries) :to-be 2)
+         (map-journal-entries store
+                              (lambda (entry) (push (journal-entry-op-id entry) matching))
+                              :path "a.txt")
+         (expect matching :to-equal (list first-op))
+         (map-journal-entries store
+                              (lambda (entry) (push (journal-entry-op-id entry) nonmatching))
+                              :path "missing.txt")
+         (expect nonmatching :to-equal nil)
+         (map-journal-entries store
+                              (lambda (entry)
+                                (push (journal-entry-op-id entry) stopped)
+                                :stop)
+                              :path nil)
+         (expect stopped :to-equal (list second-op))))
+     :io nil)))
