@@ -98,5 +98,19 @@ content before it; returns that blob's name."
              (expect (store-io-error-path condition)
                      :to-equal (join-path (blobs-directory (store-state-directory store))
                                           ".stuck.tmp"))))))))
+  (it "reports a referenced blob whose contents no longer match its hash"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "stored")
+       (let* ((hash (entry-state-hash (workspace-state store "a.txt")))
+              (path (blob-file-path (store-state-directory store) hash)))
+         (expect (commit store
+                         (list (write-file-request "a.txt" (bytes "updated"))))
+                 :to-be :committed)
+         (with-open-file (output (sb-ext:parse-native-namestring path)
+                                 :direction :output :if-exists :supersede)
+           (write-string "damaged" output))
+         (signals store-format-error (read-blob store hash))))
+     :io nil))
 )
 
