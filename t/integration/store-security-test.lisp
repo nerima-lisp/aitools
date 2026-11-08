@@ -222,4 +222,12 @@ an agent able to write the state directory could. Returns its op id."
          (expect (exists-p (format nil "~A/pwn.txt" outside)) :to-be nil)
          (expect (null (intent-files inside)) :to-be t)))
      :io nil)))
+(describe "aitools.store unsupported filesystem entries"
+  (it "rejects a FIFO from workspace state and kind"
+    (call-with-temp-store
+     (lambda (store)
+       (sb-posix:mkfifo (disk-path store "pipe") #o600)
+       (signals store-io-error (workspace-state store "pipe"))
+       (signals store-io-error (aitools.store.application::workspace-kind store "pipe")))
+     :io nil)))
 
