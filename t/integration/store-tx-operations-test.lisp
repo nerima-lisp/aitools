@@ -14,6 +14,25 @@
         (expect (tx-view-text store tx "a.txt") :to-equal "external+tx")
         (expect (commit-tx store tx) :to-be :committed)
         (expect (disk-text store "a.txt") :to-equal "external+tx"))) :io nil))
+  (it "keeps staged operations when rebase finds no drift"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "a")
+       (let ((tx (begin store))
+             (replayed nil))
+         (stage-append store tx "a.txt" "+tx")
+         (expect (tx-rebase/k store tx
+                              (lambda (&rest arguments)
+                                (declare (ignore arguments))
+                                (setf replayed t))
+                              :on-rebased (lambda (paths) paths)
+                              :on-conflict (lambda (conflicts) conflicts)
+                              :on-not-found (lambda () :not-found)
+                              :on-busy (lambda () :busy))
+                 :to-equal (quote ()))
+         (expect replayed :to-be nil)
+         (expect (tx-view-text store tx "a.txt") :to-equal "a+tx")))
+     :io nil))
   (it "stops a replayer after its commit callback"
     (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store))
