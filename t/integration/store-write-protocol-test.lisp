@@ -198,10 +198,8 @@
                      (multiple-value-bind (kind mode target mtime links identity)
                          (funcall native-lstat path)
                        (if (eq kind :absent)
-                           (let* ((slash (position #\/ path :from-end t))
-                                  (parent (if slash
-                                              (if (zerop slash) "/" (subseq path 0 slash))
-                                              "."))
+                           (let* ((slash (position (code-char 47) path :from-end t))
+                                  (parent (if slash (subseq path 0 slash) "."))
                                   (name (if slash (subseq path (1+ slash)) path))
                                   (alias
                                     (find name
