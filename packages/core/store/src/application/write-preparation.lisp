@@ -35,6 +35,62 @@ including one outside the workspace."
                  :code "refusal.not-a-file"
                  :message (format nil "~A has ~D hard links; changing its mode or time in place would change every link"
                                   (intent-step-path step) links)))))))
+(defun %refuse-case-collisions (store steps)
+  "Refuse replacement paths that differ only by case on a case-insensitive filesystem.
+
+The probe reuses a recorded temp path so precommit cleanup and recovery can remove it after interruption."
+  (labels ((case-insensitive-path-key (path)
+             (string-downcase path))
+           (case-variant-path (path)
+             (let ((slash (position #\/ path :from-end t)))
+               (concatenate 'string
+                            (if slash (subseq path 0 (1+ slash)) "")
+                            (string-upcase (if slash (subseq path (1+ slash)) path)))))
+           (first-case-collision (steps)
+             (let ((paths-by-key (make-hash-table :test (function equal)))
+                   (collision nil)
+                   (previous-path nil))
+               (dolist (step steps)
+                 (when (and (null collision)
+                            (eq (intent-step-op step) :replace))
+                   (let* ((path (intent-step-path step))
+                          (key (case-insensitive-path-key path))
+                          (group (gethash key paths-by-key)))
+                     (cond
+                       ((null group)
+                        (let ((new-group (cons path (make-hash-table :test (function equal)))))
+                          (setf (gethash key paths-by-key) new-group)
+                          (setf (gethash path (cdr new-group)) t)))
+                       ((gethash path (cdr group)))
+                       (t
+                        (setf collision step
+                              previous-path (car group))
+                        (setf (gethash path (cdr group)) t))))))
+               (values collision previous-path)))
+           (empty-octets ()
+             (make-array 0 :element-type '(unsigned-byte 8))))
+    (multiple-value-bind (step previous-path)
+        (first-case-collision steps)
+      (when step
+        (let* ((temp (intent-step-temp step))
+               (temp-path (%workspace-path store temp))
+               (variant-path (%workspace-path store (case-variant-path temp)))
+               (created nil))
+          (unwind-protect
+               (progn
+                 (%io store create-file temp-path (empty-octets) :mode #o600)
+                 (setf created t)
+                 (when (eq (nth-value 0 (%io store lstat variant-path)) :file)
+                   (error 'store-refusal
+                          :code "refusal.exists"
+                          :message
+                          (format nil
+                                  "~A and ~A resolve to the same case-insensitive path"
+                                  (intent-step-path step)
+                                  previous-path))))
+            (when (and created
+                       (not (eq (%kind-at store temp-path) :absent)))
+              (%io store unlink temp-path))))))))
 
 (aitools.kernel.domain:define-flow
     (call-with-prepared-intent/k store intent-path steps &key on-prepared)

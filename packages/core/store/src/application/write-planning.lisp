@@ -75,7 +75,7 @@ with the workspace lock held. Returns the new op id."
       ;; leave some of the op's paths changed. Only the prepared temp files are
       ;; a resource to unwind, so the apply that follows runs unguarded.
       (with-prepared-intent (store nil steps)
-        (%prepare-temps store op-id steps by-path))
+        (progn (%refuse-case-collisions store steps) (%prepare-temps store op-id steps by-path)))
       (let ((replace-temps (%replace-temps steps)))
         (dolist (step steps)
           (%apply-step store step replace-temps))
@@ -89,7 +89,7 @@ with the workspace lock held. Returns the new op id."
       (fault-point :after-blobs op-id)
       (%io store create-file intent-path (string-octets (format nil "~A~%" header)) :sync t)
       (fault-point :after-intent-header op-id)
-      (%prepare-temps store op-id steps by-path)
+      (progn (%refuse-case-collisions store steps) (%prepare-temps store op-id steps by-path))
       (fault-point :after-prepare op-id)
       (dolist (step steps) (%refuse-changed-deletion store step))
       ;; Writing line 2, the checksum, durably is the commit point. Once
