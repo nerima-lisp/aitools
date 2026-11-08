@@ -3,14 +3,15 @@
 ## Unreleased
 
 - Security: `archive extract` refuses link targets that leave the extraction
-  root, pass through an archive symlink at any target component, or pass
-  through an existing destination symlink, including at the target's final
-  component. Archive-symlink checks treat case and canonically equivalent
-  Unicode names as the same path. Entry selection, duplicate-name checks, and
-  hard-link lookup preserve case and Unicode spelling after empty and `.` path
-  components are removed. Case-sensitive filesystems keep case-only paths
-  distinct; `archive extract` refuses commits when a case-insensitive destination
-  filesystem aliases those paths.
+  root, pass through an archive symlink at any target component, or cross an
+  existing destination symlink, including at the target's final component.
+  For archive-symlink checks, planning compares path components after Unicode
+  NFD normalization and full case folding.
+- Entry selection, duplicate-name checks, and hard-link target lookup compare
+  names after removing empty and `.` path components while preserving case and
+  Unicode spelling. Case-sensitive filesystems keep case-only paths distinct.
+  On a case-insensitive destination filesystem, `archive extract` returns
+  `refusal.exists` during commit if the filesystem aliases those paths.
 - `aitools sys info` returns `environment.unavailable` when its uptime source
   is missing or malformed; previously, its response could contain a `null`
   uptime. CPU and memory values are optional, but uptime is required for a
