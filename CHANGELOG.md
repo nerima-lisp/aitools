@@ -9,7 +9,7 @@
 
 ## v0.4.0
 
-- Security: Reject archive symlink targets that escape through archive or existing destination symlinks, and entries whose parent path passes through a symlink before writing.
+- Security: Plan-time archive checks reject targets that traverse archive symlinks before their final component (for example, `x/d -> ..` followed by `s -> x/d/..`), existing destination symlinks, and symlink parents. Case-folded NFD path keys catch aliases and duplicate entry names.
 - Remove the top-level `delete` command. Use `rm` for files, symlinks, empty directories, and recursive trees.
 - Map the shell command `rmdir` to `aitools rm`; `rmdir` is not an aitools
   command. Calling the removed top-level `delete` command returns

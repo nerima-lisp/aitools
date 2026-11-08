@@ -14,6 +14,44 @@
            (run "archive.extract" (list "symlink-a.tar") :to "dest")
            (expect code :to-equal "refusal.outside-workspace"))
          (expect-unchanged before)))))
+  (it "refuses the repeated archive symlink alias chain during planning without writes"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "symlink-f1-alias.tar"
+            (aitools.text.domain:write-tar
+             (list (aitools.text.domain:make-archive-member
+                    :name "x/d" :kind :symlink :link-target "..")
+                   (aitools.text.domain:make-archive-member
+                    :name "s" :kind :symlink
+                    :link-target "x/d/x/d/../../escaped-target"))))
+       (let ((before (snapshot)))
+         (with-error (code)
+           (run "archive.extract" (list "symlink-f1-alias.tar") :to "dest")
+           (expect code :to-equal "refusal.outside-workspace"))
+         (expect-unchanged before)))))
+  (it "rejects a destination symlink outside the workspace without writes"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "destination-outside.tar"
+            (aitools.text.domain:write-tar (list (member-file "created.txt" "payload"))))
+       (sb-posix:symlink ".." (disk "dest"))
+       (let ((before (snapshot)))
+         (with-error (code)
+           (run "archive.extract" (list "destination-outside.tar") :to "dest")
+           (expect code :to-equal "refusal.outside-workspace"))
+         (expect-unchanged before)
+         (expect (kind "dest/created.txt") :to-be :absent)))))
+  (it "resolves an in-workspace destination symlink before extraction"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "destination-inside.tar"
+            (aitools.text.domain:write-tar (list (member-file "created.txt" "payload"))))
+       (sb-posix:mkdir (disk "real-dest") #o755)
+       (sb-posix:symlink "real-dest" (disk "dest"))
+       (expect (nth-value 0 (run "archive.extract" (list "destination-inside.tar") :to "dest"))
+               :to-be :ok)
+       (expect (text "real-dest/created.txt") :to-equal "payload")
+       (expect (kind "dest/created.txt") :to-be :file))))
 
   (it "checks unselected archive symlinks when extracting one selected entry"
     (call-with-edit-workspace

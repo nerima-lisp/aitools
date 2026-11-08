@@ -72,25 +72,22 @@ traversal, links leaving DESTINATION, or paths crossing symlinks),
 refusal.too-large (MAX-BYTES of output or MAX-ENTRIES entries exceeded),
 refusal.exists (a collision with an existing path or a duplicate name),
 input.not-found (a SELECTED name absent), input.unsupported-format (device
-or other special entries)."
+or other special entries). Archive paths are compared after case folding
+and Unicode canonical normalization."
   (let ((budget max-bytes))
     (labels ((path-components (path)
-               (loop with start = 0
-                     for slash = (position #\/ path :start start)
-                     for component = (subseq path start (or slash (length path)))
-                     unless (or (string= component "") (string= component "."))
-                       collect component
-                     while slash
-                       do (setf start (1+ slash))))
+               (aitools.text.domain:archive-path-components path))
              (path-name (components)
                (format nil "~{~A~^/~}" components))
+             (path-key (path)
+               (aitools.text.domain:archive-path-key path))
              (parent-paths (path)
                (let ((parents (butlast (path-components path))))
                  (loop for end from 1 to (length parents)
                        collect (path-name (subseq parents 0 end)))))
              (check-entry-parents (name symlink-names)
                (dolist (parent (parent-paths name))
-                 (when (member parent symlink-names :test #'string=)
+                 (when (member (path-key parent) symlink-names :test #'string=)
                    (refuse "refusal.outside-workspace"
                            "archive entry ~S has symlink parent ~S" name parent))
                  (when (eq (funcall lookup-kind
@@ -100,10 +97,12 @@ or other special entries)."
                            "archive entry ~S has existing symlink parent ~S" name parent))))
              (check-existing-link-target (name target)
                (let ((directory (butlast (path-components name))))
-                 (dolist (component (path-components target))
-                   (if (string= component "..")
-                       (setf directory (butlast directory))
-                       (setf directory (append directory (list component))))
+                 (dolist (component (aitools.text.domain:archive-path-components
+                                    target :keep-dots t))
+                   (cond ((string= component "..")
+                          (setf directory (butlast directory)))
+                         ((string= component "."))
+                         (t (setf directory (append directory (list component)))))
                    (when (and directory
                               (eq (funcall lookup-kind
                                            (aitools.workspace.domain:join-path
@@ -143,15 +142,15 @@ or other special entries)."
             (let* ((symlink-names
                      (loop for entry in raw-entries
                            when (eq (aitools.text.domain:archive-entry-kind entry) :symlink)
-                             collect (path-name
-                                      (path-components (%archive-entry-name entry)))))
+                             collect (path-key (%archive-entry-name entry))))
                    (entries (remove-if (lambda (entry)
-                                         (member (%archive-entry-name entry) '("" ".") :test #'string=))
+                                         (string= (path-key (%archive-entry-name entry)) ""))
                                        raw-entries))
                    (chosen (if selected
                                (loop for name in selected
-                                     collect (or (find name entries
-                                                       :key #'%archive-entry-name
+                                     collect (or (find (path-key name) entries
+                                                       :key (lambda (entry)
+                                                              (path-key (%archive-entry-name entry)))
                                                        :test #'string=)
                                                  (refuse "input.not-found" "no entry ~S in the archive" name)))
                                entries))
@@ -171,9 +170,9 @@ or other special entries)."
                        (path (aitools.workspace.domain:join-path destination name)))
                   (when problem
                     (refuse "refusal.outside-workspace" "archive entry ~S is unsafe (~(~A~))" name problem))
-                  (when (gethash name seen)
+                  (when (gethash (path-key name) seen)
                     (refuse "refusal.exists" "archive entry ~S occurs twice" name))
-                  (setf (gethash name seen) t)
+                  (setf (gethash (path-key name) seen) t)
                   (check-entry-parents name symlink-names)
                   (let ((existing (funcall lookup-kind path)))
                     (unless (or (eq existing :absent)
@@ -196,8 +195,9 @@ or other special entries)."
                     (:hardlink
                      (let* ((target (%archive-entry-link-target entry))
                             (source (and (null (aitools.text.domain:archive-entry-path-problem target))
-                                         (find target entries
-                                               :key #'%archive-entry-name
+                                         (find (path-key target) entries
+                                               :key (lambda (entry)
+                                                      (path-key (%archive-entry-name entry)))
                                                :test #'string=))))
                        (unless (and source (eq (aitools.text.domain:archive-entry-kind source) :file))
                          (refuse "refusal.outside-workspace" "archive hard link ~S has no file ~S in the archive"
