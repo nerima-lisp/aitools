@@ -48,12 +48,16 @@
                          (parsed (uiop:symbol-call :json-kit :parse report))
                          (selected (gethash "events" parsed)))
                     (setf events run-events)
-                    (multiple-value-bind (problems executed)
+                    (multiple-value-bind (problems executed context-counts)
                         (uiop:symbol-call :aitools/test
                                           :%policy-problems
                                           (coerce selected (quote list))
                                           nil)
                       (format t "~&POLICY_EXECUTED=~D~%" executed)
+                      (dolist (entry context-counts)
+                        (format t "~&POLICY_CONTEXT_~A=~D~%"
+                                (string-upcase (symbol-name (car entry)))
+                                (cdr entry)))
                       (when problems
                         (error "Host full suite policy failed: ~S" problems)))
                     (unless
