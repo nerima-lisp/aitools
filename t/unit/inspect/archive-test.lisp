@@ -85,7 +85,7 @@
     (expect (error-code (nth-value 1 (run-archive #'archive-read-flow "a.zip" "docs"))) :to-equal "refusal.not-a-file")
     (expect (error-code (nth-value 1 (run-archive #'archive-read-flow "a.zip" nil))) :to-equal "argument.invalid"))
 
-  (it "refuses a gzip stream that expands past the entry limit"
+  (it "maps a gzip archive limit exception to refusal.too-large"
     (let ((observed-limit nil))
       (cl-weave:with-mocked-functions
           (((symbol-function
@@ -101,8 +101,7 @@
                          "notes.txt.gz"
                          nil)
           (expect kind :to-be :error)
-          (expect (error-code fields)
-                  :to-equal "refusal.too-large"))
+          (expect (error-code fields) :to-equal "refusal.too-large"))
         (expect observed-limit :to-be +archive-max-entry+)))))
 
 (describe "archive read outcomes"

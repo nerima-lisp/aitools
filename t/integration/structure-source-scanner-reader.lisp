@@ -23,75 +23,75 @@ package, or :UNREADABLE."
           (or (gethash text *liveness-reader-view-cache*)
               (setf (gethash text *liveness-reader-view-cache*)
                     (%liveness-reader-view-cache-entry text))))
-         (view (first cache))
-         (offset (+ position (funcall (sixth cache) position 1)))
-         (origins (third cache))
-         (source-positions (fourth cache))
-         (source-names (fifth cache))
-         (forms (seventh cache)))
+         (view (liveness-reader-view-cache-view cache))
+         (offset (+ position (funcall (liveness-reader-view-cache-cumulative-shift cache) position 1)))
+         (origins (liveness-reader-view-cache-origins cache))
+         (source-positions (liveness-reader-view-cache-source-positions cache))
+         (source-names (liveness-reader-view-cache-source-names cache))
+         (forms (liveness-reader-view-cache-forms cache)))
     (multiple-value-bind (cached present-p) (gethash position forms)
-  (if present-p
-      (values (car cached) (cdr cached))
-      (multiple-value-bind (form end)
-          (handler-case
-        (with-standard-io-syntax
-            (let ((*read-eval* nil)
-                  (*package* *reader-package*)
-                  (*features* (union (quote (:linux :darwin)) *features* :test (function eq)))
-                  (quasiquote-depth 0)
-                  (readtable (copy-readtable nil)))
-              (labels ((read-quasiquote (stream character)
-                                        (declare (ignore character))
-                                        (incf quasiquote-depth)
-                                        (unwind-protect
-                                            (list :u05-quasiquote (read stream t nil t))
-                                          (decf quasiquote-depth)))
-                       (read-unquote (stream character)
-                                     (declare (ignore character))
-                                     (when (zerop quasiquote-depth)
-                                       (error "Comma outside a quasiquote."))
-                                     (let ((splicing-p
-                                            (member (peek-char nil stream nil nil)
-                                                    '(#\@ #\.))))
-                                       (when splicing-p (read-char stream))
-                                       (decf quasiquote-depth)
-                                       (unwind-protect
-                                           (list (if splicing-p
-                                                     :u05-unquote-splicing
-                                                   :u05-unquote)
-                                                 (read stream t nil t))
-                                         (incf quasiquote-depth)))))
-                (let ((*readtable* readtable))
-                  (set-macro-character #\` #'read-quasiquote nil)
-                  (set-macro-character #\, #'read-unquote nil)
-                  (multiple-value-bind (form end)
-                      (read-from-string view t nil :start offset)
-                    (let ((seen (make-hash-table :test #'eq)))
-                      (labels ((annotate (object)
-                                         (cond
-                                          ((symbolp object)
-                                           (let* ((name (symbol-name object))
-                                                  (origin (gethash name origins))
-                                                  (source-name (gethash name source-names)))
-                                             (when (or origin source-name)
-                                               (setf (get object :u05-source-position)
-                                                     (gethash name source-positions))
-                                               (when origin
-                                                 (setf (get object :u05-qualified-reference) origin))
-                                               (when source-name
-                                                 (setf (get object :u05-source-name) source-name)))))
-                                          ((consp object)
-                                           (unless (gethash object seen)
-                                             (setf (gethash object seen) t)
-                                             (annotate (car object))
-                                             (annotate (cdr object)))))))
-                        (annotate form))
-                      (values
-                       form
-                       (- end (funcall (sixth cache) end 6)))))))))
-      (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))
-        (setf (gethash position forms) (cons form end))
-        (values form end))))))
+      (if present-p
+          (values (car cached) (cdr cached))
+        (multiple-value-bind (form end)
+            (handler-case
+                (with-standard-io-syntax
+                    (let ((*read-eval* nil)
+                          (*package* *reader-package*)
+                          (*features* (union (quote (:linux :darwin)) *features* :test (function eq)))
+                          (quasiquote-depth 0)
+                          (readtable (copy-readtable nil)))
+                      (labels ((read-quasiquote (stream character)
+                                                (declare (ignore character))
+                                                (incf quasiquote-depth)
+                                                (unwind-protect
+                                                    (list :u05-quasiquote (read stream t nil t))
+                                                  (decf quasiquote-depth)))
+                               (read-unquote (stream character)
+                                             (declare (ignore character))
+                                             (when (zerop quasiquote-depth)
+                                               (error "Comma outside a quasiquote."))
+                                             (let ((splicing-p
+                                                    (member (peek-char nil stream nil nil)
+                                                            '(#\@ #\.))))
+                                               (when splicing-p (read-char stream))
+                                               (decf quasiquote-depth)
+                                               (unwind-protect
+                                                   (list (if splicing-p
+                                                             :u05-unquote-splicing
+                                                           :u05-unquote)
+                                                         (read stream t nil t))
+                                                 (incf quasiquote-depth)))))
+                        (let ((*readtable* readtable))
+                          (set-macro-character #\` #'read-quasiquote nil)
+                          (set-macro-character #\, #'read-unquote nil)
+                          (multiple-value-bind (form end)
+                              (read-from-string view t nil :start offset)
+                            (let ((seen (make-hash-table :test #'eq)))
+                              (labels ((annotate (object)
+                                                 (cond
+                                                  ((symbolp object)
+                                                   (let* ((name (symbol-name object))
+                                                          (origin (gethash name origins))
+                                                          (source-name (gethash name source-names)))
+                                                     (when (or origin source-name)
+                                                       (setf (get object :u05-source-position)
+                                                             (gethash name source-positions))
+                                                       (when origin
+                                                         (setf (get object :u05-qualified-reference) origin))
+                                                       (when source-name
+                                                         (setf (get object :u05-source-name) source-name)))))
+                                                  ((consp object)
+                                                   (unless (gethash object seen)
+                                                     (setf (gethash object seen) t)
+                                                     (annotate (car object))
+                                                     (annotate (cdr object)))))))
+                                (annotate form))
+                              (values
+                               form
+                               (- end (funcall (liveness-reader-view-cache-cumulative-shift cache) end 6)))))))))
+              (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))
+          (setf (gethash position forms) (cons form end))
+          (values form end))))))
 
 (defun %liveness-reader-view (text)
   "Return reader text and unique metadata for qualified symbols and call occurrences."

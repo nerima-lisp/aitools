@@ -1,5 +1,14 @@
 (in-package #:aitools.integration.structure-test)
 
+(defstruct liveness-reader-view-cache
+  view
+  replacements
+  origins
+  source-positions
+  source-names
+  cumulative-shift
+  forms)
+
 (defun %liveness-reader-view-cache-entry (text)
   (multiple-value-bind (view replacements)
       (%liveness-reader-view text)
@@ -30,5 +39,11 @@
                               (setf high middle))
                        finally (return (if (zerop low) 0
                                            (sixth (aref replacements (1- low))))))))
-        (list view replacements origins source-positions source-names
-              (function cumulative-shift) forms)))))
+        (make-liveness-reader-view-cache
+         :view view
+         :replacements replacements
+         :origins origins
+         :source-positions source-positions
+         :source-names source-names
+         :cumulative-shift (function cumulative-shift)
+         :forms forms)))))

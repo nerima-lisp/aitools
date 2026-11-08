@@ -1,8 +1,10 @@
 (require :asdf)
+
 (asdf:initialize-source-registry
  `(:source-registry
    (:directory ,(uiop:pathname-directory-pathname (uiop:getcwd)))
    :inherit-configuration))
+
 (let ((host-cache-directory (uiop:getenv "AITOOLS_HOST_CACHE_DIR"))
       (xdg-cache-home (uiop:getenv "XDG_CACHE_HOME"))
       (cache-state (uiop:getenv "AITOOLS_ALLOCATION_CACHE_STATE")))
@@ -14,9 +16,8 @@
    `(:output-translations
      (t (,(uiop:ensure-directory-pathname host-cache-directory) :**/ :*.*.*))
      :ignore-inherited-configuration))
-  (progn
-    (asdf:load-system "aitools/test")
-    (asdf:load-system "aitools/test/search"))
+  (asdf:load-system "aitools/test")
+  (asdf:load-system "aitools/test/search")
   (let ((workspace (truename (uiop:pathname-directory-pathname (uiop:getcwd))))
         (source (truename (asdf:system-source-directory "aitools")))
         (test-source (truename (asdf:system-source-directory "aitools/test"))))

@@ -47,9 +47,6 @@
 (defun complex-function-baseline-violations (root)
   (let ((inventory (complex-function-complete-inventory root))
         (violations '()))
-    (unless (and (listp *complex-function-baseline*)
-                 *complex-function-baseline*)
-      (push "complex-function baseline is empty" violations))
     (dolist (entry *complex-function-baseline*)
       (if (and (listp entry)
                (= (length entry) 5)
@@ -118,9 +115,44 @@
    :prefix "aitools-complex-function-baseline"))
 
 (describe "aitools complex-function baseline gate"
-  (it "keeps the complex-function baseline at or below its 17-entry ceiling"
-    (expect *complex-function-baseline* :to-be-truthy)
-    (expect (<= (length *complex-function-baseline*) 17) :to-be t))
+  (it "pins original keys and permits an empty baseline"
+    (let ((original-keys
+           (quote (("AITOOLS.EDIT.APPLICATION" "PARSE-RECORDED-ARGV")
+                   ("AITOOLS.EDIT.APPLICATION" "MKTEMP-FLOW")
+                   ("AITOOLS.EDIT.DOMAIN" "PARSE-MTIME")
+                   ("AITOOLS.EDIT.DOMAIN" "REPLACE-DOCUMENT")
+                   ("AITOOLS.EDIT.DOMAIN" "%SCAN-RECORDS")
+                   ("AITOOLS.ENV.APPLICATION" "%LINUX-SOCKET-OWNERS")
+                   ("AITOOLS.ENV.APPLICATION" "RESOLVE-ZONE/K")
+                   ("AITOOLS.INSPECT.DOMAIN" "SCAN-LISP-DELIMITERS")
+                   ("AITOOLS.PROCESS.APPLICATION" "SIGNAL-COMMAND/K")
+                   ("AITOOLS.PROCESS.INFRASTRUCTURE" "%DARWIN-ARGV")
+                   ("AITOOLS.PROCESS.INFRASTRUCTURE" "%HOST-PROCESS-INFO")
+                   ("AITOOLS.STORE.APPLICATION" "%RECOVER-INTENT")
+                   ("AITOOLS.WORKSPACE.APPLICATION" "RESOLVE-REAL-PATH")
+                   ("AITOOLS.WORKSPACE.APPLICATION" "CALL-WITH-WORKSPACE-SCAN/K")
+                   ("AITOOLS.WORKSPACE.DOMAIN" "IGNORE-LIST-VERDICT")
+                   ("AITOOLS.WORKSPACE.DOMAIN" "%DOWILD")
+                   ("AITOOLS.WORKSPACE.INFRASTRUCTURE" "READ-REGULAR-FILE-OCTETS")))))
+      (expect
+       (every (lambda (entry)
+                (member (list (first entry) (second entry)) original-keys
+                        :test (function equal)))
+              *complex-function-baseline*)
+       :to-be t)
+      (aitools.test.support:call-with-workspace
+       (lambda (root state)
+         (declare (ignore state))
+         (let* ((root-pathname (uiop:ensure-directory-pathname root))
+                (source-path (merge-pathnames "src/composition.lisp" root-pathname)))
+           (ensure-directories-exist source-path)
+           (with-open-file (output source-path
+                                   :direction :output
+                                   :if-exists :supersede)
+             (write-line "" output))
+           (let ((*complex-function-baseline* nil))
+             (expect (complex-function-baseline-violations root-pathname) :to-equal nil))))
+       :prefix "aitools-complex-function-empty-baseline")))
   (it "requires every mapped current function to exist and stay within the depth limit"
     (expect (complex-function-baseline-violations (repository-root)) :to-equal nil))
   (it "rejects a missing current successor"

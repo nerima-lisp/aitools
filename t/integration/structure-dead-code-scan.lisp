@@ -105,10 +105,10 @@
   "Sorted dead definitions and package violations under ROOT.
 Exported definitions are public roots; test-only exports remain violations.
 SUPPLIED-RECORDS reuses records already read from ROOT."
-  (let* ((records (or supplied-records
-                 (progn
+  (let* ((records (progn
                    (clrhash *liveness-reader-view-cache*)
-                   (%liveness-files root))))
+                   (or supplied-records
+                       (%liveness-files root))))
          (packages (%liveness-all-package-metadata records))
          (definitions (%liveness-definitions records))
          (violations '()))
