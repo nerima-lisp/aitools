@@ -20,31 +20,30 @@
            :yaml)
           ((and (stringp extension) (string-equal extension "toml")) :toml)))))
 
-(progn
-  (defmacro %call-document-reader (call)
-    `(aitools.kernel.domain:flow-call
-      ,call
-      (:on-document (document)
-        (aitools.kernel.domain:flow-continue :on-document document))
-      (:on-error (code message &key candidates diagnostics conflicts repairs)
-        (aitools.kernel.domain:flow-continue
-         :on-error code message
-         :candidates candidates :diagnostics diagnostics
-         :conflicts conflicts :repairs repairs))))
+(defmacro %call-document-reader (call)
+  `(aitools.kernel.domain:flow-call
+    ,call
+    (:on-document (document)
+                  (aitools.kernel.domain:flow-continue :on-document document))
+    (:on-error (code message &key candidates diagnostics conflicts repairs)
+               (aitools.kernel.domain:flow-continue
+                :on-error code message
+                :candidates candidates :diagnostics diagnostics
+                :conflicts conflicts :repairs repairs))))
 
-  (aitools.kernel.domain:define-flow
-   (%inspect-document context target format action &key on-document on-error)
-   (declare (type function on-document on-error))
-   (case format
-     (:json
-      (%call-document-reader
-       (%json-document context target)))
-     (:yaml
-      (%call-document-reader
-       (%yaml-document context target action)))
-     (:toml
-      (%call-document-reader
-       (%toml-document context target action))))))
+(aitools.kernel.domain:define-flow
+ (%inspect-document context target format action &key on-document on-error)
+ (declare (type function on-document on-error))
+ (case format
+   (:json
+    (%call-document-reader
+     (%json-document context target)))
+   (:yaml
+    (%call-document-reader
+     (%yaml-document context target action)))
+   (:toml
+    (%call-document-reader
+     (%toml-document context target action)))))
 
 (aitools.kernel.domain:define-flow
  (%call-with-format-file ports path format action

@@ -84,14 +84,13 @@ bytes so the limit bounds the read itself."
     (:null (error "validated TOML value contains null"))
     (otherwise value)))
 
-(progn
-  (defun serialize-document (format value)
-    (cond
-      ((string= format "yaml")
-       (yaml-kit:emit (%yaml-native-value value)))
-      ((string= format "toml")
-       (let ((cl-toml-kit:*toml-max-nesting-depth*
-              aitools.edit.application:+max-format-document-depth+))
-         (cl-toml-kit:encode (%toml-native-value value))))
-      (t (error "unsupported YAML/TOML format: ~S" format))))
-  (aitools.edit.application:register-format-document-replayers (function serialize-document)))
+(defun serialize-document (format value)
+  (cond
+   ((string= format "yaml")
+    (yaml-kit:emit (%yaml-native-value value)))
+   ((string= format "toml")
+    (let ((cl-toml-kit:*toml-max-nesting-depth*
+           aitools.edit.application:+max-format-document-depth+))
+      (cl-toml-kit:encode (%toml-native-value value))))
+   (t (error "unsupported YAML/TOML format: ~S" format))))
+  (aitools.edit.application:register-format-document-replayers (function serialize-document))

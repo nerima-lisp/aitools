@@ -136,89 +136,87 @@
                          :record-positionals (lambda (paths) (list (first paths)))
                          :inputs (list text))))))))
 
-(progn
-  (defmacro %with-plan-continuations (flow)
-    `(aitools.kernel.domain:flow-call
-       ,flow
-       (:on-plan (plan)
-         (aitools.kernel.domain:flow-continue :on-plan plan))
-       (:on-error (code message
-                   &key candidates diagnostics conflicts repairs path)
-                 (aitools.kernel.domain:flow-continue
-                   :on-error code message
-                   :candidates candidates
-                   :diagnostics diagnostics
-                   :conflicts conflicts
-                   :repairs repairs
-                   :path path))))
-
-  (aitools.kernel.domain:define-flow
-    (%format-command/k format verb ports positionals options &key on-plan on-error)
-    (let ((command (format nil "doc.~A" verb)))
-      (cond
-        ((string= verb "set")
-         (%with-plan-continuations
-          (%format-set/k format command ports positionals options)))
-        ((string= verb "delete")
-         (%with-plan-continuations
-          (%format-delete/k format command ports positionals options)))
-        ((string= verb "merge")
-         (%with-plan-continuations
-          (%format-stdin-command
-           format command ports positionals options
-           (lambda (patch)
-             (lambda (document)
-               (json-merge-patch document patch))))))
-        ((string= verb "patch")
-         (%with-plan-continuations
-          (%format-stdin-command
-           format command ports positionals options
-           (lambda (operations)
-             (lambda (document)
-               (json-apply-patch document operations))))))
-        (t
-         (%with-plan-continuations
-          (%format-fmt/k format command ports positionals options)))))))
-
-(progn
-  (aitools.kernel.domain:define-flow
-    (%prepare-doc-command/k verb ports positionals options &key on-plan on-error)
-    (let ((path (first positionals)))
-      (cond
-        ((null path)
-         (aitools.kernel.domain:flow-continue
-           :on-error "argument.invalid"
-           (format nil "doc ~A needs PATH" verb)))
-        (t
-         (let ((format (%document-format path (getf options :format))))
-           (if format
-               (%with-plan-continuations
-                (%format-command/k format verb ports positionals options))
+(defmacro %with-plan-continuations (flow)
+  `(aitools.kernel.domain:flow-call
+    ,flow
+    (:on-plan (plan)
+              (aitools.kernel.domain:flow-continue :on-plan plan))
+    (:on-error (code message
+                     &key candidates diagnostics conflicts repairs path)
                (aitools.kernel.domain:flow-continue
-                 :on-error "argument.invalid"
-                 (format nil
-                         "Cannot determine the document format for ~A; pass --format json, yaml, or toml."
-                         path)
-                 :repairs (list (%document-format-repair verb positionals options)))))))))
+                :on-error code message
+                :candidates candidates
+                :diagnostics diagnostics
+                :conflicts conflicts
+                :repairs repairs
+                :path path))))
 
-  (defmacro define-doc-write-commands ()
+(aitools.kernel.domain:define-flow
+ (%format-command/k format verb ports positionals options &key on-plan on-error)
+ (let ((command (format nil "doc.~A" verb)))
+   (cond
+    ((string= verb "set")
+     (%with-plan-continuations
+      (%format-set/k format command ports positionals options)))
+    ((string= verb "delete")
+     (%with-plan-continuations
+      (%format-delete/k format command ports positionals options)))
+    ((string= verb "merge")
+     (%with-plan-continuations
+      (%format-stdin-command
+       format command ports positionals options
+       (lambda (patch)
+         (lambda (document)
+           (json-merge-patch document patch))))))
+    ((string= verb "patch")
+     (%with-plan-continuations
+      (%format-stdin-command
+       format command ports positionals options
+       (lambda (operations)
+         (lambda (document)
+           (json-apply-patch document operations))))))
+    (t
+     (%with-plan-continuations
+      (%format-fmt/k format command ports positionals options))))))
+
+(aitools.kernel.domain:define-flow
+ (%prepare-doc-command/k verb ports positionals options &key on-plan on-error)
+ (let ((path (first positionals)))
+   (cond
+    ((null path)
+     (aitools.kernel.domain:flow-continue
+      :on-error "argument.invalid"
+      (format nil "doc ~A needs PATH" verb)))
+    (t
+     (let ((format (%document-format path (getf options :format))))
+       (if format
+           (%with-plan-continuations
+            (%format-command/k format verb ports positionals options))
+         (aitools.kernel.domain:flow-continue
+          :on-error "argument.invalid"
+          (format nil
+                  "Cannot determine the document format for ~A; pass --format json, yaml, or toml."
+                  path)
+          :repairs (list (%document-format-repair verb positionals options)))))))))
+
+(defmacro define-doc-write-commands ()
   `(progn
      ,@(loop for verb in (list "set" "delete" "merge" "patch" "fmt")
              collect
              `(define-write-command ,(format nil "doc.~A" verb)
-                  (ports env positionals options &key on-plan on-error)
-                (declare (ignore env))
-                (aitools.kernel.domain:flow-call
-                 (%prepare-doc-command/k ,verb ports positionals options)
-                 (:on-plan (plan)
-                   (aitools.kernel.domain:flow-continue :on-plan plan))
-                 (:on-error (code message
-                   &key candidates diagnostics conflicts repairs path)
-                 (aitools.kernel.domain:flow-continue
-                   :on-error code message
-                   :candidates candidates
-                   :diagnostics diagnostics
-                   :conflicts conflicts
-                   :repairs repairs
-                   :path path)))))))
-  (define-doc-write-commands))
+                                    (ports env positionals options &key on-plan on-error)
+                                    (declare (ignore env))
+                                    (aitools.kernel.domain:flow-call
+                                     (%prepare-doc-command/k ,verb ports positionals options)
+                                     (:on-plan (plan)
+                                               (aitools.kernel.domain:flow-continue :on-plan plan))
+                                     (:on-error (code message
+                                                      &key candidates diagnostics conflicts repairs path)
+                                                (aitools.kernel.domain:flow-continue
+                                                 :on-error code message
+                                                 :candidates candidates
+                                                 :diagnostics diagnostics
+                                                 :conflicts conflicts
+                                                 :repairs repairs
+                                                 :path path)))))))
+  (define-doc-write-commands)

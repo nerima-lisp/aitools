@@ -93,13 +93,7 @@
                    (format nil "PREPARE-~A/K"
                            (substitute #\- #\. (string-upcase name)))
                    (list :write-command name))))
-      ((or (equal operator "DEFINE-DOC-WRITE-COMMANDS")
-           (and (equal operator "PROGN")
-                (some (lambda (nested)
-                        (and (consp nested)
-                             (equal (%liveness-symbol-name (first nested))
-                                    "DEFINE-DOC-WRITE-COMMANDS")))
-                      (rest form))))
+      ((equal operator "DEFINE-DOC-WRITE-COMMANDS")
        (loop for verb in '("set" "delete" "merge" "patch" "fmt")
              for command = (format nil "doc.~A" verb)
              collect

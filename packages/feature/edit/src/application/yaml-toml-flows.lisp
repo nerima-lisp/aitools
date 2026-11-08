@@ -102,81 +102,80 @@
                      (cons "count" comment-count))))
              #()))))
 
-(progn
-  (defun %document-format (path override)
-    (if override
-        (cond
-          ((string-equal override "json") "json")
-          ((string-equal override "yaml") "yaml")
-          ((string-equal override "toml") "toml"))
-        (let ((extension (and path (pathname-type path))))
-          (cond
-            ((and (stringp extension) (string-equal extension "json")) "json")
-            ((and (stringp extension)
-                  (or (string-equal extension "yaml")
-                      (string-equal extension "yml")))
-             "yaml")
-            ((and (stringp extension) (string-equal extension "toml")) "toml")))))
+(defun %document-format (path override)
+  (if override
+      (cond
+       ((string-equal override "json") "json")
+       ((string-equal override "yaml") "yaml")
+       ((string-equal override "toml") "toml"))
+    (let ((extension (and path (pathname-type path))))
+      (cond
+       ((and (stringp extension) (string-equal extension "json")) "json")
+       ((and (stringp extension)
+             (or (string-equal extension "yaml")
+                 (string-equal extension "yml")))
+        "yaml")
+       ((and (stringp extension) (string-equal extension "toml")) "toml")))))
 
-  (defun %document-format-repair (verb positionals options)
-    (let* ((name (format nil "doc.~A" verb))
-           (repair-options (copy-list options)))
-      (setf (getf repair-options :format) "<json|yaml|toml>")
-      (let* ((argv (options-argv name positionals repair-options))
-             (retry-options
-              (append
-               (when (getf options :tx)
-                 (list "--tx" (getf options :tx)))
-               (when (getf options :dry-run)
-                 (list "--dry-run"))
-               (when (or (getf options :stdin)
-                         (getf options :stdin-data))
-                 (list "--stdin"))))
-             (separator (position "--" argv :test (function string=)))
-             (command
-              (apply (function aitools.protocol.domain:command-line)
-                     (append
-                      (list "aitools")
-                      (if separator
-                          (append (subseq argv 0 separator)
-                                  retry-options
-                                  (subseq argv separator))
-                        (append argv retry-options))))))
-        (repair "specify-format"
-                "Pass --format with the document format, then retry."
-                command))))
+(defun %document-format-repair (verb positionals options)
+  (let* ((name (format nil "doc.~A" verb))
+         (repair-options (copy-list options)))
+    (setf (getf repair-options :format) "<json|yaml|toml>")
+    (let* ((argv (options-argv name positionals repair-options))
+           (retry-options
+            (append
+             (when (getf options :tx)
+               (list "--tx" (getf options :tx)))
+             (when (getf options :dry-run)
+               (list "--dry-run"))
+             (when (or (getf options :stdin)
+                       (getf options :stdin-data))
+               (list "--stdin"))))
+           (separator (position "--" argv :test (function string=)))
+           (command
+            (apply (function aitools.protocol.domain:command-line)
+                   (append
+                    (list "aitools")
+                    (if separator
+                        (append (subseq argv 0 separator)
+                                retry-options
+                                (subseq argv separator))
+                      (append argv retry-options))))))
+      (repair "specify-format"
+              "Pass --format with the document format, then retry."
+              command))))
 
-  (defun %format-plan (format command path transform options
-                       &key serializer repair-pointer record-options
-                         record-positionals inputs indent-function sort-keys)
-    (make-write-plan
-     :command command
-     :targets (list (make-write-target path))
-     :inputs inputs
-     :expect-hashes (getf options :expect-hash)
-     :replayable (null (getf options :expect-hash))
-     :plan (%json-plan transform
-                       :repair-pointer repair-pointer
-                       :indent-function indent-function
-                       :sort-keys sort-keys
-                       :reader (unless (string= format "json")
-                                 (lambda (context target &key on-error on-json)
-                                   (%read-format/k format command context target
-                                                   :on-error on-error
-                                                   :on-json on-json)))
-                       :document-function
-                       (unless (string= format "json")
-                         (lambda (document value comment-count)
-                           (%format-document format document value comment-count serializer)))
-                       :repairs-function (unless (string= format "json")
-                         (lambda (command path code pointer)
-                           (%format-repairs format command path code pointer)))
-                       :extra-function
-                       (unless (string= format "json") (function %format-warning-fields)))
-     :record-options (or record-options options)
-     :record-positionals (or record-positionals
-                             (lambda (paths) (list (first paths))))))
-)
+(defun %format-plan (format command path transform options
+                            &key serializer repair-pointer record-options
+                            record-positionals inputs indent-function sort-keys)
+  (make-write-plan
+   :command command
+   :targets (list (make-write-target path))
+   :inputs inputs
+   :expect-hashes (getf options :expect-hash)
+   :replayable (null (getf options :expect-hash))
+   :plan (%json-plan transform
+                     :repair-pointer repair-pointer
+                     :indent-function indent-function
+                     :sort-keys sort-keys
+                     :reader (unless (string= format "json")
+                               (lambda (context target &key on-error on-json)
+                                 (%read-format/k format command context target
+                                                 :on-error on-error
+                                                 :on-json on-json)))
+                     :document-function
+                     (unless (string= format "json")
+                       (lambda (document value comment-count)
+                         (%format-document format document value comment-count serializer)))
+                     :repairs-function (unless (string= format "json")
+                                         (lambda (command path code pointer)
+                                           (%format-repairs format command path code pointer)))
+                     :extra-function
+                     (unless (string= format "json") (function %format-warning-fields)))
+   :record-options (or record-options options)
+   :record-positionals (or record-positionals
+                           (lambda (paths) (list (first paths))))))
+
 
 (aitools.kernel.domain:define-flow (%format-fmt/k format command ports positionals options &key on-plan on-error)
   (let* ((path (first positionals))
