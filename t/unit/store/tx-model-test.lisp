@@ -75,7 +75,9 @@
         (expect (member staged-hash hashes :test (function string=)) :to-be-truthy))))
   (it-each (("unchanged file" "file.txt" :file #o644 #o644 nil nil nil)
             ("staged directory mode change" "directory" :directory #o755 #o700 nil nil t)
-            ("staged file mtime change" "file.txt" :file #o644 #o644 nil 123 t))
+            ("unchanged directory mode" "directory" :directory #o755 #o755 nil nil nil)
+            ("staged file mtime change" "file.txt" :file #o644 #o644 nil 123 t)
+            ("unchanged file mtime" "file.txt" :file #o644 #o644 123 123 nil))
     "tx-staged-changed-p reports the result for ~A"
     (label path kind base-mode staged-mode base-mtime staged-mtime expected)
     (let* ((hash (make-string 64 :initial-element #\a))
