@@ -33,8 +33,22 @@ when the first byte has its high bit set."
                         (t (%archive-fail "invalid octal digit in tar header"))))
          value)))))
 
-(defun %tar-string (octets offset length)
-  (let ((end (or (position 0 octets :start offset :end (+ offset length)) (+ offset length))))
+(defun %tar-string (octets offset length &optional link-target-p)
+  (let ((end (or (position 0 octets :start offset :end (+ offset length))
+                 (+ offset length))))
+    (when (and link-target-p
+               (> (- end offset) +archive-max-link-target-bytes+))
+      (error 'archive-limit-exceeded
+             :limit +archive-max-link-target-bytes+
+             :reason "tar link target"))
+    (let ((problem (%archive-path-octets-problem octets offset end)))
+      (when problem
+        (error 'archive-limit-exceeded
+               :limit (ecase problem
+                        (:path-too-long +archive-max-path-bytes+)
+                        (:component-too-long +archive-max-component-bytes+)
+                        (:too-deep +archive-max-depth+))
+               :reason (if link-target-p "tar link target" "tar path"))))
     (%name-from-octets octets offset end)))
 
 (defun %tar-checksum-ok-p (octets offset)
@@ -65,9 +79,26 @@ when the first byte has its high bit set."
                  (%archive-fail "malformed pax record"))
                (let ((equals (or (position 61 octets :start (1+ space) :end record-end)
                                  (%archive-fail "pax record has no key"))))
-                 (push (cons (decode-utf8 octets :start (1+ space) :end equals)
-                             (decode-utf8 octets :start (1+ equals) :end (1- record-end)))
-                       records))
+                 (let* ((key (decode-utf8 octets :start (1+ space) :end equals))
+                        (value-start (1+ equals))
+                        (value-end (1- record-end))
+                        (link-target-p (string= key "linkpath")))
+                   (when (member key '("path" "linkpath") :test #'string=)
+                     (when (and link-target-p
+                                (> (- value-end value-start) +archive-max-link-target-bytes+))
+                       (error 'archive-limit-exceeded
+                              :limit +archive-max-link-target-bytes+
+                              :reason "tar link target"))
+                     (let ((problem (%archive-path-octets-problem octets value-start value-end)))
+                       (when problem
+                         (error 'archive-limit-exceeded
+                                :limit (ecase problem
+                                         (:path-too-long +archive-max-path-bytes+)
+                                         (:component-too-long +archive-max-component-bytes+)
+                                         (:too-deep +archive-max-depth+))
+                                :reason (if link-target-p "tar link target" "tar path")))))
+                   (push (cons key (decode-utf8 octets :start value-start :end value-end))
+                         records)))
                (setf position record-end)))
     (nreverse records)))
 
@@ -83,15 +114,22 @@ when the first byte has its high bit set."
 (defun read-tar-entries (octets)
   "The ARCHIVE-ENTRY list of the tar archive OCTETS, ending at the first
 zero block or the end of the data. Metadata-only headers (pax, GNU long
-names) are consumed, not listed. Directory names lose their trailing `/`."
+names) are consumed, not listed. Directory names lose their trailing '/'."
   (declare (type octets octets))
-  (let ((position 0) (entries '()) (global '()) (pax '()) (long-name nil) (long-link nil))
+  (let ((position 0) (entries '()) (global '()) (pax '())
+        (long-name nil) (long-link nil) (record-count 0))
     (loop
       (when (> (+ position +tar-block+) (length octets))
         (when (< position (length octets)) (%archive-fail "tar archive ends inside a header"))
         (return))
-      (when (every #'zerop (subseq octets position (+ position +tar-block+)))
+      (when (loop for index from position below (+ position +tar-block+)
+                  always (zerop (aref octets index)))
         (return))
+      (incf record-count)
+      (when (> record-count +archive-max-tar-records+)
+        (error 'archive-limit-exceeded
+               :limit +archive-max-tar-records+
+               :reason "tar records"))
       (unless (%tar-checksum-ok-p octets position) (%archive-fail "tar header checksum mismatch"))
       (let* ((type (code-char (aref octets (+ position 156))))
              (records (append pax global))
@@ -104,7 +142,7 @@ names) are consumed, not listed. Directory names lose their trailing `/`."
           (#\x (setf pax (%parse-pax-records octets data-start (+ data-start size))))
           (#\g (setf global (append (%parse-pax-records octets data-start (+ data-start size)) global)))
           (#\L (setf long-name (%tar-string octets data-start size)))
-          (#\K (setf long-link (%tar-string octets data-start size)))
+          (#\K (setf long-link (%tar-string octets data-start size t)))
           (t
            (let* ((ustar (and (= (aref octets (+ position 257)) 117)
                               (string= "ustar" (map 'string #'code-char (subseq octets (+ position 257) (+ position 262))))
@@ -118,7 +156,7 @@ names) are consumed, not listed. Directory names lose their trailing `/`."
                                 field-name)))
                   (link (or (cdr (assoc "linkpath" records :test #'string=))
                             long-link
-                            (%tar-string octets (+ position 157) 100)))
+                            (%tar-string octets (+ position 157) 100 t)))
                   (kind (case type
                           ((#\0 #\7 #\Nul) (if (and (plusp (length name))
                                                               (char= (char name (1- (length name))) #\/))
