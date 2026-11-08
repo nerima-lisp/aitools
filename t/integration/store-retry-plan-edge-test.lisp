@@ -164,7 +164,29 @@
         :to-be :busy)
        (expect attempts :to-be 2)
        (expect (nreverse delays) :to-equal '(5))))
-   :io nil)))
+   :io nil))
+  (it "retries flock after EINTR"
+    (call-with-temp-store
+     (lambda (store)
+       (let* ((io (store-boundaries store))
+              (path (disk-path store "interrupted-lock"))
+              (real-flock (symbol-function 'aitools.store.infrastructure::%flock))
+              (calls 0)
+              (handle nil))
+         (unwind-protect
+              (progn
+                (setf (symbol-function 'aitools.store.infrastructure::%flock)
+                      (lambda (fd operation)
+                        (if (= (incf calls) 1)
+                            (progn (sb-alien:set-errno sb-posix:eintr) -1)
+                            (funcall real-flock fd operation))))
+                (setf handle (funcall (store-operation io :try-lock) path :create t))
+                (expect (integerp handle) :to-be t)
+                (expect calls :to-be 2)
+                (funcall (store-operation io :unlock) handle)
+                (setf handle nil))
+           (setf (symbol-function 'aitools.store.infrastructure::%flock) real-flock)
+           (when handle (funcall (store-operation io :unlock) handle))))) :io nil)))
 
 (describe "aitools.store planner boundary cases"
   (it
@@ -200,4 +222,11 @@
               "target~Cpath"
               (code-char 0))))))
      :to-equal
-     "argument.invalid")))
+     "argument.invalid"))
+  (it "rejects deleting a directory after planning a child"
+    (expect
+     (nth-value 1
+       (plan (list (cons "d" (directory-state)))
+             (list (write-file-request "d/new" (bytes "x"))
+                   (delete-request "d"))))
+     :to-equal "refusal.not-a-file")))
