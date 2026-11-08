@@ -207,7 +207,28 @@ lock is held."
                 (expect (temp-files store) :to-equal temps)
                 (expect (disk-text store "a.txt") :to-equal "a-old"))
            (kill-child pid))))
-     :io nil)))
+     :io nil))
+  (it "returns none after another recovery consumes the intent before lock acquisition"
+    (call-with-temp-store
+     (lambda (plain)
+       (put-file plain "a.txt" "a-old")
+       (expect (call-with-fault-at :after-intent (lambda () (two-file-write plain)))
+               :to-be-truthy)
+       (let* ((base (store-boundaries plain))
+              (try-lock (store-operation base :try-lock))
+              (raced nil)
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base :try-lock
+                 (lambda (path &rest keys)
+                   (unless raced
+                     (setf raced t)
+                     (expect (recover plain) :to-be :recovered))
+                   (apply try-lock path keys))))
+              (store (make-store boundaries (store-root plain) (state-home-of plain))))
+         (expect (recover store) :to-be :none)
+         (expect raced :to-be-truthy)
+         (expect (all-applied-p plain) :to-be-truthy))) :io nil)))
 
 (describe "aitools.store state-directory creation race"
   (it "accepts a directory created between lstat and mkdir"

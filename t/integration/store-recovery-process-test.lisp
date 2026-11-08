@@ -179,7 +179,19 @@
       (multiple-value-bind (status entries) (recover store)
         (expect status :to-be :recovered)
         (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
-      (expect (all-applied-p store) :to-be-truthy)) :io nil)))
+      (expect (all-applied-p store) :to-be-truthy)) :io nil))
+  (it "skips replaying chmod when its target is absent"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "old")
+       (expect (call-with-fault-at :after-intent
+                    (lambda () (commit store (list (chmod-request "a.txt" #o600)))))
+               :to-be-truthy)
+       (sb-posix:unlink (disk-path store "a.txt"))
+       (expect (recover store) :to-be :recovered)
+       (expect (disk-text store "a.txt") :to-be :absent)
+       (expect (intent-files store) :to-equal '())
+       (expect (length (read-journal store)) :to-be 1)) :io nil)))
 
 (defun write-intent-record (store op-id octets)
   (let ((path (intent-file-path (store-state-directory store) op-id)))
