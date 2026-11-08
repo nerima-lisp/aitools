@@ -90,6 +90,14 @@
                             (disk-path store "loop-a"))
                  :to-equal (aitools.kernel.domain:content-hash (bytes "loop-b")))))
      :io nil))
+  (it "rejects a write path whose parent symlink loops"
+    (call-with-temp-store
+     (lambda (store)
+       (sb-posix:symlink "loop-b" (disk-path store "loop-a"))
+       (sb-posix:symlink "loop-a" (disk-path store "loop-b"))
+       (expect (aitools.store.application::%path-violation store "loop-a/pwn.txt")
+               :to-equal "cannot be resolved (symlink loop)"))
+     :io nil))
 
   (it "hashes staged file contents through a symlink in the tx view"
     (call-with-temp-store
