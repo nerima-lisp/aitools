@@ -182,65 +182,18 @@
       (commit store (list (symlink-request "l" "real.txt")))
       (commit store (list (write-file-request "l" (bytes "replaced"))))
       (expect (entry-state-kind (workspace-state store "l")) :to-be :file)
-      (expect (disk-text store "real.txt") :to-equal "r")) :io nil))
-  (it "refuses case-only replacement paths on a case-insensitive filesystem"
-    (call-with-temp-store
-     (lambda (plain)
-       (let* ((base-io (store-io-port plain))
-              (native-lstat (store-io-lstat base-io))
-              (io (aitools.store.application::copy-store-io
-                   base-io
-                   :lstat
-                   (lambda (path)
-                     (multiple-value-bind (kind mode target mtime links identity)
-                         (funcall native-lstat path)
-                       (if (eq kind :absent)
-                           (let* ((slash (position (code-char 47) path :from-end t))
-                                  (parent (if slash (subseq path 0 slash) "."))
-                                  (name (if slash (subseq path (1+ slash)) path))
-                                  (alias
-                                    (find name
-                                          (funcall
-                                           (aitools.store.application:store-io-list-directory base-io)
-                                           parent)
-                                          :test (function string-equal))))
-                             (if alias
-                                 (funcall native-lstat (format nil "~A/~A" parent alias))
-                                 (values kind mode target mtime links identity)))
-                           (values kind mode target mtime links identity))))))
-              (store (make-store io (store-root plain)
-                                 (subseq (store-state-directory plain) 0
-                                         (position #\/ (store-state-directory plain) :from-end t)))))
-         (sb-posix:mkdir (disk-path store "nested") #o755)
-         (dolist (paths (list (list "README" "readme")
-                              (list "nested/README" "nested/readme")))
-           (expect (nth-value 1
-                              (commit store
-                                      (mapcar (lambda (path)
-                                                (write-file-request path (bytes "content")))
-                                              paths)))
-                   :to-equal "refusal.exists")
-           (dolist (path paths)
-             (expect (entry-state-kind (workspace-state store path)) :to-be :absent))
-           (expect (temp-files store) :to-equal nil)
-           (expect (intent-files store) :to-equal nil))
-         (expect (handler-case
-                     (progn
-                       (aitools.store.application::%refuse-case-collisions
-                        store
-                        (list (make-intent-step :op :utime :path "ignored")
-                              (make-intent-step :op :replace :path "README"
-                                                :temp ".aitools-probe.tmp" :kind :file)
-                              (make-intent-step :op :replace :path "README"
-                                                :temp ".aitools-probe.tmp" :kind :file)
-                              (make-intent-step :op :replace :path "readme"
-                                                :temp ".aitools-probe.tmp" :kind :file)
-                              (make-intent-step :op :replace :path "ignored-after-collision"
-                                                :temp ".aitools-probe.tmp" :kind :file)))
-                       nil)
-                   (aitools.store.application::store-refusal (condition) (aitools.store.application::store-refusal-code condition)))
-                 :to-equal "refusal.exists")
-         (expect (entry-state-kind (workspace-state store ".aitools-probe.tmp")) :to-be :absent)
-         (expect (temp-files store) :to-equal nil)))
-    :io nil)))
+      (expect (disk-text store "real.txt") :to-equal "r")) :io nil)))
+(describe "aitools.store temporary root validation"
+  (it-each (("/state/aitools/project/tmp" t)
+            ("/state/aitools/project" nil)
+            ("/tmp" nil)
+            ("/state/aitools//tmp" nil)
+            ("/state/aitools/./tmp" nil))
+      "validates temporary root form ~A"
+      (root valid-p)
+    (if valid-p
+        (let ((store (make-store (make-posix-store-io) root "/state/aitools" :temporary t)))
+          (expect (store-temporary store) :to-be t)
+          (expect (store-state-directory store) :to-equal "/state/aitools/project"))
+        (signals error (make-store (make-posix-store-io) root "/state/aitools" :temporary t)))))
 

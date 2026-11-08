@@ -54,6 +54,7 @@
  :components ((:file "tx-commit-test")
               (:file "tx-archive-branch-coverage-test")))
                         (:file "integration/store-write-protocol-test")
+                        (:file "integration/store-case-collision-test")
                         (:file "integration/store-journal-undo-test")
                         (:file "integration/store-recovery-test")
                         (:file "integration/store-recovery-process-test")
