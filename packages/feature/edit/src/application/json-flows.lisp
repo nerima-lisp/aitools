@@ -60,22 +60,21 @@ when it is not JSON."
      (or (document-final-newline-p document)
          (zerop (document-line-count document))))))
 
-(defun %json-repairs (path code repair-pointer)
-  "contract-F3: repairs for a JSON write failure that mirror `doc get`
-rather than the generic file repairs. REPAIR-POINTER is the command's pointer
-tokens (set/delete) or NIL (merge/patch/fmt)."
+(defun %json-repairs (path code repair-pointer &optional format-override)
+  "Repairs for a JSON write failure that mirror doc get. REPAIR-POINTER is the
+command's pointer tokens (set/delete) or NIL (merge/patch/fmt). FORMAT-OVERRIDE
+keeps an explicit format usable for extensionless paths."
   (let ((file (aitools.protocol.domain:shell-quote path)))
     (flet ((get-cmd (tokens)
-             (if tokens
-                 (format nil
-                         "aitools doc get ~A ~A"
-                         file
-                         (aitools.protocol.domain:shell-quote
-                          (format-json-pointer tokens)))
-                 (format nil
-                         "aitools doc get ~A ~A"
-                         file
-                         (aitools.protocol.domain:shell-quote "")))))
+             (format nil
+                     "aitools doc get ~A ~A~A"
+                     file
+                     (aitools.protocol.domain:shell-quote
+                      (format-json-pointer tokens))
+                     (if format-override
+                         (format nil " --format ~A"
+                                 (aitools.protocol.domain:shell-quote format-override))
+                         ""))))
       (if (and repair-pointer (string= code "input.not-found"))
           (list
            (repair "list-keys"

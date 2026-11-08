@@ -152,9 +152,11 @@
                      (unless (string= format "json")
                        (lambda (document value comment-count)
                          (%format-document format document value comment-count serializer)))
-                     :repairs-function (unless (string= format "json")
-                                         (lambda (command path code pointer)
-                                           (%format-repairs format command path code pointer)))
+                     :repairs-function
+                     (lambda (command path code pointer)
+                       (if (string= format "json")
+                           (%json-repairs path code pointer (getf options :format))
+                           (%format-repairs format command path code pointer)))
                      :extra-function
                      (unless (string= format "json") (function %format-warning-fields)))
    :record-options (or record-options options)

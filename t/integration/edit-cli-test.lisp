@@ -225,6 +225,37 @@
            (expect (search "--tx tx-id" command) :to-be-truthy)
            (expect (search "--dry-run" command) :to-be-truthy)
            (expect (search "--stdin -- -extensionless" command) :to-be-truthy))))))
+  (it "runs explicit JSON repairs for extensionless paths"
+    (call-with-cli-workspace
+     (lambda ()
+       (multiple-value-bind (code envelope)
+           (run-aitools "doc" "fmt" "nodata" "--format" "json")
+         (expect code :to-be 1)
+         (expect (envelope-value envelope "error" "code")
+                 :to-equal "input.not-found")
+         (expect (envelope-value
+                  (aref (envelope-value envelope "error" "repairs") 0)
+                  "command")
+                 :to-equal "aitools doc get nodata '' --format json"))
+       (put "nodata" "{\"value\":1}")
+       (multiple-value-bind (code envelope)
+           (run-aitools "doc" "get" "nodata" "" "--format" "json")
+         (expect code :to-be 0)
+         (expect (envelope-value envelope "status") :to-equal "ok"))
+       (put "data" "{\"a\":{\"b\":[]}}")
+       (multiple-value-bind (code envelope)
+           (run-aitools "doc" "set" "data" "/a/b/c" "1" "--format" "json")
+         (expect code :to-be 1)
+         (expect (envelope-value envelope "error" "code")
+                 :to-equal "input.not-found")
+         (expect (envelope-value
+                  (aref (envelope-value envelope "error" "repairs") 0)
+                  "command")
+                 :to-equal "aitools doc get data /a/b --format json"))
+       (multiple-value-bind (code envelope)
+           (run-aitools "doc" "get" "data" "/a/b" "--format" "json")
+         (expect code :to-be 0)
+         (expect (envelope-value envelope "status") :to-equal "ok")))))
   (it "repairs missing JSON pointers and files with doc get"
     (call-with-cli-workspace
      (lambda ()
