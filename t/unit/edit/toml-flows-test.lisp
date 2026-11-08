@@ -131,6 +131,16 @@
         (declare (ignore message keys))
         (expect status :to-be :error)
         (expect code :to-equal "input.not-found")))))
+  (it "rejects a TOML null in an array with its item pointer"
+    (call-with-edit-workspace (lambda ()
+      (put "doc.toml" (format nil "a = 1~%"))
+      (multiple-value-bind (status code message keys)
+          (run "doc.set" (list "doc.toml")
+               :stdin-data "{\"pointer\":\"/profile\",\"value\":{\"items\":[1,null]}}")
+        (declare (ignore keys))
+        (expect status :to-be :error)
+        (expect code :to-equal "input.unsupported-value")
+        (expect (search "/profile/items/1" message) :to-be-truthy)))))
   (it "rejects unsupported TOML source values through doc fmt"
     (call-with-edit-workspace
      (lambda ()

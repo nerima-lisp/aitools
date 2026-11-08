@@ -184,6 +184,14 @@ B
       (expect (error-code fields) :to-equal "input.not-found")
       (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "src/reader.lisp")
       (expect (plusp (length (getf (first (getf fields :repairs)) :command))) :to-be t)))
+  (it "uses an outside missing path basename to find workspace candidates"
+    (multiple-value-bind (kind fields)
+        (read-file (quote (("/work/src/reader.lisp" . "x")))
+                   "/outside/src/reader.lisp")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (json-object-get (first (getf fields :candidates)) "path")
+              :to-equal "src/reader.lisp")))
 
   (it "refuses a directory as refusal.not-a-file"
     (expect (error-code (nth-value 1 (read-file '(("/work/d/x" . "1")) "d"))) :to-equal "refusal.not-a-file")))

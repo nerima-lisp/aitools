@@ -28,4 +28,10 @@
             (expect code :to-be 1)
             (expect (value envelope "error" "code") :to-equal "argument.invalid")
             (expect (repair-commands envelope)
-                    :to-equal (list (format nil "aitools doc ~A" verb)))))))))
+                    :to-equal (list (format nil "aitools doc ~A" verb))))))))
+  (it "uses the generic repair for an unknown retired-format verb"
+    (multiple-value-bind (code envelope)
+        (run-plain "yaml" "frobnicate")
+      (expect code :to-be 1)
+      (expect (value envelope "error" "code") :to-equal "argument.invalid")
+      (expect (repair-commands envelope) :to-equal (list "aitools schema")))))
