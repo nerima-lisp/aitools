@@ -145,4 +145,72 @@
          (with-error (code)
            (run "archive.extract" (list "existing-parent.tar") :to "dest")
            (expect code :to-equal "refusal.outside-workspace"))
+         (expect-unchanged before)))))
+  (it "refuses links through archive symlinks before trailing .. with --to . and no writes"
+  (dolist (links
+           (list (list (list "D" ".") (list "s" "D/.."))
+                 (list (list "X/D" "..") (list "s" "X/D/.."))
+                 (list (list "X/D" "..") (list "s" "x/d/.."))
+                 (list (list "é" ".") (list "s" "é/.."))
+                 (list (list "ß" ".") (list "s" "SS/.."))
+                 (list (list "İ" ".") (list "s" (format nil "i~C/.." (code-char #x307))))
+                 (list (list "A" "B") (list "B" ".") (list "s" "A/.."))
+                 (list (list "a/B" "..") (list "s" "a/B/.."))))
+    (call-with-edit-workspace
+     (lambda ()
+       (put "trailing-link.tar"
+            (aitools.text.domain:write-tar
+             (mapcar (lambda (link)
+                       (aitools.text.domain:make-archive-member
+                        :name (first link) :kind :symlink :link-target (second link)))
+                     links)))
+       (let ((before (snapshot)))
+         (with-error (code)
+           (run "archive.extract" (list "trailing-link.tar") :to ".")
+           (expect code :to-equal "refusal.outside-workspace"))
          (expect-unchanged before))))))
+  (it "refuses a target whose final component is an existing destination symlink without writes"
+  (call-with-edit-workspace
+   (lambda ()
+     (put "final-destination-link.tar"
+          (aitools.text.domain:write-tar
+           (list (aitools.text.domain:make-archive-member
+                  :name "y" :kind :symlink :link-target "e"))))
+     (sb-posix:mkdir (disk "dest") #o755)
+     (sb-posix:symlink ".." (disk "dest/e"))
+     (let ((before (snapshot)))
+       (with-error (code)
+         (run "archive.extract" (list "final-destination-link.tar") :to "dest")
+         (expect code :to-equal "refusal.outside-workspace"))
+       (expect-unchanged before)))))
+  #+linux
+(it "extracts README and readme as distinct entries on a case-sensitive filesystem"
+  (call-with-edit-workspace
+   (lambda ()
+     (put "case-distinct.tar"
+          (aitools.text.domain:write-tar
+           (list (member-file "README" "upper")
+                 (member-file "readme" "lower"))))
+     (expect (nth-value 0 (run "archive.extract" (list "case-distinct.tar") :to ".")) :to-be :ok)
+     (expect (text "README") :to-equal "upper")
+     (expect (text "readme") :to-equal "lower"))))
+  #+darwin
+(it "handles case-only archive name collisions at commit on macOS"
+  (call-with-edit-workspace
+   (lambda ()
+     (put "case-distinct.tar"
+          (aitools.text.domain:write-tar
+           (list (member-file "README" "upper")
+                 (member-file "readme" "lower"))))
+     (let ((before (snapshot)))
+       (multiple-value-bind (kind code fields)
+           (run "archive.extract" (list "case-distinct.tar") :to ".")
+         (declare (ignore fields))
+         (case kind
+           (:ok
+            (expect (text "README") :to-equal "upper")
+            (expect (text "readme") :to-equal "lower"))
+           (:error
+            (expect code :to-equal "refusal.exists")
+            (expect-unchanged before))
+           (otherwise (expect kind :to-be :ok)))))))))

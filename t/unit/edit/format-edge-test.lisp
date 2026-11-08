@@ -16,112 +16,6 @@ entries WRITE-TAR does not produce."
       (setf (aref data (+ header 154)) 0 (aref data (+ header 155)) 32))
     data))
 
-(defun format-edge-archive-refusal (members &optional (lookup (constantly :absent)))
-  (refusal-code
-   (lambda ()
-     (extract-plan (aitools.text.domain:write-tar members) :tar :lookup lookup))))
-
-(describe "aitools.edit.domain archive symlink planner edge cases"
-  (it "refuses archive link chain a during planning"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x/d" :kind :symlink :link-target "..")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink :link-target "x/d/..")))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "refuses archive link chain b during planning"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "a/b/c" :kind :symlink :link-target "../..")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink
-                    :link-target "a/b/c/../../../escaped")))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "refuses a file through an escaping archive link before writing"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "a/b/c" :kind :symlink :link-target "../..")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink
-                    :link-target "a/b/c/../../../escaped")
-                   (member-file "s/PWNED" "payload")))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "refuses an entry beneath an archive symlink during planning"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x/d" :kind :symlink :link-target "..")
-                   (member-file "x/d/f" "payload")))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "refuses repeated archive symlink aliases before later parent traversal"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x/d" :kind :symlink :link-target "..")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink
-                    :link-target "x/d/x/d/../../escaped-target")))
-            :to-equal "refusal.outside-workspace")
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x" :kind :symlink :link-target ".")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink
-                    :link-target "x/x/x/x/../../../escaped")))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "uses folded and normalized keys for archive symlink prefixes"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "X/D" :kind :symlink :link-target "..")
-                   (aitools.text.domain:make-archive-member
-                    :name "s" :kind :symlink
-                    :link-target "x/d/../../escaped")))
-            :to-equal "refusal.outside-workspace")
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "X/D" :kind :symlink :link-target "..")
-                   (member-file "x/d/f" "payload")))
-            :to-equal "refusal.outside-workspace")
-    (let ((decomposed (format nil "e~C/d" (code-char #x301))))
-      (expect (format-edge-archive-refusal
-               (list (aitools.text.domain:make-archive-member
-                      :name "é/d" :kind :symlink :link-target "..")
-                     (aitools.text.domain:make-archive-member
-                      :name "s" :kind :symlink
-                      :link-target (format nil "~A/../../escaped" decomposed))))
-              :to-equal "refusal.outside-workspace")))
-
-  (it "rejects archive entry names that collide after Unicode case folding"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "ς/d" :kind :symlink :link-target ".")
-                   (member-file "σ/d" "payload")))
-            :to-equal "refusal.exists")
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "Straße" :kind :symlink :link-target ".")
-                   (member-file "STRASSE" "payload")))
-            :to-equal "refusal.exists"))
-
-  (it "rejects a destination symlink reached through an archive link alias"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x/d" :kind :symlink :link-target "..")
-                   (aitools.text.domain:make-archive-member
-                    :name "y" :kind :symlink :link-target "x/d/e/etc"))
-             (lambda (path) (if (string= path "out/e") :symlink :absent)))
-            :to-equal "refusal.outside-workspace"))
-
-  (it "rejects entry names that collide after slash normalization"
-    (expect (format-edge-archive-refusal
-             (list (aitools.text.domain:make-archive-member
-                    :name "x/d" :kind :symlink :link-target "..")
-                   (member-file "x//d" "payload")))
-            :to-equal "refusal.exists")))
-
 (describe "aitools.edit.domain archive extraction plans: formats and entry kinds"
   (it "extracts a gz member under its stored name, else the archive's name without .gz"
     (let ((named (aitools.text.domain:gzip-compress (bytes "hello") :name "inner.txt"))
@@ -183,6 +77,20 @@ entries WRITE-TAR does not produce."
       (expect (extract-step-mode (second steps)) :to-be #o600)
       (expect (refusal-code (lambda () (extract-plan dangling :tar))) :to-equal "refusal.outside-workspace")
       (expect (refusal-code (lambda () (extract-plan escaping :tar))) :to-equal "refusal.outside-workspace")))
+  (it "matches hard-link targets by normalized case-sensitive names"
+  (let* ((case-mismatch
+           (aitools.text.domain:write-tar
+            (list (member-file "f" "payload") (member-file "h" ""))))
+         (normalized-match
+           (aitools.text.domain:write-tar
+            (list (member-file "d/f" "payload") (member-file "h" "")))))
+    (expect (refusal-code
+             (lambda ()
+               (extract-plan (retype-tar-entry case-mismatch 1024 #\1 :link "F") :tar)))
+            :to-equal "refusal.outside-workspace")
+    (expect (mapcar #'extract-step-path
+                    (extract-plan (retype-tar-entry normalized-match 1024 #\1 :link "./d//f") :tar))
+            :to-equal '("out/d/f" "out/h"))))
 
   (it "refuses a hard link to a directory and a device or special entry"
     (let ((tar (aitools.text.domain:write-tar

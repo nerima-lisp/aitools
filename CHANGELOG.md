@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Security: `archive extract` refuses link targets that leave the extraction
+  root, pass through an archive symlink at any target component, or pass
+  through an existing destination symlink, including at the target's final
+  component. Archive-symlink checks treat case and canonically equivalent
+  Unicode names as the same path. Entry selection, duplicate-name checks, and
+  hard-link lookup preserve case and Unicode spelling after empty and `.` path
+  components are removed. Case-only file or symlink path collisions work on
+  case-sensitive filesystems and are refused during the write on case-insensitive
+  filesystems.
 - `aitools sys info` now returns `environment.unavailable` when its uptime source
   is missing or malformed; previously, its response could contain a `null`
   uptime. CPU and memory values are optional, but uptime is required for a
@@ -9,7 +18,6 @@
 
 ## v0.4.0
 
-- Security: `archive extract` rejects targets that leave the extraction root or traverse an archive symlink before their final component. With `x/d -> ..`, a target of `x/d/x/d/../../outside` is refused. It also rejects target paths that cross existing symlinks under the extraction root and entries whose parents cross archive or destination symlinks. `--to` is resolved before planning: an in-workspace symlink target is used as the extraction root, while a target outside the workspace is refused. Case-folded NFD path keys make case and canonical-equivalent names compare equal for symlink and duplicate checks.
 - Remove the top-level `delete` command. Use `rm` for files, symlinks, empty directories, and recursive trees.
 - Map the shell command `rmdir` to `aitools rm`; `rmdir` is not an aitools
   command. Calling the removed top-level `delete` command returns

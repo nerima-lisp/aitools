@@ -70,10 +70,11 @@ current kind (:absent :file :directory :symlink).
 Signals EDIT-REFUSAL: refusal.outside-workspace (absolute names, parent
 traversal, links leaving DESTINATION, or paths crossing symlinks),
 refusal.too-large (MAX-BYTES of output or MAX-ENTRIES entries exceeded),
-refusal.exists (a collision with an existing path or a duplicate name),
-input.not-found (a SELECTED name absent), input.unsupported-format (device
-or other special entries). Archive paths are compared after case folding
-and Unicode canonical normalization."
+refusal.exists (a collision with an existing path or a duplicate normalized
+name), input.not-found (a SELECTED name absent), input.unsupported-format
+(device or other special entries). Selection, duplicate, and hard-link names
+preserve case and Unicode spelling after removing empty and `.` components.
+Case-folded NFD keys are used only to detect traversal through archive symlinks."
   (let ((budget max-bytes))
     (labels ((path-components (path &key keep-dots)
                (let ((components (aitools.workspace.domain:path-components path)))
@@ -82,6 +83,8 @@ and Unicode canonical normalization."
                      (remove "." components :test (function string=)))))
              (path-name (components)
                (format nil "~{~A~^/~}" components))
+             (normalized-name (path)
+               (path-name (path-components path)))
              (path-key (path)
                (format nil "~{~A~^/~}"
                        (mapcar (lambda (component)
@@ -96,7 +99,7 @@ and Unicode canonical normalization."
                        collect (path-name (subseq parents 0 end)))))
              (check-entry-parents (name symlink-names)
                (dolist (parent (parent-paths name))
-                 (when (member (path-key parent) symlink-names :test #'string=)
+                 (when (gethash (path-key parent) symlink-names)
                    (refuse "refusal.outside-workspace"
                            "archive entry ~S has symlink parent ~S" name parent))
                  (when (eq (funcall lookup-kind
@@ -104,31 +107,40 @@ and Unicode canonical normalization."
                            :symlink)
                    (refuse "refusal.outside-workspace"
                            "archive entry ~S has existing symlink parent ~S" name parent))))
-             (check-existing-link-target (name target symlink-names)
+             (check-link-prefix (name directory symlink-names)
+               (when directory
+                 (let ((prefix (path-name directory)))
+                   (when (gethash (path-key prefix) symlink-names)
+                     (refuse "refusal.outside-workspace"
+                             "archive symlink ~S traverses archive symlink ~S" name prefix))
+                   (when (eq (funcall lookup-kind
+                                      (aitools.workspace.domain:join-path destination prefix))
+                             :symlink)
+                     (refuse "refusal.outside-workspace"
+                             "archive symlink ~S traverses existing symlink ~S" name prefix)))))
+             (check-link-target (name target symlink-names)
+               (when (or (zerop (length target))
+                         (char= (char target 0) #\/)
+                         (and (>= (length target) 2)
+                              (char= (char target 1) #\:)
+                              (alpha-char-p (char target 0)))
+                         (find #\\ target)
+                         (find (code-char 0) target))
+                 (refuse "refusal.outside-workspace"
+                         "archive symlink ~S has an absolute or invalid target ~S" name target))
                (let ((directory (butlast (path-components name)))
                      (components (path-components target :keep-dots t)))
-                 (loop for remaining on components
-                       for component = (car remaining)
-                       do (progn
-                            (when (and (rest remaining)
-                                       directory
-                                       (member (path-key (path-name directory))
-                                               symlink-names :test (function string=)))
-                              (refuse "refusal.outside-workspace"
-                                      "archive symlink ~S traverses archive symlink ~S"
-                                      name (path-name directory)))
-                            (cond ((string= component "..")
-                                   (setf directory (butlast directory)))
-                                  ((string= component "."))
-                                  (t (setf directory (append directory (list component)))))
-                            (when (and directory
-                                       (eq (funcall lookup-kind
-                                                    (aitools.workspace.domain:join-path
-                                                     destination (path-name directory)))
-                                           :symlink))
-                              (refuse "refusal.outside-workspace"
-                                      "archive symlink ~S traverses existing symlink ~S"
-                                      name (path-name directory)))))))
+                 (dolist (component components)
+                   (check-link-prefix name directory symlink-names)
+                   (cond ((string= component "..")
+                          (unless directory
+                            (refuse "refusal.outside-workspace"
+                                    "archive symlink ~S points outside the extraction (~A)"
+                                    name target))
+                          (setf directory (butlast directory)))
+                         ((string= component "."))
+                         (t (setf directory (append directory (list component)))))
+                   (check-link-prefix name directory symlink-names))))
              (take (data)
                ;; DATA was inflated with the budget left as its :MAX-OUTPUT, so
                ;; it never overdraws it: the inflater signals first.
@@ -157,40 +169,52 @@ and Unicode canonical normalization."
                                          max-bytes)))))
                     (%archive-entries tar :tar))
                   (%archive-entries octets format))
-            (let* ((symlink-names
+            (let* ((records
                      (loop for entry in raw-entries
-                           when (eq (aitools.text.domain:archive-entry-kind entry) :symlink)
-                             collect (path-key (%archive-entry-name entry))))
-                   (entries (remove-if (lambda (entry)
-                                         (string= (path-key (%archive-entry-name entry)) ""))
-                                       raw-entries))
-                   (chosen (if selected
-                               (loop for name in selected
-                                     collect (or (find (path-key name) entries
-                                                       :key (lambda (entry)
-                                                              (path-key (%archive-entry-name entry)))
-                                                       :test #'string=)
-                                                 (refuse "input.not-found" "no entry ~S in the archive" name)))
-                               entries))
+                           for name = (normalized-name (%archive-entry-name entry))
+                           unless (string= name "")
+                             collect (list entry name (path-key name))))
+                   (entries-by-name (make-hash-table :test 'equal))
+                   (symlink-names (make-hash-table :test 'equal))
+                   (chosen nil)
                    (seen (make-hash-table :test 'equal))
                    (steps '()))
+              (dolist (record records)
+                (let ((entry (first record))
+                      (name (second record)))
+                  (unless (nth-value 1 (gethash name entries-by-name))
+                    (setf (gethash name entries-by-name) record))
+                  (when (eq (aitools.text.domain:archive-entry-kind entry) :symlink)
+                    (setf (gethash (third record) symlink-names) t))))
+              (setf chosen
+                    (if selected
+                        (loop for name in selected
+                              for record = (gethash (normalized-name name) entries-by-name)
+                              collect (or record
+                                          (refuse "input.not-found"
+                                                  "no entry ~S in the archive" name)))
+                        records))
               (when (> (length chosen) max-entries)
                 (refuse "refusal.too-large" "the archive has ~D entries, over --max-entries ~D"
                         (length chosen) max-entries))
-              (let ((declared (reduce #'+ chosen :key #'aitools.text.domain:archive-entry-size)))
+              (let ((declared (reduce #'+ chosen
+                                      :key (lambda (record)
+                                             (aitools.text.domain:archive-entry-size
+                                              (first record))))))
                 (when (> declared max-bytes)
                   (refuse "refusal.too-large" "the entries declare ~D bytes, over --max-bytes ~D"
                           declared max-bytes)))
-              (dolist (entry chosen)
-                (let* ((name (%normalize-entry-name (aitools.text.domain:archive-entry-name entry)))
+              (dolist (record chosen)
+                (let* ((entry (first record))
+                       (name (second record))
                        (problem (aitools.text.domain:archive-entry-path-problem name))
                        (kind (aitools.text.domain:archive-entry-kind entry))
                        (path (aitools.workspace.domain:join-path destination name)))
                   (when problem
                     (refuse "refusal.outside-workspace" "archive entry ~S is unsafe (~(~A~))" name problem))
-                  (when (gethash (path-key name) seen)
+                  (when (gethash name seen)
                     (refuse "refusal.exists" "archive entry ~S occurs twice" name))
-                  (setf (gethash (path-key name) seen) t)
+                  (setf (gethash name seen) t)
                   (check-entry-parents name symlink-names)
                   (let ((existing (funcall lookup-kind path)))
                     (unless (or (eq existing :absent)
@@ -204,22 +228,18 @@ and Unicode canonical normalization."
                            steps))
                     (:symlink
                      (let ((target (or (aitools.text.domain:archive-entry-link-target entry) "")))
-                       (when (aitools.text.domain:archive-link-target-problem
-                              name target :symlink-names symlink-names)
-                         (refuse "refusal.outside-workspace" "archive symlink ~S points outside the extraction (~A)"
-                                 name target))
-                       (check-existing-link-target name target symlink-names)
+                       (check-link-target name target symlink-names)
                        (push (make-extract-step :symlink path :target target) steps)))
                     (:hardlink
                      (let* ((target (%archive-entry-link-target entry))
-                            (source (and (null (aitools.text.domain:archive-entry-path-problem target))
-                                         (find (path-key target) entries
-                                               :key (lambda (entry)
-                                                      (path-key (%archive-entry-name entry)))
-                                               :test #'string=))))
+                            (target-name (normalized-name target))
+                            (source-record
+                              (and (null (aitools.text.domain:archive-entry-path-problem target))
+                                   (gethash target-name entries-by-name)))
+                            (source (and source-record (first source-record))))
                        (unless (and source (eq (aitools.text.domain:archive-entry-kind source) :file))
-                         (refuse "refusal.outside-workspace" "archive hard link ~S has no file ~S in the archive"
-                                 name target))
+                         (refuse "refusal.outside-workspace"
+                                 "archive hard link ~S has no file ~S in the archive" name target))
                        (push (make-extract-step :file path :data (take-entry body source)
                                                 :mode (%archive-entry-mode source))
                              steps)))
