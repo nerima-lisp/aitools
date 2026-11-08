@@ -60,8 +60,7 @@
           (error "Executed-spec baseline contains trailing data: ~A" pathname))
         baseline))))
 
-(defparameter *minimum-executed-specs*
-  (getf *spec-count-baseline* :minimum-executed-specs)
+(defvar *minimum-executed-specs* 0
   "Fewer executed specs (passed, failed or errored; not skipped or todo) than the data-backed baseline fails the run.")
 (defparameter *allowed-unrun-specs*
   ;; Optional fields are an environment variable, its required state, and exact-reason matching.
@@ -112,6 +111,28 @@ the reported path."
 
 (defun %event-field (event key)
   (gethash key event))
+(defun %test-context-from-source-file (file source-files)
+  (let* ((source (when (and (stringp file) (probe-file file))
+                   (namestring (truename file))))
+         (contexts
+           (when source
+             (remove-duplicates
+              (loop for entry in source-files
+                    when (string= source (cdr entry))
+                      collect (car entry))
+              :test #'eq))))
+    (when (cdr contexts)
+      (error "Test source file belongs to multiple contexts: ~A" file))
+    (car contexts)))
+(defun %context-test-source-files ()
+  (loop for context in (mapcar #'car *context-spec-count-baselines*)
+        for system-name = (format nil "aitools/test/~A"
+                                  (string-downcase (symbol-name context)))
+        append
+        (loop for pathname in
+              (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
+                                system-name :include-dependencies nil)
+              collect (cons context (namestring (truename pathname))))))
 
 (defun %allowed-unrun-p (event)
   (let ((status (if (string= (%event-field event "status") "skip") :skip :todo))
@@ -132,15 +153,43 @@ the reported path."
 
 (defun %policy-problems (events &optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
   "Why the run fails even though no spec failed, as a list of strings."
-  (let ((minimum (%minimum-executed-specs-for-context context))
-        (executed (count-if (lambda (event)
-                              (member (%event-field event "status") '("pass" "fail" "error") :test #'string=))
-                            events))
-        (problems '()))
+  (let* ((minimum (%minimum-executed-specs-for-context context))
+         (executed-events
+           (remove-if-not
+            (lambda (event)
+              (member (%event-field event "status") '("pass" "fail" "error")
+                      :test #'string=))
+            events))
+         (executed (length executed-events))
+         (problems '()))
     (when (< executed minimum)
       (push (format nil "only ~D specs ran; at least ~D are expected for ~A"
                     executed minimum (or context "the full suite"))
             problems))
+    (when (null context)
+      (let ((source-files (%context-test-source-files))
+            (counts (make-hash-table :test #'eq)))
+        (dolist (entry *context-spec-count-baselines*)
+          (setf (gethash (car entry) counts) 0))
+        (dolist (event executed-events)
+          (let* ((location (%event-field event "location"))
+                 (file (and (hash-table-p location)
+                            (%event-field location "file")))
+                 (owner (%test-context-from-source-file file source-files)))
+            (if owner
+                (incf (gethash owner counts))
+              (push (format nil "executed spec ~A has no matching context source file ~S"
+                            (or (%event-field event "pathString") "<unknown>")
+                            file)
+                    problems))))
+        (dolist (entry *context-spec-count-baselines*)
+          (let* ((context (car entry))
+                 (minimum (getf (cdr entry) :minimum-executed-specs))
+                 (context-executed (gethash context counts)))
+            (when (< context-executed minimum)
+              (push (format nil "context ~A has only ~D specs run; at least ~D are expected"
+                            context context-executed minimum)
+                    problems))))))
     (dolist (event events)
       (when (and (member (%event-field event "status") '("skip" "todo") :test #'string=)
                  (not (%allowed-unrun-p event)))

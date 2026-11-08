@@ -1,10 +1,24 @@
 (in-package #:aitools/test)
 
-(defun %passed-test-events (count)
-  (loop repeat count
-        collect (let ((event (make-hash-table :test 'equal)))
-                  (setf (gethash "status" event) "pass")
-                  event)))
+(progn
+  (defun %unique-context-test-source-file (context source-files)
+    (loop for entry in source-files
+          when (and (eq context (car entry))
+                    (= 1 (count (cdr entry) source-files
+                                :key (function cdr)
+                                :test (function string=))))
+            return (cdr entry)))
+  (defun %passed-test-events (count context &optional (source-files (%context-test-source-files)))
+    (let* ((source-file (%unique-context-test-source-file context source-files))
+           (location (make-hash-table :test (function equal))))
+      (unless source-file
+        (error "No unique test source file for context ~A" context))
+      (setf (gethash "file" location) source-file)
+      (loop repeat count
+            collect (let ((event (make-hash-table :test (function equal))))
+                      (setf (gethash "status" event) "pass"
+                            (gethash "location" event) location)
+                      event)))))
 
 (defun %with-coverage-artifacts (coverage-text html-text function)
   (aitools.test.support:call-with-temporary-directory
@@ -64,40 +78,106 @@
        (error (condition) (princ-to-string condition))))))
 
 (describe "Run policy and coverage artifact validation"
-  (it "uses per-context platform minima and preserves the aggregate 3,611 floor" (expect *minimum-executed-specs* :to-equal (%minimum-executed-specs-for-context)) (expect (%minimum-executed-specs-for-context nil) :to-equal 3611) (expect (loop for entry in *context-spec-count-baselines* sum (getf (cdr entry) :minimum-executed-specs)) :to-equal 3611) (expect (sort (mapcar (lambda (entry) (car entry)) *context-spec-count-baselines*) (function string<) :key (lambda (context) (string-downcase (symbol-name context)))) :to-equal (quote (:edit :env :inspect :journal :kernel :org :process :protocol :search :shared :store :text :util :workspace))) (expect (%minimum-executed-specs-for-context "kernel") :to-equal 168) (expect (%minimum-executed-specs-for-context "process") :to-equal 251) (signals error (%minimum-executed-specs-for-context "shared")) (signals error (%minimum-executed-specs-for-context "unknown")) (multiple-value-bind (problems executed) (%policy-problems (%passed-test-events 167) "kernel") (expect executed :to-equal 167) (expect (length problems) :to-equal 1)) (multiple-value-bind (problems executed) (%policy-problems (%passed-test-events 168) "kernel") (expect executed :to-equal 168) (expect (null problems) :to-be-truthy)) (multiple-value-bind (problems executed) (%policy-problems (%passed-test-events 3610) nil) (expect executed :to-equal 3610) (expect (length problems) :to-equal 1)) (multiple-value-bind (problems executed) (%policy-problems (%passed-test-events 3611) nil) (expect executed :to-equal 3611) (expect (null problems) :to-be-truthy)) (dolist (status (list "skip" "todo")) (let ((event (make-hash-table :test (function equal)))) (setf (gethash "status" event) status) (multiple-value-bind (problems executed) (%policy-problems (append (%passed-test-events 3610) (list event)) nil) (expect executed :to-equal 3610) (expect (find-if (lambda (problem) (search "only 3610 specs ran" problem)) problems) :to-be-truthy)))))
-  (it "does not count skipped or todo specs toward a selected context minimum"
-      (dolist (status (list "skip" "todo"))
-        (let ((event (make-hash-table :test (function equal))))
-          (setf (gethash "status" event) status)
+  (it "derives aggregate and context floors from source-attributed baselines"
+      (let* ((source-files (%context-test-source-files))
+             (context-entries *context-spec-count-baselines*)
+             (aggregate
+              (loop for entry in context-entries
+                    sum (getf (cdr entry) :minimum-executed-specs)))
+             (full-events
+              (loop for entry in context-entries
+                    append (%passed-test-events
+                            (getf (cdr entry) :minimum-executed-specs)
+                            (car entry)
+                            source-files))))
+        (expect *minimum-executed-specs*
+                :to-equal (%minimum-executed-specs-for-context))
+        (expect (%minimum-executed-specs-for-context nil) :to-equal aggregate)
+        (expect aggregate :to-equal *all-minimum-executed-specs*)
+        (multiple-value-bind (problems executed)
+            (%policy-problems full-events nil)
+          (expect executed :to-equal aggregate)
+          (expect (null problems) :to-be-truthy))
+        (dolist (underfilled-context context-entries)
+          (let* ((context (car underfilled-context))
+                 (events
+                  (loop for entry in context-entries
+                        for minimum = (getf (cdr entry) :minimum-executed-specs)
+                        append (%passed-test-events
+                                (if (eq (car entry) context)
+                                    (1- minimum)
+                                  minimum)
+                                (car entry)
+                                source-files))))
+            (multiple-value-bind (problems executed)
+                (%policy-problems events nil)
+              (expect executed :to-equal (1- aggregate))
+              (expect
+               (find-if (lambda (problem)
+                          (search (format nil "context ~A has only" context) problem))
+                        problems)
+               :to-be-truthy))))
+        (signals error (%minimum-executed-specs-for-context :shared))
+        (signals error (%minimum-executed-specs-for-context "unknown"))
+        (let* ((entry (find-if (lambda (item) (not (eq (car item) :shared)))
+                               context-entries))
+               (context (car entry))
+               (minimum (getf (cdr entry) :minimum-executed-specs)))
           (multiple-value-bind (problems executed)
-              (%policy-problems (append (%passed-test-events 167) (list event)) "kernel")
-            (expect executed :to-equal 167)
-            (expect (find-if (lambda (problem)
-                               (search "only 167 specs ran" problem))
-                             problems)
-                    :to-be-truthy)))))
+              (%policy-problems
+               (%passed-test-events minimum context source-files)
+               context)
+            (expect executed :to-equal minimum)
+            (expect (null problems) :to-be-truthy))
+          (dolist (status (list "skip" "todo"))
+            (let ((event (make-hash-table :test #'equal)))
+              (setf (gethash "status" event) status)
+              (multiple-value-bind (problems executed)
+                  (%policy-problems
+                   (append
+                    (%passed-test-events (1- minimum) context source-files)
+                    (list event))
+                   context)
+                (expect executed :to-equal (1- minimum))
+                (expect
+                 (find-if (lambda (problem)
+                            (search
+                             (format nil "only ~D specs ran" (1- minimum))
+                             problem))
+                          problems)
+                 :to-be-truthy)))))))
   (it "detects missing and unowned context test systems"
-    (let* ((context-entries
-             (remove-if (lambda (entry) (eq (car entry) :shared))
-                        *context-spec-count-baselines*))
-           (systems
-             (append (list "aitools/test/base" "aitools/test/shared")
-                     (mapcar (lambda (entry)
-                               (format nil "aitools/test/~A"
-                                       (string-downcase (symbol-name (car entry)))))
-                             context-entries)))
-           (missing (remove "aitools/test/kernel" systems :test (function string=)))
-           (unowned (append systems (list "aitools/test/new-context"))))
-      (expect (%context-test-system-problems-for systems) :to-equal nil)
-      (expect
-       (find-if (lambda (problem) (search "kernel has a floor" problem))
-                (%context-test-system-problems-for missing))
-       :to-be-truthy)
-      (expect
-       (find-if (lambda (problem) (search "new-context has a registered" problem))
-                (%context-test-system-problems-for unowned))
-       :to-be-truthy)
-      (expect (%context-test-system-problems-for nil) :to-equal nil)))
+      (let* ((shared-entry (assoc :shared *context-spec-count-baselines*))
+             (context-entries
+              (remove (car shared-entry) *context-spec-count-baselines*
+                      :key #'car :test #'eq))
+             (shared-system
+              (format nil "aitools/test/~A"
+                      (string-downcase (symbol-name (car shared-entry)))))
+             (systems
+              (append (list "aitools/test/base" shared-system)
+                      (mapcar (lambda (entry)
+                                (format nil "aitools/test/~A"
+                                        (string-downcase (symbol-name (car entry)))))
+                              context-entries)))
+             (missing-entry (first context-entries))
+             (missing-context (string-downcase (symbol-name (car missing-entry))))
+             (missing-system (format nil "aitools/test/~A" missing-context))
+             (missing (remove missing-system systems :test #'string=))
+             (unowned (append systems (list "aitools/test/unowned"))))
+        (expect (%context-test-system-problems-for systems) :to-equal nil)
+        (expect
+         (find-if (lambda (problem)
+                    (search (format nil "context ~A has a floor" missing-context)
+                            problem))
+                  (%context-test-system-problems-for missing))
+         :to-be-truthy)
+        (expect
+         (find-if (lambda (problem)
+                    (search "has a registered test system but no floor" problem))
+                  (%context-test-system-problems-for unowned))
+         :to-be-truthy)
+        (expect (%context-test-system-problems-for nil) :to-equal nil)))
 
   (it "validates coverage HTML summary counts against the sidecar"
     (%with-coverage-artifacts
