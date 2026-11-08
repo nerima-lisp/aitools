@@ -149,6 +149,9 @@
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "a~%b"))
       (expect (run "transform" '("a.txt") :op '("eol-crlf" "final-newline")) :to-be :ok)
       (expect (text "a.txt") :to-equal (format nil "a~C~%b~C~%" #\Return #\Return))
+      (put "bom.txt" (format nil "~Ca~%b" (code-char #xFEFF)))
+      (expect (run "transform" '("bom.txt") :op '("strip-bom")) :to-be :ok)
+      (expect (text "bom.txt") :to-equal (format nil "a~%b"))
       (with-error (code) (run "transform" '("a.txt") :op '("eol-lf") :range "1" :expect-hash (list (hash "a.txt")))
         (expect code :to-equal "argument.invalid")))))
 
