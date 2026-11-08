@@ -196,4 +196,15 @@
           (expect (store-temporary store) :to-be t)
           (expect (store-state-directory store) :to-equal "/state/aitools/project"))
         (signals error (make-store (make-posix-store-io) root "/state/aitools" :temporary t)))))
+(describe "aitools.store rejection flow macro"
+  (it "expands all rejection field masks"
+    (let* ((expanded
+             (macroexpand-1
+              (quote
+               (aitools.store.application::%flow-continue-rejection
+                (list "refusal" "message" :path "file")))))
+           (case-form (third expanded)))
+      (expect (first expanded) :to-be (quote let*))
+      (expect (first case-form) :to-be (quote case))
+      (expect (length (cddr case-form)) :to-be 32))))
 
