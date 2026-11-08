@@ -77,7 +77,10 @@
              (link (make-change-result :path "link" :action :linked
                                        :before (aitools.store.domain:absent-state)
                                        :after (aitools.store.domain:symlink-state "target")))
-             (changes (changes->json (list binary moved mode-only directory link)))
+             (removed-directory (make-change-result :path "gone-dir" :action :deleted
+                                                    :before (aitools.store.domain:directory-state)
+                                                    :after (aitools.store.domain:absent-state)))
+             (changes (changes->json (list binary moved mode-only directory link removed-directory)))
              (absent :not-present))
         (loop for change in changes
               do (expect (aitools.test.support:json-alist-value change "diff" absent)
