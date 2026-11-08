@@ -101,5 +101,13 @@
             (expect (path-hash host (store-root store) view (disk-path store "staged-link"))
                     :to-equal (aitools.kernel.domain:content-hash (bytes "staged"))))
           :on-not-found (lambda () (expect :not-found :to-be nil)))))
+     :io nil))
+  (it "hashes a dangling symlink outside the view through the host"
+    (call-with-temp-store
+     (lambda (store)
+       (sb-posix:symlink "missing-target" (disk-path store "../outside-link"))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+         (expect (path-hash host (store-root store) nil (disk-path store "../outside-link"))
+                 :to-equal (aitools.kernel.domain:content-hash (bytes "missing-target")))))
      :io nil)))
 
