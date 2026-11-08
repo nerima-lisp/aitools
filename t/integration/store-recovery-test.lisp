@@ -61,6 +61,13 @@ unchanged-p all-applied-p) after recovery."
               :to-be :signalled)
       (expect (unchanged-p store) :to-be-truthy)
       (expect (intent-files store) :to-equal '())
+      (expect (recover store) :to-be :none)) :io nil))
+  (it "leaves no intent when preparation fails before intent creation"
+    (call-with-temp-store (lambda (store) (put-file store "a.txt" "a-old")
+      (expect (handler-case (call-with-fault-at :after-blobs (lambda () (two-file-write store)) :mode :error)
+                (injected-fault () :signalled)) :to-be :signalled)
+      (expect (unchanged-p store) :to-be-truthy)
+      (expect (intent-files store) :to-equal '())
       (expect (recover store) :to-be :none)) :io nil)))
 
 (describe "aitools.store recovery after the commit point"
