@@ -215,4 +215,4 @@
                                                  :conflicts conflicts
                                                  :repairs repairs
                                                  :path path)))))))
-  (define-doc-write-commands)
+(define-doc-write-commands)
