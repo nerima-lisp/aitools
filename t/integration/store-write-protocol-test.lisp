@@ -182,7 +182,23 @@
       (commit store (list (symlink-request "l" "real.txt")))
       (commit store (list (write-file-request "l" (bytes "replaced"))))
       (expect (entry-state-kind (workspace-state store "l")) :to-be :file)
-      (expect (disk-text store "real.txt") :to-equal "r")) :io nil)))
+      (expect (disk-text store "real.txt") :to-equal "r")) :io nil))
+  (it-each ((:write "refusal.not-a-file" "file")
+            (:symlink "refusal.exists" "symlink"))
+           "rejects a ~A request over a directory"
+           (operation expected-code label)
+           (call-with-temp-store
+            (lambda (store)
+              (sb-posix:mkdir (disk-path store "dir") #o755)
+              (multiple-value-bind (status code)
+                  (commit store
+                          (list (ecase operation
+                                  (:write (write-file-request "dir" (bytes "x")))
+                                  (:symlink (symlink-request "dir" "target")))))
+                (expect status :to-be :rejected)
+                (expect code :to-equal expected-code))
+              (expect (entry-state-kind (workspace-state store "dir")) :to-be :directory))
+            :io nil)))
 (describe "aitools.store temporary root validation"
   (it-each (("/state/aitools/project/tmp" t)
             ("/state/aitools/project" nil)
