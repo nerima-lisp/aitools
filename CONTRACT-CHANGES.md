@@ -2,7 +2,7 @@
 
 ## Foundation contracts
 
-1. **Command declarations**: protocol application now exposes
+1. **Command declarations**: protocol application exposes
    `define-command`, `command-declaration`, and declaration registration
    functions. A declaration carries a string name, optional group, command
    builder, and schema. `define-command` takes the command name and an options
@@ -15,8 +15,8 @@
 2. **Continuation convention**: functions that can produce an `ok`, `partial`,
    or `error` result accept the canonical `:on-ok`, `:on-partial`, and `:on-error`
    keyword continuations. Positional continuation arguments are rejected. Pure
-   functions that return one value remain direct-return functions and are not
-   converted to CPS. The structural tests in `t/structure/cps-contract-*`
+   functions that return one value remain direct-return functions. The
+   structural tests in `t/structure/cps-contract-*`
    enforce this convention.
 3. **Test timeout**: the aitools test runner applies a 60-second default
    timeout to each registered cl-weave spec, including unit, integration, and
@@ -47,8 +47,7 @@
   `env-ports`, are migration targets and are removed as contexts adopt the
   boundary objects.
 - **Definition macros**: use a definition macro when the same definition
-  skeleton appears in three or more places. Do not introduce one for a skeleton
-  used in only one or two places.
+  skeleton appears in three or more places.
 - **Coverage exclusions**: key each exclusion by kind, package, and symbol, and
   give it a reason. Structure tests fail when an exclusion no longer matches a
   current item.
@@ -69,8 +68,9 @@
 
 ## Verification obligations for v0.4.0 downstream contracts
 
-- Add an e2e or integration expectation for each downstream contract above before the v0.4.0 release.
-- Tests must reject the old envelope shape.
+- Add an e2e or integration expectation for each v0.4.0 downstream contract
+  above before the v0.4.0 release.
+- Tests must reject schema version 1 and envelopes missing `schema_version`.
 
 ## Structured document commands
 
@@ -87,11 +87,11 @@
 
 ## Shared per-context gates
 
-- Structure allowance files under
+- Runtime directory scans discover structure allowance files under
   `t/integration/structure-context-allowances/` and budget files under
-  `t/integration/structure-budget-baselines/` are discovered from their
-  directories at runtime. List each existing file in the corresponding data
-  module in `aitools-test-system.lisp` so filtered source trees retain it. A
+  `t/integration/structure-budget-baselines/`. ASDF still needs each existing
+  file listed in the corresponding data module in `aitools-test-system.lisp` so
+  filtered source trees retain it. A
   context with no entries needs no empty file; every present file must name its
   context and provide the data list expected by its loader.
 - A new context's presentation system must be added to the `aitools/cli`
@@ -107,11 +107,11 @@
   refreshes SB-COVER, SBCL's coverage collector, after each ASDF source file
   load. Top-level forms evaluated during loading count as covered because their
   marks are collected before garbage collection can reclaim their code objects.
-- A follow-on stream rebased onto earlier work records coverage baselines in
-  `coverage-baseline.lisp` and `coverage-baselines/` from the successful Linux
-  `check` on the rebased revision. It records spec-count baselines in
-  `t/spec-count-baselines/` from successful Linux and Darwin checks on that
-  revision.
+- After rebasing onto earlier parallel work, record aggregate coverage in
+  `coverage-baseline.lisp` and per-context coverage in `coverage-baselines/`
+  from a successful Linux `check` job on the rebased revision. Record
+  spec-count baselines in `t/spec-count-baselines/` from successful Linux
+  `check` and macOS `check-darwin` jobs on that revision.
 - When deleting covered code requires a baseline adjustment, update affected
   context and aggregate measurements from Linux CI. Record the before-and-after
   counts in the commit message. Do not lower a baseline to compensate for
