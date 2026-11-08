@@ -230,4 +230,13 @@ an agent able to write the state directory could. Returns its op id."
        (signals store-io-error (workspace-state store "pipe"))
        (signals store-io-error (aitools.store.application::workspace-kind store "pipe")))
      :io nil)))
+(describe "aitools.store symlink resolution limits"
+  (it "stops after 40 links"
+    (call-with-temp-store
+     (lambda (store)
+       (loop for n from 1 to 41
+             for target = (if (= n 41) "target" (format nil "link-~D" (1+ n)))
+             do (sb-posix:symlink target (disk-path store (format nil "link-~D" n))))
+       (expect (aitools.store.application::%real-path store (disk-path store "link-1")) :to-be nil))
+     :io nil)))
 
