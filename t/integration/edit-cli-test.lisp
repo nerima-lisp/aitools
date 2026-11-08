@@ -135,7 +135,7 @@
 
 (describe "aitools doc writes across formats"
   (it "routes every write verb through JSON, YAML, and TOML"
-    (call-with-edit-workspace
+    (call-with-cli-workspace
      (lambda ()
        (dolist (format (list "json" "yaml" "toml"))
          (let ((path (format nil "route.~A" format))
@@ -156,8 +156,15 @@
            (expect (run "doc.patch" (list path) :format format :stdin t)
                    :to-be :ok)
            (expect (run "doc.fmt" (list path) :format format) :to-be :ok)
-           (expect (text path) :to-contain "patched"))))))
-
+           (expect (text path) :to-contain "patched")))
+       (put "doc" "key = 1")
+       (multiple-value-bind (code) (run-aitools "doc" "set" "doc" "/key" "2" "--format" "toml")
+         (expect code :to-be 0)
+         (expect (text "doc") :to-equal (format nil "key = 2~%")))
+       (multiple-value-bind (code envelope) (run-aitools "doc" "set" "doc" "/key" "3" "--format" "xml")
+         (expect (list code (envelope-value envelope "error" "code"))
+                 :to-equal (list 1 "argument.invalid"))
+         (expect (text "doc") :to-equal (format nil "key = 2~%"))))))
   (it "preserves format repairs and rejects format-only options outside JSON"
     (call-with-edit-workspace
      (lambda ()
