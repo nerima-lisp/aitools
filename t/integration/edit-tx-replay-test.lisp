@@ -3,9 +3,13 @@
 (defun replay-argv (argv)
   "REPLAY-EDIT-OP of ARGV against the workspace on disk: (:commit paths) or
 (:reject code message)."
-  (replay-edit-op argv (aitools.store.application:disk-view (open-store *root*))
+  (replay-edit-op argv
+                  (aitools.store.application:disk-view (open-store *root*))
                   (lambda (requests) (list :commit (mapcar #'aitools.store.domain:change-request-path requests)))
-                  (lambda (code message &rest keys) (declare (ignore keys)) (list :reject code message))))
+                  (lambda (code message &rest keys) (declare (ignore keys)) (list :reject code message))
+                  :serializer (lambda (format value)
+                                (declare (ignore format))
+                                value)))
 
 (describe "aitools tx rebase replays only replayable recorded ops"
   (it-each (("an argv naming no edit command" ("frobnicate" "x") "argument.invalid" "no edit command")

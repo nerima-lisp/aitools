@@ -7,6 +7,9 @@
     "transform"
     "move-lines")
   "Commands whose ops `tx rebase` may re-run after their plans are prepared without a workspace environment.")
+(defparameter +format-document-replay-commands+
+  '("doc.set" "doc.delete" "doc.merge" "doc.patch" "doc.fmt")
+  "Format-aware document commands whose replayers require a serializer.")
 
 (aitools.kernel.domain:define-flow
     (%replay-edit-op/k argv view &key serializer on-commit on-reject)
@@ -17,7 +20,10 @@
        :on-reject "argument.invalid" message))
     (:on-parsed (name positionals options)
       (let ((preparer (gethash name *preparers*)))
-        (if (not (member name +replayable-commands+ :test #'string=))
+        (if (not (or
+             (member name +replayable-commands+ :test #'string=)
+             (and serializer
+                  (member name +format-document-replay-commands+ :test #'string=))))
             (aitools.kernel.domain:flow-continue
              :on-reject "argument.invalid"
              (format nil "~A cannot be replayed" name))
@@ -77,7 +83,7 @@
 
 (defun register-format-document-replayers (serializer)
   (dolist (name
-           (list "doc.set" "doc.delete" "doc.merge" "doc.patch" "doc.fmt"))
+           +format-document-replay-commands+)
     (aitools.journal.application:register-tx-replayer
      name
      (lambda (argv view commit reject)
