@@ -181,6 +181,21 @@ unchanged-p all-applied-p) after recovery."
         (expect (call-with-fault-at :after-apply (lambda () (undo store op))) :to-be-truthy)
         (expect (mapcar #'cdr (nth-value 1 (recover store))) :to-equal '("rolled-forward"))
         (expect (list (disk-text store "src.txt") (disk-text store "dst.txt")) :to-equal '("S" "D")))) :io nil))
+  (it "replays a move after its source became absent"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "src.txt" "S")
+       (expect (call-with-fault-at :after-apply-step
+                                  (lambda () (commit store (list (move-request "src.txt" "dst.txt")))))
+               :to-be-truthy)
+       (expect (disk-text store "src.txt") :to-be :absent)
+       (expect (disk-text store "dst.txt") :to-equal "S")
+       (multiple-value-bind (status entries) (recover store)
+         (expect status :to-be :recovered)
+         (expect (mapcar #'cdr entries) :to-equal '("rolled-forward")))
+       (expect (disk-text store "src.txt") :to-be :absent)
+       (expect (disk-text store "dst.txt") :to-equal "S"))
+     :io nil))
 
   (it "heals a torn final journal line left by a crash mid-append"
     ;; With per-op O_APPEND a crash can tear the journal append, leaving a
