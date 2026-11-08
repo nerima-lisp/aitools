@@ -2,6 +2,8 @@
 ;;;; Schema text for the structured document and table commands.
 (in-package #:aitools.data)
 
+(defparameter *document-format-choices* (list "json" "yaml" "toml"))
+
 (defparameter *inspect-table-read-args*
   '((:name "--format" :type "enum" :choices ("csv" "tsv" "jsonl" "json" "ws" "sep" "lines")
      :description "Table format; default from the extension, then the content (ws, sep, lines are never guessed).")
@@ -15,6 +17,12 @@
     (:name "--encoding" :type "enum" :choices ("utf-8" "shift_jis" "euc-jp" "iso-8859-1" "utf-16le" "utf-16be")
      :description "Decode from this encoding instead of UTF-8."))
   "Reading options shared by `table read` and `table agg`.")
+
+(defun %document-format-arg (description)
+  (list :name "--format"
+        :type "enum"
+        :choices *document-format-choices*
+        :description description))
 
 (defun %inspect-format-read-schemas (group format)
   (let ((read-errors '("argument.invalid" "input.not-found" "input.syntax-error"
@@ -30,8 +38,7 @@
                              :description (format nil "~A file." format))
                        '(:name "pointer" :kind "positional" :type "string" :required t
                          :description "RFC 6901 pointer.")
-                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
-                         :description "Document format; defaults from the path extension.")
+                       (%document-format-arg "Document format; defaults from the path extension.")
                        '(:name "--max-bytes" :type "size" :default "16KiB"
                          :description "Largest rendered value returned.")
                        '(:name "--keys" :type "flag"
@@ -60,8 +67,7 @@
                              :description (format nil "~A file." format))
                        '(:name "pointer" :kind "positional" :type "string" :required t
                          :description "Pointer to the array.")
-                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
-                         :description "Document format; defaults from the path extension.")
+                       (%document-format-arg "Document format; defaults from the path extension.")
                        '(:name "--where" :type "string" :multiple t
                          :description "Condition on each element.")
                        '(:name "--pick" :type "string" :multiple t
@@ -88,8 +94,7 @@
                              :description (format nil "Old ~A file." format))
                        (list :name "b" :kind "positional" :type "string" :required t
                              :description (format nil "New ~A file." format))
-                       '(:name "--format" :type "enum" :choices ("json" "yaml" "toml")
-                         :description "Apply this format to both files; otherwise use each path extension.")
+                       (%document-format-arg "Apply this format to both files; otherwise use each path extension.")
                        '(:name "--limit" :type "integer" :default 100
                          :description "Maximum operations returned."))
            :output-fields '((:name "identical" :description "No differences.")
@@ -141,4 +146,4 @@
                    "refusal.not-a-file" "environment.busy" "environment.io")))
   "The read commands of the structured document and table groups.")
 
-(export '(*inspect-table-read-args* *inspect-format-command-schemas*))
+(export '(*inspect-table-read-args* *inspect-format-command-schemas* *document-format-choices*))

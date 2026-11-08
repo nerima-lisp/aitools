@@ -5,7 +5,7 @@
 (defun %run-doc-flow (ports invocation action paths arguments flow-options)
   (apply (function run-flow)
          (append
-           (list (function aitools.inspect.application::doc-inspect-flow)
+           (list (function aitools.inspect.application:doc-inspect-flow)
                  ports action paths arguments
                  (option-value invocation :format)
                  flow-options)
@@ -20,7 +20,7 @@
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
    :options (list (value-option "format" "Document format; defaults from the file extension."
-                                :choices '("json" "yaml" "toml"))
+                                :choices aitools.data:*document-format-choices*)
                   (value-option "max-bytes" "Largest rendered value returned."
                                 :default "16KiB" :value-name "SIZE")
                   (flag-option "keys" "Return the keys or indexes.")
@@ -42,7 +42,7 @@
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
    :options (list (value-option "format" "Document format; defaults from the file extension."
-                                :choices '("json" "yaml" "toml"))
+                                :choices aitools.data:*document-format-choices*)
                   (%repeated-option "where" "Condition <rel-pointer><op><json-value>."
                                     :value-name "COND")
                   (%repeated-option "pick" "Relative pointer to return." :value-name "POINTER")
@@ -71,7 +71,7 @@
    :positionals (list (make-positional :key :a :name "a" :required-p t)
                       (make-positional :key :b :name "b" :required-p t))
    :options (list (value-option "format" "Use one format for both files; otherwise use each extension."
-                                :choices '("json" "yaml" "toml"))
+                                :choices aitools.data:*document-format-choices*)
                   (integer-option "limit" 100 "Maximum operations returned.")
                   (tx-option))
    :handler (lambda (invocation)

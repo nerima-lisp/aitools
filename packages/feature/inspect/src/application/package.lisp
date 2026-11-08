@@ -64,23 +64,19 @@
    #:check-flow
    ;; diff-flow.lisp
    #:diff-flow
-   ;; === json-query flows ===
-   #:json-get-flow
-   #:json-select-flow
-   #:json-diff-flow
-   ;; === end json-query flows ===
-   ;; === table flows ===
+   ;; structured document flows
+   #:doc-inspect-flow
+   #:document-format
+   ;; table flows
    #:table-read-flow
    #:table-agg-flow
-   ;; === end table flows ===
-   ;; === archive flows ===
+   ;; archive flows
    #:archive-list-flow
    #:archive-read-flow
-   ;; === end archive flows ===
-   ;; === snapshot flows ===
+   ;; snapshot flows
    #:snapshot-create-flow
    #:snapshot-diff-flow
-   ;; === end snapshot flows ===
-   ;; === YAML/TOML write preflight API ===
+   ;; YAML/TOML write preflight API
    #:parse-yaml-write-document/k
-   #:parse-toml-write-document/k #:+max-format-document-depth+))
+   #:parse-toml-write-document/k
+   #:+max-format-document-depth+))

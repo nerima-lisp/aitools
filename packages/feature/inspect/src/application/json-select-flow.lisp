@@ -8,7 +8,7 @@
                    root
                    tx
                    lock-timeout
-                   (format :json)
+                   (format "json")
                    where
                    pick
                    sort-by
@@ -50,12 +50,12 @@
            (repair
             "pointer-syntax"
             "Write members as /name or /a/b."
-            (format nil "aitools schema ~A select" (%format-group format)))))
+            "aitools schema doc select")))
          (aitools.kernel.domain:flow-call
-          (%pointer-tokens pointer (%format-group format) :format-override format-override)
+          (%pointer-tokens pointer)
           (:on-tokens (tokens)
             (aitools.kernel.domain:flow-call
-             (%where-comparisons where (%format-group format) :format-override format-override)
+             (%where-comparisons where)
              (:on-comparisons (comparisons)
                (aitools.kernel.domain:flow-call
                 (%call-with-format-file
@@ -70,7 +70,6 @@
                                      target
                                      document
                                      tokens
-                                     (%format-group format)
                                      :format-override format-override)
                    (:on-found (array)
                      (if (not (json-array-value-p array))
@@ -88,7 +87,7 @@
                             "Find the array to select from."
                             (command-line context
                                              (append
-                                              (list (%format-group format)
+                                              (list "doc"
                                                     "get"
                                                     path
                                                     pointer
@@ -125,13 +124,12 @@
                                  (repair
                                   "fix-pattern"
                                   "Simplify the regular expression."
-                                  (format nil "aitools schema ~A select" (%format-group format)))))
+                                  "aitools schema doc select")))
                                (multiple-value-bind (fields truncated)
                                    (%select-fields context target pointer array indexes
-                                   pick output limit
-                                   :where where
-                                   :group (%format-group format)
-                                   :format-override format-override)
+                                                   pick output limit
+                                                   :where where
+                                                   :format-override format-override)
                                  (if truncated
                                      (aitools.kernel.domain:flow-continue
                                       :on-partial

@@ -1,25 +1,5 @@
 (in-package #:aitools.inspect.application)
 
-(defun %format-group (format)
-  (ecase format
-    (:json "doc")
-    (:yaml "doc")
-    (:toml "doc")))
-(defun %document-format (path override)
-  (if override
-      (cond
-        ((string-equal override "json") :json)
-        ((string-equal override "yaml") :yaml)
-        ((string-equal override "toml") :toml))
-      (let ((extension (and path (pathname-type path))))
-        (cond
-          ((and (stringp extension) (string-equal extension "json")) :json)
-          ((and (stringp extension)
-                (or (string-equal extension "yaml")
-                    (string-equal extension "yml")))
-           :yaml)
-          ((and (stringp extension) (string-equal extension "toml")) :toml)))))
-
 (defmacro %call-document-reader (call)
   `(aitools.kernel.domain:flow-call
     ,call
@@ -34,14 +14,14 @@
 (aitools.kernel.domain:define-flow
  (%inspect-document context target format action &key on-document on-error)
  (declare (type function on-document on-error))
- (case format
-   (:json
+ (cond
+   ((string= format "json")
     (%call-document-reader
      (%json-document context target)))
-   (:yaml
+   ((string= format "yaml")
     (%call-document-reader
      (%yaml-document context target action)))
-   (:toml
+   ((string= format "toml")
     (%call-document-reader
      (%toml-document context target action)))))
 

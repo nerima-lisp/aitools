@@ -8,7 +8,7 @@
                 root
                 tx
                 lock-timeout
-                (format :json)
+                (format "json")
                 (max-bytes "16KiB")
                 keys
                 raw
@@ -31,10 +31,10 @@
              :conflicts conflicts
              :repairs repairs)))
    (aitools.kernel.domain:flow-call
-    (%max-bytes max-bytes (%format-group format) :format-override format-override)
+    (%max-bytes max-bytes)
     (:on-bytes (limit)
       (aitools.kernel.domain:flow-call
-       (%pointer-tokens pointer (%format-group format) :format-override format-override)
+       (%pointer-tokens pointer)
        (:on-tokens (tokens)
          (aitools.kernel.domain:flow-call
           (%call-with-format-file
@@ -49,7 +49,6 @@
                                target
                                document
                                tokens
-                               (%format-group format)
                                :format-override format-override)
              (:on-found (value)
                (if (and keys
@@ -72,7 +71,7 @@
                       "Get the value itself."
                       (command-line context
                                              (append
-                                              (list (%format-group format)
+                                              (list "doc"
                                                     "get"
                                                     path
                                                     pointer)
@@ -82,7 +81,6 @@
                    (multiple-value-bind (fields truncated)
                        (%json-get-fields context
                                       target
-                                      (%format-group format)
                                       pointer
                                       value
                                       keys

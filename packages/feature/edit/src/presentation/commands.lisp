@@ -44,14 +44,26 @@
                           :required (not (or (getf positional :optional) (getf positional :rest)))
                           :description (if (getf positional :rest) "Repeatable." "")))
                   (getf spec :positionals))
-          (mapcar (lambda (option)
-                    (append (list :name (format nil "--~A" (getf option :name))
-                                  :type (ecase (getf option :kind)
-                                          (:flag "flag") (:value "string") (:multi "string, repeatable")
-                                          (:pair "two strings"))
-                                  :description (getf option :description))
-                            (and (getf option :default) (list :default (getf option :default)))))
-                  (getf spec :options)))
+          (mapcar
+           (lambda (option)
+             (let ((document-format-option-p
+                     (and (%structured-document-write-command-p spec)
+                          (eq (getf option :key) :format))))
+               (append
+                (list :name (format nil "--~A" (getf option :name))
+                      :type (if document-format-option-p
+                                "enum"
+                                (ecase (getf option :kind)
+                                  (:flag "flag")
+                                  (:value "string")
+                                  (:multi "string, repeatable")
+                                  (:pair "two strings")))
+                      :description (getf option :description))
+                (and document-format-option-p
+                     (list :choices aitools.data:*document-format-choices*))
+                (and (getf option :default)
+                     (list :default (getf option :default))))))
+           (getf spec :options)))
    :output-fields (append (and (member :write (getf spec :include)) aitools.data:*edit-write-output-fields*)
                           (and (member :count (getf spec :include)) aitools.data:*edit-count-output-fields*)
                           (and (%structured-document-write-command-p spec)

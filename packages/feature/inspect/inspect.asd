@@ -66,6 +66,7 @@
                                   (:file "json-select-helpers")
                                   (:file "json-select-flow")
                                   (:file "json-diff-flows")
+                                  (:file "document-command-flow")
                                   (:file "yaml-flows")
                                   (:file "toml-flows")
                                   (:file "table-option-flows")

@@ -1,5 +1,4 @@
 (in-package #:aitools.inspect.application)
-
 (aitools.kernel.domain:define-flow
  (%yaml-document context target action &key on-document on-error)
  (declare (type function on-document on-error))
@@ -91,3 +90,19 @@
               (repair-command
                "fix-format-syntax"
                "Fix the YAML/TOML syntax or TOML integer range, then retry."))))))))
+
+(defun document-format (path override)
+  (if override
+      (cond
+        ((string-equal override "json") "json")
+        ((string-equal override "yaml") "yaml")
+        ((string-equal override "toml") "toml"))
+      (let ((extension (and path (pathname-type path))))
+        (cond
+          ((and (stringp extension) (string-equal extension "json")) "json")
+          ((and (stringp extension)
+                (or (string-equal extension "yaml")
+                    (string-equal extension "yml")))
+           "yaml")
+          ((and (stringp extension) (string-equal extension "toml")) "toml")))))
+

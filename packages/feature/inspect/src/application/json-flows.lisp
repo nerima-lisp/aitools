@@ -71,7 +71,7 @@
                                         "json"))))))))))
 
 (aitools.kernel.domain:define-flow
- (%pointer-tokens pointer group &key format-override on-tokens on-error)
+ (%pointer-tokens pointer &key on-tokens on-error)
  (declare (type function on-tokens on-error))
  (let ((tokens (parse-json-pointer pointer)))
    (if (eq tokens :invalid)
@@ -85,7 +85,7 @@
         (list
          (repair "whole-document"
                  "Start from the document's top-level keys."
-                 (format nil "aitools schema ~A get" group))))
+                 "aitools schema doc get")))
        (aitools.kernel.domain:flow-continue :on-tokens tokens))))
 
 (aitools.kernel.domain:define-flow
@@ -93,7 +93,6 @@
                     target
                     document
                     tokens
-                    group
                     &key
                     on-found
                     on-error
@@ -125,7 +124,7 @@
                 "List the keys that exist there."
                 (command-line context
                               (append
-                               (list group
+                               (list "doc"
                                      "get"
                                      (file-target-argument target)
                                      parent-pointer
@@ -134,7 +133,7 @@
                                  (list "--format" format-override)))))))))))
 
 (aitools.kernel.domain:define-flow
- (%max-bytes text group &key format-override on-bytes on-error)
+ (%max-bytes text &key on-bytes on-error)
  (declare (type function on-bytes on-error))
  (let ((bytes (handler-case (size-bytes (parse-size text))
                 (error () nil))))
@@ -150,9 +149,9 @@
         (list
          (repair "default-size"
                  "Use the default limit."
-                 (format nil "aitools schema ~A get" group)))))))
+                 "aitools schema doc get"))))))
 
-(defun %json-get-fields (context target group pointer value keys raw max-bytes
+(defun %json-get-fields (context target pointer value keys raw max-bytes
                                   &key format-override)
   "(VALUES fields truncated) for `doc get`."
   (let* ((head
@@ -196,7 +195,7 @@
                                                      #'string=)
                                              (command-line context
                                                            (append
-                                                            (list group
+                                                            (list "doc"
                                                                   "get"
                                                                   (file-target-argument
                                                                    target)
@@ -209,7 +208,7 @@
                                              (plusp (length value))
                                              (command-line context
                                                            (append
-                                                            (list group
+                                                            (list "doc"
                                                                   "get"
                                                                   (file-target-argument
                                                                    target)

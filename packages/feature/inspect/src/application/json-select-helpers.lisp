@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (%where-comparisons texts group &key format-override on-comparisons on-error)
+ (%where-comparisons texts &key on-comparisons on-error)
  "COMPARISONs keyed by relative pointer tokens for each --where text."
  (declare (type function on-comparisons on-error))
  (let ((comparisons '())
@@ -20,7 +20,7 @@
                       (list
                        (repair "where-example"
                                "Compare a member of each element, e.g. /status=\"open\"."
-                               (format nil "aitools schema ~A select" group)))))
+                               "aitools schema doc select"))))
              (aitools.kernel.domain:flow-call
               (make-comparison/k tokens operator right)
               (:on-comparison (comparison)
@@ -33,7 +33,7 @@
                                 (list
                                  (repair "fix-pattern"
                                          "Correct the regular expression."
-                                         (format nil "aitools schema ~A select" group))))))))))))
+                                         "aitools schema doc select")))))))))))
    (if failure
        (aitools.kernel.domain:flow-continue
         :on-error (first failure) (second failure)
@@ -100,7 +100,6 @@ value under SORT-TOKENS when given."
                                limit
                                &key
                                where
-                               group
                                format-override)
   "(VALUES fields truncated)."
   (if (string= output "count")
@@ -135,7 +134,7 @@ value under SORT-TOKENS when given."
                    (list
                     (command-line context
                                   (append
-                                   (list group
+                                   (list "doc"
                                          "select"
                                          (file-target-argument target)
                                          pointer)

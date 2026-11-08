@@ -102,21 +102,6 @@
                      (cons "count" comment-count))))
              #()))))
 
-(defun %document-format (path override)
-  (if override
-      (cond
-       ((string-equal override "json") "json")
-       ((string-equal override "yaml") "yaml")
-       ((string-equal override "toml") "toml"))
-    (let ((extension (and path (pathname-type path))))
-      (cond
-       ((and (stringp extension) (string-equal extension "json")) "json")
-       ((and (stringp extension)
-             (or (string-equal extension "yaml")
-                 (string-equal extension "yml")))
-        "yaml")
-       ((and (stringp extension) (string-equal extension "toml")) "toml")))))
-
 (defun %document-format-repair (verb positionals options)
   (let* ((name (format nil "doc.~A" verb))
          (repair-options (copy-list options)))

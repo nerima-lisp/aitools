@@ -1,4 +1,4 @@
-;;;; YAML/TOML write command preparation using the shared JSON operations.
+;;;; Document write command preparation using the shared JSON operations.
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow (%format-set/k format command ports positionals options &key on-plan on-error)
@@ -26,10 +26,6 @@
                           (list* (first paths) saved-positionals))
                         :inputs inputs))))))
       (cond
-        ((null path)
-         (aitools.kernel.domain:flow-continue
-           :on-error "argument.invalid"
-           (format nil "~A needs PATH" (command-display-name command))))
         ((or (getf options :stdin) (getf options :stdin-data))
          (if (rest positionals)
              (aitools.kernel.domain:flow-continue
@@ -188,7 +184,7 @@
       :on-error "argument.invalid"
       (format nil "doc ~A needs PATH" verb)))
     (t
-     (let ((format (%document-format path (getf options :format))))
+     (let ((format (document-format path (getf options :format))))
        (if format
            (%with-plan-continuations
             (%format-command/k format verb ports positionals options))
