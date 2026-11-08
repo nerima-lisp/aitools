@@ -30,7 +30,8 @@
       (progn
         (aitools.edit.domain:plan-archive-extraction
          octets :tar-gz \"dest\" :max-bytes 131072 :max-entries 100000
-         :lookup-kind (constantly :absent))
+         :lookup-kind (constantly :absent)
+         :make-prefix-checker (constantly nil))
         (write-line \"RESULT=accepted\"))
     (aitools.edit.domain:edit-refusal (condition)
       (format t \"RESULT=~A~%\" (aitools.edit.domain:edit-refusal-code condition)))))
@@ -95,6 +96,22 @@
          (expect (commit-tx tx) :to-be :committed)
          (expect (kind "e") :to-be :symlink)
          (expect (kind "s") :to-be :absent)))))
+  (it "treats a staged deletion as visible to commit symlink recheck"
+    (call-with-edit-workspace
+     (lambda ()
+       (%put-archive-symlink "initial.tar" "current" ".")
+       (expect (nth-value 0 (run "archive.extract" '("initial.tar") :to "."))
+               :to-be :ok)
+       (%put-archive-symlink "later.tar" "s" "current/..")
+       (let ((tx (begin-tx)))
+         (expect (run-in tx "rm" '("current")) :to-be :ok)
+         (expect (run-in tx "archive.extract" '("later.tar") :to ".")
+                 :to-be :ok)
+         (let ((before (snapshot)))
+           (expect (commit-tx tx) :to-equal "refusal.outside-workspace")
+           (expect-unchanged before)
+           (expect (kind "current") :to-be :symlink)
+           (expect (kind "s") :to-be :absent))))))
 
   (it "preserves the exact-name staged-parent refusal control T7"
     (call-with-edit-workspace

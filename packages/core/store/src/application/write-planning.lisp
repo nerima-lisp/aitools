@@ -48,7 +48,7 @@
                       :after (change-result-after result)
                       :source-before (change-result-source-before result)))
 
-(defun %commit-results (store argv results &key undoes tx-id)
+(defun %commit-results (store argv results &key undoes tx-id precommit-check)
   "Run prepare, intent, apply, and complete for planned RESULTS (non-empty)
 with the workspace lock held. Returns the new op id."
   (let* ((state (store-state-directory store))
@@ -66,7 +66,9 @@ with the workspace lock held. Returns the new op id."
          (by-path (make-hash-table :test 'equal)))
     (dolist (result results)
       (setf (gethash (change-result-path result) by-path) result))
-    (fault-point :after-validate op-id)
+    (progn
+      (fault-point :after-validate op-id)
+      (when precommit-check (funcall precommit-check)))
     (%refuse-unsafe-steps store steps)
     (dolist (step steps) (%refuse-changed-deletion store step))
     (when (store-temporary store)
@@ -105,7 +107,7 @@ with the workspace lock held. Returns the new op id."
   (list "environment.io" (princ-to-string condition)))
 
 (aitools.kernel.domain:define-flow
-    (%plan-and-commit/k store argv requests &key undoes tx-id
+    (%plan-and-commit/k store argv requests &key undoes tx-id precommit-check
                         on-committed on-rejected)
   "Plan REQUESTS against the disk and commit them; the workspace lock must be
 held. ON-COMMITTED (op-id results) with OP-ID NIL when nothing changed. A
@@ -120,7 +122,10 @@ STORE-COMMITTED-ERROR is not a rejection and propagates to the caller."
               (handler-case
                   (values :committed
                           (%commit-results
-                           store argv results :undoes undoes :tx-id tx-id))
+                           store argv results
+                           :undoes undoes
+                           :tx-id tx-id
+                           :precommit-check precommit-check))
                 (store-refusal (condition)
                   (values :rejected
                           (list (store-refusal-code condition)
