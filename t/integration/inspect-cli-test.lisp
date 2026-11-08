@@ -211,7 +211,7 @@ the parsed JSON (hash tables) from whichever stream received output."
                                     (if (string= format "yaml") "YAML" "TOML")
                                     pointer reason)))
       (expect (value-at envelope "error" "repairs" 0 "command")
-              :to-equal (format nil "aitools --root ~A doc get --format ~A" workspace format))
+              :to-equal "aitools schema doc get")
       (expect (value-at envelope "error" "repairs" 0 "action")
               :to-equal (if (string= code "input.syntax-error")
                             "fix-format-syntax"

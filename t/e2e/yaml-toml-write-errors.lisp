@@ -25,7 +25,7 @@
             :to-equal (if unsupported
                           "Convert the value to the supported subset, then retry."
                           "Fix the YAML/TOML syntax or TOML integer range, then retry."))
-    (expect (jget repair "command") :to-equal (format nil "aitools doc ~A --format ~A" verb format))
+    (expect (jget repair "command") :to-equal (format nil "aitools schema doc ~A" verb))
     (expect (jget error "message")
             :to-equal (if unsupported
                           (format nil "~A value at JSON Pointer ~A uses unsupported ~A."

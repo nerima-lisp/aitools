@@ -13,7 +13,7 @@
     (expect (jget error "message") :to-contain reason)
     (expect (jget error "repairs" 0 "action") :to-equal action)
     (expect (jget error "repairs" 0 "command")
-            :to-equal (format nil "aitools doc get --format ~A" format))
+            :to-equal "aitools schema doc get")
     (expect (jget error "repairs" 0 "detail")
             :to-equal (if (string= code "input.syntax-error")
                           "Fix the YAML/TOML syntax or TOML integer range, then retry."
@@ -144,7 +144,7 @@
          (expect (jget (aitools-envelope wrong-format) "error" "code")
                  :to-equal "input.syntax-error")
          (expect (jget (aitools-envelope wrong-format) "error" "exit_code") :to-be 1)
-         (expect (jget (aitools-envelope wrong-format) "error" "repairs" 0 "command") :to-equal "aitools doc diff --format toml")))))
+         (expect (jget (aitools-envelope wrong-format) "error" "repairs" 0 "command") :to-equal "aitools schema doc diff")))))
 
   (it "requires an explicit format for extensionless and unsupported paths"
     (aitools-binary)
