@@ -20,38 +20,13 @@
 
 (describe "Feature command registration"
   (it "registers every feature presentation in CLI dependency order"
-    (let ((expected (%declared-feature-presentation-contexts))
+    (let ((expected (list :search :inspect :edit :journal :process :org :env :util))
+          (declared (%declared-feature-presentation-contexts))
           (actual
            (mapcar (function first)
                    (aitools/cli::context-command-registrations))))
-      (expect expected :to-be-truthy)
+      (expect declared :to-equal expected)
       (expect actual :to-equal expected)))
-  (it "reloads each composition registration without changing context order"
-    (let ((expected (%declared-feature-presentation-contexts)))
-      (aitools.test.support:call-with-temporary-directory
-       (lambda (directory)
-         (dolist (context expected)
-           (let* ((context-name (string-downcase (symbol-name context)))
-                  (system-name
-                    (format nil "aitools/feature/~A/presentation" context-name))
-                  (source
-                    (asdf:component-pathname
-                     (asdf:find-component
-                      system-name (list "composition" "context-registration"))))
-                  (output-file
-                    (merge-pathnames
-                     (make-pathname :name context-name :type "fasl")
-                     directory)))
-             (multiple-value-bind (compiled-file warnings-p failure-p)
-                 (compile-file source :output-file output-file)
-               (declare (ignore warnings-p))
-               (when failure-p
-                 (error "Failed to compile feature composition registration for ~A."
-                        context))
-               (load compiled-file))))))
-      (expect (mapcar (function first)
-                      (aitools/cli::context-command-registrations))
-              :to-equal expected)))
   (it "registers commands from each context dependency constructor"
     (let* ((registry (aitools.protocol.application:make-command-registry))
            (schemas

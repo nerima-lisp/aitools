@@ -15,14 +15,11 @@
                          (uiop:getenv "AITOOLS_HOST_CACHE_DIR")) :**/
                        :*.*.*))
                      :ignore-inherited-configuration))
-                  (progn
-                    (asdf:load-system "aitools/test")
-                    (uiop:symbol-call :asdf-user
-                                      :%load-aitools-test-systems
-                                      nil)
-                    (uiop:symbol-call :aitools/test
-                                      :%validate-context-test-systems
-                                      nil))
+                  (asdf:load-system "aitools/test")
+                  (uiop:symbol-call :asdf-user :%load-aitools-test-systems nil)
+                  (uiop:symbol-call :aitools/test
+                                    :%validate-context-test-systems
+                                    nil)
                   (format t
                           "~&SOURCE=~A~%"
                           (asdf:system-source-directory "aitools"))
@@ -32,19 +29,30 @@
                           (uiop:symbol-call :aitools/test
                                             :call-with-spec-progress
                                             (lambda ()
-                                              (uiop:symbol-call :cl-weave :run nil :timeout-ms 60000 :reporter
+                                              (uiop:symbol-call :cl-weave
+                                                                :run
+                                                                nil
+                                                                :timeout-ms
+                                                                60000
+                                                                :reporter
                                                                 :json
                                                                 :stream
                                                                 json
                                                                 :exclude-tags
-                                                                (when (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")
-                                                                  (list :trace-positive))))))
+                                                                (when
+                                                                    (uiop:getenv
+                                                                     "AITOOLS_E2E_BYTE_CAPTURE_DIR")
+                                                                  (list
+                                                                   :trace-positive))))))
                          (report (get-output-stream-string json))
                          (parsed (uiop:symbol-call :json-kit :parse report))
                          (selected (gethash "events" parsed)))
                     (setf events run-events)
                     (multiple-value-bind (problems executed)
-                        (uiop:symbol-call :aitools/test :%policy-problems (coerce selected (quote list)) nil)
+                        (uiop:symbol-call :aitools/test
+                                          :%policy-problems
+                                          (coerce selected (quote list))
+                                          nil)
                       (format t "~&POLICY_EXECUTED=~D~%" executed)
                       (when problems
                         (error "Host full suite policy failed: ~S" problems)))

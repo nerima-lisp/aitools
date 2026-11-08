@@ -1,8 +1,6 @@
 ;;;;
-;;;; Loads each feature presentation's registration and dependency constructor
-;;;; and registers all declared feature contexts. Their order follows the CLI
-;;;; presentation dependencies; the integration contract checks that every
-;;;; declared feature context has one registration in that order.
+;;;; Registers commands for each composition registration loaded by its feature
+;;;; presentation system. Context order follows the CLI presentation dependencies.
 (in-package #:aitools/cli)
 
 (defun %context-dependency-arguments ()
@@ -31,5 +29,6 @@
       (dolist (registration (context-command-registrations))
         (destructuring-bind (context register-function dependency-function)
             registration
+          (declare (ignore context))
           (register register-function dependency-function)))))
   registry)
