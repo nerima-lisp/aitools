@@ -51,7 +51,7 @@
 (defun read-zip-entries (octets)
   "The ARCHIVE-ENTRY list of the zip archive OCTETS in central directory
 order. Directory names lose their trailing '/'. A symlink's target is read
-from its (small) data."
+from its data after its declared size is checked."
   (declare (type octets octets))
   (let* ((eocd (%find-end-of-central-directory octets))
          (disk (%u16le octets (+ eocd 4)))
@@ -59,8 +59,12 @@ from its (small) data."
          (directory-size (%u32le octets (+ eocd 12)))
          (directory-offset (%u32le octets (+ eocd 16)))
          (directory-end (+ directory-offset directory-size)))
+    (when (or (> count +archive-max-zip-records+)
+              (> (%u16le octets (+ eocd 8)) +archive-max-zip-records+))
+      (error 'archive-limit-exceeded
+             :limit +archive-max-zip-records+
+             :reason "zip records"))
     (when (or (%zip-signature-p octets (- eocd 20) #x07064b50)
-              (or (= count #xFFFF) (= (%u16le octets (+ eocd 8)) #xFFFF))
               (= directory-size #xFFFFFFFF)
               (= directory-offset #xFFFFFFFF))
       (%archive-unsupported "ZIP64"))
@@ -90,7 +94,8 @@ from its (small) data."
                (external (%u32le octets (+ offset 38)))
                (local (%u32le octets (+ offset 42)))
                (name-start (+ offset 46))
-               (next (+ name-start name-length extra-length comment-length)))
+               (name-end (+ name-start name-length))
+               (next (+ name-end extra-length comment-length)))
           (when (> next (length octets))
             (%archive-fail "central directory entry is truncated"))
           (when (> next directory-end)
@@ -111,9 +116,19 @@ from its (small) data."
                                  (%u16le octets (+ local 26))
                                  (%u16le octets (+ local 28))))
                  (data-end (+ data-offset compressed))
-                 (raw-name (if (logbitp 11 flags)
-                               (decode-utf8 octets :start name-start :end (+ name-start name-length))
-                               (%name-from-octets octets name-start (+ name-start name-length)))))
+                 (raw-name (progn
+                             (let ((problem (%archive-path-octets-problem octets name-start name-end)))
+                               (when problem
+                                 (error 'archive-limit-exceeded
+                                        :limit (ecase problem
+                                                 (:path-too-long +archive-max-path-bytes+)
+                                                 (:component-too-long +archive-max-component-bytes+)
+                                                 (:too-deep +archive-max-depth+))
+                                        :reason "zip path")))
+                             (if (logbitp 11 flags)
+                                 (decode-utf8 octets :start name-start :end name-end)
+                                 (%name-from-octets octets name-start name-end))))
+                 )
             (when (> data-end (length octets))
               (%archive-fail "entry data lies outside the archive"))
             (when (> data-end directory-offset)
@@ -132,20 +147,35 @@ from its (small) data."
                             :flags flags
                             :crc crc)))
                 (push (if (eq kind :symlink)
-                          (make-archive-entry
-                           :format :zip
-                           :name (archive-entry-name entry)
-                           :kind kind
-                           :size size
-                           :mode mode
-                           :mtime (archive-entry-mtime entry)
-                           :link-target
-                           (decode-utf8 (archive-entry-data octets entry :max-output 4096))
-                           :data-offset data-offset
-                           :compressed-size compressed
-                           :method method
-                           :flags flags
-                           :crc crc)
+                          (progn
+                            (when (> size +archive-max-link-target-bytes+)
+                              (error 'archive-limit-exceeded
+                                     :limit +archive-max-link-target-bytes+
+                                     :reason "zip link target"))
+                            (let ((target (archive-entry-data
+                                           octets entry
+                                           :max-output +archive-max-link-target-bytes+)))
+                              (let ((problem (%archive-path-octets-problem target 0 (length target))))
+                                (when problem
+                                  (error 'archive-limit-exceeded
+                                         :limit (ecase problem
+                                                  (:path-too-long +archive-max-path-bytes+)
+                                                  (:component-too-long +archive-max-component-bytes+)
+                                                  (:too-deep +archive-max-depth+))
+                                         :reason "zip link target")))
+                              (make-archive-entry
+                               :format :zip
+                               :name (archive-entry-name entry)
+                               :kind kind
+                               :size size
+                               :mode mode
+                               :mtime (archive-entry-mtime entry)
+                               :link-target (decode-utf8 target)
+                               :data-offset data-offset
+                               :compressed-size compressed
+                               :method method
+                               :flags flags
+                               :crc crc)))
                           entry)
                       entries))))
           (setf offset next)))

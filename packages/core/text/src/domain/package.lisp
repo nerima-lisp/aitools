@@ -118,4 +118,4 @@
    #:archive-entry-data
    ;; archive-format.lisp
    #:detect-archive-format
-   #:archive-format-name))
+   #:archive-format-name #:+archive-max-path-bytes+ #:+archive-max-component-bytes+ #:+archive-max-depth+ #:+archive-max-link-target-bytes+ #:+archive-max-tar-records+ #:+archive-max-zip-records+))
