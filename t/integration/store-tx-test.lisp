@@ -135,7 +135,12 @@ append TEXT to PATH as the view shows it."
          (expect diff-result :to-be :not-found))
        (expect (commit-tx store "tx-nope") :to-be :not-found)
        (expect (tx-view-text store (format-tx-id 3964000000 "00000000") "a.txt")
-               :to-be :not-found))
+               :to-be :not-found)
+       (expect
+        (tx-diff/k store (format-tx-id 3964000000 "00000000")
+                   :on-diff (lambda (results) (declare (ignore results)) :found)
+                   :on-not-found (lambda () :not-found))
+        :to-be :not-found))
      :io nil)))
 
 (describe "aitools.store tx commit"
