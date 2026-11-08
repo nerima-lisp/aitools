@@ -72,5 +72,20 @@
       (let ((hashes (tx-index-referenced-blobs index)))
         (expect (length hashes) :to-be 2)
         (expect (member base-hash hashes :test (function string=)) :to-be-truthy)
-        (expect (member staged-hash hashes :test (function string=)) :to-be-truthy)))))
-
+        (expect (member staged-hash hashes :test (function string=)) :to-be-truthy))))
+  (it-each (("unchanged file" "file.txt" :file #o644 #o644 nil nil nil)
+            ("staged directory mode change" "directory" :directory #o755 #o700 nil nil t)
+            ("staged file mtime change" "file.txt" :file #o644 #o644 nil 123 t))
+    "tx-staged-changed-p reports the result for ~A"
+    (label path kind base-mode staged-mode base-mtime staged-mtime expected)
+    (let* ((hash (make-string 64 :initial-element #\a))
+           (base (ecase kind
+                   (:file (file-state hash base-mode base-mtime))
+                   (:directory (directory-state base-mode))))
+           (staged (ecase kind
+                     (:file (file-state hash staged-mode staged-mtime))
+                     (:directory (directory-state staged-mode))))
+           (index (make-tx-index)))
+      (tx-index-put index path base staged)
+      (expect (tx-staged-changed-p (tx-index-find index path))
+              :to-be expected))))
