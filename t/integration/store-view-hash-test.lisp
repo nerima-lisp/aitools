@@ -9,7 +9,7 @@
       (kind path target content)
     (call-with-temp-store
      (lambda (store)
-       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (case kind
            (:file (put-file store path target))
            (:link
@@ -34,7 +34,7 @@
      (lambda (store)
        (when (eq kind :directory)
          (put-file store "directory/seed" "seed"))
-       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (expect (path-hash host (store-root store) (disk-view store)
                             (disk-path store path))
                  :to-be nil)))
@@ -43,7 +43,7 @@
   (it "returns no hash for the workspace root"
     (call-with-temp-store
      (lambda (store)
-       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (expect (path-hash host (store-root store) (disk-view store)
                             (store-root store))
                  :to-be nil)))
@@ -60,17 +60,12 @@
      (lambda (store)
        (put-file store "file" "payload")
        (put-file store "../outside" "outside")
-       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-host))
+       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
               (unreadable-host
-                (aitools.workspace.application:make-workspace-host
-                 :list-directory (lambda (path)
-                                   (aitools.workspace.application:host-list-directory host path))
-                 :stat (lambda (path) (aitools.workspace.application:host-stat host path))
-                 :read-link (lambda (path) (aitools.workspace.application:host-read-link host path))
-                 :read-octets (lambda (path) (declare (ignore path)) nil)
-                 :getenv (lambda (name) (aitools.workspace.application:host-getenv host name))
-                 :home-directory (lambda () (aitools.workspace.application:host-home-directory host))
-                 :current-directory (lambda () (aitools.workspace.application:host-current-directory host))))
+                (cl-boundary-kit:boundary-context-with
+                 host
+                 :workspace-read-octets
+                 (lambda (path) (declare (ignore path)) nil)))
               (outside (disk-path store "../outside")))
          (expect (path-hash host (store-root store) nil (disk-path store "file"))
                  :to-equal (aitools.kernel.domain:content-hash (bytes "payload")))
@@ -85,7 +80,7 @@
      (lambda (store)
        (sb-posix:symlink "loop-b" (disk-path store "loop-a"))
        (sb-posix:symlink "loop-a" (disk-path store "loop-b"))
-       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (expect (path-hash host (store-root store) (disk-view store)
                             (disk-path store "loop-a"))
                  :to-equal (aitools.kernel.domain:content-hash (bytes "loop-b")))))
@@ -122,7 +117,7 @@
     (call-with-temp-store
      (lambda (store)
        (let ((tx (begin store))
-             (host (aitools.workspace.infrastructure:make-host-workspace-host)))
+             (host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (stage store tx (list (write-file-request "staged" (bytes "staged"))))
          (sb-posix:symlink "staged" (disk-path store "staged-link"))
          (call-with-tx-view/k
@@ -139,7 +134,7 @@
     (call-with-temp-store
      (lambda (store)
        (sb-posix:symlink "missing-target" (disk-path store "../outside-link"))
-       (let ((host (aitools.workspace.infrastructure:make-host-workspace-host)))
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries)))
          (expect (path-hash host (store-root store) nil (disk-path store "../outside-link"))
                  :to-equal (aitools.kernel.domain:content-hash (bytes "missing-target")))))
      :io nil)))

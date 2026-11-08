@@ -34,7 +34,7 @@ lock is held."
                                   :on-busy (lambda () :busy))
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
-        (kill-child pid))) :io nil))
+        (kill-child pid))) :fake-monotonic-clock t))
   (it "answers busy when the lock is not released within --lock-timeout"
     (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 3)))
         (expect (commit-changes/k store '("write")
@@ -101,7 +101,6 @@ lock is held."
            (when (and acquired-handle
                       (not (member acquired-handle unlocked-handles :test (function eql))))
              (funcall real-unlock acquired-handle))))) :io nil))
-
   (it "waits for the holder and then writes"
     (call-with-temp-store (lambda (store) (let* ((pid (hold-lock-in-child store 0.5))
              (start (get-internal-real-time))
@@ -118,12 +117,10 @@ lock is held."
         (expect waited :to-be-greater-than 0.1)
         (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))
         (expect (disk-text store "x") :to-equal "x"))) :io nil))
-
   (it "is released by the OS when the holder is killed"
     (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 60)))
         (expect (multiple-value-list (kill-child pid)) :to-equal (list :signalled sb-posix:sigkill))
         (expect (with-workspace-lock (store 2000 :on-timeout :busy) :acquired) :to-be :acquired))) :io nil))
-
   (it "serialises two processes' writes to the journal"
     (call-with-temp-store (lambda (store) (let ((pids (loop for n from 0 below 2
                         collect (let ((n n))

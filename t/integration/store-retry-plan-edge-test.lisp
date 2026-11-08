@@ -173,20 +173,22 @@
               (real-flock (symbol-function 'aitools.store.infrastructure::%flock))
               (calls 0)
               (handle nil))
-         (unwind-protect
-              (progn
-                (setf (symbol-function 'aitools.store.infrastructure::%flock)
-                      (lambda (fd operation)
-                        (if (= (incf calls) 1)
-                            (progn (sb-alien:set-errno sb-posix:eintr) -1)
-                            (funcall real-flock fd operation))))
-                (setf handle (funcall (store-operation io :try-lock) path :create t))
-                (expect (integerp handle) :to-be t)
-                (expect calls :to-be 2)
-                (funcall (store-operation io :unlock) handle)
-                (setf handle nil))
-           (setf (symbol-function 'aitools.store.infrastructure::%flock) real-flock)
-           (when handle (funcall (store-operation io :unlock) handle))))) :io nil)))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.store.infrastructure::%flock)
+               (lambda (fd operation)
+                 (if (= (incf calls) 1)
+                     (progn (sb-alien:set-errno sb-posix:eintr) -1)
+                     (funcall real-flock fd operation)))))
+           (unwind-protect
+                (progn
+                  (setf handle (funcall (store-operation io :try-lock) path :create t))
+                  (expect (integerp handle) :to-be t)
+                  (expect calls :to-be 2)
+                  (funcall (store-operation io :unlock) handle)
+                  (setf handle nil))
+             (when handle
+               (funcall (store-operation io :unlock) handle))))))
+   :io nil)))
 
 (describe "aitools.store planner boundary cases"
   (it
