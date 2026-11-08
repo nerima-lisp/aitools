@@ -27,9 +27,13 @@
   (it "refuses a --root that is a file for mktemp"
     (call-with-edit-workspace (lambda () (put "a.txt" "a")
       (let ((result nil))
-        (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
+        (run-edit-command *ports* "mktemp" (quote ()) (quote ())
+                          :root (disk "a.txt")
                           :on-ok (lambda (fields) (setf result fields))
-                          :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
+                          :on-error (lambda (code message &rest keys)
+                                      (declare (ignore keys))
+                                      (setf result (list code message)))
+                          :on-partial (function identity))
         (expect (first result) :to-equal "argument.invalid")
         (expect (search "is not a usable directory" (second result)) :to-be-truthy)))))
 
@@ -68,7 +72,7 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
                                         (aitools.store.infrastructure:make-posix-store-io) overrides)
                                  root *home* :temporary (%temporary-area-p root)))
                   :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                  :read-stdin-octets #'%stdin-port
+                  :read-stdin-octets (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
                   :unix-now #'aitools.edit.infrastructure:unix-now)))
     (funcall function)))
 
@@ -119,7 +123,7 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
                        :workspace-host host
                        :open-store #'open-store
                        :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                       :read-stdin-octets #'%stdin-port
+                       :read-stdin-octets (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
                        :unix-now #'aitools.edit.infrastructure:unix-now))
              (before (snapshot)))
         (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
