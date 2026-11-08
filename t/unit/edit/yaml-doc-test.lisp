@@ -1,4 +1,4 @@
-;;;; YAML write-value validation and number representability.
+;;;; YAML write values and document flows.
 (in-package #:aitools.edit.test)
 
 (defun yaml-write-value-refusal (value)
@@ -16,7 +16,11 @@
           (zero (parse-json-text "{\"value\":0e-9999}")))
       (expect (edit-refusal-code underflow) :to-equal "argument.invalid")
       (expect (eq (validate-yaml-write-value zero) zero) :to-be t)))
-  (it "rejects unrepresentable JSON numbers"
+  (it "rejects unrepresentable nested JSON numbers"
+    (let ((overflow (yaml-write-value-refusal
+                     (parse-json-text "{\"value\":1e9999}"))))
+      (expect (edit-refusal-code overflow) :to-equal "argument.invalid")))
+  (it "rejects unrepresentable scalar JSON numbers"
     (let ((overflow (yaml-write-value-refusal
                      (make-json-num "1e9999"))))
       (expect (edit-refusal-code overflow) :to-equal "argument.invalid")))

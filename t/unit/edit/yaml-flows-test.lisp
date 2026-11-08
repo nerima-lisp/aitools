@@ -1,4 +1,4 @@
-;;;; YAML write command flows and warning fields.
+;;;; YAML write command validation and size limits.
 (in-package #:aitools.edit.test)
 
 (describe "aitools.edit YAML write argument errors"
