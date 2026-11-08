@@ -16,7 +16,7 @@
 (defparameter *edit-command-specs*
   '((:name "edit"
      :summary "Replace text selected by --old or a selector; --new '' deletes it."
-     :description "--old tries exact matching first, then line-wise matching after trimming surrounding whitespace; --new is re-indented to match the file. Line selectors replace full lines, including their newline. With --stdin, pass either one operation (`{\"old\":\"...\",\"new\":\"...\"}`) or an object with an `edits` array (`{\"edits\":[...]}`). Each array entry uses one selector: `old`, `between` with start and end regexes, or `match` with `expect_count`; each entry also supplies `new`. Entries run in order, and each selector sees content after earlier entries."
+     :description "--old tries exact matching first, then line-wise matching after trimming surrounding whitespace; --new is re-indented to match the file. Line selectors replace full lines, including their newline. With --stdin, pass either one operation (`{\"old\":\"...\",\"new\":\"...\"}`) or an object with an `edits` array (`{\"edits\":[...]}`). Each array entry uses one selector: `old`, `between` with start and end regexes, or `match` with `expect_count`; each entry also supplies `new`. Entries run in order, and each selector sees content after earlier entries. The edits are all or nothing: if any entry fails, the file remains unchanged."
      :positionals ((:key :path :name "path"))
      :options ((:key :old :name "old" :kind :value :description "Text to replace; exact, then whitespace-insensitive.")
                (:key :new :name "new" :kind :value :description "Replacement; '' deletes the selection."))
