@@ -135,6 +135,11 @@
                 :to-equal '("utimes" "not a regular file"))
         (expect (io-failure (lambda () (funcall (store-operation io :chmod) (disk-path store "none") #o600)))
                 :to-equal '("open" "No such file or directory")))) :io nil))
+  (it "rejects symlink mode changes in the shared-inode guard"
+    (expect (io-failure
+             (lambda ()
+               (aitools.store.infrastructure::%refuse-shared-inode "chmod" "link" sb-posix:s-iflnk 1)))
+            :to-equal '("chmod" "is a symlink")))
 
   (it "walks pinned parents below a root given with a trailing slash"
     (call-with-temp-store (lambda (store) (let ((io (make-posix-store-io :root (concatenate 'string (store-root store) "/"))))
@@ -157,3 +162,29 @@
           :test #'equal)
          :to-be-truthy)
         (expect (disk-text store "a/b/x") :to-be :absent))) :io nil)))
+(describe "aitools.store committed error pass-through"
+  (it "preserves the op id of an existing committed error"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((base (store-boundaries plain))
+              (outer-op-id (format-op-id (get-universal-time) "00000001"))
+              (inner-op-id (format-op-id (get-universal-time) "00000002"))
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 base :mkdir
+                 (lambda (path &rest keys)
+                   (declare (ignore keys))
+                   (error 'store-committed-error :op-id inner-op-id :operation "mkdir" :path path))))
+              (store (make-store boundaries (store-root plain) (state-home-of plain)))
+              (intent
+                (make-intent
+                 :op-id outer-op-id
+                 :steps (list (make-intent-step :op :mkdir :path "newdir" :mode #o700))
+                 :journal-entry
+                 (make-journal-entry :op-id outer-op-id :argv '("test") :time "test" :changes '()))))
+         (expect
+          (handler-case
+              (progn (aitools.store.application::%complete-intent store intent) :returned)
+            (store-committed-error (condition)
+              (store-committed-error-op-id condition)))
+          :to-equal inner-op-id))) :io nil)))
