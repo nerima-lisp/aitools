@@ -48,6 +48,12 @@
                             (store-root store))
                  :to-be nil)))
      :io nil))
+  (it "resolves the filesystem root"
+    (call-with-temp-store
+     (lambda (store)
+       (expect (aitools.store.application::%real-path store "/")
+               :to-equal "/"))
+     :io nil))
 
   (it "uses the host for paths outside a view and returns nil when bytes cannot be read"
     (call-with-temp-store
