@@ -90,6 +90,21 @@ append TEXT to PATH as the view shows it."
           (expect (mapcar #'tx-path-path (tx-status-paths status)) :to-equal '("a.txt" "dir" "dir/new.txt" "gone.txt"))
           (expect (tx-status-drift status) :to-equal '()))
         (expect (mapcar #'tx-status-id (tx-list store)) :to-equal (list tx)))) :io nil))
+  (it "moves a file and recreates its source in one tx op"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "a.txt" "before")
+       (let ((tx (begin store)))
+         (expect (stage store tx
+                        (list (move-request "a.txt" "b.txt")
+                              (write-file-request "a.txt" (bytes "after"))))
+                 :to-be 1)
+         (expect (tx-view-text store tx "a.txt") :to-equal "after")
+         (expect (tx-view-text store tx "b.txt") :to-equal "before")
+         (expect (commit-tx store tx) :to-be :committed)
+         (expect (disk-text store "a.txt") :to-equal "after")
+         (expect (disk-text store "b.txt") :to-equal "before")))
+     :io nil))
 
   (it "diffs base to staged with both contents"
     (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
