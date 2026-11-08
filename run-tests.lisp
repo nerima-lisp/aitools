@@ -26,30 +26,22 @@
                 "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
                 context metric covered total base-covered base-total))))
   t)
-(defun coverage-statistics-for (pathnames &optional context baseline &key new-baseline-p)
-  (let* ((statistics (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                                       :include-pathnames pathnames))
-         (current-count
-          (when (or new-baseline-p
-                    (getf baseline :uncovered-in-package-expressions))
-            (uncovered-in-package-expression-count
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
-                               :include-pathnames pathnames)))))
-    (cond
-     (new-baseline-p
-      (let ((measured (copy-list statistics)))
-        (setf (getf measured :uncovered-in-package-expressions) current-count)
-        measured))
-     ((getf baseline :uncovered-in-package-expressions)
-      (adjust-context-expression-total statistics context current-count baseline))
-     (t statistics))))
+(defvar *harvest-sb-cover-marks-after-source-load* nil)
+(defmethod asdf:perform :after ((operation asdf:load-op)
+                                (component asdf:cl-source-file))
+  (declare (ignore operation component))
+  (when *harvest-sb-cover-marks-after-source-load*
+    (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")))
+(defun coverage-statistics-for (pathnames)
+  (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                    :include-pathnames pathnames))
 (defun measure-context-coverage (root groups)
   (mapcar (lambda (group)
-            (let* ((context (car group)) (pathnames (cdr group))
+            (let* ((context (car group))
+                   (pathnames (cdr group))
                    (baseline (read-coverage-baseline-if-present root context)))
               (list context (length pathnames)
-                    (coverage-statistics-for pathnames context baseline
-                                             :new-baseline-p (null baseline))
+                    (coverage-statistics-for pathnames)
                     baseline)))
           groups))
 (defun run-coverage (root)
@@ -60,10 +52,11 @@
   (when (find-package "AITOOLS.DATA")
     (delete-package "AITOOLS.DATA"))
   (uiop:symbol-call "CL-WEAVE" "RESET-COVERAGE")
-  (asdf:load-system "aitools" :force t)
-  (asdf:load-system "aitools/cli" :force t)
-  (asdf:load-system "aitools/test")
-  (uiop:symbol-call :asdf-user :%load-aitools-test-systems)
+  (let ((*harvest-sb-cover-marks-after-source-load* t))
+    (asdf:load-system "aitools" :force t)
+    (asdf:load-system "aitools/cli" :force t)
+    (asdf:load-system "aitools/test")
+    (uiop:symbol-call :asdf-user :%load-aitools-test-systems))
   (let* ((include (coverage-candidate-files))
          (aggregate-baseline (read-coverage-baseline root :aggregate))
          (json (make-string-output-stream)))
@@ -87,22 +80,22 @@
               (cons :json events))
         (multiple-value-bind (problems executed context-counts)
             (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events nil)
-          (let* ((statistics (coverage-statistics-for selected :aggregate aggregate-baseline))
+          (let* ((statistics (coverage-statistics-for selected))
                  (measured (measure-context-coverage root groups))
                  (aggregate
-                   (append
-                    (coverage-measurement-record
-                     :aggregate (length selected) statistics aggregate-baseline)
-                    (list :executed-spec-count executed)))
+                  (append
+                   (coverage-measurement-record
+                    :aggregate (length selected) statistics aggregate-baseline)
+                   (list :executed-spec-count executed)))
                  (contexts
-                   (mapcar
-                    (lambda (entry)
-                      (append
-                       (coverage-measurement-record
-                        (first entry) (second entry) (third entry) (fourth entry))
-                       (list :executed-spec-count
-                             (cdr (assoc (first entry) context-counts)))))
-                    measured)))
+                  (mapcar
+                   (lambda (entry)
+                     (append
+                      (coverage-measurement-record
+                       (first entry) (second entry) (third entry) (fourth entry))
+                      (list :executed-spec-count
+                            (cdr (assoc (first entry) context-counts)))))
+                   measured)))
             (write-context-measurements root aggregate contexts exclusions)
             (format t "~&aitools coverage suite: ~D specs run~%" executed)
             (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"

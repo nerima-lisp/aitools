@@ -71,7 +71,6 @@
 
 - Add an e2e or integration expectation for each downstream contract above before the v0.4.0 release.
 - Tests must reject the old envelope shape.
-- Envelope version 2 is the active contract for this migration.
 
 ## Structured document commands
 
@@ -97,9 +96,17 @@
   context and provide the data list expected by its loader.
 - A new context's presentation system must be added to the `aitools/cli`
   dependency list in `aitools.asd`. Its position sets command registration
-  order, which the context-registration integration test checks.
-- The aggregate coverage baseline in `t/coverage-baseline.lisp` is shared with
-  the context baselines in `t/coverage-baselines/`. When deleting covered code
-  requires a baseline adjustment, update the affected context and aggregate
-  measurements together from Linux CI and record the before and after counts
-  in the change. Do not lower a baseline to compensate for missing coverage.
+  order.
+- When `run-tests.lisp` runs with `AITOOLS_COVERAGE`, the coverage runner
+  refreshes SB-COVER, SBCL's coverage collector, after each ASDF source file
+  load. Top-level forms evaluated during loading count as covered because their
+  marks are collected before garbage collection can reclaim their code objects.
+- A follow-on stream rebased onto earlier work records coverage baselines in
+  `coverage-baseline.lisp` and `coverage-baselines/` from the successful Linux
+  `check` on the rebased revision. It records spec-count baselines in
+  `t/spec-count-baselines/` from successful Linux and Darwin checks on that
+  revision.
+- When deleting covered code requires a baseline adjustment, update affected
+  context and aggregate measurements from Linux CI. Record the before-and-after
+  counts in the commit message. Do not lower a baseline to compensate for
+  missing coverage.
