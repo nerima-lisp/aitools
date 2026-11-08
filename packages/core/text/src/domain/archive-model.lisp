@@ -54,36 +54,6 @@ component)."
          :parent-traversal)
         (t nil)))
 
-(defun %path-components (path)
-  "PATH's `/`-separated components without empty and `.` ones."
-  (loop with start = 0
-        for slash = (position #\/ path :start start)
-        for component = (subseq path start (or slash (length path)))
-        unless (or (string= component "") (string= component "."))
-          collect component
-        while slash
-        do (setf start (1+ slash))))
-
-(defun archive-link-target-problem (name target &key symlink-names)
-  "NIL when a symlink named NAME pointing at TARGET stays below the
-extraction directory, else :ABSOLUTE or :ESCAPES. TARGET is resolved
-lexically against NAME's directory. SYMLINK-NAMES lists the names of every
-symlink in the same archive: lexical resolution is wrong for a `..` taken
-from a directory that is one of them (with x/d -> .., the target x/d/..
-is the parent of the root, not x), so such a target is reported as
-:ESCAPES. A `..`-free path through checked symlinks cannot leave the root.
-A tar hard link's target is relative to the archive root instead; check it
-with ARCHIVE-ENTRY-PATH-PROBLEM."
-  (if (or (zerop (length target)) (char= (char target 0) #\/))
-      :absolute
-      (let ((links (mapcar (lambda (link) (format nil "~{~A~^/~}" (%path-components link))) symlink-names))
-            (directory (butlast (%path-components name))))
-        (dolist (component (%path-components target) nil)
-          (if (string= component "..")
-              (cond ((null directory) (return :escapes))
-                    ((member (format nil "~{~A~^/~}" directory) links :test #'string=) (return :escapes))
-                    (t (setf directory (butlast directory))))
-              (setf directory (append directory (list component))))))))
 (defconstant +archive-max-path-bytes+ 4095)
 (defconstant +archive-max-component-bytes+ 255)
 (defconstant +archive-max-depth+ 2048)
