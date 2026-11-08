@@ -177,6 +177,13 @@ file is prepared and before the commit point, which recovery discards."
     (multiple-value-bind (code envelope) (run-plain "get" "f.json" "/a")
       (expect code :to-be 1)
       (expect (member "aitools doc get f.json /a" (repair-commands envelope) :test #'string=)
+              :to-be-truthy)))
+  (it "preserves operands that look like a retired document command"
+    (multiple-value-bind (code envelope)
+        (run-plain "get" "json" "get")
+      (expect code :to-be 1)
+      (expect (member "aitools doc get json get" (repair-commands envelope)
+                      :test (function string=))
               :to-be-truthy))))
 
 (describe "aitools dispatch: an envelope past the JSON writer's output limit"

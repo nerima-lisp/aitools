@@ -77,21 +77,12 @@ invoked. NIL when no command was in scope."
 (defun %unknown-command-repairs (registry argv name)
   "Return retired structured-document repairs before generic foreign-name suggestions."
   (let* ((tokens (rest argv))
-         (index (loop for i below (1- (length tokens))
-                      when (and (member (nth i tokens) '("json" "yaml" "toml")
-                                        :test #'string=)
-                                (member (nth (1+ i) tokens)
-                                        '("get" "select" "diff" "set" "delete"
-                                          "merge" "patch" "fmt")
-                                        :test #'string=))
-                        return i))
-         (group (and index (nth index tokens)))
+         (group (and (member name (list "json" "yaml" "toml")
+                              :test (function string=))
+                     name))
+         (index (and group (position group tokens :test (function string=))))
          (verb (and index (nth (1+ index) tokens)))
-         (retired (and (member name (list group verb
-                                          (and group verb
-                                               (format nil "~A.~A" group verb)))
-                               :test #'string=)
-                       (format nil "~A.~A" group verb))))
+         (retired (and group verb (format nil "~A.~A" group verb))))
     (cond ((and retired
                 (aitools.protocol.domain:correspondence-name-p retired))
            (%unknown-name-repairs retired))
