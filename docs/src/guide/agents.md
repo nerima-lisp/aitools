@@ -51,16 +51,29 @@ symlink that leaves it, or into the workspace's `.git/` fail with
 or nested directory that resolves into `.git/` is refused.
 
 During planning, `archive extract` rejects symlink targets that leave the
-extraction root or pass through an archive symlink at any target component. It
+resolved extraction root or pass through a symlink at any target component. It
 checks each component, including the component immediately before `..` and the
-last component. For example, with `D -> .`, a target of `D/..` is refused. To
-find archive symlinks, path prefixes use Unicode NFD normalization and full
-case folding: `x/d/..` matches `X/D`.
+last component. For example, with `D -> .`, a target of `D/..` is refused.
+
+The prefix check combines disk entries, symlinks in the transaction's staged
+view, and symlinks in the archive being planned. This includes symlinks staged
+by earlier archive operations in the same transaction. For this check, staged
+and archive symlink components use Unicode NFD normalization and full case
+folding on every platform. Other archive-name comparisons follow the spelling
+rules below.
 
 For an archive symlink's target, planning refuses paths that cross an existing
 destination symlink, even when that symlink is the target's final component.
 Planning also refuses archive entries whose parent paths cross archive or
 destination symlinks.
+
+Without `--tx`, `archive extract` writes after planning against the resolved
+extraction root. With `--tx`, it stages the entries after the same planning
+check. Before `tx commit` writes, the store checks every symlink in the final
+staged view against the workspace root, including links that did not come from
+an archive. An unsafe target or prefix rejects the commit with
+`refusal.outside-workspace` and leaves the transaction open. Remove or replace
+the offending staged link and retry `tx commit`, or run `tx abort`.
 
 Entry selection with `--entry`, duplicate-name checks, and hard-link target
 lookup preserve case and Unicode spelling after empty and `.` path components
@@ -69,9 +82,18 @@ filesystem. On a case-insensitive filesystem, both may pass planning;
 `archive extract` then refuses the commit if the destination filesystem aliases
 the paths.
 
-The `--to` path names the extraction root and is resolved through the existing
-write-target path handling: an in-workspace destination symlink is followed,
-and a target outside the workspace is refused.
+The `--to` path names the extraction root. The existing write-target resolver
+follows an in-workspace destination symlink and refuses a target outside the
+workspace. Archive member paths and link targets are checked within that
+resolved extraction root.
+
+Archive extraction caps entry paths at 4,095 UTF-8 bytes, path components at
+255 UTF-8 bytes, path depth at 2,048 nonempty, non-`.` components, and link
+targets at 4,095 UTF-8 bytes. The tar reader accepts at most 200,000 nonzero
+header records; the all-zero end-of-archive records do not count. PAX and GNU
+metadata headers count toward the limit. The ZIP reader accepts at most 65,534
+central-directory entries. Exceeding a limit returns
+`refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. The state
 directory lives outside the root, so writes there are refused too. The one
@@ -150,16 +172,12 @@ without following their targets. The default limits are 1,000 entries and
 64 MiB of regular-file content; `--max-entries` and `--max-bytes` override
 them. These limits bound the selected deletion, not process memory.
 
-Workspace, home, and filesystem roots, version-control metadata, and the
-state directory are protected. Keep the returned `op_id` to undo the deletion.
+For `rm`, workspace, home, and filesystem roots, `.git/`, `.jj/`, and the state
+directory are protected. Keep the returned `op_id` to undo the deletion.
 Stop external writers to the target tree before running the operation.
 Neither a dry run nor the journal reserves the tree against other processes.
-After a write is committed, recovery tries to finish it rather than roll it
-back. It verifies that a directory it changed is still the same directory; if
-that check fails, it leaves the recovery record for an operator. A crash after
-setting mode `000` but before syncing it can require operator intervention;
-aitools does not temporarily widen permissions to reopen the directory.
-Inspect diagnostics before retrying or changing the affected paths.
+If a committed write needs recovery, inspect its diagnostics before retrying;
+see [Transactions](../reference/transactions.md) for recovery behavior.
 
 The journal and undo apply to workspace targets. The `mktemp` scratch area
 is not journaled or undoable, and a failure there can leave partial changes.
@@ -193,16 +211,9 @@ aitools sys snapshot --process-limit 20 --network-limit 100 --port-limit 100
 The disk section uses the filesystem containing an optional positional path,
 or the workspace root by default. The info section always uses the workspace.
 
-Inspect each entry in `sections`: `status` distinguishes complete, partial,
-and unavailable observations; `reason` explains missing data. The response
-includes observation times and `atomic: false`. It is a sequence of reads,
-not an atomic or exhaustive view of the machine. A partial section makes the
-response partial (exit 3); if every section is unavailable, it fails (exit 1)
-and retains section diagnostics.
-
-Item limits bound output, not acquisition time or memory. External source
-commands have individual timeouts, but there is no overall deadline; socket
-owner scans and OS calls are not time-bounded.
+Inspect `status` and `reason` for each section. The snapshot is not atomic. See
+[the system command reference](../reference/commands/env.md#sys-snapshot) for
+partial results, limits, and acquisition bounds.
 
 Use `sys metrics` for a noninteractive, JSON alternative to `top`:
 
@@ -210,28 +221,11 @@ Use `sys metrics` for a noninteractive, JSON alternative to `top`:
 aitools sys metrics --limit 10
 ```
 
-The command samples system CPU over one second and returns memory totals and
-processes sorted by CPU usage. `cpu.busy_percent` uses all logical CPUs as
-100%; a process's `cpu_percent` uses one CPU as 100% and can exceed that.
-Process CPU is a lifetime average on Linux and a decaying average on macOS,
-not the system sampling interval. Read `process_cpu_basis` before comparing
-process values with system CPU. Memory and RSS values are bytes, and
-`memory.available_basis` identifies how available memory was calculated.
-
-Process entries expose executable names, not arguments. If `--limit` cuts the
-list, the result includes the total process count, `truncated: true`, and
-partial status (exit code 3). Missing or malformed metric sources produce
-`environment.unavailable`, not fabricated zero readings. The one-second
-interval does not bound total command duration.
-
-For individual sources, use `sys network --limit 100` and `sys disk PATH`.
-Network values are cumulative interface byte, packet, and error counters,
-not transfer rates or connectivity tests. Counters can reset. Disk values
-describe the filesystem containing the existing path, not every mount,
-device health, or disk I/O. Available bytes mean capacity available to
-unprivileged users; total minus available is not necessarily used space.
-Unsupported, denied, failed, or malformed sources return
-`environment.unavailable` rather than zero readings.
+For field definitions and source limits, see the [`sys metrics` reference](../reference/commands/env.md#sys-metrics).
+Use `sys network --limit 100` or `sys disk PATH` when you need one source. See
+the [`sys network`](../reference/commands/env.md#sys-network) and
+[`sys disk`](../reference/commands/env.md#sys-disk) references for their
+semantics.
 
 See [State inspection](state-inspection.md) for workspace and execution
 state, which the host snapshot does not include.
