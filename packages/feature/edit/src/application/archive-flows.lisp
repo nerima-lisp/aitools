@@ -163,23 +163,26 @@ root) is refused rather than written. Calls ON-OK after every step is inside."
                                                  path))
                                       (let* ((root (context-path context))
                                              (steps
-                                              (plan-archive-extraction octets
-                                                                       format
-                                                                       root
-                                                                       :archive-path
-                                                                       path
-                                                                       :selected
-                                                                       (getf options :entry)
-                                                                       :max-bytes
-                                                                       max-bytes
-                                                                       :max-entries
-                                                                       max-entries
-                                                                       :lookup-kind
-                                                                       (lambda (relative)
-                                                                         (aitools.store.domain:entry-state-kind
-                                                                          (aitools.store.application:view-path-state
-                                                                           (write-context-view context)
-                                                                           relative))))))
+                                              (plan-archive-extraction
+ octets
+ format
+ root
+ :archive-path path
+ :selected (getf options :entry)
+ :max-bytes max-bytes
+ :max-entries max-entries
+ :lookup-kind
+ (lambda (relative)
+   (aitools.store.domain:entry-state-kind
+    (aitools.store.application:view-path-kind
+     (write-context-view context)
+     relative)))
+ :make-prefix-checker
+ (lambda (archive-symlink-paths)
+   (aitools.store.application:make-archive-symlink-prefix-checker
+    (write-context-view context)
+    root
+    archive-symlink-paths)))))
                                         (aitools.kernel.domain:flow-call
                                           (%check-extract-paths/k context steps)
                                           (:on-error (code message &key candidates diagnostics conflicts repairs path)

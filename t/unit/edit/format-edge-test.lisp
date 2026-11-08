@@ -20,9 +20,7 @@ entries WRITE-TAR does not produce."
   (it "extracts a gz member under its stored name, else the archive's name without .gz"
     (let ((named (aitools.text.domain:gzip-compress (bytes "hello") :name "inner.txt"))
           (anonymous (aitools.text.domain:gzip-compress (bytes "hello"))))
-      (flet ((plan (octets archive-path)
-               (plan-archive-extraction octets :gz "out" :archive-path archive-path :max-bytes 100 :max-entries 10
-                                                         :lookup-kind (constantly :absent))))
+      (flet ((plan (octets archive-path) (plan-archive-extraction octets :gz "out" :archive-path archive-path :max-bytes 100 :max-entries 10 :lookup-kind (constantly :absent) :make-prefix-checker (constantly nil))))
         (let ((step (first (plan named "x/a.gz"))))
           (expect (extract-step-path step) :to-equal "out/inner.txt")
           (expect (extract-step-data step) :to-equalp (bytes "hello"))
@@ -34,11 +32,15 @@ entries WRITE-TAR does not produce."
   (it "refuses a gz member that exists or inflates past --max-bytes"
     (let ((octets (aitools.text.domain:gzip-compress (make-array 5000 :element-type '(unsigned-byte 8) :initial-element 7)
                                                      :name "big")))
-      (expect (refusal-code (lambda () (plan-archive-extraction octets :gz "" :max-bytes 100 :max-entries 1
-                                                                          :lookup-kind (constantly :absent))))
+      (expect (refusal-code (lambda () (plan-archive-extraction
+ octets :gz "" :max-bytes 100 :max-entries 1
+ :lookup-kind (constantly :absent)
+ :make-prefix-checker (constantly nil))))
               :to-equal "refusal.too-large")
-      (expect (refusal-code (lambda () (plan-archive-extraction octets :gz "" :max-bytes 10000 :max-entries 1
-                                                                          :lookup-kind (constantly :file))))
+      (expect (refusal-code (lambda () (plan-archive-extraction
+ octets :gz "" :max-bytes 10000 :max-entries 1
+ :lookup-kind (constantly :file)
+ :make-prefix-checker (constantly nil))))
               :to-equal "refusal.exists")))
 
   (it "plans a tar.gz, refusing one that inflates past --max-bytes"
@@ -135,6 +137,8 @@ entries WRITE-TAR does not produce."
 
   (it "names a gz member after the archive when its stored name is a path"
     (let ((octets (aitools.text.domain:gzip-compress (bytes "x") :name "dir/evil")))
-      (expect (extract-step-path (first (plan-archive-extraction octets :gz "out" :archive-path "safe.gz" :max-bytes 10
-                                                                          :max-entries 1 :lookup-kind (constantly :absent))))
+      (expect (extract-step-path (first (plan-archive-extraction
+ octets :gz "out" :archive-path "safe.gz" :max-bytes 10 :max-entries 1
+ :lookup-kind (constantly :absent)
+ :make-prefix-checker (constantly nil))))
               :to-equal "out/safe"))))
