@@ -1,6 +1,3 @@
-;;;;
-;;;; Correspondence table rows 1-5: reading and inspecting. Rows 6-11 are in
-;;;; search-find-cases.lisp, which uses shared harness helpers.
 (in-package #:aitools.e2e.test)
 
 (defparameter +five-lines+ (format nil "alpha~%beta~%gamma~%delta~%epsilon~%"))

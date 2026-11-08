@@ -100,7 +100,12 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/edit" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t :components ((:file "package") (:file "commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
+  ((:module "presentation" :serial t
+    :components ((:file "package")
+                 (:file "commands")))
+   (:module "composition" :depends-on ("presentation") :serial t
+    :components ((:file "package")
+                 (:file "context-registration")))))
 
 (defsystem "aitools/test/edit"
   :description "Edit context tests."
@@ -132,8 +137,10 @@
                    (:file "edit-text-command-arguments-test")
                    (:file "edit-text-commands-paths-test")
                    (:file "edit-files-test")
+                   (:file "edit-files-safety-test")
                    (:file "edit-files-refusals-test")
                    (:file "edit-tx-and-limits-test")
+                   (:file "edit-tx-lock-test")
                    (:file "edit-cli-test")
                    (:file "edit-json-repair-test")
                    (:file "edit-security-test")

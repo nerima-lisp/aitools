@@ -1,5 +1,14 @@
 (in-package #:aitools.integration.structure-test)
 
+(defstruct liveness-reader-replacement
+  source-start
+  source-end
+  token
+  origin
+  source-name
+  cumulative-shift
+  view-end)
+
 (declaim (ftype function %handwritten-production-package-p %read-suppressed-form-at %liveness-reader-view-cache-entry))
 
 (defvar *reader-package*
@@ -24,7 +33,9 @@ package, or :UNREADABLE."
               (setf (gethash text *liveness-reader-view-cache*)
                     (%liveness-reader-view-cache-entry text))))
          (view (liveness-reader-view-cache-view cache))
-         (offset (+ position (funcall (liveness-reader-view-cache-cumulative-shift cache) position 1)))
+         (offset (+ position (funcall (liveness-reader-view-cache-cumulative-shift cache)
+                                      position
+                                      (function liveness-reader-replacement-source-end))))
          (origins (liveness-reader-view-cache-origins cache))
          (source-positions (liveness-reader-view-cache-source-positions cache))
          (source-names (liveness-reader-view-cache-source-names cache))
@@ -88,7 +99,9 @@ package, or :UNREADABLE."
                                 (annotate form))
                               (values
                                form
-                               (- end (funcall (liveness-reader-view-cache-cumulative-shift cache) end 6)))))))))
+                               (- end (funcall (liveness-reader-view-cache-cumulative-shift cache)
+                                               end
+                                               (function liveness-reader-replacement-view-end))))))))))
               (error (caught-error) (locally (declare (ignore caught-error)) (values :unreadable nil))))
           (setf (gethash position forms) (cons form end))
           (values form end))))))
@@ -105,25 +118,31 @@ package, or :UNREADABLE."
          (descriptors
            (append
             (loop for reference in references
-                  collect (list (fifth reference) (seventh reference)
-                                (list (first reference) (second reference)) nil))
+                  collect (make-liveness-reader-replacement
+                           :source-start (fifth reference)
+                           :source-end (seventh reference)
+                           :origin (list (first reference) (second reference))))
             (loop for position in operators
                   for start = (1+ position)
-                  collect (list start (+ start (length "FIND-SYMBOL"))
-                                nil "FIND-SYMBOL"))))
+                  collect (make-liveness-reader-replacement
+                           :source-start start
+                           :source-end (+ start (length "FIND-SYMBOL"))
+                           :source-name "FIND-SYMBOL"))))
          (replacements
-           (loop for descriptor in (sort descriptors #'< :key #'first)
+           (loop for replacement in
+                   (sort descriptors (function <)
+                         :key (function liveness-reader-replacement-source-start))
                  for serial from 1
-                 collect (list (first descriptor) (second descriptor)
-                               (format nil "~A~D" prefix serial)
-                               (third descriptor) (fourth descriptor)))))
+                 collect (prog1 replacement
+                           (setf (liveness-reader-replacement-token replacement)
+                                 (format nil "~A~D" prefix serial))))))
     (values
      (with-output-to-string (output)
        (loop with cursor = 0
              for replacement in replacements
-             for start = (first replacement)
-             for end = (second replacement)
-             for token = (third replacement)
+             for start = (liveness-reader-replacement-source-start replacement)
+             for end = (liveness-reader-replacement-source-end replacement)
+             for token = (liveness-reader-replacement-token replacement)
              do (write-string (subseq text cursor start) output)
                 (write-string "#:" output)
                 (write-string token output)

@@ -90,19 +90,12 @@
                       register-function
                       dependency-function)))
 
-(defun doc-dependency-arguments ()
-  "Shared keyword arguments passed to context dependency constructors."
-  (list :state-directory-function #'aitools/cli::current-state-directory
-        :workspace-host (aitools.workspace.infrastructure:make-host-workspace-host)
-        :text-source (aitools.text.infrastructure:make-host-text-source)
-        :open-store #'aitools.store.infrastructure:make-posix-store))
-
 (defun context-schemas ()
   "((CONTEXT . SCHEMAS) ...) in registration order, one entry per feature
 context, then a composition-root group for commands src/ registers."
-  (let ((arguments (doc-dependency-arguments))
-        (seen (make-hash-table :test 'equal))
-        (groups '()))
+  (let ((arguments (aitools/cli::%context-dependency-arguments))
+        (seen (make-hash-table :test (function equal)))
+        (groups nil))
     (dolist (entry (doc-context-registrations))
       (destructuring-bind (context register-function dependency-function) entry
         (let ((registry (aitools.protocol.application:make-command-registry)))
@@ -111,7 +104,8 @@ context, then a composition-root group for commands src/ registers."
             (dolist (schema schemas)
               (setf (gethash (aitools.protocol.domain:command-schema-name schema) seen) t))
             (push (cons context schemas) groups)))))
-    (let ((rest (remove-if (lambda (schema) (gethash (aitools.protocol.domain:command-schema-name schema) seen))
+    (let ((rest (remove-if (lambda (schema)
+                             (gethash (aitools.protocol.domain:command-schema-name schema) seen))
                            (aitools.protocol.application:all-command-schemas
                             (nth-value 1 (aitools/cli::build-app))))))
       (when rest (push (cons "composition root" rest) groups)))

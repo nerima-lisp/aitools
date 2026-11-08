@@ -82,7 +82,16 @@ lock is held."
                  (setf outcome
                        (with-workspace-lock (store 100 :on-timeout :busy)
                          :acquired))
-                 (expect outcome :to-be :acquired)
+                 (let ((expansion
+                        (macroexpand-1
+                         (quote (aitools.store.application:with-workspace-lock
+                                 (store 100 :on-timeout :busy)
+                                 :acquired)))))
+                   (expect (first expansion)
+                           :to-be (quote aitools.kernel.domain:flow-call))
+                   (expect (mapcar (function first) (cddr expansion))
+                           :to-equal (quote (:on-acquired :on-timeout)))
+                   (expect outcome :to-be :acquired))
                  (expect acquired-handle :to-be-truthy)
                  (expect unlocked-handles :to-equal (list acquired-handle))
                  (let ((again (funcall (funcall real-try-lock base-io) lock-path)))
@@ -130,7 +139,19 @@ lock is held."
 (describe "aitools.store tx lock and the flock primitive"
   (it "runs WITH-TX-LOCK's body, or its not-found form for an unknown tx"
     (call-with-temp-store (lambda (store) (let ((tx (begin store)))
-        (expect (with-tx-lock (store tx 1000 :on-timeout :busy :on-not-found :missing) :held) :to-be :held)
+        (let ((expansion
+          (macroexpand-1
+           (quote (aitools.store.application:with-tx-lock
+                   (store tx 1000 :on-timeout :busy :on-not-found :missing)
+                   :held)))))
+          (expect (first expansion)
+                  :to-be (quote aitools.kernel.domain:flow-call))
+          (expect (mapcar (function first) (cddr expansion))
+                  :to-equal (quote (:on-acquired :on-timeout :on-not-found)))
+          (expect (with-tx-lock
+                      (store tx 1000 :on-timeout :busy :on-not-found :missing)
+                    :held)
+                  :to-be :held))
         (expect (with-tx-lock (store (format-tx-id 3964000000 "00000000") 1000 :on-timeout :busy :on-not-found :missing)
                   :held)
                 :to-be :missing))) :io nil))

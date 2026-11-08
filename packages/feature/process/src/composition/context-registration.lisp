@@ -4,4 +4,4 @@
   (apply #'aitools.process.infrastructure:make-production-process-ports
          arguments))
 
-(aitools/cli::define-context-command-registration :process #'aitools.process.presentation:register-process-commands #'make-process-dependencies)
+(aitools/cli:define-context-command-registration :process #'aitools.process.presentation:register-process-commands #'make-process-dependencies)

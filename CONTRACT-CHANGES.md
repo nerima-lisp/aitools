@@ -97,6 +97,12 @@
 - A new context's presentation system must be added to the `aitools/cli`
   dependency list in `aitools.asd`. Its position sets command registration
   order.
+- A new feature context must also be added to the `aitools` system's
+  `:depends-on` list in `aitools.asd`, and to the expected context list in
+  `t/integration/context-registration-test.lisp`.
+- Update `t/spec-count-baselines/shared.lisp` when a change adds, removes, or
+  reassigns shared specs. Record its floor from successful full-suite Linux and
+  Darwin runs; keep the aggregate floor equal to the sum of all context floors.
 - When `run-tests.lisp` runs with `AITOOLS_COVERAGE`, the coverage runner
   refreshes SB-COVER, SBCL's coverage collector, after each ASDF source file
   load. Top-level forms evaluated during loading count as covered because their

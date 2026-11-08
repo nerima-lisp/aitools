@@ -39,6 +39,12 @@
   '("HOST-KIT" "PROCESS-KIT" "CL-CONCURRENT-KIT"
     "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
     "SB-GRAY" "SB-UNIX" "UIOP"))
+(defparameter *application-effectful-boundary-constructors*
+  ;; These defaults bind application code to real host state or actions.
+  (list "MAKE-ARGS" "MAKE-CLOCK" "MAKE-CONSOLE" "MAKE-ENVIRONMENT"
+        "MAKE-FILESYSTEM" "MAKE-HOST-INFO" "MAKE-PROCESS-BOUNDARY"
+        "MAKE-RANDOM-SOURCE" "MAKE-SLEEPER" "MAKE-SYSTEM-BOUNDARY"
+        "MAKE-TEMP-PATH-SOURCE" "MAKE-UUID-SOURCE" "MAKE-WORKING-DIRECTORY"))
 
 (defparameter *symbol-allowances*
   ;; (layers package symbol reason): single SBCL symbols a pure layer may
@@ -108,6 +114,12 @@ is in neither context list)."
                    (and (string= context entry-context) (member layer layers)
                         (string= package entry-package) (string= symbol entry-symbol))))
                *context-symbol-allowances*)))
+
+(defun application-effectful-boundary-symbol-p (context layer package symbol)
+  (declare (ignore context))
+  (and (eq layer :application)
+       (string= package "CL-BOUNDARY-KIT")
+       (member symbol *application-effectful-boundary-constructors* :test (function string=))))
 
 (defun %aitools-context (package-name)
   "The context segment of an AITOOLS.<CONTEXT>.<LAYER> package name, or NIL."

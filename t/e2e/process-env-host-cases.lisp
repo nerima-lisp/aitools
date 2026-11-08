@@ -2,7 +2,6 @@
 
 ;;;;
 ;;;; Correspondence table row 40: external Git.
-;;;; The shared TRIMMED helper is in t/e2e/process-env-cases.lisp.
 
 (define-row-case (40 "git status runs through run" :foreign ("git") :git t) (ws)
   (put ws "f" "content")

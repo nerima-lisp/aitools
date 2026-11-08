@@ -7,14 +7,13 @@
              (darwin (getf baseline :darwin-specs))
              (minimum (getf baseline :minimum-executed-specs)))
          (and (= (length (remove-duplicates
-                          (loop for tail on baseline by #'cddr collect (car tail))))
+                          (loop for tail on baseline by (function cddr) collect (car tail))))
                  (/ (length baseline) 2))
               (= (getf baseline :schema-version 0) 1)
               (eq (getf baseline :context) context)
               (member (getf baseline :source)
-                      '(:successful-linux-and-darwin-ci-runs
-                        :historical-reduced-ci-floor)
-                      :test #'eq)
+                      (list :successful-linux-and-darwin-ci-runs)
+                      :test (function eq))
               (integerp linux) (plusp linux)
               (integerp darwin) (plusp darwin)
               (integerp minimum) (= minimum (min linux darwin))

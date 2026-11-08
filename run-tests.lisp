@@ -32,7 +32,46 @@
   (declare (ignore operation component))
   (when *harvest-sb-cover-marks-after-source-load*
     (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")))
+(defvar *coverage-package-form-files-asserted* (make-hash-table :test (function equal)))
+(defun assert-coverage-package-forms-covered (pathnames)
+  (let ((pending (remove-if (lambda (pathname)
+                              (gethash (namestring pathname)
+                                       *coverage-package-form-files-asserted*))
+                            pathnames)))
+    (when pending
+      (let ((coverage (uiop:symbol-call "SB-COVER" "SAVE-COVERAGE")))
+        (dolist (pathname pending)
+          (let* ((filename (namestring pathname))
+                 (entry (assoc filename coverage :test (function string=))))
+            (unless entry
+              (error "Coverage has no source entry for ~A" filename))
+            (let* ((form-indices
+                     (with-input-from-string
+                         (stream (uiop:read-file-string pathname))
+                       (let ((*read-eval* t))
+                         (loop for index from 0
+                               for form = (read stream nil :eof)
+                               until (eq form :eof)
+                               for operator = (and (consp form) (car form))
+                               when (and (symbolp operator)
+                                         (member (symbol-name operator)
+                                                 (list "IN-PACKAGE" "DEFPACKAGE")
+                                                 :test (function string=)))
+                                 collect index))))
+                   (paths (second entry))
+                   (bits (cddr entry)))
+              (dolist (form-index form-indices)
+                (unless (loop for path across paths
+                              for bit across bits
+                              for source-path = (if (integerp (car path)) path (cdr path))
+                              thereis (and (= (car (last source-path)) form-index)
+                                           (= bit 1)))
+                  (error "Coverage did not harvest top-level package form ~D in ~A"
+                         form-index filename)))
+              (setf (gethash filename *coverage-package-form-files-asserted*) t)))))))
+  t)
 (defun coverage-statistics-for (pathnames)
+  (assert-coverage-package-forms-covered pathnames)
   (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
                     :include-pathnames pathnames))
 (defun measure-context-coverage (root groups)

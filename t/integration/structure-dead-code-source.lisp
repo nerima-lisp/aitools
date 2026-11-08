@@ -164,39 +164,51 @@
          (stripped (%strip-prose text))
          (own (context-package-name context layer))
          (allowed (allowed-package-names context layer core-or-feature))
-         (violations '())
+         (violations (list))
          (defines-own nil))
     (labels ((violation (line control &rest arguments)
                (push (format nil "~A:~D: ~?" relative line control arguments) violations))
              (allowed-p (package symbol)
-               (or (member package allowed :test #'string=)
-                   (and symbol (symbol-allowed-p context layer package symbol)))))
+               (and (not (and symbol
+                              (application-effectful-boundary-symbol-p
+                               context layer package symbol)))
+                    (or (member package allowed :test (function string=))
+                        (and symbol
+                             (symbol-allowed-p context layer package symbol))))))
       (dolist (start (%form-positions stripped "defpackage"))
         (let ((form (%read-form-at text start)) (line (%line-at text start)))
           (if (eq form :unreadable)
               (violation line "unreadable defpackage form")
-              (multiple-value-bind (dependencies declared-nicknames defined) (%defpackage-dependencies form)
+              (multiple-value-bind (dependencies declared-nicknames defined)
+                  (%defpackage-dependencies form)
                 (declare (ignore declared-nicknames))
                 (if (string= defined own)
                     (setf defines-own t)
                     (violation line "defines package ~A, but a file in ~A/~(~A~) must define ~A"
                                defined context layer own))
                 (loop for (clause package symbols) in dependencies
-                      do (if (and symbols (not (member package allowed :test #'string=)))
-                             (dolist (symbol symbols)
-                               (unless (allowed-p package symbol)
-                                 (violation line "~(~S~) ~A:~A, which ~A/~(~A~) may not depend on"
-                                            clause package symbol context layer)))
-                             (unless (allowed-p package nil)
-                               (violation line "~(~S~) ~A, which ~A/~(~A~) may not depend on"
-                                          clause package context layer))))))))
+                      do (cond
+                           ((and (eq clause :use)
+                                 (eq layer :application)
+                                 (string= package "CL-BOUNDARY-KIT"))
+                            (violation line
+                                       ":use CL-BOUNDARY-KIT imports effectful constructors into ~A/~(~A~)"
+                                       context layer))
+                           (symbols
+                            (dolist (symbol symbols)
+                              (unless (allowed-p package symbol)
+                                (violation line "~(~S~) ~A:~A, which ~A/~(~A~) may not depend on"
+                                           clause package symbol context layer))))
+                           ((not (allowed-p package nil))
+                            (violation line "~(~S~) ~A, which ~A/~(~A~) may not depend on"
+                                       clause package context layer))))))))
       (dolist (start (%form-positions stripped "in-package"))
         (let ((form (%read-form-at text start)) (line (%line-at text start)))
           (let ((name (and (consp form) (%designator-name (second form)))))
             (unless (or (equal name own) (and (equal name "CL-USER") defines-own))
               (violation line "in-package ~A, but a file in ~A/~(~A~) must be in ~A" name context layer own)))))
       (loop for (prefix symbol internal line position) in (%qualified-references stripped)
-            for package = (or (cdr (assoc prefix nicknames :test #'string=)) prefix)
+            for package = (or (cdr (assoc prefix nicknames :test (function string=))) prefix)
             do (cond
                  ((and internal (%aitools-context package)
                        (string/= (%aitools-context package) (string-upcase context)))

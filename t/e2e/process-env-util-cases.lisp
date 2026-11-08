@@ -1,7 +1,6 @@
 (in-package #:aitools.e2e.test)
 
-;;; Correspondence table rows 43-45: utility commands. The shared
-;;; TRIMMED helper is in t/e2e/harness-cases.lisp.
+;;; Correspondence table rows 43-45: utility commands.
 
 (defun uuid-shape (text)
   "TEXT with each hex digit shown as x, except the version nibble and the

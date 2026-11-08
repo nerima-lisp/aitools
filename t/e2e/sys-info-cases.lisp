@@ -113,7 +113,8 @@
 (define-row-case (41 "uptime is available alongside sys info uptime_seconds" :foreign ("uptime")) (ws)
   (let ((output (trimmed (oracle ws '("uptime") "uptime" nil)))
         (envelope (run-ok ws '("sys" "info"))))
-    (expect output :to-be-truthy)
+    (expect (plusp (length output)) :to-be t)
+    (expect (realp (jget envelope "uptime_seconds")) :to-be t)
     (expect (>= (jget envelope "uptime_seconds") 0) :to-be t)))
 
 (describe "aitools environment child-process trace span (e2e)"

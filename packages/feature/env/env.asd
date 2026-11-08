@@ -63,7 +63,8 @@
      (:file "unit/env/network-test")
      (:module "integration" :pathname "integration/" :serial t
       :components ((:file "env-host-test")
-                   (:file "env-host-trace-test")))
+                   (:file "env-host-trace-test")
+                   (:file "env-sysctl-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "time-cases")
                    (:file "sys-info-cases")))))))

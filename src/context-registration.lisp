@@ -19,16 +19,11 @@
       (apply operation arguments)))
 
 (defun register-all-context-commands (registry)
-  "Register every feature context's commands on REGISTRY using its runtime
-  dependencies, in context order (docs/src/reference/architecture.md). Returns REGISTRY."
+  "Register commands for every feature context using runtime dependencies, in
+  context order (docs/src/reference/architecture.md). Returns REGISTRY."
   (let ((arguments (%context-dependency-arguments)))
     (flet ((register (register-function make-dependencies)
-             (funcall register-function
-                      registry
-                      (apply make-dependencies arguments))))
+             (funcall register-function registry (apply make-dependencies arguments))))
       (dolist (registration (context-command-registrations))
-        (destructuring-bind (context register-function dependency-function)
-            registration
-          (declare (ignore context))
-          (register register-function dependency-function)))))
+        (register (second registration) (third registration)))))
   registry)

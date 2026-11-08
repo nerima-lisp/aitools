@@ -26,6 +26,8 @@
   (:export
    ;; registry.lisp
    #:finalize-app-commands
+   ;; context-registration-definitions.lisp
+   #:define-context-command-registration
    ;; context-registration.lisp
    #:register-all-context-commands
    ;; app.lisp
