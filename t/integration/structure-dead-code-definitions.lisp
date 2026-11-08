@@ -139,8 +139,7 @@
                                  (getf record :package))
                             (and home (package-name home)))
           when (and symbol name package (not (keywordp symbol)))
-            collect (list package name)))
-)
+            collect (list package name))))
 
 (defun %liveness-definitions (records)
   "Definitions from production files and the roots registered for dynamic dispatch."
