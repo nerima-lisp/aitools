@@ -234,4 +234,15 @@
                                   :host (metrics-host)))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
+(describe "aitools.env.application Linux CPU and memory"
+  (it "accepts populated sources and preserves missing values"
+    (expect (multiple-value-list
+             (aitools.env.application::%cpus-and-memory
+              (linux-metrics-boundaries) :linux))
+            :to-equal (list 2 (* 16384000 1024) (* 12000000 1024)))
+    (expect (multiple-value-list
+             (aitools.env.application::%cpus-and-memory
+              (make-fake-env-boundaries :files (list (cons "/proc/cpuinfo" "")))
+              :linux))
+            :to-equal (list nil nil nil))))
 

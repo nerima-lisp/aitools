@@ -209,3 +209,20 @@
                   "to" "epoch_s"
                   "result" 42
                   "timezone" "UTC"))))))
+(describe "aitools.env.presentation command definition macro"
+  (it "expands command names, groups, builders, and schemas"
+    (let* ((expansion
+             (macroexpand-1
+              (quote (aitools.env.presentation::define-env-command
+                      "sys.info" "sys"
+                      (function aitools.env.presentation::%sys-info-command)))))
+           (attributes (third expansion)))
+      (expect (first expansion)
+              :to-be (quote aitools.protocol.application:define-command))
+      (expect (second expansion) :to-equal "sys.info")
+      (expect (getf attributes :group) :to-equal "sys")
+      (expect (getf attributes :command-builder)
+              :to-equal (quote (function aitools.env.presentation::%sys-info-command)))
+      (expect (first (getf attributes :schema))
+              :to-be (quote aitools.env.presentation::%schema))
+      (expect (second (getf attributes :schema)) :to-equal "sys.info"))))

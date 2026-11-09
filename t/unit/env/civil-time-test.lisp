@@ -5,6 +5,10 @@
     (expect (civil-to-epoch-milliseconds 1970 1 1 0 0 0 0) :to-be 0)
     (expect (civil-to-epoch-milliseconds 2000 3 1 0 0 0 0) :to-be (* 11017 86400000))
     (expect (civil-to-epoch-milliseconds 1969 12 31 0 0 0 0) :to-be -86400000))
+  (it "checks ASCII digits over the default range"
+    (expect (ascii-digits-p "0123456789") :to-be t)
+    (expect (ascii-digits-p "01234x") :to-be nil))
+
 
   (it "formats ISO 8601 with offsets and optional milliseconds"
     (expect (format-iso8601 1772951400250 0 :utc-designator t) :to-equal "2026-03-08T06:30:00.250Z")

@@ -109,6 +109,18 @@
       (expect (field fields "basis") :to-equal "cumulative_interface_counters")
       (expect (object-field (field fields "units") "bytes") :to-equal "bytes")
       (expect (object-field (first (field fields "items")) "name") :to-equal "a0")))
+  #+linux
+  (it "uses the default limit for Linux interfaces"
+    (multiple-value-bind (kind fields)
+        (run-flow #'sys-network/k
+                  (make-fake-env-boundaries
+                   :identity *linux-identity*
+                   :files (list (cons "/proc/net/dev" *network-linux-text*))))
+      (expect kind :to-be :ok)
+      (expect (field fields "limit") :to-be 100)
+      (expect (field fields "total") :to-be 2)
+      (expect (field fields "truncated") :to-be nil)))
+
   #+darwin (it "uses trusted Darwin netstat with fixed arguments despite PATH"
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
       (expect (run-flow #'sys-network/k (make-fake-env-boundaries :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
