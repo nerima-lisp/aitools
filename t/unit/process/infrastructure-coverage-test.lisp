@@ -113,7 +113,9 @@
            (expect (aitools.process.infrastructure::%linux-file-bytes
                     (merge-pathnames "absent" directory))
                    :to-be nil))))
-      (expect (aitools.process.infrastructure::%linux-argv #(65 0 66 0))
+      (expect (aitools.process.infrastructure::%linux-argv
+               (make-array 4 :element-type '(unsigned-byte 8)
+                           :initial-contents '(65 0 66 0)))
               :to-equal "A B")
       (expect (aitools.process.infrastructure::%linux-argv #()) :to-be nil)
       (expect (aitools.process.infrastructure::%linux-argv #(65 66)) :to-be nil)
@@ -155,7 +157,8 @@
              ((symbol-function 'aitools.process.infrastructure::%linux-file-bytes)
               (lambda (filename)
                 (setf path filename)
-                #(116 111 111 108 0 97 114 103 0))))
+                (make-array 9 :element-type '(unsigned-byte 8)
+                            :initial-contents '(116 111 111 108 0 97 114 103 0)))))
           (expect (aitools.process.infrastructure::%linux-command-line
                    "/proc/99/" 1000 1000)
                   :to-equal "tool arg")
@@ -179,20 +182,19 @@
              ((symbol-function 'aitools.process.infrastructure::%ancestor-p)
               (lambda (observed-pid) (declare (ignore observed-pid)) nil)))
           (expect (aitools.process.infrastructure::%safe-target-p identity) :to-be t))))
-    (it "fails closed on a syscall error while checking the caller group"
+    (it "fails closed on a syscall error during ancestry validation"
       (let* ((uid (sb-posix:getuid))
              (identity (aitools.process.domain:make-process-identity
                         :pid (1+ (sb-posix:getpid)) :ppid 1
                         :pgid (1+ (sb-posix:getpgid 0)) :uid uid :ruid uid
-                        :start "start" :command-line "tool --serve"))
-             (getpgid (symbol-function 'sb-posix:getpgid)))
+                        :start "start" :command-line "tool --serve")))
         (cl-weave:with-mocked-functions
             (((symbol-function 'aitools.process.infrastructure::%safe-process-info)
               (lambda (pid) (declare (ignore pid)) identity))
              ((symbol-function 'aitools.process.infrastructure::%ancestor-p)
-              (lambda (pid) (declare (ignore pid)) nil))
-             ((symbol-function 'sb-posix:getpgid)
-              (lambda (pid) (declare (ignore pid)) (funcall getpgid -1))))
+              (lambda (pid)
+                (declare (ignore pid))
+                (sb-posix:getpgid 2147483647))))
           (expect (aitools.process.infrastructure::%safe-target-p identity) :to-be nil)))))
   )
 
