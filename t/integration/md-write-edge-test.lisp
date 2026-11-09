@@ -57,3 +57,171 @@
             (expect (funcall code-for "notes.md")
                     :to-equal "refusal.too-large"))))))
 )
+(describe "Markdown replacement in-process coverage"
+  (it "classifies stdin and parser outcomes"
+    (labels ((reader (result)
+               (lambda (limit)
+                 (declare (ignore limit))
+                 result))
+             (read-outcome (ports)
+               (let ((outcome nil))
+                 (aitools.md.application::%md-read-replacement/k
+                  ports "md replace"
+                  :on-replacement
+                  (lambda (octets) (setf outcome (list :replacement octets)))
+                  :on-error
+                  (lambda (code message &key diagnostics repairs)
+                    (declare (ignore message repairs))
+                    (setf outcome (list :error code diagnostics))))
+                 outcome))
+             (ports (result &optional (parser #'aitools.md.infrastructure:parse-md-octets))
+               (aitools.md.application:make-md-ports
+                :read-stdin-octets (reader result)
+                :parse-markdown parser)))
+      (let* ((valid (sb-ext:string-to-octets "# A~%new~%" :external-format :utf-8))
+             (invalid (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255))
+             (replacement (read-outcome (ports (list :octets valid))))
+             (decode-error (read-outcome (ports (list :octets invalid))))
+             (syntax-error (read-outcome
+                            (ports (list :octets valid)
+                                   (lambda (octets)
+                                     (declare (ignore octets))
+                                     (values nil "input.syntax-error" "invalid markdown" nil))))))
+        (expect (second (read-outcome (aitools.md.application:make-md-ports
+                                       :parse-markdown #'aitools.md.infrastructure:parse-md-octets)))
+                :to-equal "internal.unexpected")
+        (expect (second (read-outcome (aitools.md.application:make-md-ports
+                                       :read-stdin-octets (reader (list :octets valid)))))
+                :to-equal "internal.unexpected")
+        (expect (second (read-outcome (ports '(:failure "closed")))) :to-equal "environment.io")
+        (expect (second (read-outcome (ports '(:too-large)))) :to-equal "refusal.too-large")
+        (expect (first replacement) :to-be :replacement)
+        (expect (second replacement) :to-equalp valid)
+        (expect (second decode-error) :to-equal "input.not-utf8")
+        (expect (length (third decode-error)) :to-be 1)
+        (expect (second syntax-error) :to-equal "input.syntax-error")
+        (expect (third syntax-error) :to-be nil))))
+  (it "keeps no-op and dry-run targets unchanged and rejects stale guards and invalid replacement bytes"
+    (aitools.test.support:with-workspace (root state :chdir t)
+      (declare (ignore state))
+      (labels ((error-code (result)
+                 (getf (aitools.protocol.application:command-result-fields result) :code)))
+        (let* ((source (format nil "# A~%body~%"))
+               (bytes (sb-ext:string-to-octets source :external-format :utf-8))
+               (hash (aitools.kernel.domain:content-hash bytes))
+               (path (concatenate 'string root "/notes.md")))
+          (aitools.test.support:write-bytes path bytes)
+          (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
+                                         (%md-write-ports source) "notes.md" 1
+                                         :root root :expect-hash hash :stdin t)))
+            (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
+            (expect (aitools.test.support:read-bytes path) :to-equalp bytes))
+          (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
+                                         (%md-write-ports "# A revised~%new~%") "notes.md" 1
+                                         :root root :expect-hash hash :stdin t :dry-run t)))
+            (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
+            (expect (%field (aitools.protocol.application:command-result-fields result) "dry_run")
+                    :to-be t)
+            (expect (aitools.test.support:read-bytes path) :to-equalp bytes))
+          (expect (error-code (%md-flow-result #'aitools.md.application:md-replace/k
+                                               (%md-write-ports "# A revised~%new~%") "notes.md" 1
+                                               :root root :expect-hash "stale" :stdin t))
+                  :to-equal "refusal.target-changed")
+          (expect (aitools.test.support:read-bytes path) :to-equalp bytes)
+          (progn
+            (expect (error-code (%md-flow-result #'aitools.md.application:md-replace/k
+                                                 (%md-write-ports ""
+                                                                  (lambda (limit)
+                                                                    (declare (ignore limit))
+                                                                    (list :octets
+                                                                          (make-array 1 :element-type '(unsigned-byte 8)
+                                                                                      :initial-element 255))))
+                                                 "notes.md" 1 :root root :expect-hash hash :stdin t))
+                    :to-equal "input.not-utf8")
+            (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
+                                           (%md-write-ports "# A~%body~%") "notes.md" 2
+                                           :root root :expect-hash hash :stdin t)))
+              (expect (error-code result) :to-equal "selection.no-match")
+              (expect (aitools.test.support:read-bytes path) :to-equalp bytes)))))))
+  (it "maps prepare-write read failures, parser errors, and section plans"
+    (aitools.test.support:with-workspace (root state :chdir t)
+      (declare (ignore state))
+      (let* ((ports (%md-write-ports "# A~%new~%"))
+             (view (aitools.store.application:disk-view
+                    (funcall (aitools.md.application:md-ports-open-store ports) root)))
+             (replacement (sb-ext:string-to-octets "# A~%new~%" :external-format :utf-8)))
+        (labels ((prepare (ports path section)
+                   (multiple-value-list
+                    (aitools.md.application::%md-prepare-write
+                     ports
+                     (aitools.edit.application::make-write-context
+                      :view view :paths (list path))
+                     section replacement)))
+                 (code (outcome) (nth 2 outcome)))
+          (aitools.test.support:write-text (concatenate 'string root "/notes.md")
+                                           (format nil "# A~%body~%"))
+          (cl-weave:with-mocked-functions
+              (((symbol-function (find-symbol "VIEW-READ-FILE" "AITOOLS.STORE.APPLICATION"))
+                (lambda (&rest arguments)
+                  (declare (ignore arguments))
+                  nil)))
+            (expect (code (prepare ports "notes.md" 1)) :to-equal "input.not-found"))
+          (cl-weave:with-mocked-functions
+              (((symbol-function (find-symbol "VIEW-READ-FILE" "AITOOLS.STORE.APPLICATION"))
+                (lambda (&rest arguments)
+                  (declare (ignore arguments))
+                  (error 'aitools.store.application:store-io-error
+                         :operation "read" :path "notes.md"))))
+            (expect (code (prepare ports "notes.md" 1)) :to-equal "environment.io"))
+          (aitools.test.support:write-bytes
+           (concatenate 'string root "/notes.md")
+           (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255))
+          (let ((outcome (prepare ports "notes.md" 1)))
+            (expect (code outcome) :to-equal "input.not-utf8")
+            (expect (length (fifth outcome)) :to-be 1))
+          (aitools.test.support:write-text (concatenate 'string root "/notes.md")
+                                           (format nil "# A~%body~%"))
+          (let ((outcome (prepare ports "notes.md" 2)))
+            (expect (code outcome) :to-equal "selection.no-match"))
+          (let ((outcome (prepare ports "notes.md" 1)))
+            (expect (code outcome) :to-be nil)
+            (expect (length (first outcome)) :to-be 1)
+            (expect (cdr (assoc "section" (second outcome) :test #'string=)) :to-be 1))
+          (let* ((syntax-ports
+                   (aitools.md.application:make-md-ports
+                    :parse-markdown
+                    (lambda (octets)
+                      (declare (ignore octets))
+                      (values nil "input.syntax-error" "invalid markdown" 3))))
+                 (outcome (prepare syntax-ports "notes.md" 1)))
+            (expect (code outcome) :to-equal "input.syntax-error")
+            (expect (length (fifth outcome)) :to-be 1))))))
+  (it "bounds descriptor stdin at the limit and reports descriptor read failures"
+    (aitools.test.support:with-workspace (root state :chdir t)
+      (declare (ignore state))
+      (let ((path (concatenate 'string root "/stdin")))
+        (aitools.test.support:write-bytes
+         path (make-array 0 :element-type '(unsigned-byte 8)))
+        (with-open-file (stream (sb-ext:parse-native-namestring path)
+                                :element-type '(unsigned-byte 8))
+          (expect (aitools.md.infrastructure::%read-bounded stream 0)
+                  :to-equalp '(:octets #())))
+        (aitools.test.support:write-bytes path #(1 2))
+        (with-open-file (stream (sb-ext:parse-native-namestring path)
+                                :element-type '(unsigned-byte 8))
+          (expect (aitools.md.infrastructure::%read-bounded stream 2)
+                  :to-equalp '(:octets #(1 2))))
+        (aitools.test.support:with-stdin-from (path)
+          (expect (aitools.md.infrastructure::read-stdin-octets 2)
+                  :to-equalp '(:octets #(1 2))))
+        (aitools.test.support:write-bytes path #(1 2 3))
+        (with-open-file (stream (sb-ext:parse-native-namestring path)
+                                :element-type '(unsigned-byte 8))
+          (expect (aitools.md.infrastructure::%read-bounded stream 2)
+                  :to-equal '(:too-large)))
+        (aitools.test.support:with-stdin-from (path)
+          (expect (aitools.md.infrastructure::read-stdin-octets 2)
+                  :to-equal '(:too-large)))
+        (aitools.test.support:with-stdin-from (root)
+          (expect (first (aitools.md.infrastructure::read-stdin-octets 1))
+                  :to-be :failure))))))
