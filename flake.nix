@@ -71,6 +71,11 @@
       flake = false;
     };
 
+    cl-markdown-kit = {
+      url = "github:nerima-lisp/cl-markdown-kit/v0.2.0";
+      flake = false;
+    };
+
     cl-weave = {
       url = "github:nerima-lisp/cl-weave/v1.5.0";
       flake = false;
@@ -160,6 +165,7 @@
       cl-date-kit,
       cl-log-kit,
       cl-parser-kit,
+      cl-markdown-kit,
       cl-weave,
       cl-crypto-kit,
       cl-deflate-kit,
