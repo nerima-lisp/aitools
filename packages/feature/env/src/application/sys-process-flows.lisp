@@ -128,6 +128,19 @@ userspace tick (USER_HZ) at 100."
                     ((null after)
                      (%report-metrics-source-classification
                       ports :cpu-counter-after :malformed after-elapsed nil)))
+              (when (and (null busy) after
+                         (equal (%getenv ports "AITOOLS_COVERAGE") "1"))
+                (let ((negative-deltas
+                        (loop for before-value in before
+                              for after-value in after
+                              for index from 0
+                              for delta = (- after-value before-value)
+                              when (minusp delta)
+                                append (list index delta))))
+                  (format *trace-output*
+                          "~&CPU negative delta count=~D index-delta-pairs=~{~D~^,~}~%"
+                          (/ (length negative-deltas) 2)
+                          negative-deltas)))
               (%report-metrics-source-classification
                ports :cpu-interval (if busy :ok :invalid)
                (%elapsed-milliseconds-since sample-start) nil 1000)
@@ -229,10 +242,19 @@ userspace tick (USER_HZ) at 100."
              (records (%metrics-process-records ports program (%elapsed-milliseconds-since program-start))))
         (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
                       available (<= 0 available total) records))
-            (aitools.kernel.domain:flow-continue
-             :on-error
-             "environment.unavailable"
-             "CPU, load average, memory, or process metrics source is unavailable or malformed")
+            (progn
+              (when (equal (%getenv ports "AITOOLS_COVERAGE") "1")
+                (format *trace-output* "~&metrics result availability: cpu=~A load-average=~A cpus=~A total=~A available=~A records=~A~%"
+                        (if cpu "present" "nil")
+                        (if load-average "present" "nil")
+                        (if cpus "present" "nil")
+                        (if total "present" "nil")
+                        (if available "present" "nil")
+                        (if records "present" "nil")))
+              (aitools.kernel.domain:flow-continue
+               :on-error
+               "environment.unavailable"
+               "CPU, load average, memory, or process metrics source is unavailable or malformed"))
             (let* ((sorted
                      (stable-sort
                       records
