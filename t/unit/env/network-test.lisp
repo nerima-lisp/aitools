@@ -119,7 +119,7 @@
       (expect kind :to-be :ok)
       (expect (field fields "limit") :to-be 100)
       (expect (field fields "total") :to-be 2)
-      (expect (field fields "truncated") :to-be nil)))
+      (expect (field fields "truncated") :to-be json-kit:+json-false+)))
 
   #+darwin (it "uses trusted Darwin netstat with fixed arguments despite PATH"
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
