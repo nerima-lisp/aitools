@@ -156,6 +156,7 @@
                    (:file "edit-file-formats-test")
                    (:file "edit-archive-symlink-safety-test")
                    (:file "edit-archive-tx-symlink-test")
+                   (:file "edit-archive-tx-parent-swap-test")
                    (:file "edit-file-metadata-test")
                    (:file "edit-rm-safety-test")
                    (:file "edit-mktemp-race-test")
