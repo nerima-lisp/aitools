@@ -1,0 +1,111 @@
+(in-package #:aitools.net.infrastructure)
+
+  (defconstant +max-http-body-bytes+ (* 16 1024 1024))
+
+  ;; The sender seam keeps redirect policy tests entirely off the network.
+  (defvar *http-client-send-function* #'http-kit/client:http-client-send)
+
+#+sbcl
+    (defun %open-inspected-address (address port deadline)
+      ;; The public opener resolves URI hostnames again; this pinned primitive connects the inspected octets.
+      (let* ((family (aitools.net.domain:net-address-family address))
+             (address-type
+               (ecase family
+                 (:inet http-kit/network::+network-ipv4-address-type+)
+                 (:inet6 http-kit/network::+network-ipv6-address-type+))))
+        (http-kit/network::%network-open-address
+         (list address-type (aitools.net.domain:net-address-octets address))
+         port deadline #'%monotonic-time)))
+
+#-sbcl
+    (defun %open-inspected-address (address port deadline)
+      (declare (ignore address port deadline))
+      (%raise-net-error "environment.unavailable"
+                        "Direct address connections are unavailable."))
+
+(defun %open-inspected-addresses (addresses uri deadline)
+  (let ((port (or (http-kit:http-uri-port uri)
+                  (if (string-equal (http-kit:http-uri-scheme uri)
+                                    "https")
+                      443
+                    80))))
+    (loop for address in addresses
+          do (handler-case
+                 (return-from %open-inspected-addresses
+                              (%open-inspected-address address port deadline))
+               (http-kit:http-timeout (condition)
+                                      (error condition))
+               (error () nil)))
+    (error "No resolved address accepted the connection.")))
+
+(defun %make-http-client (host addresses)
+  (let ((tls-upgrade
+         (http-kit/tls:make-http-tls-upgrader
+          :verify :required
+          :alpn-protocols (list "http/1.1")
+          :clock-function (function %monotonic-time))))
+    (http-kit/client:make-http-client
+     :open-stream
+     (lambda (request &key deadline &allow-other-keys)
+       (let ((uri (http-kit:http-request-uri request)))
+         (unless (string-equal host (http-kit:http-uri-host uri))
+           (error "The transport host differs from its resolved host."))
+         (%open-inspected-addresses addresses uri deadline)))
+     :close-stream (function close)
+     :tls-upgrade tls-upgrade
+     :redirect-policy
+     (http-kit/client:make-http-redirect-policy
+      :max-redirects 0 :statuses nil :allow-downgrade-p nil)
+     :retry-policy (http-kit/client:make-http-retry-policy :max-attempts 1)
+     :proxy (constantly nil)
+     :auth-provider nil
+     :challenge-auth-provider nil
+     :proxy-challenge-auth-provider nil
+     :strict-transport-store nil
+     :alternative-service-store nil
+     :cache nil
+     :default-headers (list (http-kit:make-http-header "Accept-Encoding" "gzip, deflate"))
+     :default-timeout nil
+     :wall-clock-function (function %monotonic-time)
+     :max-body-bytes +max-http-body-bytes+
+     :automatic-decompression-p t
+     :content-decoders
+     (remove-if-not
+      (lambda (decoder)
+        (member (car decoder) (list "gzip" "deflate") :test (function string=)))
+      (http-kit/client:make-http-content-decoders)))))
+
+(defun %supported-content-encoding-p (headers)
+  (loop for field in (http-kit:http-header-values headers "Content-Encoding")
+        always
+        (loop with start = 0
+              for comma = (position #\, field :start start)
+              for coding = (string-downcase
+                            (string-trim (list #\Space #\Tab)
+                                         (subseq field start comma)))
+              always (member coding (list "gzip" "deflate")
+                             :test (function string=))
+              while comma
+              do (setf start (1+ comma)))))
+
+(defun %send-http-request (method uri addresses deadline)
+  (let* ((client (%make-http-client (http-kit:http-uri-host uri) addresses))
+         (response
+          (funcall *http-client-send-function*
+                   client method uri
+                   :timeout nil
+                   :deadline deadline
+                   :on-response-headers
+                   (lambda (status headers)
+                     (declare (ignore status))
+                     (unless (%supported-content-encoding-p headers)
+                       (%raise-net-error
+                        "environment.io"
+                        "The HTTP response uses an unsupported content coding."))))))
+    (when (<= deadline (%monotonic-time))
+      (%raise-net-error "environment.timeout" "The request deadline expired."))
+    (unless (%supported-content-encoding-p
+             (http-kit:http-response-headers response))
+      (%raise-net-error "environment.io"
+                        "The HTTP response uses an unsupported content coding."))
+    response))
