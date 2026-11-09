@@ -18,17 +18,11 @@
                      (ready-ports
                       :workspace-host
                       (aitools.workspace.infrastructure:make-host-workspace-boundaries))))
-        (expect (%md-error-code (%md-replace-result ports nil "notes.md" 1))
-                :to-equal "internal.unexpected")) (expect (%md-error-code
-               (%md-replace-result
-                (%md-write-ports
-                 nil
-                 (lambda (limit)
+        (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k ports "notes.md" 1 :expect-hash "test" :stdin t)) :code)
+                :to-equal "internal.unexpected")) (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-ports "" (lambda (limit)
                    (declare (ignore limit))
-                   (list :failure "closed")))
-                nil "notes.md" 1))
-              :to-equal "environment.io") (expect (%md-error-code
-               (%md-replace-result (%md-write-ports nil) nil nil 1))
+                   (list :failure "closed"))) "notes.md" 1 :expect-hash "test" :stdin t)) :code)
+              :to-equal "environment.io") (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-ports "") nil 1 :expect-hash "test" :stdin t)) :code)
               :to-equal "argument.invalid") (aitools.test.support:with-workspace (root state :chdir t)
         (declare (ignore state))
         (let* ((ports (%md-write-ports "# R~%new~%"))
