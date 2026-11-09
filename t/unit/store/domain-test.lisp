@@ -138,6 +138,18 @@
       (let ((steps (changes->steps "op-t" results (lambda (path) (declare (ignore path)) nil))))
         (expect (mapcar (lambda (s) (list (intent-step-op s) (intent-step-path s))) steps)
                 :to-equal '((:mkdir "n") (:move "k") (:replace "n/f.txt") (:rmdir "z/y") (:rmdir "z"))))))
+  (it "applies replacements before unlinks, then removes directories"
+      (multiple-value-bind (status results)
+          (plan (list (cons "a" "old")
+                      (cons "old-dir" (directory-state))
+                      (cons "z" (directory-state)))
+                (list (write-file-request "z/replacement" (bytes "new"))
+                      (delete-request "a")
+                      (delete-request "old-dir")))
+        (declare (ignore status))
+        (let ((steps (changes->steps "op-t" results (lambda (path) (string= path "z")))))
+          (expect (mapcar (lambda (step) (list (intent-step-op step) (intent-step-path step))) steps)
+                  :to-equal '((:replace "z/replacement") (:unlink "a") (:rmdir "old-dir"))))))
 
   (it "puts a temp file in the nearest existing directory"
     (multiple-value-bind (status results) (plan '() (list (write-file-request "a/b/c" (bytes "x"))))

@@ -70,25 +70,30 @@
                    (and (> (length target) 1)
                         (alpha-char-p (char target 0))
                         (char= (char target 1) #\:)))))
-      (dolist (entry (sort
-                     (loop for entry being the hash-values of (tx-index-paths index)
-                           when (eq (entry-state-kind (tx-path-staged entry)) :symlink)
-                             collect entry)
-                     (function string<)
-                     :key (function tx-path-path)))
-        (let ((state (tx-path-staged entry))
-              (path (tx-path-path entry)))
-          (when (eq (entry-state-kind state) :symlink)
-            (let ((target (entry-state-target state)))
-              (when (unsafe-target-p target) (refuse path))
-              (let ((cursor (funcall checker :start)))
-                (dolist (component (components (parent-relative-path path)))
-                  (setf cursor (enter cursor component path)))
-                (dolist (component (components target))
-                  (setf cursor
-                        (cond ((string= component ".") cursor)
-                              ((string= component "..") (parent cursor path))
-                              (t (enter cursor component path)))))))))))))
+      (unwind-protect
+           (dolist (entry (sort
+                           (loop for entry being the hash-values of (tx-index-paths index)
+                                 when (eq (entry-state-kind (tx-path-staged entry)) :symlink)
+                                   collect entry)
+                           (function string<)
+                           :key (function tx-path-path)))
+             (let ((state (tx-path-staged entry))
+                   (path (tx-path-path entry)))
+               (when (eq (entry-state-kind state) :symlink)
+                 (let ((target (entry-state-target state)))
+                   (when (unsafe-target-p target) (refuse path))
+                   (let ((cursor (funcall checker :start)))
+                     (unwind-protect
+                          (progn
+                            (dolist (component (components (parent-relative-path path)))
+                              (setf cursor (enter cursor component path)))
+                            (dolist (component (components target))
+                              (setf cursor
+                                    (cond ((string= component ".") cursor)
+                                          ((string= component "..") (parent cursor path))
+                                          (t (enter cursor component path))))))
+                       (funcall checker :finish cursor)))))))
+        (funcall checker :finish)))))
 
 (aitools.kernel.domain:define-flow
     (tx-diff/k store tx-id &key on-diff on-not-found)
