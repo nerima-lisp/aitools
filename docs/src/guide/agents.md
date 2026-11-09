@@ -78,9 +78,9 @@ the offending staged link and retry `tx commit`, or run `tx abort`.
 Entry selection with `--entry`, duplicate-name checks, and hard-link target
 lookup preserve case and Unicode spelling after empty and `.` path components
 are removed. Thus `README` and `readme` are distinct entries on a case-sensitive
-filesystem. On a case-insensitive filesystem, both may pass planning;
-`archive extract` then refuses the commit if the destination filesystem aliases
-the paths.
+filesystem. On a case-insensitive filesystem, both may pass planning. Applying
+the extraction returns `refusal.exists` if the destination aliases the paths;
+with `--tx`, this occurs when staged changes are applied.
 
 The `--to` path names the extraction root. The existing write-target resolver
 follows an in-workspace destination symlink and refuses a target outside the
@@ -92,8 +92,11 @@ Archive extraction caps entry paths at 4,095 UTF-8 bytes, path components at
 targets at 4,095 UTF-8 bytes. The tar reader accepts at most 200,000 nonzero
 header records; the all-zero end-of-archive records do not count. PAX and GNU
 metadata headers count toward the limit. The ZIP reader accepts at most 65,534
-central-directory entries. Exceeding a limit returns
-`refusal.too-large`.
+central-directory entries. The reader also caps the combined entry-name and
+link-target metadata byte count at 16 MiB per archive. ZIP counts raw name
+lengths and uncompressed symlink target sizes; tar counts emitted UTF-8 name
+and link-target bytes. This limits the path and target text retained across
+entries. Exceeding a limit returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. The state
 directory lives outside the root, so writes there are refused too. The one
