@@ -70,18 +70,28 @@
                          form-index filename)))
               (setf (gethash filename *coverage-package-form-files-asserted*) t)))))))
   t)
-(defun coverage-statistics-for (pathnames)
+(defun coverage-statistics-for (pathnames &optional exclusions)
   (assert-coverage-package-forms-covered pathnames)
-  (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
-                    :include-pathnames pathnames))
+  (let ((statistics
+         (uiop:symbol-call "CL-WEAVE" "COVERAGE-STATISTICS"
+                           :include-pathnames pathnames)))
+    (if exclusions
+        (coverage-statistics-with-exclusions statistics exclusions (coverage-uncovered-form-locations-for pathnames))
+      (values statistics nil))))
+(defun coverage-uncovered-form-locations-for (pathnames)
+  (loop for file in (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                                      :include-pathnames pathnames)
+        append (loop for form in (getf file :uncovered-forms)
+                     collect (append (list :pathname (getf file :pathname)) form))))
 (defun measure-context-coverage (root groups)
   (mapcar (lambda (group)
             (let* ((context (car group))
                    (pathnames (cdr group))
                    (baseline (read-coverage-baseline-if-present root context)))
-              (list context (length pathnames)
-                    (coverage-statistics-for pathnames)
-                    baseline)))
+              (multiple-value-bind (statistics applied)
+                  (coverage-statistics-for
+                   pathnames (getf baseline :coverage-exclusions))
+                (list context (length pathnames) statistics baseline applied))))
           groups))
 (defun run-coverage (root)
   (asdf:load-system "cl-weave")
@@ -119,23 +129,22 @@
               (cons :json events))
         (multiple-value-bind (problems executed context-counts)
             (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events nil)
-          (let* ((statistics (coverage-statistics-for selected))
-                 (measured (measure-context-coverage root groups))
+          (let* ((measured (measure-context-coverage root groups))
+                 (statistics (aggregate-context-coverage-statistics measured))
                  (aggregate
                   (append
                    (coverage-measurement-record
                     :aggregate (length selected) statistics aggregate-baseline)
-                   (list :executed-spec-count executed)))
+                   (list :executed-spec-count executed :coverage-exclusions (context-coverage-exclusions measured))))
                  (contexts
                   (mapcar
                    (lambda (entry)
                      (append
                       (coverage-measurement-record
                        (first entry) (second entry) (third entry) (fourth entry))
-                      (list :executed-spec-count
-                            (cdr (assoc (first entry) context-counts)))))
+                      (list :executed-spec-count (cdr (assoc (first entry) context-counts)) :coverage-exclusions (fifth entry))))
                    measured)))
-            (write-context-measurements root aggregate contexts exclusions)
+            (write-context-measurements root aggregate contexts (append exclusions (context-coverage-exclusions measured)))
             (format t "~&aitools coverage suite: ~D specs run~%" executed)
             (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
                     (getf statistics :expression-covered)
@@ -146,11 +155,12 @@
                     (namestring
                      (merge-pathnames "coverage/context-measurements.sexp" root)))
             (format t "~&coverage exclusions:~%")
-            (if exclusions
-                (dolist (entry exclusions)
-                  (format t "  ~A via ~A: ~A~%"
-                          (getf entry :path) (getf entry :rule) (getf entry :reason)))
-              (format t "  none~%"))
+            (let ((all-exclusions
+                   (append exclusions (context-coverage-exclusions measured))))
+              (if all-exclusions
+                  (dolist (entry all-exclusions)
+                    (report-coverage-exclusion entry))
+                (format t "  none~%")))
             (dolist (entry measured)
               (let ((stats (third entry))
                     (spec-count (cdr (assoc (first entry) context-counts))))
