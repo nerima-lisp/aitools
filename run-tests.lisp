@@ -27,8 +27,13 @@
                 context metric covered total base-covered base-total))))
   t)
 (defun report-process-coverage-gaps (groups)
-  (let* ((pathnames (cdr (assoc :process groups)))
-         (locations (coverage-uncovered-form-locations-for pathnames))
+  (let* ((locations
+           (coverage-uncovered-form-locations-for
+            (cdr (assoc :process groups))))
+         (pathnames
+           (remove-duplicates
+            (mapcar (lambda (location) (getf location :pathname)) locations)
+            :test (function equal)))
          (definitions
            (loop for pathname in pathnames
                  append (coverage-source-definitions-for pathname))))
