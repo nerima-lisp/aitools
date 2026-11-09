@@ -69,7 +69,25 @@ the extra flag word."
 
   (it "expands ~/ against HOME"
     (expect (expand-config-path "~/x" "/home/u") :to-equal "/home/u/x")
-    (expect (expand-config-path "/abs" "/home/u") :to-equal "/abs")))
+    (expect (expand-config-path "/abs" "/home/u") :to-equal "/abs"))
+  (it "handles escaped config values and CRLF continuations"
+    (let* ((text
+             (format nil "[remote \"A\\\"B\"]~%url = left\\~C~%right~%escaped = a\\nb\\tc\\bd~%bare = ending\\"
+                     #\Return))
+           (entries (parse-git-config text)))
+      (expect (git-config-value entries "remote.A\"B.url") :to-equal "leftright")
+      (expect (git-config-value entries "remote.A\"B.escaped")
+              :to-equal (format nil "a~%b~Cc~Cd" #\Tab #\Backspace))
+      (expect (git-config-value entries "remote.A\"B.bare") :to-equal "ending")
+      (expect (expand-config-path "~" "/home/u") :to-equal "/home/u")))
+  (it "ignores malformed headers and non-key lines"
+    (let ((entries
+            (parse-git-config
+             (format nil "outside = ignored~%# before~%; before~%[broken~%[core]~%# inside~%; inside~%@bad = ignored~%key = kept~%[remote \"R\"~%url = ignored~%"))))
+      (expect (git-config-value entries "core.key") :to-equal "kept")
+      (expect (git-config-value entries "remote.R.url") :to-be nil)
+      (expect (parse-git-config "[core]") :to-equal nil)
+      (expect (parse-git-config "[core") :to-equal nil))))
 
 (describe "aitools.workspace.domain git index"
   (it "reads version 2 entry names, sorted and deduplicated"
@@ -156,4 +174,52 @@ fields, up to where the first entry's name begins."
                     (:varint-cut (index-with (index-prefix '("a")) #(128)))
                     (:varint-overflow (index-with (index-prefix '("a")) (make-array 12 :initial-element 255)))
                     (:strip-too-long (index-with (index-prefix '("a")) #(1 97 0))))))
-      (expect (index-failure octets) :to-equal reason))))
+      (expect (index-failure octets) :to-equal reason)))
+  (it "rejects a truncated header scalar and a bad index signature"
+    (let ((truncated-header
+            (index-with #(68 73 82 67) #(0 0 0 2) #(0 0 0))))
+      (signals git-index-error
+        (aitools.workspace.domain::%u32 truncated-header 8)))
+    (expect (index-failure
+             (index-with #(0 73 82 67) (subseq (index-octets (list "abc")) 4)))
+            :to-equal "malformed git index: missing DIRC signature")))
+
+(describe "aitools.workspace.domain git config edge values"
+  (it "keeps empty values, last values, bare EOF keys, and skips malformed assignments"
+    (let ((entries
+            (parse-git-config
+             (format nil "[core]~%hyphen-key = first # note~%repeat = one~%repeat = two~%empty = ; comment~%bare# comment~%bad value~%final"))))
+      (expect (git-config-value entries "core.hyphen-key") :to-equal "first")
+      (expect (git-config-values entries "core.repeat") :to-equal (list "one" "two"))
+      (expect (git-config-value entries "core.empty") :to-equal "")
+      (expect (git-config-value entries "core.bare") :to-be t)
+      (expect (git-config-value entries "core.final") :to-be t)
+      (expect (git-config-value entries "core.bad") :to-be nil)))
+  (it "handles missing values and preserves unsupported config paths"
+    (expect (parse-git-config "") :to-equal nil)
+    (expect (git-config-values nil "core.missing") :to-equal nil)
+    (expect (git-config-value nil "core.missing") :to-be nil)
+    (expect (git-config-boolean nil) :to-be-falsy)
+    (expect (git-config-boolean "no") :to-be-falsy)
+    (expect (expand-config-path "" "/home/u") :to-equal "")
+    (expect (expand-config-path "~user/file" "/home/u") :to-equal "~user/file")
+    (expect (decode-git-text #(65 255))
+            :to-equal (coerce (vector (code-char 65) (code-char 65533)) 'string))))
+
+(describe "workspace empty metadata values"
+  (it "accepts an empty git index and absent boolean"
+    (expect (coerce (parse-git-index-paths (index-octets '())) 'list) :to-equal nil)
+    (expect (git-config-boolean nil) :to-be nil)))
+
+(describe "workspace git index signature checks"
+  (it "rejects a mismatch at each signature byte"
+    (let ((valid (index-octets '())))
+      (expect (coerce
+               (apply #'parse-git-index-paths (list valid))
+               'list)
+              :to-equal nil)
+      (dolist (index '(0 1 2 3))
+        (let ((invalid (copy-seq valid)))
+          (setf (aref invalid index) 0)
+          (expect (index-failure invalid)
+                  :to-equal "malformed git index: missing DIRC signature"))))))

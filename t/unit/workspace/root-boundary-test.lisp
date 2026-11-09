@@ -191,3 +191,56 @@
       (multiple-value-bind (paths source) (scan-paths host root)
         (expect source :to-be :gitignore)
         (expect paths :to-equal (list ".gitignore" "keep.tmp" "other.txt"))))))
+
+(describe "workspace path string boundaries"
+  (it "classifies empty and absolute paths"
+    (expect (absolute-path-p "") :to-be-falsy)
+    (expect (absolute-path-p "/") :to-be-truthy)))
+
+(describe "aitools.workspace.application user paths"
+  (it "normalizes relative user paths and selects the matching continuation"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :directories '("/repo" "/repo/sub")
+              :cwd "/repo"))
+           (root (resolved-root host :root "sub"))
+           (inside nil)
+           (outside nil))
+      (expect (aitools.workspace.application::user-path-absolute host "./sub/file")
+              :to-equal "/repo/sub/file")
+      (aitools.workspace.application::resolve-user-path/k
+       host root "sub/file"
+       :on-inside (lambda (absolute relative)
+                    (setf inside (list absolute relative)))
+       :on-outside (lambda (absolute) (setf outside absolute)))
+      (expect inside :to-equal (list "/repo/sub/file" "file"))
+      (expect outside :to-be nil)
+      (aitools.workspace.application::resolve-user-path/k
+       host root "../outside"
+       :on-inside (lambda (&rest values) (setf inside values))
+       :on-outside (lambda (absolute) (setf outside absolute)))
+      (expect outside :to-equal "/outside"))))
+
+(describe "aitools.workspace.domain relative path normalization"
+  (it "preserves leading parent components for relative paths"
+    (expect (normalize-path "../../a") :to-equal "../../a")))
+
+(describe "workspace root invalid git markers"
+  (it "refuses a .git directory without HEAD"
+    (let* ((host (make-fake-workspace-boundaries
+                  :directories (quote ("/r" "/r/.git"))
+                  :cwd "/r"))
+           (root (resolved-root host)))
+      (expect (find-git-repository host "/r") :to-be nil)
+      (expect (aitools.workspace.domain::workspace-root-source root)
+              :to-be :cwd)
+      (expect (workspace-root-repository root) :to-be nil)))
+  (it "refuses a .git symlink to a regular file"
+    (let* ((host (make-fake-workspace-boundaries
+                  :files (list (cons "/outside/marker" "x"))
+                  :symlinks (list (cons "/r/.git" "/outside/marker"))
+                  :cwd "/r"))
+           (root (resolved-root host)))
+      (expect (aitools.workspace.domain::workspace-root-source root)
+              :to-be :cwd)
+      (expect (workspace-root-repository root) :to-be nil))))

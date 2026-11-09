@@ -107,3 +107,63 @@
   (it "accepts everything without globs"
     (expect (make-glob-filter '()) :to-be-falsy)
     (expect (glob-filter-accepts-p nil "anything") :to-be-truthy)))
+
+(describe "aitools.workspace.domain coverage edge cases"
+  (it "preserves a terminal escape and defaults ignore file bases"
+    (let ((list (parse-ignore-lines (list "foo\\"))))
+      (expect (ignore-list-base list) :to-equal "")
+      (expect (ignore-pattern-text (aref (ignore-list-patterns list) 0))
+              :to-equal "foo\\")
+      (expect (ignore-list-base (parse-ignore-lines (list "bar")))
+              :to-equal "")))
+  (it "drops one leading slash from path globs"
+    (let ((filter (make-glob-filter (list "/src/*.lisp"))))
+      (expect (glob-filter-accepts-p filter "src/main.lisp") :to-be-truthy)
+      (expect (glob-filter-accepts-p filter "src/nested/main.lisp") :to-be-falsy))))
+
+(describe "workspace ignore parser and glob empty inputs"
+  (it "discards empty and all-space ignore patterns"
+    (expect (length (ignore-list-patterns
+                     (parse-ignore-lines (list "" "   " "!" "/"))))
+            :to-be
+            0))
+  (it "handles empty include and exclude globs"
+    (expect (glob-filter-accepts-p (make-glob-filter (list "")) "file")
+            :to-be-falsy)
+    (expect (glob-filter-accepts-p (make-glob-filter (list "!")) "file")
+            :to-be-truthy)))
+
+(describe "workspace ignore octet edge inputs"
+  (it "handles empty data, malformed UTF-8, and empty internal patterns"
+    (let ((empty (parse-ignore-octets #()))
+          (invalid (parse-ignore-octets #(#xFF))))
+      (expect (length (ignore-list-patterns empty)) :to-be 0)
+      (expect (ignore-list-base (parse-ignore-lines nil)) :to-equal "")
+      (expect (ignore-pattern-text (aref (ignore-list-patterns invalid) 0))
+              :to-equal (string (code-char #xFFFD)))
+      (expect (ignore-list-verdict invalid "file" nil) :to-be nil)
+      (expect (aitools.workspace.domain::%parse-pattern "") :to-be nil))))
+
+(describe "workspace ignore parser defaults"
+  (it "initializes base and source defaults through APPLY"
+    (let ((lines (apply #'parse-ignore-lines (list '("line.log"))))
+          (octets (apply #'parse-ignore-octets
+                         (list (string-bytes "octet.log")))))
+      (expect (ignore-list-base lines) :to-equal "")
+      (expect (ignore-list-source lines) :to-be nil)
+      (expect (ignore-list-base octets) :to-equal "")
+      (expect (ignore-list-source octets) :to-be nil)
+      (expect (ignore-list-verdict lines "line.log" nil) :to-be :ignored)
+      (expect (ignore-list-verdict octets "octet.log" nil) :to-be :ignored))))
+
+(describe "workspace LF-only ignore files"
+  (it "parses LF separators without stripping a preceding character"
+    (let ((list (parse-ignore-octets
+                 (string-bytes (format nil "a.log~%b.log~%")))))
+      (expect (ignore-list-verdict list "a.log" nil) :to-be :ignored)
+      (expect (ignore-list-verdict list "b.log" nil) :to-be :ignored)))
+  (it "skips a leading empty LF line"
+    (let ((list (parse-ignore-octets (string-bytes (format nil "~%a.log")))))
+      (expect (length (ignore-list-patterns list)) :to-be 1)
+      (expect (ignore-list-verdict list "a.log" nil) :to-be :ignored)
+      (expect (ignore-list-verdict list "other" nil) :to-be nil))))

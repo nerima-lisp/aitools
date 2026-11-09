@@ -107,7 +107,10 @@ build/
                                     (if (string= path ".gitignore")
                                         (values t (string-bytes "*.txt"))
                                         (values nil nil))))))
-      (expect (scan-paths host (resolved-root host) :overlay overlay) :to-equal '(".gitignore" "a.log")))))
+      (let ((defaults (make-workspace-overlay)))
+  (expect (list (list (aitools.workspace.application::workspace-overlay-list-directory defaults) (aitools.workspace.application::workspace-overlay-read-octets defaults))
+                (scan-paths host (resolved-root host) :overlay overlay))
+          :to-equal (quote ((nil nil) (".gitignore" "a.log"))))))))
 
 (describe "aitools.workspace.application scan: order, filters, and exits"
   (it "keeps scan filter decisions in a pure reason function"
@@ -152,6 +155,7 @@ build/
            (skipped '()))
       (expect (scan-paths host (resolved-root host) :skip-larger-than 5
                                                     :on-skip (lambda (entry reason)
+                                                               (expect (list (scan-entry-name entry) (scan-entry-mtime entry)) :to-equal (list "big" 1000))
                                                                (push (list (scan-entry-path entry) reason) skipped)))
               :to-equal '("small"))
       (expect skipped :to-equal '(("big" :too-large)))))

@@ -90,4 +90,105 @@
     (expect (wildmatch "FOO" "foo" :pathname t) :to-be-falsy)
     (expect (wildmatch "FOO" "foo" :pathname t :casefold t) :to-be-truthy)
     (expect (wildmatch "[A-Z]" "a" :casefold t) :to-be-truthy)
-    (expect (wildmatch "[[:upper:]]" "a" :casefold t) :to-be-truthy)))
+    (expect (wildmatch "[[:upper:]]" "a" :casefold t) :to-be-truthy))
+  (it "covers ASCII helpers and remaining character classes"
+    (let ((ascii-upper-p (symbol-function (find-symbol "%ASCII-UPPER-P" "AITOOLS.WORKSPACE.DOMAIN")))
+          (ascii-lower-p (symbol-function (find-symbol "%ASCII-LOWER-P" "AITOOLS.WORKSPACE.DOMAIN")))
+          (ascii-downcase (symbol-function (find-symbol "%ASCII-DOWNCASE" "AITOOLS.WORKSPACE.DOMAIN")))
+          (ascii-upcase (symbol-function (find-symbol "%ASCII-UPCASE" "AITOOLS.WORKSPACE.DOMAIN")))
+          (class-member-p (symbol-function (find-symbol "%ASCII-CLASS-MEMBER-P" "AITOOLS.WORKSPACE.DOMAIN"))))
+      (expect (wildmatch "FOO" "foo" :pathname t) :to-be-falsy)
+      (expect (wildmatch "FOO" "foo" :pathname t :casefold t) :to-be-truthy)
+      (expect (wildmatch "[A-Z]" "a" :casefold t) :to-be-truthy)
+      (expect (wildmatch "[[:upper:]]" "a" :casefold t) :to-be-truthy)
+      (expect (funcall ascii-upper-p #\A) :to-be-truthy)
+      (expect (funcall ascii-upper-p #\a) :to-be-falsy)
+      (expect (funcall ascii-lower-p #\a) :to-be-truthy)
+      (expect (funcall ascii-lower-p #\A) :to-be-falsy)
+      (expect (funcall ascii-downcase #\A) :to-equal #\a)
+      (expect (funcall ascii-downcase #\a) :to-equal #\a)
+      (expect (funcall ascii-upcase #\a) :to-equal #\A)
+      (expect (funcall ascii-upcase #\A) :to-equal #\A)
+      (expect (funcall class-member-p "alnum" #\A) :to-be-truthy)
+      (expect (funcall class-member-p "alnum" #\7) :to-be-truthy)
+      (expect (funcall class-member-p "alnum" #\!) :to-be-falsy)
+      (expect (funcall class-member-p "alpha" #\A) :to-be-truthy)
+      (expect (funcall class-member-p "alpha" #\7) :to-be-falsy)
+      (expect (funcall class-member-p "blank" #\Space) :to-be-truthy)
+      (expect (funcall class-member-p "blank" #\Tab) :to-be-truthy)
+      (expect (funcall class-member-p "blank" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "cntrl" (code-char 10)) :to-be-truthy)
+      (expect (funcall class-member-p "cntrl" (code-char 127)) :to-be-truthy)
+      (expect (funcall class-member-p "cntrl" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "digit" #\7) :to-be-truthy)
+      (expect (funcall class-member-p "digit" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "graph" #\!) :to-be-truthy)
+      (expect (funcall class-member-p "graph" #\Space) :to-be-falsy)
+      (expect (funcall class-member-p "graph" (code-char 127)) :to-be-falsy)
+      (expect (funcall class-member-p "lower" #\a) :to-be-truthy)
+      (expect (funcall class-member-p "lower" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "print" #\Space) :to-be-truthy)
+      (expect (funcall class-member-p "print" #\~) :to-be-truthy)
+      (expect (funcall class-member-p "print" (code-char 127)) :to-be-falsy)
+      (expect (funcall class-member-p "punct" #\!) :to-be-truthy)
+      (expect (funcall class-member-p "punct" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "punct" #\7) :to-be-falsy)
+      (expect (funcall class-member-p "space" #\Space) :to-be-truthy)
+      (expect (funcall class-member-p "space" #\Tab) :to-be-truthy)
+      (expect (funcall class-member-p "space" #\Newline) :to-be-truthy)
+      (expect (funcall class-member-p "space" #\Return) :to-be-truthy)
+      (expect (funcall class-member-p "space" #\A) :to-be-falsy)
+      (expect (funcall class-member-p "upper" #\A) :to-be-truthy)
+      (expect (funcall class-member-p "upper" #\a) :to-be-falsy)
+      (expect (funcall class-member-p "xdigit" #\F) :to-be-truthy)
+      (expect (funcall class-member-p "xdigit" #\g) :to-be-falsy)
+      (expect (funcall class-member-p "bogus" #\A) :to-equal :malformed)
+      (expect (wildmatch "*z" "foo") :to-be-falsy)
+      (expect (wildmatch "foo*" "foo/bar" :pathname t) :to-be-falsy)
+      (expect (wildmatch "[a\\-]" "-" :pathname t) :to-be-truthy)
+      (expect (wildmatch "[a-\\z]" "y" :pathname t) :to-be-truthy)
+      (expect (wildmatch "[a" "a") :to-be-falsy)
+      (expect (wildmatch "[a\\" "a") :to-be-falsy)
+      (expect (wildmatch "[a-\\" "a") :to-be-falsy))))
+
+(describe "wildmatch star and malformed class transitions"
+  (it "collapses star runs and searches to the next literal"
+    (expect (multiple-value-list
+             (aitools.workspace.domain::%wildmatch-star
+              "***x" "abcx" 0 0 0 nil nil))
+            :to-equal '(:match nil nil)))
+  (it "stops a single star at slash and fails when no slash follows"
+    (expect (aitools.workspace.domain::%wildmatch-star-search
+             "a*b" "a/x" 2 1 nil t nil)
+            :to-be :abort-to-starstar)
+    (expect (first
+             (multiple-value-list
+              (aitools.workspace.domain::%wildmatch-star
+               "*/x" "plain" 0 0 0 t nil)))
+            :to-be :abort-all))
+  (it "handles starstar after a directory and an escaped slash"
+    (expect (first
+             (multiple-value-list
+              (aitools.workspace.domain::%wildmatch-star
+               "a/**/x" "a/b/x" 0 2 2 t nil)))
+            :to-be :match)
+    (expect (first
+             (multiple-value-list
+              (aitools.workspace.domain::%wildmatch-star
+               "a/**\\/x" "a/b/x" 0 2 2 t nil)))
+            :to-be :match))
+  (it "aborts an unterminated POSIX class and treats malformed syntax literally"
+    (expect (multiple-value-list
+             (aitools.workspace.domain::%wildmatch-class-step
+              "[[:" 1 #\[ nil #\[ nil))
+            :to-equal '(:abort nil 1 nil))
+    (expect (multiple-value-list
+             (aitools.workspace.domain::%wildmatch-class-step
+              "[[:a]" 1 #\[ nil #\[ nil))
+            :to-equal (list nil t 3 #\[))))
+
+(describe "wildmatch slash abort"
+  (it "returns the starstar abort when a question mark fails at slash"
+    (expect (aitools.workspace.domain::%wildmatch-star-search
+             "a*?b" "a/x" 2 1 nil t nil)
+            :to-be :abort-to-starstar)))

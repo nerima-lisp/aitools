@@ -1,0 +1,53 @@
+(in-package #:aitools.workspace.test)
+
+(describe "aitools.workspace.application real path resolution"
+  (it "resolves relative and absolute links, missing tails, and dot components"
+    (let ((host
+            (make-fake-workspace-boundaries
+             :directories '("/r" "/r/target" "/absolute")
+             :symlinks '(("/r/relative" . "target")
+                         ("/r/absolute" . "/absolute")))))
+      (expect (aitools.workspace.application::resolve-real-path host "/r/relative/file")
+              :to-equal "/r/target/file")
+      (expect (aitools.workspace.application::resolve-real-path host "/r/absolute/file")
+              :to-equal "/absolute/file")
+      (expect (aitools.workspace.application::resolve-real-path host "/r/./missing/../tail")
+              :to-equal "/r/tail")
+      (expect (aitools.workspace.application::resolve-real-path host "/r/relative/../relative/..")
+              :to-equal "/r")))
+  (it "reuses cached prefixes and returns cached paths"
+    (let ((host (make-fake-workspace-boundaries :directories '("/r"))))
+      (let ((aitools.workspace.application::*realpath-cache* (make-hash-table :test (function equal))))
+        (expect (aitools.workspace.application::resolve-real-path host "/r/child")
+                :to-equal "/r/child")
+        (expect (gethash "/r" aitools.workspace.application::*realpath-cache*)
+                :to-equal "/r")
+        (expect (aitools.workspace.application::resolve-real-path host "/r/child")
+                :to-equal "/r/child"))
+      (let ((aitools.workspace.application::*realpath-cache* (make-hash-table :test (function equal))))
+        (setf (gethash "/r" aitools.workspace.application::*realpath-cache*) "/alias/r")
+        (expect (aitools.workspace.application::resolve-real-path host "/r/child")
+                :to-equal "/alias/r/child"))
+      (let ((aitools.workspace.application::*realpath-cache* (make-hash-table :test (function equal))))
+        (setf (gethash "/r" aitools.workspace.application::*realpath-cache*) nil)
+        (expect (aitools.workspace.application::resolve-real-path host "/r/child")
+                :to-be nil)
+        (expect (nth-value 1 (gethash "/r/child" aitools.workspace.application::*realpath-cache*))
+                :to-be-truthy))))
+  (it "caches unreadable links and stops beyond the hop limit"
+    (let ((host
+            (make-fake-workspace-boundaries
+             :directories '("/r")
+             :symlinks '(("/r/broken" . nil)
+                         ("/r/a" . "b")
+                         ("/r/b" . "a")))))
+      (let ((aitools.workspace.application::*realpath-cache* (make-hash-table :test (function equal))))
+        (expect (aitools.workspace.application::resolve-real-path host "/r/broken")
+                :to-be nil)
+        (expect (nth-value 1 (gethash "/r/broken" aitools.workspace.application::*realpath-cache*))
+                :to-be-truthy)
+        (expect (aitools.workspace.application::resolve-real-path host "/r/broken")
+                :to-be nil))
+      (let ((aitools.workspace.application::*symlink-hop-limit* 1))
+        (expect (aitools.workspace.application::resolve-real-path host "/r/a")
+                :to-be nil)))))
