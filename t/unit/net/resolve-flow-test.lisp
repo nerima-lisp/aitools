@@ -1,15 +1,18 @@
 (in-package #:aitools.net.test)
 (defun run-resolve-flow (resolver host &rest options)
   (let ((result nil)
-        (ports
-         (aitools.net.application:make-net-ports
-          :http-request
-          (lambda (&rest ignored)
-            (declare (ignore ignored))
-            (error "HTTP request is not used by resolve tests."))
-          :resolve-host resolver)))
+        (boundaries (cl-boundary-kit:make-boundary-context)))
+    (setf boundaries
+          (cl-boundary-kit:boundary-context-with
+           boundaries :net-http-send
+           (lambda (&rest ignored)
+             (declare (ignore ignored))
+             (error "HTTP request is not used by resolve tests."))))
+    (setf boundaries
+          (cl-boundary-kit:boundary-context-with
+           boundaries :net-resolve resolver))
     (apply (function aitools.net.application:resolve/k)
-           ports
+           boundaries
            host
            :on-ok (lambda (fields)
                     (setf result (list :ok fields)))

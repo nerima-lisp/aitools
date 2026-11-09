@@ -4,9 +4,9 @@
   :depends-on ("aitools/core/kernel"
                "aitools/core/protocol"
                "aitools/core/text"
+               "cl-boundary-kit"
                "cl-http-kit/client"
-               "cl-http-kit/tls"
-               "bordeaux-threads")
+               "cl-http-kit/tls")
   :pathname "src/"
   :components
   ((:module "domain" :serial t
@@ -14,14 +14,13 @@
                  (:file "model")))
    (:module "application" :depends-on ("domain") :serial t
     :components ((:file "package")
-                 (:file "ports")
                  (:file "http-url-redaction")
                  (:file "http-flow")
                  (:file "resolve-flow")))
    (:module "infrastructure" :depends-on ("domain" "application") :serial t
     :components ((:file "package")
-                 (:file "resolver")
                  (:file "http-address-policy")
+                 (:file "resolver")
                  (:file "http-transport")
                  (:file "http-client")))))
 (defsystem "aitools/feature/net/presentation"
@@ -49,10 +48,12 @@
   ((:module "t" :pathname "t/" :serial t
     :components ((:file "unit/net/package")
                  (:file "unit/net/resolver-test")
+                 (:file "unit/net/resolver-worker-test")
                  (:file "unit/net/resolver-edge-test")
                  (:file "unit/net/resolve-flow-test")
                  (:file "unit/net/http-client-test")
                  (:file "unit/net/http-client-edge-test")
+                 (:file "unit/net/http-transport-edge-test")
                  (:file "unit/net/http-address-policy-test")
                  (:file "unit/net/http-address-policy-edge-test")
                  (:file "unit/net/http-ssrf-edge-test")
@@ -61,4 +62,5 @@
                  (:file "unit/net/http-flow-edge-test")
                  (:file "unit/net/commands-test")
                  (:file "integration/context-registration-test")
+                 (:file "integration/net-boundary-contract-test")
                  (:file "integration/net-http-transport-test")))))

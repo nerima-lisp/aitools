@@ -34,7 +34,7 @@
                     (loop for key in continuation-keys
                           append (list key (getf continuations key))))))))
 
-(defun %get-command (ports)
+(defun %get-command (boundaries)
   (make-command
    :name "get"
    :description (%summary "net.get")
@@ -50,14 +50,14 @@
    :handler (lambda (invocation)
               (%run-flow #'aitools.net.application:get/k
                          '(:on-ok :on-partial :on-error)
-                         ports
+                         boundaries
                          (positional-value invocation :url)
                          :timeout (option-value invocation :timeout)
                          :max-lines (option-value invocation :max-lines)
                          :range (option-value invocation :range)
                          :line-offset (option-value invocation :line-offset)))))
 
-(defun %head-command (ports)
+(defun %head-command (boundaries)
   (make-command
    :name "head"
    :description (%summary "net.head")
@@ -67,11 +67,11 @@
    :handler (lambda (invocation)
               (%run-flow #'aitools.net.application:head/k
                          '(:on-ok :on-error)
-                         ports
+                         boundaries
                          (positional-value invocation :url)
                          :timeout (option-value invocation :timeout)))))
 
-(defun %resolve-command (ports)
+(defun %resolve-command (boundaries)
   (make-command
    :name "resolve"
    :description (%summary "net.resolve")
@@ -81,11 +81,11 @@
    :handler (lambda (invocation)
               (%run-flow #'aitools.net.application:resolve/k
                          '(:on-ok :on-error)
-                         ports
+                         boundaries
                          (positional-value invocation :host)
                          :timeout (option-value invocation :timeout)))))
 
-(defun register-net-commands (registry ports)
+(defun register-net-commands (registry boundaries)
   (aitools.protocol.application:register-command-declarations
    registry
    (list
@@ -104,5 +104,5 @@
      (:group "net"
       :command-builder #'%resolve-command
       :schema (%schema "net.resolve"))))
-   ports)
+   boundaries)
   registry)

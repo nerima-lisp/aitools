@@ -3,16 +3,43 @@
 (defconstant +http-max-line-bytes+
   16384)
 
-(defun %http-timeout-seconds (text)
-  (when (stringp text)
-    (handler-case (let* ((milliseconds
-                          (aitools.kernel.domain:duration-milliseconds
-                           (aitools.kernel.domain:parse-duration text)))
-                         (seconds (/ milliseconds 1000)))
-                    (when (and (plusp milliseconds) (< seconds most-positive-double-float))
-                      seconds))
-      (aitools.kernel.domain:invalid-duration-error ()
-        nil))))
+(progn
+  (defun %net-timeout-seconds (text)
+    (when (stringp text)
+      (handler-case
+          (let* ((milliseconds
+                   (aitools.kernel.domain:duration-milliseconds
+                    (aitools.kernel.domain:parse-duration text)))
+                 (seconds (/ milliseconds 1000)))
+            (when (and (plusp milliseconds)
+                       (< seconds most-positive-double-float))
+              seconds))
+        (aitools.kernel.domain:invalid-duration-error ()
+          nil))))
+
+  (defmacro %with-net-validation (validations &body body)
+    `(cond
+       ,@(mapcar
+          (lambda (validation)
+            `((not ,(first validation))
+              (aitools.kernel.domain:flow-continue
+               :on-error "argument.invalid" ,(second validation))))
+          validations)
+       (t ,@body)))
+
+  (defmacro %with-net-error-continuation ((&optional io-detail) &body body)
+    `(handler-case
+         (progn ,@body)
+       (aitools.net.domain:net-error (condition)
+         (aitools.kernel.domain:flow-continue
+          :on-error
+          (aitools.net.domain:net-error-code condition)
+          (aitools.net.domain:net-error-detail condition)))
+       ,@(when io-detail
+           `((error ()
+               (aitools.kernel.domain:flow-continue
+                :on-error "environment.io" ,io-detail))))))
+)
 
 (defun %http-range-bounds (range)
   (if (null range)
@@ -135,86 +162,45 @@
     (list (cons "status" status) (cons "headers" (%http-safe-headers (getf response :headers))))))
 
 (aitools.kernel.domain:define-flow
- (get/k ports url &key (timeout "30s") (max-lines 80) range line-offset on-ok on-partial on-error)
+ (get/k boundaries url &key (timeout "30s") (max-lines 80) range line-offset on-ok on-partial on-error)
  (declare (type function on-ok on-partial on-error))
- (multiple-value-bind (range-start range-end range-valid-p) (%http-range-bounds range)
-   (let ((timeout-seconds (%http-timeout-seconds timeout)))
-     (cond
-       ((not (%http-url-input-p url))
-        (aitools.kernel.domain:flow-continue :on-error
-                                             "argument.invalid"
-                                             "URL must be a non-empty string."))
-       ((null timeout-seconds)
-        (aitools.kernel.domain:flow-continue :on-error
-                                             "argument.invalid"
-                                             "Timeout must be a positive finite duration."))
-       ((not (and (integerp max-lines) (plusp max-lines)))
-        (aitools.kernel.domain:flow-continue :on-error
-                                             "argument.invalid"
-                                             "Maximum lines must be a positive integer."))
-       ((not range-valid-p)
-        (aitools.kernel.domain:flow-continue :on-error
-                                             "argument.invalid"
-                                             "Range must be a valid 1-based line range."))
-       ((not (or (null line-offset)
-                 (and (integerp line-offset) (not (minusp line-offset)))))
-        (aitools.kernel.domain:flow-continue :on-error
-                                             "argument.invalid"
-                                             "Line offset must be a non-negative integer."))
-       (t
-        (multiple-value-bind (fields truncated code detail)
-            (handler-case (let ((response
-                                  (funcall (net-ports-http-request ports) "GET" url timeout-seconds)))
-                            (multiple-value-bind (result partial-p)
-                                (%http-get-fields response url range-start range-end max-lines line-offset)
-                              (values result partial-p nil nil)))
-              (aitools.net.domain:net-error (condition)
-                (values nil
-                        nil
-                        (aitools.net.domain:net-error-code condition)
-                        (aitools.net.domain:net-error-detail condition)))
-              (error ()
-                (values nil nil "environment.io" "The HTTP request failed.")))
-          (cond
-            (code (aitools.kernel.domain:flow-continue :on-error code detail))
-            (truncated (aitools.kernel.domain:flow-continue :on-partial fields))
-            (t (aitools.kernel.domain:flow-continue :on-ok fields)))))))))
+ (multiple-value-bind (range-start range-end range-valid-p)
+     (%http-range-bounds range)
+   (let ((timeout-seconds (%net-timeout-seconds timeout)))
+     (%with-net-validation
+         (((%http-url-input-p url) "URL must be a non-empty string.")
+          (timeout-seconds "Timeout must be a positive finite duration.")
+          ((and (integerp max-lines) (plusp max-lines))
+           "Maximum lines must be a positive integer.")
+          (range-valid-p "Range must be a valid 1-based line range.")
+          ((or (null line-offset)
+               (and (integerp line-offset) (not (minusp line-offset))))
+           "Line offset must be a non-negative integer."))
+       (%with-net-error-continuation ("The HTTP request failed.")
+         (let ((response
+                 (funcall
+                  (cl-boundary-kit:boundary-context-require
+                   boundaries :net-http-send)
+                  "GET" url timeout-seconds)))
+           (multiple-value-bind (fields truncated)
+               (%http-get-fields response url range-start range-end
+                                 max-lines line-offset)
+             (if truncated
+                 (aitools.kernel.domain:flow-continue :on-partial fields)
+                 (aitools.kernel.domain:flow-continue :on-ok fields)))))))))
 
-(aitools.kernel.domain:define-flow (head/k ports url &key (timeout "30s") on-ok on-error)
-                                   (declare (type function on-ok on-error))
-                                   (let ((timeout-seconds (%http-timeout-seconds timeout)))
-                                     (cond
-                                       ((not (%http-url-input-p url))
-                                        (aitools.kernel.domain:flow-continue :on-error
-                                                                             "argument.invalid"
-                                                                             "URL must be a non-empty string."))
-                                       ((null timeout-seconds)
-                                        (aitools.kernel.domain:flow-continue :on-error
-                                                                             "argument.invalid"
-                                                                             "Timeout must be a positive finite duration."))
-                                       (t
-                                        (multiple-value-bind (fields code detail)
-                                            (handler-case (let ((response
-                                                                 (funcall
-                                                                  (net-ports-http-request ports)
-                                                                  "HEAD"
-                                                                  url
-                                                                  timeout-seconds)))
-                                                            (values (%http-head-fields response)
-                                                                    nil
-                                                                    nil))
-                                              (aitools.net.domain:net-error (condition)
-                                                (values nil
-                                                        (aitools.net.domain:net-error-code
-                                                         condition)
-                                                        (aitools.net.domain:net-error-detail
-                                                         condition)))
-                                              (error ()
-                                                (values nil
-                                                        "environment.io"
-                                                        "The HTTP request failed.")))
-                                          (if code
-                                              (aitools.kernel.domain:flow-continue :on-error
-                                                                                   code
-                                                                                   detail)
-                                              (aitools.kernel.domain:flow-continue :on-ok fields)))))))
+(aitools.kernel.domain:define-flow
+ (head/k boundaries url &key (timeout "30s") on-ok on-error)
+ (declare (type function on-ok on-error))
+ (let ((timeout-seconds (%net-timeout-seconds timeout)))
+   (%with-net-validation
+       (((%http-url-input-p url) "URL must be a non-empty string.")
+        (timeout-seconds "Timeout must be a positive finite duration."))
+     (%with-net-error-continuation ("The HTTP request failed.")
+       (let ((response
+               (funcall
+                (cl-boundary-kit:boundary-context-require
+                 boundaries :net-http-send)
+                "HEAD" url timeout-seconds)))
+         (aitools.kernel.domain:flow-continue
+          :on-ok (%http-head-fields response)))))))

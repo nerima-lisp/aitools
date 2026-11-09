@@ -1,34 +1,39 @@
 (in-package #:aitools.net.test)
 
-(defun run-http-get (sender url &rest options)
-  (let ((result nil))
-    (apply (function aitools.net.application:get/k)
-           (aitools.net.application:make-net-ports
-            :http-request sender
-            :resolve-host (lambda (&rest ignored)
-                            (declare (ignore ignored))
-                            nil))
-           url
-           (append options
-                   (list :on-ok
-                         (lambda (fields)
-                           (setf result (list :ok fields)))
-                         :on-partial
-                         (lambda (fields)
-                           (setf result (list :partial fields)))
-                         :on-error
-                         (lambda (code detail)
-                           (setf result (list :error (list code detail)))))))
-    (values-list result)))
+(progn
+  (defun make-http-test-boundaries (sender)
+    (let ((boundaries (cl-boundary-kit:make-boundary-context)))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries :net-http-send sender))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries :net-resolve
+             (lambda (&rest ignored)
+               (declare (ignore ignored))
+               nil)))
+      boundaries))
+  (defun run-http-get (sender url &rest options)
+    (let ((result nil))
+      (apply (function aitools.net.application:get/k)
+             (make-http-test-boundaries sender)
+             url
+             (append options
+                     (list :on-ok
+                           (lambda (fields)
+                             (setf result (list :ok fields)))
+                           :on-partial
+                           (lambda (fields)
+                             (setf result (list :partial fields)))
+                           :on-error
+                           (lambda (code detail)
+                             (setf result (list :error (list code detail)))))))
+      (values-list result))))
 
 (defun run-http-head (sender url &rest options)
   (let ((result nil))
     (apply (function aitools.net.application:head/k)
-           (aitools.net.application:make-net-ports
-            :http-request sender
-            :resolve-host (lambda (&rest ignored)
-                            (declare (ignore ignored))
-                            nil))
+           (make-http-test-boundaries sender)
            url
            (append options
                    (list :on-ok
