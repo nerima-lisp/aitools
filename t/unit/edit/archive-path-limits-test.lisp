@@ -193,4 +193,39 @@
                  (type-error ()
                    t))
                :to-be
-               t)))
+               t))
+          (it "refuses a parent symlink introduced after archive planning"
+              (call-with-edit-workspace
+               (lambda ()
+                 (let* ((archive-path "archive.tar")
+                        (output-parent "out/sub")
+                        (outside-file (format nil "~A/payload.txt" *home*))
+                        (original-resolver
+                         (symbol-function
+                          (quote aitools.edit.application:resolve-extra-path/k)))
+                        (symlinked nil))
+                   (put archive-path
+                        (aitools.text.domain:write-tar
+                         (list (aitools.text.domain:make-archive-member
+                                :name "sub/payload.txt"
+                                :kind :file
+                                :data (bytes "payload")))))
+                   (sb-posix:mkdir (disk "out") #o755)
+                   (cl-weave:with-mocked-functions
+                    (((symbol-function
+                       (quote aitools.edit.application:resolve-extra-path/k))
+                      (lambda (context path &rest arguments)
+                        (when (and (string= path "out/sub/payload.txt")
+                                   (not symlinked))
+                          (setf symlinked t)
+                          (sb-posix:symlink *home* (disk output-parent)))
+                        (apply original-resolver context path arguments))))
+                    (multiple-value-bind (status code message keys)
+                        (run "archive.extract" (list archive-path) :to "out")
+                      (declare (ignore message keys))
+                      (expect symlinked :to-be t)
+                      (expect status :to-be :error)
+                      (expect code :to-equal "refusal.outside-workspace")
+                      (expect (kind output-parent) :to-be :symlink)
+                      (expect (probe-file outside-file) :to-be nil))))))
+              ))
