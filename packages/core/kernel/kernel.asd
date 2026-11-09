@@ -22,7 +22,7 @@
                  (:file "unified-diff-patch" :depends-on ("flow" "unified-diff"))
                  (:file "json")
                  (:file "json-model" :depends-on ("flow"))
-                 (:file "json-model-patch" :depends-on ("json-model"))
+                 (:file "json-model-patch" :depends-on ("json-model" "json-model-resolve"))
                  (:file "json-model-diff" :depends-on ("json-model"))
                  (:file "json-model-resolve" :depends-on ("json-model" "flow"))))))
 (defsystem "aitools/test/kernel"
