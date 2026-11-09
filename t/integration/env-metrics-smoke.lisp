@@ -8,7 +8,7 @@
 (let ((registry (aitools.protocol.application:make-command-registry))
       (checks 0))
   (aitools.env.presentation:register-env-commands
-   registry (aitools.env.infrastructure:make-production-env-ports))
+   registry (aitools.env.infrastructure:make-production-env-boundaries))
   (let ((app (cl-cli:make-app :name "aitools" :commands (aitools/cli:finalize-app-commands registry)))
         (stdout (make-string-output-stream))
         (stderr (make-string-output-stream)))

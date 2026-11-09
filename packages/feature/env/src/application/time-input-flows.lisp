@@ -24,10 +24,10 @@
                            "aitools time convert now --add 1h")))))))))
 
 (aitools.kernel.domain:define-flow
-    (%parse-instant/k ports text zone-name example &key on-instant on-error)
+    (%parse-instant/k boundaries text zone-name example &key on-instant on-error)
   "Resolve TEXT to epoch milliseconds, reading offset-less input in ZONE-NAME."
   (if (string-equal text "now")
-      (aitools.kernel.domain:flow-continue :on-instant (%now ports) nil)
+      (aitools.kernel.domain:flow-continue :on-instant (%now boundaries) nil)
       (multiple-value-bind (input syntax-condition)
           (handler-case
               (values (aitools.env.domain:parse-time-input text) nil)
@@ -50,7 +50,7 @@
                  (aitools.env.domain:time-input-milliseconds input)
                  input)
                 (aitools.kernel.domain:flow-call
-                    (%with-zone/k ports zone-name)
+                    (%with-zone/k boundaries zone-name)
                   (:on-zone (zone)
                     (aitools.kernel.domain:flow-continue
                      :on-instant

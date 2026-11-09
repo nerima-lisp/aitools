@@ -1,15 +1,15 @@
 (in-package #:aitools.env.presentation)
 
-(defun %time-now-command (ports)
+(defun %time-now-command (boundaries)
   (make-command
    :name "now"
    :description "Show the current time."
    :options (list (%tz-option))
    :handler
    (lambda (invocation)
-     (%run-flow #'aitools.env.application:time-now/k '(:on-ok :on-error) ports :tz (option-value invocation :tz)))))
+     (%run-flow #'aitools.env.application:time-now/k '(:on-ok :on-error) boundaries :tz (option-value invocation :tz)))))
 
-(defun %time-convert-command (ports)
+(defun %time-convert-command (boundaries)
   (make-command
    :name "convert"
    :description "Convert a time between formats and zones."
@@ -30,14 +30,14 @@
     (%tz-option))
    :handler
    (lambda (invocation)
-     (%run-flow #'aitools.env.application:time-convert/k '(:on-ok :on-error) ports
+     (%run-flow #'aitools.env.application:time-convert/k '(:on-ok :on-error) boundaries
              (positional-value invocation :value)
              :to (option-value invocation :to)
              :add (option-value invocation :add)
              :sub (option-value invocation :sub)
              :tz (option-value invocation :tz)))))
 
-(defun %time-diff-command (ports)
+(defun %time-diff-command (boundaries)
   (make-command
    :name "diff"
    :description "Difference between two times."
@@ -47,6 +47,6 @@
     (make-positional :name "b" :key :b :required-p t))
    :handler
    (lambda (invocation)
-     (%run-flow #'aitools.env.application:time-diff/k '(:on-ok :on-error) ports
+     (%run-flow #'aitools.env.application:time-diff/k '(:on-ok :on-error) boundaries
              (positional-value invocation :a)
              (positional-value invocation :b)))))

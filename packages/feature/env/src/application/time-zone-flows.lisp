@@ -6,23 +6,23 @@
         (aitools.env.domain:parse-tzif name octets)
       (aitools.env.domain:tzif-format-error () nil))))
 
-(defun %decode-zone-file (ports directory name)
+(defun %decode-zone-file (boundaries directory name)
   (%parse-zone-octets
    name
-   (%read-octets ports
+   (%read-octets boundaries
                  (aitools.env.domain:join-directory directory name))))
 
-(defun %zone-in-directory (ports directory name)
-  (if (funcall (env-ports-list-directory ports) directory)
-      (values (%decode-zone-file ports directory name) t)
+(defun %zone-in-directory (boundaries directory name)
+  (if (%list-directory boundaries directory)
+      (values (%decode-zone-file boundaries directory name) t)
       (values nil nil)))
 
-(defun %find-zone-info (ports name)
+(defun %find-zone-info (boundaries name)
   (loop with any-directory = nil
         for directory in (aitools.env.domain:zoneinfo-directories
-                          (%getenv ports "TZDIR"))
+                          (%getenv boundaries "TZDIR"))
         for result = (multiple-value-list
-                      (%zone-in-directory ports directory name))
+                      (%zone-in-directory boundaries directory name))
         when (cadr result)
           do (setf any-directory t)
         when (car result)
@@ -30,7 +30,7 @@
         finally (return (values nil any-directory))))
 
 (aitools.kernel.domain:define-flow
-    (resolve-zone/k ports name &key on-zone on-unknown on-unavailable)
+    (resolve-zone/k boundaries name &key on-zone on-unknown on-unavailable)
   "Call ON-ZONE with an IANA zone, ON-UNKNOWN when no matching TZif file
 exists, or ON-UNAVAILABLE when no zoneinfo directory exists."
   (cond
@@ -41,7 +41,7 @@ exists, or ON-UNAVAILABLE when no zoneinfo directory exists."
      (aitools.kernel.domain:flow-continue :on-unknown))
     (t
      (multiple-value-bind (zone any-directory)
-         (%find-zone-info ports name)
+         (%find-zone-info boundaries name)
        (cond
          (zone
           (aitools.kernel.domain:flow-continue :on-zone zone))
@@ -51,9 +51,9 @@ exists, or ON-UNAVAILABLE when no zoneinfo directory exists."
           (aitools.kernel.domain:flow-continue :on-unavailable)))))))
 
 (aitools.kernel.domain:define-flow
-    (%with-zone/k ports name &key on-zone on-error)
+    (%with-zone/k boundaries name &key on-zone on-error)
   (aitools.kernel.domain:flow-call
-      (resolve-zone/k ports name)
+      (resolve-zone/k boundaries name)
     (:on-zone (zone)
       (aitools.kernel.domain:flow-continue :on-zone zone))
     (:on-unknown ()

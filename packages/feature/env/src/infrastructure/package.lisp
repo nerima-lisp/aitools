@@ -1,5 +1,5 @@
 ;;;;
-;;;; Adapters behind AITOOLS.ENV.APPLICATION:ENV-PORTS.
+;;;; Production env boundary capabilities.
 (in-package #:cl-user)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -8,5 +8,5 @@
 (defpackage #:aitools.env.infrastructure
   (:use #:cl)
   (:export
-   #:make-env-ports-from-boundaries
-   #:make-production-env-ports))
+   #:make-env-boundaries
+   #:make-production-env-boundaries))

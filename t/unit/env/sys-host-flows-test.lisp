@@ -13,7 +13,7 @@
                    (cons "/usr/sbin/lsof" (exits-with *lsof-text*)))))
 
 (defun linux-proc-ports (&key (host (make-fake-host)))
-  (make-fake-ports
+  (make-fake-env-boundaries
    :identity *linux-identity*
    :environment '(("SHELL" . "/bin/bash"))
    :files (list (cons "/proc/cpuinfo" (format nil "processor	: 0~%~%processor	: 1~%")) (cons "/proc/uptime" "1234.5 600.0")
@@ -40,7 +40,7 @@
     (let ((host (darwin-host)))
       (multiple-value-bind (kind fields)
           (run-flow (function sys-info/k)
-                    (make-fake-ports
+                    (make-fake-env-boundaries
                      :host host
                      :environment (list (cons "SHELL" "/bin/zsh"))))
         (expect kind :to-be :ok)
@@ -71,9 +71,9 @@
 
   (it "returns environment.unavailable when uptime is missing or unsupported"
     (dolist (ports
-              (list (make-fake-ports :identity *linux-identity* :files nil)
-                    #+darwin (make-fake-ports :sysctl-mibs nil)
-                    (make-fake-ports
+              (list (make-fake-env-boundaries :identity *linux-identity* :files nil)
+                    #+darwin (make-fake-env-boundaries :sysctl-mibs nil)
+                    (make-fake-env-boundaries
                      :identity (list "FreeBSD" "14.1" "amd64"))))
       (multiple-value-bind (kind error)
           (run-flow (function sys-info/k) ports)
@@ -83,7 +83,7 @@
 (describe "aitools.env.application sys env"
   (it "masks values of secret-named variables and counts them"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-env/k (make-fake-ports :environment '(("GITHUB_TOKEN" . "plain-looking-value")
+        (run-flow #'sys-env/k (make-fake-env-boundaries :environment '(("GITHUB_TOKEN" . "plain-looking-value")
                                                               ("HOME" . "/home/take")
                                                               ("DB_PASSWORD" . "hunter2"))))
       (expect kind :to-be :ok)
@@ -95,7 +95,7 @@
 
   (it "filters by name prefix"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-env/k (make-fake-ports :environment '(("LANG" . "C") ("LC_ALL" . "C") ("HOME" . "/h")))
+        (run-flow #'sys-env/k (make-fake-env-boundaries :environment '(("LANG" . "C") ("LC_ALL" . "C") ("HOME" . "/h")))
                   :prefix "L")
       (expect kind :to-be :ok)
       (expect (field fields "total") :to-be 2))))
@@ -104,7 +104,7 @@
   (it "finds a tool on PATH and reports null for a missing one"
     (let ((host (make-fake-host :programs (list (cons "/opt/bin/git" (exits-with (format nil "git version 2.55.0~%")))))))
       (multiple-value-bind (kind fields)
-          (run-flow #'sys-tools/k (make-fake-ports :environment '(("PATH" . "/usr/bin:/opt/bin"))
+          (run-flow #'sys-tools/k (make-fake-env-boundaries :environment '(("PATH" . "/usr/bin:/opt/bin"))
                                                    :executables '("/opt/bin/git") :host host)
                     :names '("git" "no-such-tool"))
         (expect kind :to-be :ok)
@@ -122,27 +122,27 @@
                                                                    (setf seen timeout)
                                                                    (values :timeout nil "" "")))))))
       (multiple-value-bind (kind fields)
-          (run-flow #'sys-tools/k (make-fake-ports :environment '(("PATH" . "/b")) :executables '("/b/slow") :host host)
+          (run-flow #'sys-tools/k (make-fake-env-boundaries :environment '(("PATH" . "/b")) :executables '("/b/slow") :host host)
                     :names '("slow") :timeout "1500ms")
         (expect kind :to-be :ok)
         (expect seen :to-equal 3/2)
         (expect (json-null-p (object-field (first (field fields "items")) "version")) :to-be-truthy))))
 
   (it "probes the default list when no names are given"
-    (multiple-value-bind (kind fields) (run-flow #'sys-tools/k (make-fake-ports :environment nil))
+    (multiple-value-bind (kind fields) (run-flow #'sys-tools/k (make-fake-env-boundaries :environment nil))
       (expect kind :to-be :ok)
       (expect (field fields "total") :to-be (length aitools.data:*env-default-tools*))))
 
   (it "rejects a name with a directory part and a bad timeout"
-    (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-ports) :names '("../git"))))
+    (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-env-boundaries) :names '("../git"))))
             :to-equal "argument.invalid")
-    (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-ports) :names '("git") :timeout "soon")))
+    (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-env-boundaries) :names '("git") :timeout "soon")))
             :to-equal "argument.invalid")))
 
 (describe "aitools.env.application sys procs"
   (it "lists Darwin processes from ps only, with started from elapsed time"
     (let ((host (darwin-host)))
-      (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-ports :host host))
+      (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-env-boundaries :host host))
         (expect kind :to-be :ok)
         (expect (fake-host-runs host)
                 :to-equal '(("/bin/ps" ("-axww" "-o" "pid=,ppid=,user=,etime=,command="))))
@@ -167,7 +167,7 @@
       (expect (fake-host-runs host) :to-equal nil)))
 
   (it "returns partial with next_commands over --limit"
-    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-ports :host (darwin-host)) :limit 2)
+    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-env-boundaries :host (darwin-host)) :limit 2)
       (expect kind :to-be :partial)
       (expect (length (field fields "items")) :to-be 2)
       (expect (field fields "total") :to-be 3)
@@ -175,7 +175,7 @@
       (expect (field fields "next_commands") :to-equal '("aitools sys procs --limit 3"))))
 
   (it "is environment.unavailable without a source"
-    (expect (first (nth-value 1 (run-flow #'sys-procs/k (make-fake-ports))))
+    (expect (first (nth-value 1 (run-flow #'sys-procs/k (make-fake-env-boundaries))))
             :to-equal "environment.unavailable")))
 
 (describe "aitools.env.application sys ports"
@@ -183,7 +183,7 @@
             ("/proc/net/tcp6" "ipv6" "ipv4"))
       "preserves listeners and reports missing family beside ~A" (path available missing)
     (let* ((text (if (string= available "ipv4") *proc-net-tcp-text* *proc-net-tcp6-text*))
-           (ports (make-fake-ports :identity *linux-identity* :files (list (cons path text)))))
+           (ports (make-fake-env-boundaries :identity *linux-identity* :files (list (cons path text)))))
       (multiple-value-bind (kind fields) (run-flow #'sys-ports/k ports)
         (expect kind :to-be :partial)
         (expect (field fields "total") :to-be 2)
@@ -203,7 +203,7 @@
           (expect (object-field data "truncated") :to-be t)))))
   (it "does not turn a single empty available table into complete coverage"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-ports/k (make-fake-ports :identity *linux-identity*
+        (run-flow #'sys-ports/k (make-fake-env-boundaries :identity *linux-identity*
                                               :files '(("/proc/net/tcp" . ""))))
       (expect kind :to-be :partial)
       (expect (field fields "total") :to-be 0)))
@@ -217,7 +217,7 @@
               :to-equal '((631 "127.0.0.1" nil) (631 "::1" nil) (8080 "0.0.0.0" 77) (8080 "::" 77)))))
 
   (it "reads Darwin listeners from lsof with the same fields"
-    (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (make-fake-ports :host (darwin-host)))
+    (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (make-fake-env-boundaries :host (darwin-host)))
       (expect kind :to-be :ok)
       (let ((item (first (field fields "items"))))
         (expect (mapcar #'car (aitools.protocol.domain:json-object-members item))
@@ -226,12 +226,12 @@
 
   (it "treats lsof's exit 1 with no output as no listeners"
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/lsof" (exits-with "" :exit-code 1))))))
-      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (make-fake-ports :host host))
+      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (make-fake-env-boundaries :host host))
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 0))))
 
   (it "is environment.unavailable with a sys tools repair when lsof is missing"
-    (multiple-value-bind (kind error) (run-flow #'sys-ports/k (make-fake-ports))
+    (multiple-value-bind (kind error) (run-flow #'sys-ports/k (make-fake-env-boundaries))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")
       (expect (getf (first (getf (cddr error) :repairs)) :command) :to-equal "aitools sys tools lsof"))))

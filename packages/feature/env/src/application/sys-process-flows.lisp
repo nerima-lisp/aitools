@@ -1,24 +1,24 @@
 (in-package #:aitools.env.application)
 
-(defun %linux-processes (ports)
+(defun %linux-processes (boundaries)
   "Records (:PID :PPID :USER :COMMAND :STARTED-MS) from /proc, or NIL when
 /proc is unreadable. starttime is in clock ticks since boot; Linux fixes the
 userspace tick (USER_HZ) at 100."
-  (let* ((entries (funcall (env-ports-list-directory ports) "/proc"))
-         (stat (%read-text ports "/proc/stat"))
+  (let* ((entries (%list-directory boundaries "/proc"))
+         (stat (%read-text boundaries "/proc/stat"))
          (boot-seconds (and stat (aitools.env.domain:parse-proc-boot-time stat)))
-         (passwd (let ((text (%read-text ports "/etc/passwd")))
+         (passwd (let ((text (%read-text boundaries "/etc/passwd")))
                    (and text (aitools.env.domain:parse-passwd text))))
          (records nil))
     (dolist (entry entries records)
       (when (aitools.env.domain:ascii-digits-p entry)
-        (let ((stat-text (%read-text ports (format nil "/proc/~A/stat" entry))))
+        (let ((stat-text (%read-text boundaries (format nil "/proc/~A/stat" entry))))
           (when stat-text
             (multiple-value-bind (pid comm ppid start-ticks) (aitools.env.domain:parse-proc-stat-process stat-text)
               (when pid
-                (let* ((status (%read-text ports (format nil "/proc/~A/status" entry)))
+                (let* ((status (%read-text boundaries (format nil "/proc/~A/status" entry)))
                        (uid (and status (aitools.env.domain:parse-proc-status-uid status)))
-                       (cmdline (or (%read-text ports (format nil "/proc/~A/cmdline" entry)) "")))
+                       (cmdline (or (%read-text boundaries (format nil "/proc/~A/cmdline" entry)) "")))
                   (push (list :pid pid :ppid ppid
                               :user (or (cdr (assoc uid passwd)) (and uid (princ-to-string uid)))
                               :command (aitools.env.domain:proc-cmdline-command cmdline comm)
@@ -26,15 +26,15 @@ userspace tick (USER_HZ) at 100."
                                                (+ (* boot-seconds 1000) (* start-ticks 10))))
                         records))))))))))
 
-(defun %darwin-processes (ports)
+(defun %darwin-processes (boundaries)
   "Records from ps, or :UNAVAILABLE. `started` derives from elapsed time
-  against the clock port, to the second."
-  (let ((output (%run-output ports
-                             (%darwin-program :ps ports)
+  against the clock boundary, to the second."
+  (let ((output (%run-output boundaries
+                             (%darwin-program :ps boundaries)
                              (quote ("-axww" "-o" "pid=,ppid=,user=,etime=,command=")))))
     (if (null output)
         :unavailable
-        (let ((now-second (* 1000 (floor (%now ports) 1000))))
+        (let ((now-second (* 1000 (floor (%now boundaries) 1000))))
           (mapcar (lambda (record)
                     (list :pid (getf record :pid)
                           :ppid (getf record :ppid)
@@ -55,12 +55,12 @@ userspace tick (USER_HZ) at 100."
                                  (aitools.env.domain:json-null))))))
 
 (aitools.kernel.domain:define-flow
-    (sys-procs/k ports &key pattern (limit 50) on-ok on-partial on-error)
+    (sys-procs/k boundaries &key pattern (limit 50) on-ok on-partial on-error)
   "Processes whose command contains PATTERN (case-insensitive), by pid. Over LIMIT items the result is partial."
-  (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
+  (let* ((os (%os-kind (nth-value 0 (%system-identity boundaries))))
          (records (case os
-                    (:linux (or (%linux-processes ports) :unavailable))
-                    (:darwin (%darwin-processes ports))
+                    (:linux (or (%linux-processes boundaries) :unavailable))
+                    (:darwin (%darwin-processes boundaries))
                     (t :unavailable))))
     (if (eq records :unavailable)
         (aitools.kernel.domain:flow-call
@@ -99,34 +99,39 @@ userspace tick (USER_HZ) at 100."
               (aitools.kernel.domain:flow-continue :on-ok fields))))))
 
 #+linux
-(defun %metrics-cpu (ports os)
+(defun %metrics-cpu (boundaries os)
   (when (eq os :linux)
-    (let ((before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))))
+    (let ((before
+            (aitools.env.domain:parse-cpu-counters
+             (%read-text boundaries "/proc/stat"))))
       (when before
-        (funcall (env-ports-sleep-seconds ports) 1)
+        (%sleep-seconds boundaries 1)
         (aitools.env.domain:cpu-busy-percent
-         before (aitools.env.domain:parse-cpu-counters (%read-text ports "/proc/stat"))
+         before
+         (aitools.env.domain:parse-cpu-counters
+          (%read-text boundaries "/proc/stat"))
          :iowait-may-decrease t)))))
 #-linux
-(defun %metrics-cpu (ports os)
+(defun %metrics-cpu (boundaries os)
   #+darwin
   (when (eq os :darwin)
-    (let ((before (funcall (env-ports-cpu-counters ports))))
+    (let ((before (%cpu-counters boundaries)))
       (when before
-        (funcall (env-ports-sleep-seconds ports) 1)
-        (aitools.env.domain:cpu-busy-percent before (funcall (env-ports-cpu-counters ports))))))
+        (%sleep-seconds boundaries 1)
+        (aitools.env.domain:cpu-busy-percent
+         before (%cpu-counters boundaries)))))
   #-(or linux darwin)
-  (declare (ignore ports os))
+  (declare (ignore boundaries os))
   #-(or linux darwin)
   nil)
-(defun %load-average (ports os)
+(defun %load-average (boundaries os)
   #+linux
   (when (eq os :linux)
     (aitools.env.domain:parse-proc-load-average
-     (%read-text ports "/proc/loadavg")))
+     (%read-text boundaries "/proc/loadavg")))
   #+darwin
   (when (eq os :darwin)
-    (let ((values (funcall (env-ports-sysctl-mib ports) :vm-loadavg)))
+    (let ((values (%sysctl-mib boundaries :vm-loadavg)))
       (when (and (listp values)
                  (= (length values) 3)
                  (every (lambda (value) (and (realp value) (>= value 0))) values))
@@ -135,24 +140,24 @@ userspace tick (USER_HZ) at 100."
   nil)
 
 (aitools.kernel.domain:define-flow
-    (sys-metrics/k ports &key (limit 20) on-ok on-partial on-error)
-  (let* ((os (%os-kind (nth-value 0 (funcall (env-ports-system-identity ports)))))
-         (cpu (%metrics-cpu ports os))
-         (load-average (%load-average ports os)))
+    (sys-metrics/k boundaries &key (limit 20) on-ok on-partial on-error)
+  (let* ((os (%os-kind (nth-value 0 (%system-identity boundaries))))
+         (cpu (%metrics-cpu boundaries os))
+         (load-average (%load-average boundaries os)))
     (multiple-value-bind (cpus total available)
-        (%cpus-and-memory ports os :strict t)
+        (%cpus-and-memory boundaries os :strict t)
       (let* ((program
                (progn
                  #+linux
-                 (and (eq os :linux) (find-executable ports "ps"))
+                 (and (eq os :linux) (find-executable boundaries "ps"))
                  #+darwin
-                 (and (eq os :darwin) (%darwin-program :ps ports))
+                 (and (eq os :darwin) (%darwin-program :ps boundaries))
                  #-(or linux darwin)
                  nil))
              (records
                (and program
                     (aitools.env.domain:parse-process-metrics
-                     (%run-output ports program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
+                     (%run-output boundaries program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
         (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
                       available (<= 0 available total) records))
             (aitools.kernel.domain:flow-continue

@@ -5,7 +5,7 @@
     (let ((host (darwin-host)))
       (multiple-value-bind (kind error)
           (run-flow (function sys-info/k)
-                    (make-fake-ports
+                    (make-fake-env-boundaries
                      :identity (list "FreeBSD" "14.1" "amd64")
                      :host host))
         (expect kind :to-be :error)
@@ -13,13 +13,13 @@
         (expect (fake-host-runs host) :to-equal nil))
       (multiple-value-bind (kind error)
           (run-flow (function sys-disk/k)
-                    (make-fake-ports
+                    (make-fake-env-boundaries
                      :identity (list "FreeBSD" "14.1" "amd64")))
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable"))
       (multiple-value-bind (kind error)
           (run-flow (function sys-metrics/k)
-                    (make-fake-ports
+                    (make-fake-env-boundaries
                      :identity (list "FreeBSD" "14.1" "amd64")
                      :host host))
         (expect kind :to-be :error)
@@ -29,7 +29,7 @@
   (it "rejects negative Darwin load averages"
     (multiple-value-bind (kind error)
         (run-flow (function sys-metrics/k)
-                  (make-fake-ports :host (metrics-host)
+                  (make-fake-env-boundaries :host (metrics-host)
                                    :sysctl-mibs (list (cons :vm-loadavg
                                                             (list -0.5d0 0.25d0 0.125d0)))))
       (expect kind :to-be :error)
@@ -37,7 +37,7 @@
   (it "reports unknown values as null instead of failing"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-info/k)
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :identity #+darwin '("Darwin" "25.6.0" "arm64")
                              #+linux '("Linux" "6.8.0-45-generic" "x86_64")
                    :files #+darwin *zoneinfo-files*
@@ -49,26 +49,26 @@
   #+linux
   (it "rejects malformed Linux load averages and CPU counter data"
     (expect (aitools.env.application::%load-average
-             (make-fake-ports :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42")))
+             (make-fake-env-boundaries :files (list (cons "/proc/loadavg" "0.75 bad 2.5 1/100 42")))
              :linux)
             :to-be nil)
     (expect (aitools.env.application::%load-average
-             (make-fake-ports :files nil)
+             (make-fake-env-boundaries :files nil)
              :darwin)
             :to-be nil)
     (expect (aitools.env.application::%metrics-cpu
-             (make-fake-ports :files nil)
+             (make-fake-env-boundaries :files nil)
              :linux)
             :to-be nil)
     (expect (aitools.env.application::%metrics-cpu
-             (make-fake-ports :files nil)
+             (make-fake-env-boundaries :files nil)
              :darwin)
             :to-be nil))
   #+darwin
   (it "rejects a Darwin uptime derived from a future boot time"
     (multiple-value-bind (kind error)
         (run-flow (function sys-info/k)
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :now 0
                    :sysctl-mibs (list (cons :kern-boottime 1d0))))
       (expect kind :to-be :error)
@@ -78,7 +78,7 @@
       "answers ~S on an unknown OS with environment.unavailable and `~A`"
       (flow repair)
     (multiple-value-bind (kind error)
-        (run-flow (symbol-function flow) (make-fake-ports :identity '("FreeBSD" "14.1" "amd64") :host (darwin-host)))
+        (run-flow (symbol-function flow) (make-fake-env-boundaries :identity '("FreeBSD" "14.1" "amd64") :host (darwin-host)))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")
       (expect (getf (first (getf (cddr error) :repairs)) :command) :to-equal repair)))
@@ -87,7 +87,7 @@
   (it "reports null CPUs and memory on Linux while requiring uptime"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-info/k)
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :identity *linux-identity*
                    :files (list (cons "/proc/cpuinfo" "")
                                 (cons "/proc/uptime" "42.0 3.0"))))
@@ -99,7 +99,7 @@
 
   (it "matches no variable whose name is shorter than the prefix"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-env/k (make-fake-ports :environment '(("LANG" . "C") ("LANGUAGE" . "en"))) :prefix "LANGU")
+        (run-flow #'sys-env/k (make-fake-env-boundaries :environment '(("LANG" . "C") ("LANGUAGE" . "en"))) :prefix "LANGU")
       (expect kind :to-be :ok)
       (expect (mapcar (lambda (item) (object-field item "name")) (field fields "items")) :to-equal '("LANGUAGE"))))
 
@@ -107,7 +107,7 @@
     (let ((host (make-fake-host :programs (list (cons "/b/java" (exits-with (format nil "~%  ~%")
                                                                            :stderr (format nil "openjdk 21.0.2~%")))))))
       (multiple-value-bind (kind fields)
-          (run-flow #'sys-tools/k (make-fake-ports :environment '(("PATH" . "/b")) :executables '("/b/java") :host host)
+          (run-flow #'sys-tools/k (make-fake-env-boundaries :environment '(("PATH" . "/b")) :executables '("/b/java") :host host)
                     :names '("java"))
         (expect kind :to-be :ok)
         (expect (object-field (first (field fields "items")) "version") :to-equal "openjdk 21.0.2"))))
@@ -115,7 +115,7 @@
   (it "keeps Linux processes whose uid has no passwd name, or no status, with null start without btime"
     (multiple-value-bind (kind fields)
         (run-flow #'sys-procs/k
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :identity *linux-identity*
                    :files (list (cons "/proc/5/stat" "5 (a) S 1 5 5 0 -1 0 1 0 0 0 1 1 0 0 20 0 1 0 5 1 1")
                                 (cons "/proc/5/status" (format nil "Uid:	4242	4242	4242	4242~%"))
@@ -131,13 +131,13 @@
 
   (it "repeats the pattern in the next command of a partial process list"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-procs/k (make-fake-ports :host (darwin-host)) :pattern "/" :limit 1)
+        (run-flow #'sys-procs/k (make-fake-env-boundaries :host (darwin-host)) :pattern "/" :limit 1)
       (expect kind :to-be :partial)
       (expect (field fields "total") :to-be 2)
       (expect (field fields "next_commands") :to-equal '("aitools sys procs / --limit 2"))))
 
   (it "attributes a socket shared by two processes to the first one listed"
-    (let ((ports (make-fake-ports
+    (let ((ports (make-fake-env-boundaries
                   :identity *linux-identity*
                   :files (list (cons "/proc/net/tcp" *proc-net-tcp-text*)
                                (cons "/proc/net/tcp6" "")
@@ -155,7 +155,7 @@
                 :to-equal '((631 nil nil) (8080 1 "systemd"))))))
 
   (it "is environment.unavailable on Linux without /proc/net/tcp or tcp6"
-    (multiple-value-bind (kind error) (run-flow #'sys-ports/k (make-fake-ports :identity *linux-identity*))
+    (multiple-value-bind (kind error) (run-flow #'sys-ports/k (make-fake-env-boundaries :identity *linux-identity*))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")))
 
@@ -168,5 +168,5 @@
                                                           (lambda (arguments timeout)
                                                             (declare (ignore arguments timeout))
                                                             (values :timeout nil nil nil))))))))
-      (expect (first (nth-value 1 (run-flow #'sys-ports/k (make-fake-ports :host host))))
+      (expect (first (nth-value 1 (run-flow #'sys-ports/k (make-fake-env-boundaries :host host))))
               :to-equal "environment.unavailable"))))

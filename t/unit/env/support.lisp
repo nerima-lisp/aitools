@@ -1,7 +1,6 @@
 ;;;;
-;;;; Deterministic ENV-PORTS for the flow tests: cl-boundary-kit fakes for the
-;;;; clock, environment, filesystem, and host info, wired through the same
-;;;; MAKE-ENV-PORTS-FROM-BOUNDARIES the production ports use, plus recorded
+;;;; Deterministic boundary context for the flow tests: cl-boundary-kit fakes
+;;;; for the clock, environment, filesystem, and host info, plus recorded
 ;;;; fakes for the adapters cl-boundary-kit has no boundary for.
 (in-package #:aitools.env.test)
 (defparameter *linux-identity* '("Linux" "6.8.0-45-generic" "x86_64"))
@@ -26,45 +25,49 @@
     (runs nil)
     (programs nil)))
 
-(defun make-fake-ports (&key (now *fake-epoch-milliseconds*) (environment '(("TZ" . "UTC")))
-                          (files *zoneinfo-files*) (directories '("/usr/share/zoneinfo"))
-                          (links nil) (executables nil)
-                          (identity '("Darwin" "25.6.0" "arm64"))
-                          (space '(1000 400))
-                          #+darwin (sysctl-mibs '((:kern-boottime . 1700000000.125d0)
-                                                 (:vm-loadavg . (0.5d0 0.25d0 0.125d0))))
-                          (host (make-fake-host))
-                          (sleep-seconds (lambda (seconds) (declare (ignore seconds))))
-                          #+darwin (cpu-counters (let ((ticks 0))
-                                                   (lambda () (incf ticks)
-                                                     (list (* ticks 3) 0 0 (* ticks 37) 0 0 0 0)))))
-  "ENV-PORTS over fakes. FILES is an alist path -> content; DIRECTORIES is an
-alist path -> entry names, or a bare path for an existing directory whose
-entries do not matter. SYSCTL-MIBS maps Darwin MIB names to returned values.
-HOST's PROGRAMS maps a program path to a function of (ARGUMENTS TIMEOUT)
-returning the RUN-PROGRAM values; every call is appended to HOST's RUNS as
-(PROGRAM ARGUMENTS)."
-  (aitools.env.infrastructure:make-env-ports-from-boundaries
+(defun make-fake-env-boundaries
+    (&key (now *fake-epoch-milliseconds*) (environment '(("TZ" . "UTC")))
+          (files *zoneinfo-files*) (directories '("/usr/share/zoneinfo"))
+          (links nil) (executables nil)
+          (identity '("Darwin" "25.6.0" "arm64"))
+          (space '(1000 400))
+          #+darwin (sysctl-mibs '((:kern-boottime . 1700000000.125d0)
+                                 (:vm-loadavg . (0.5d0 0.25d0 0.125d0))))
+          (host (make-fake-host))
+          (sleep-seconds (lambda (seconds) (declare (ignore seconds))))
+          #+darwin (cpu-counters
+                     (let ((ticks 0))
+                       (lambda ()
+                         (incf ticks)
+                         (list (* ticks 3) 0 0 (* ticks 37) 0 0 0 0)))))
+  "Build a boundary context over deterministic env fakes."
+  (aitools.env.infrastructure:make-env-boundaries
    :clock (cl-boundary-kit:make-fake-clock :start now)
    :sleep-seconds sleep-seconds
    #+darwin :cpu-counters
    #+darwin cpu-counters
    #+darwin :sysctl-mib
    #+darwin (lambda (name) (cdr (assoc name sysctl-mibs)))
-   :environment (cl-boundary-kit:make-test-environment :initial-values environment)
+   :environment (cl-boundary-kit:make-test-environment
+                 :initial-values environment)
    :filesystem (cl-boundary-kit:make-test-filesystem :initial-files files)
-   :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")
-   :run-program (lambda (program arguments timeout)
-                  (setf (fake-host-runs host) (append (fake-host-runs host) (list (list program arguments))))
-                  (let ((behaviour (cdr (assoc program (fake-host-programs host) :test #'string=))))
-                    (if behaviour
-                        (funcall behaviour arguments timeout)
-                        (values :not-started nil nil nil))))
+   :host-info
+   (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")
+   :run-program
+   (lambda (program arguments timeout)
+     (setf (fake-host-runs host)
+           (append (fake-host-runs host) (list (list program arguments))))
+     (let ((behaviour
+             (cdr (assoc program (fake-host-programs host) :test #'string=))))
+       (if behaviour
+           (funcall behaviour arguments timeout)
+           (values :not-started nil nil nil))))
    :executable-p (lambda (path) (and (member path executables :test #'string=) t))
-   :list-directory (lambda (path)
-                     (loop for entry in directories
-                           when (and (stringp entry) (string= entry path)) return (list "entry")
-                           when (and (consp entry) (string= (car entry) path)) return (cdr entry)))
+   :list-directory
+   (lambda (path)
+     (loop for entry in directories
+           when (and (stringp entry) (string= entry path)) return (list "entry")
+           when (and (consp entry) (string= (car entry) path)) return (cdr entry)))
    :read-link (lambda (path) (cdr (assoc path links :test #'string=)))
    :file-system-space (lambda (path) (declare (ignore path)) (values-list space))
    :system-identity (lambda () (values-list identity))

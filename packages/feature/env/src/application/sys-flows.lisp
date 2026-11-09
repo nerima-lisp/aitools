@@ -11,13 +11,13 @@
     :netstat "/usr/sbin/netstat"))
 
 (aitools.kernel.domain:define-flow
-    (sys-network/k ports &key (limit 100) on-ok on-partial on-error)
+    (sys-network/k boundaries &key (limit 100) on-ok on-partial on-error)
   (if (not (and (integerp limit) (<= 1 limit 1000)))
       (aitools.kernel.domain:flow-continue
        :on-error
        "argument.invalid"
        "Network limit must be between 1 and 1000.")
-      (let* ((os (%os-kind (funcall (env-ports-system-identity ports))))
+      (let* ((os (%os-kind (%system-identity boundaries)))
              (source (case os
                        #+linux (:linux "/proc/net/dev")
                        #+darwin (:darwin "netstat -ibn"))))
@@ -27,8 +27,8 @@
              "environment.unavailable"
              "Network counters are unsupported on this OS.")
             (let ((text (case os
-                          #+linux (:linux (%read-text ports source))
-                          #+darwin (:darwin (%run-output ports (%darwin-program :netstat) '("-ibn"))))))
+                          #+linux (:linux (%read-text boundaries source))
+                          #+darwin (:darwin (%run-output boundaries (%darwin-program :netstat) '("-ibn"))))))
               (multiple-value-bind (items valid)
                   (if text
                       (aitools.env.domain:parse-network-counters text os)
@@ -63,16 +63,16 @@
                           (aitools.kernel.domain:flow-continue :on-ok fields))))))))))
 
 (aitools.kernel.domain:define-flow
-    (sys-disk/k ports &key path on-ok on-error)
-  (let* ((path (or path (funcall (env-ports-workspace-root ports))))
-         (os (%os-kind (funcall (env-ports-system-identity ports)))))
+    (sys-disk/k boundaries &key path on-ok on-error)
+  (let* ((path (or path (%workspace-root boundaries)))
+         (os (%os-kind (%system-identity boundaries))))
     (if (null os)
         (aitools.kernel.domain:flow-continue
          :on-error
          "environment.unavailable"
          "Filesystem capacity is unsupported on this OS.")
         (multiple-value-bind (total available)
-            (funcall (env-ports-file-system-space ports) path)
+            (%file-system-space boundaries path)
           (if (not (and (integerp total)
                         (integerp available)
                         (<= 0 available total)))
@@ -99,8 +99,8 @@
 observed taking 6-18 s on a heavily loaded Darwin host, so a tight bound
 would turn load into environment.unavailable.")
 
-(defun %darwin-program (key &optional ports)
-  (or (and (eq key :ps) ports (%getenv ports "AITOOLS_DARWIN_PS"))
+(defun %darwin-program (key &optional boundaries)
+  (or (and (eq key :ps) boundaries (%getenv boundaries "AITOOLS_DARWIN_PS"))
       (getf *darwin-programs* key)))
 
 (defun %null-if-nil (value)
@@ -110,9 +110,9 @@ would turn load into environment.unavailable.")
   (cond ((string-equal sysname "Linux") :linux)
         ((string-equal sysname "Darwin") :darwin)))
 
-(defun %run-output (ports program arguments)
+(defun %run-output (boundaries program arguments)
   "STDOUT of PROGRAM when it ran and exited 0, else NIL."
-  (multiple-value-bind (status exit-code stdout) (%run ports program arguments *source-timeout-seconds*)
+  (multiple-value-bind (status exit-code stdout) (%run boundaries program arguments *source-timeout-seconds*)
     (and (eq status :exited) (eql exit-code 0) stdout)))
 
 (aitools.kernel.domain:define-flow
@@ -128,12 +128,12 @@ would turn load into environment.unavailable.")
 
 ;;; ---------------------------------------------------------------- sys info
 
-(defun %cpus-and-memory (ports os &key strict)
+(defun %cpus-and-memory (boundaries os &key strict)
   "(VALUES CPUS MEMORY-TOTAL MEMORY-AVAILABLE), each NIL when unknown."
   (case os
     (:linux
-     (let ((cpuinfo (%read-text ports "/proc/cpuinfo"))
-           (meminfo (%read-text ports "/proc/meminfo")))
+     (let ((cpuinfo (%read-text boundaries "/proc/cpuinfo"))
+           (meminfo (%read-text boundaries "/proc/meminfo")))
        (multiple-value-bind (total available)
          (if meminfo
              (aitools.env.domain:parse-meminfo meminfo :strict strict)
@@ -143,45 +143,45 @@ would turn load into environment.unavailable.")
                         (and (plusp count) count)))
                  total available))))
     (:darwin
-     (let* ((sysctl (%run-output ports (%darwin-program :sysctl) '("-n" "hw.ncpu" "hw.memsize")))
+     (let* ((sysctl (%run-output boundaries (%darwin-program :sysctl) '("-n" "hw.ncpu" "hw.memsize")))
             (lines (and sysctl (aitools.env.domain:parse-sysctl-values sysctl)))
-            (vm-stat (%run-output ports (%darwin-program :vm-stat) '())))
+            (vm-stat (%run-output boundaries (%darwin-program :vm-stat) '())))
        (flet ((integer-at (index)
                 (let ((text (nth index lines)))
                   (and text (aitools.env.domain:ascii-digits-p text) (parse-integer text)))))
          (values (integer-at 0) (integer-at 1)
                  (and vm-stat (aitools.env.domain:parse-vm-stat vm-stat :strict strict))))))
     (t (values nil nil nil))))
-(defun %uptime-seconds (ports os)
+(defun %uptime-seconds (boundaries os)
   #+linux
   (when (eq os :linux)
-    (aitools.env.domain:parse-proc-uptime (%read-text ports "/proc/uptime")))
+    (aitools.env.domain:parse-proc-uptime
+     (%read-text boundaries "/proc/uptime")))
   #+darwin
   (when (eq os :darwin)
-    (let ((boot-seconds (funcall (env-ports-sysctl-mib ports) :kern-boottime)))
+    (let ((boot-seconds (%sysctl-mib boundaries :kern-boottime)))
       (when (realp boot-seconds)
-        (let ((uptime (- (/ (%now ports) 1000d0) boot-seconds)))
+        (let ((uptime (- (/ (%now boundaries) 1000d0) boot-seconds)))
           (when (>= uptime 0)
             uptime)))))
   #-(or linux darwin)
   nil)
 
 (aitools.kernel.domain:define-flow
-    (sys-info/k ports &key on-ok on-error)
+    (sys-info/k boundaries &key on-ok on-error)
   (multiple-value-bind (sysname release machine)
-      (funcall (env-ports-system-identity ports))
+      (%system-identity boundaries)
     (let* ((os (%os-kind sysname))
-           (uptime-seconds (%uptime-seconds ports os)))
+           (uptime-seconds (%uptime-seconds boundaries os)))
       (if (not (realp uptime-seconds))
           (aitools.kernel.domain:flow-continue
            :on-error
            "environment.unavailable"
            "System uptime source is unavailable or malformed.")
           (multiple-value-bind (cpus memory-total memory-available)
-              (%cpus-and-memory ports os)
+              (%cpus-and-memory boundaries os)
             (multiple-value-bind (disk-total disk-available)
-                (funcall (env-ports-file-system-space ports)
-                         (funcall (env-ports-workspace-root ports)))
+                (%file-system-space boundaries (%workspace-root boundaries))
               (aitools.kernel.domain:flow-continue
                :on-ok
                (list
@@ -189,11 +189,11 @@ would turn load into environment.unavailable.")
                 (cons "os_version" release)
                 (cons "arch" machine)
                 (cons "cpus" (%null-if-nil cpus))
-                (cons "user" (funcall (env-ports-user-name ports)))
-                (cons "uid" (funcall (env-ports-user-id ports)))
-                (cons "hostname" (funcall (env-ports-host-name ports)))
+                (cons "user" (%user-name boundaries))
+                (cons "uid" (%user-id boundaries))
+                (cons "hostname" (%host-name boundaries))
                 (cons "uptime_seconds" uptime-seconds)
-                (cons "shell" (%null-if-nil (%getenv ports "SHELL")))
+                (cons "shell" (%null-if-nil (%getenv boundaries "SHELL")))
                 (cons "memory"
                       (%object (cons "total" (%null-if-nil memory-total))
                                (cons "available" (%null-if-nil memory-available))))
@@ -206,14 +206,14 @@ would turn load into environment.unavailable.")
 (defparameter *redacted-secret* "[REDACTED_SECRET]")
 
 (aitools.kernel.domain:define-flow
-    (sys-env/k ports &key prefix on-ok on-error)
+    (sys-env/k boundaries &key prefix on-ok on-error)
   "PREFIX filters by case-sensitive name prefix. Secret values are replaced whole;
 the envelope writer still masks matching patterns in other values."
   (declare (ignore on-error))
   (let ((items nil)
         (redactions 0))
     (dolist (entry
-             (sort (copy-list (funcall (env-ports-environment-variables ports)))
+             (sort (copy-list (%environment-variables boundaries))
                    #'string< :key #'car))
       (destructuring-bind (name . value) entry
         (when (or (null prefix)

@@ -1,15 +1,14 @@
 ;;;;
-;;;; The env flows over the production ports on the machine running the
+;;;; The env flows over the production boundary context on the machine running the
 ;;;; suite: real uname(2), statfs(2), /proc or sysctl/vm_stat/ps/lsof, and the
 ;;;; installed zoneinfo database. Field presence is asserted on Linux and
 ;;;; Darwin alike; a check whose source the host lacks
 ;;;; (no zoneinfo, no lsof in a build sandbox) is skipped, not passed.
 (in-package #:aitools.env.test)
 
-(defun host-ports ()
-  "Fresh production ports per use: construction does no I/O, and ports built
-at load time would hold the adapter functions compiled then."
-  (aitools.env.infrastructure:make-production-env-ports))
+(defun host-boundaries ()
+  "Create a fresh production context; construction performs no I/O."
+  (aitools.env.infrastructure:make-production-env-boundaries))
 
 (defun host-zoneinfo-file (name)
   (find-if #'probe-file
@@ -18,7 +17,7 @@ at load time would hold the adapter functions compiled then."
 
 (describe "aitools.env integration on this host"
   (it "fills sys info from the real host"
-    (multiple-value-bind (kind fields) (run-flow #'sys-info/k (host-ports))
+    (multiple-value-bind (kind fields) (run-flow #'sys-info/k (host-boundaries))
       (expect kind :to-be :ok)
       (expect (field fields "os") :to-equal (string-downcase (software-type)))
       (expect (plusp (length (field fields "arch"))) :to-be-truthy)
@@ -29,7 +28,7 @@ at load time would hold the adapter functions compiled then."
         (expect (<= 0 (object-field disk "available") (object-field disk "total")) :to-be-truthy)
         (expect (plusp (object-field disk "total")) :to-be-truthy))))
   (it "lists this test process in sys procs without touching it"
-    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (host-ports) :limit 100000)
+    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (host-boundaries) :limit 100000)
       (expect kind :to-be :ok)
       (let ((self (find (sb-posix:getpid) (field fields "items") :key (lambda (item) (object-field item "pid")))))
         (expect self :to-be-truthy)
@@ -45,7 +44,7 @@ at load time would hold the adapter functions compiled then."
              (sb-bsd-sockets:socket-listen socket 1)
              (multiple-value-bind (address port) (sb-bsd-sockets:socket-name socket)
                (declare (ignore address))
-               (multiple-value-bind (kind result) (run-flow #'sys-ports/k (host-ports))
+               (multiple-value-bind (kind result) (run-flow #'sys-ports/k (host-boundaries))
                  ;; No /proc/net/tcp on Linux or no lsof on Darwin (a build
                  ;; sandbox) is a missing source: skip, never a hard failure.
                  (when (eq kind :error)
@@ -62,7 +61,7 @@ at load time would hold the adapter functions compiled then."
         (sb-bsd-sockets:socket-close socket))))
 
   (it "reports path null for a command that is not installed"
-    (multiple-value-bind (kind fields) (run-flow #'sys-tools/k (host-ports) :names '("aitools-no-such-command-9f3"))
+    (multiple-value-bind (kind fields) (run-flow #'sys-tools/k (host-boundaries) :names '("aitools-no-such-command-9f3"))
       (expect kind :to-be :ok)
       (expect (json-null-p (object-field (first (field fields "items")) "path")) :to-be-truthy)))
 
@@ -76,7 +75,7 @@ at load time would hold the adapter functions compiled then."
 
   (it "converts through the installed database for Asia/Tokyo"
     (unless (host-zoneinfo-file "Asia/Tokyo") (cl-weave:skip "no zoneinfo database on this host"))
-    (multiple-value-bind (kind fields) (run-flow #'time-convert/k (host-ports) "2026-03-08T06:30:00Z" :tz "Asia/Tokyo")
+    (multiple-value-bind (kind fields) (run-flow #'time-convert/k (host-boundaries) "2026-03-08T06:30:00Z" :tz "Asia/Tokyo")
       (expect kind :to-be :ok)
       (expect (field fields "result") :to-equal "2026-03-08T15:30:00+09:00"))))
 
@@ -87,7 +86,8 @@ at load time would hold the adapter functions compiled then."
       (uiop:chdir previous))))
 
 (defun host-workspace-root ()
-  (funcall (aitools.env.application::env-ports-workspace-root (host-ports))))
+  (funcall (cl-boundary-kit:boundary-context-require
+            (host-boundaries) :env-workspace-root)))
 
 (defun git-ancestor-p (directory)
   (loop for current = (uiop:ensure-directory-pathname directory) then (uiop:pathname-parent-directory-pathname current)
@@ -129,10 +129,17 @@ else under $TMPDIR; removed afterwards."
            (cl-weave:skip "every temporary directory is inside a git checkout"))
          (expect (call-in-directory nested #'host-workspace-root) :to-equal nested))))))
 
-(defun port (accessor &rest arguments)
-  "Call the production port slot ACCESSOR (a symbol in AITOOLS.ENV.APPLICATION)."
-  (apply (funcall (find-symbol (format nil "ENV-PORTS-~A" accessor) '#:aitools.env.application) (host-ports))
+(defun host-capability (key &rest arguments)
+  (apply (cl-boundary-kit:boundary-context-require (host-boundaries) key)
          arguments))
+(defun host-read-file (path external-format)
+  (let ((filesystem (cl-boundary-kit:boundary-context-require
+                     (host-boundaries) :env-filesystem)))
+    (when (cl-boundary-kit:filesystem-path-exists-p filesystem path)
+      (handler-case
+          (cl-boundary-kit:filesystem-read-file
+           filesystem path :external-format external-format)
+        (file-error () nil)))))
 
 (defun write-scratch-file (path content &key (mode #o644))
   (with-open-file (out path :direction :output :if-exists :supersede :external-format :utf-8)
@@ -145,54 +152,54 @@ else under $TMPDIR; removed afterwards."
     (call-with-scratch-directory
      (lambda (base)
        (let ((path (write-scratch-file (concatenate 'string base "t.txt") "héllo")))
-         (expect (port "READ-FILE" path :utf-8) :to-equal "héllo")
-         (expect (port "READ-FILE" path :latin-1) :to-equal (map 'string #'code-char #(104 195 169 108 108 111)))
+         (expect (host-read-file path :utf-8) :to-equal "héllo")
+         (expect (host-read-file path :latin-1) :to-equal (map 'string #'code-char #(104 195 169 108 108 111)))
          (let ((aitools.env.infrastructure::*maximum-read-bytes* 3))
-           (expect (port "READ-FILE" path :utf-8) :to-be nil))
-         (expect (port "READ-FILE" (concatenate 'string base "missing.txt") :utf-8) :to-be nil)))))
+           (expect (host-read-file path :utf-8) :to-be nil))
+         (expect (host-read-file (concatenate 'string base "missing.txt") :utf-8) :to-be nil)))))
 
   (it "lists a directory without . and .., and answers NIL for one that does not exist"
     (call-with-scratch-directory
      (lambda (base)
        (write-scratch-file (concatenate 'string base "a") "")
        (ensure-directories-exist (concatenate 'string base "d/"))
-       (expect (sort (port "LIST-DIRECTORY" base) #'string<) :to-equal '("a" "d"))
-       (expect (port "LIST-DIRECTORY" (concatenate 'string base "none")) :to-be nil))))
+       (expect (sort (host-capability :env-list-directory base) #'string<) :to-equal '("a" "d"))
+       (expect (host-capability :env-list-directory (concatenate 'string base "none")) :to-be nil))))
 
   (it "reads a symlink's target and answers NIL for a path that is no link"
     (call-with-scratch-directory
      (lambda (base)
        (sb-posix:symlink "target/x" (concatenate 'string base "link"))
-       (expect (port "READ-LINK" (concatenate 'string base "link")) :to-equal "target/x")
-       (expect (port "READ-LINK" base) :to-be nil))))
+       (expect (host-capability :env-read-link (concatenate 'string base "link")) :to-equal "target/x")
+       (expect (host-capability :env-read-link base) :to-be nil))))
 
   (it "counts only executable regular files as executable"
     (call-with-scratch-directory
      (lambda (base)
        (let ((script (write-scratch-file (concatenate 'string base "run") "#!/bin/sh" :mode #o755))
              (plain (write-scratch-file (concatenate 'string base "plain") "" :mode #o644)))
-         (expect (port "EXECUTABLE-P" script) :to-be-truthy)
-         (expect (port "EXECUTABLE-P" plain) :to-be nil)
-         (expect (port "EXECUTABLE-P" base) :to-be nil)
-         (expect (port "EXECUTABLE-P" (concatenate 'string base "none")) :to-be nil)))))
+         (expect (host-capability :env-executable-p script) :to-be-truthy)
+         (expect (host-capability :env-executable-p plain) :to-be nil)
+         (expect (host-capability :env-executable-p base) :to-be nil)
+         (expect (host-capability :env-executable-p (concatenate 'string base "none")) :to-be nil)))))
 
   (it "runs a program to its exit, stops one at the timeout, and reports one that cannot start"
-    (let ((sh (aitools.env.application:find-executable (host-ports) "sh"))
-          (sleep (aitools.env.application:find-executable (host-ports) "sleep")))
+    (let ((sh (aitools.env.application:find-executable (host-boundaries) "sh"))
+          (sleep (aitools.env.application:find-executable (host-boundaries) "sleep")))
       (unless (and sh sleep) (cl-weave:skip "sh or sleep is not on PATH"))
-      (expect (multiple-value-list (port "RUN-PROGRAM" sh '("-c" "printf out; printf err >&2; exit 3") 10))
+      (expect (multiple-value-list (host-capability :env-run-program sh '("-c" "printf out; printf err >&2; exit 3") 10))
               :to-equal '(:exited 3 "out" "err"))
-      (expect (nth-value 0 (port "RUN-PROGRAM" sleep '("5") 1/5)) :to-be :timeout)
-      (expect (multiple-value-list (port "RUN-PROGRAM" "/nonexistent/aitools-no-such-program" '() 1))
+      (expect (nth-value 0 (host-capability :env-run-program sleep '("5") 1/5)) :to-be :timeout)
+      (expect (multiple-value-list (host-capability :env-run-program "/nonexistent/aitools-no-such-program" '() 1))
               :to-equal '(:not-started nil nil nil))))
   (it "uses the default child-process adapter when none is supplied"
-    (let* ((ports
-            (aitools.env.infrastructure:make-env-ports-from-boundaries
-             :clock (cl-boundary-kit:make-fake-clock :start 0)
-             :environment (cl-boundary-kit:make-test-environment)
-             :filesystem (cl-boundary-kit:make-test-filesystem)
-             :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")))
-           (run-program (aitools.env.application::env-ports-run-program ports)))
+    (let* ((boundaries
+             (aitools.env.infrastructure:make-env-boundaries
+              :clock (cl-boundary-kit:make-fake-clock :start 0)
+              :environment (cl-boundary-kit:make-test-environment)
+              :filesystem (cl-boundary-kit:make-test-filesystem)
+              :host-info (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")))
+           (run-program (cl-boundary-kit:boundary-context-require boundaries :env-run-program)))
       (expect (multiple-value-list
                (funcall run-program "/bin/sh"
                         '("-c" "printf out; printf err >&2; exit 3")
@@ -200,7 +207,7 @@ else under $TMPDIR; removed afterwards."
               :to-equal '(:exited 3 "out" "err"))))
 
   (it "answers NIL for the space of a path that does not exist"
-    (expect (port "FILE-SYSTEM-SPACE" "/nonexistent/aitools-no-such-directory") :to-be nil)))
+    (expect (host-capability :env-file-system-space "/nonexistent/aitools-no-such-directory") :to-be nil)))
 
 (describe "aitools.env production CPU counters"
   (it "uses the portable fallback when uname fails"
@@ -225,7 +232,7 @@ else under $TMPDIR; removed afterwards."
 
   #+darwin
   (it "returns eight nonnegative counters on Darwin"
-    (let ((counters (port "CPU-COUNTERS")))
+    (let ((counters (host-capability :env-cpu-counters)))
       (expect (and (listp counters)
                    (= (length counters) 8)
                    (every (lambda (counter)
@@ -236,6 +243,6 @@ else under $TMPDIR; removed afterwards."
 (describe "aitools.env unsupported disk host"
   (it "reports unavailable filesystem capacity"
     (multiple-value-bind (kind error)
-        (run-flow #'sys-disk/k (make-fake-ports :identity '("Other" "1" "generic")))
+        (run-flow #'sys-disk/k (make-fake-env-boundaries :identity '("Other" "1" "generic")))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))

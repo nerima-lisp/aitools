@@ -1,7 +1,7 @@
 (in-package #:aitools.env.application)
 
 (aitools.kernel.domain:define-flow
-    (sys-snapshot/k ports &key path (process-limit 20) (network-limit 100)
+    (sys-snapshot/k boundaries &key path (process-limit 20) (network-limit 100)
                     (port-limit 100) on-ok on-partial on-error)
   (if (not
        (every
@@ -12,7 +12,7 @@
        :on-error
        "argument.invalid"
        "Snapshot limits must be between 1 and 1000.")
-      (let ((started (%now ports))
+      (let ((started (%now boundaries))
             (sections nil)
             (usable 0)
             (incomplete nil))
@@ -33,7 +33,7 @@
                             (aitools.protocol.domain:json-null)))
                   (cons "reason" (%null-if-nil reason))
                   (cons "started_at_epoch_ms" begin)
-                  (cons "finished_at_epoch_ms" (%now ports))))
+                  (cons "finished_at_epoch_ms" (%now boundaries))))
                 sections))
              (fail (name begin code message)
                (finish
@@ -51,7 +51,7 @@
                         (cons "atomic"
                               (aitools.protocol.domain:json-boolean nil))
                         (cons "started_at_epoch_ms" started)
-                        (cons "finished_at_epoch_ms" (%now ports))
+                        (cons "finished_at_epoch_ms" (%now boundaries))
                         (cons "source_timeout_seconds"
                               *source-timeout-seconds*)
                         (cons "limits"
@@ -80,10 +80,10 @@
                    (t
                     (aitools.kernel.domain:flow-continue :on-ok fields)))))
              (observe-info ()
-               (let ((begin (%now ports)))
+               (let ((begin (%now boundaries)))
                  (handler-case
                      (aitools.kernel.domain:flow-call
-                         (sys-info/k ports)
+                         (sys-info/k boundaries)
                        (:on-ok (data)
                          (let ((reason (%snapshot-info-missing data)))
                            (finish
@@ -103,10 +103,10 @@
                       "source_file_unreadable")
                      (observe-metrics)))))
              (observe-metrics ()
-               (let ((begin (%now ports)))
+               (let ((begin (%now boundaries)))
                  (handler-case
                      (aitools.kernel.domain:flow-call
-                         (sys-metrics/k ports :limit process-limit)
+                         (sys-metrics/k boundaries :limit process-limit)
                        (:on-ok (data)
                          (finish "metrics" begin "ok" data nil)
                          (observe-network))
@@ -124,10 +124,10 @@
                       "source_file_unreadable")
                      (observe-network)))))
              (observe-network ()
-               (let ((begin (%now ports)))
+               (let ((begin (%now boundaries)))
                  (handler-case
                      (aitools.kernel.domain:flow-call
-                         (sys-network/k ports :limit network-limit)
+                         (sys-network/k boundaries :limit network-limit)
                        (:on-ok (data)
                          (finish "network" begin "ok" data nil)
                          (observe-disk))
@@ -145,10 +145,10 @@
                       "source_file_unreadable")
                      (observe-disk)))))
              (observe-disk ()
-               (let ((begin (%now ports)))
+               (let ((begin (%now boundaries)))
                  (handler-case
                      (aitools.kernel.domain:flow-call
-                         (sys-disk/k ports :path path)
+                         (sys-disk/k boundaries :path path)
                        (:on-ok (data)
                          (finish "disk" begin "ok" data nil)
                          (observe-ports))
@@ -162,10 +162,10 @@
                       "source_file_unreadable")
                      (observe-ports)))))
              (observe-ports ()
-               (let ((begin (%now ports)))
+               (let ((begin (%now boundaries)))
                  (handler-case
                      (aitools.kernel.domain:flow-call
-                         (sys-ports/k ports)
+                         (sys-ports/k boundaries)
                        (:on-ok (data)
                          (let ((reason
                                  (%snapshot-limit-ports data port-limit)))
