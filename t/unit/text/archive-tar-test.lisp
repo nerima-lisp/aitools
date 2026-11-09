@@ -1,4 +1,31 @@
 (in-package #:aitools.text.test)
+(describe "tar metadata component limits"
+  (it "checks a duplicate PAX path before discarding it"
+    (let* ((component (make-string 256 :initial-element #\a))
+           (records (join-octets
+                     (aitools.text.domain::%pax-record "path" "ok")
+                     (aitools.text.domain::%pax-record
+                      "path" (format nil "~A/x" component))))
+           (archive (tar-of
+                     (tar-block "PaxHeader" #\x :data records)
+                     (tar-block "file" #\0))))
+      (signals archive-limit-exceeded (read-tar-entries archive))))
+  (it "bounds an overlong component in a GNU LongLink path"
+    (let* ((component (make-string 256 :initial-element #\a))
+           (name (format nil "~A/x" component))
+           (archive (tar-of
+                     (tar-block "././@LongLink" #\L :data (string-bytes name))
+                     (tar-block "file" #\0))))
+      (signals archive-limit-exceeded (read-tar-entries archive))))
+  (it "lets a later global PAX path override an earlier path"
+    (let ((archive (tar-of
+                    (tar-block "Global" #\g :data
+                               (aitools.text.domain::%pax-record "path" "old"))
+                    (tar-block "Global" #\g :data
+                               (aitools.text.domain::%pax-record "path" "new"))
+                    (tar-block "file" #\0))))
+      (expect (archive-entry-name (first (read-tar-entries archive)))
+              :to-equal "new"))))
 
 (describe "aitools.text.domain tar on crafted archives"
   (it "rejects a negative base-256 number and a non-octal digit"
