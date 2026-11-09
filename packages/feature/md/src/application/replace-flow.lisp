@@ -42,86 +42,6 @@
                                                                                   :repairs
                                                                                   (%md-schema-repair command "Check standard input.")))))))))
 
-(defun %md-plan-write (ports context section replacement on-committed on-rejected)
-  (let* ((view (aitools.edit.application:write-context-view context))
-         (path (aitools.edit.application:context-path context))
-         (state (aitools.store.application:view-path-kind view path))
-         (command "md replace"))
-    (cond
-      ((aitools.store.domain:entry-state-absent-p state)
-       (funcall on-rejected
-                "input.not-found"
-                "Markdown file does not exist"
-                :path
-                path
-                :repairs
-                (%md-schema-repair command "Pass an existing Markdown file.")))
-      ((not (eq (aitools.store.domain:entry-state-kind state) :file))
-       (funcall on-rejected
-                "refusal.not-a-file"
-                "Markdown target is not a regular file"
-                :path
-                path
-                :repairs
-                (%md-schema-repair command "Pass a regular Markdown file.")))
-      (t
-       (handler-case (let ((octets (aitools.store.application:view-read-file view path :max-bytes +md-max-input-bytes+)))
-                       (if (null octets)
-                           (funcall on-rejected
-                                    "input.not-found"
-                                    "Markdown file does not exist"
-                                    :path
-                                    path
-                                    :repairs
-                                    (%md-schema-repair command "Pass an existing Markdown file."))
-                           (multiple-value-bind (document code message offset) (funcall (md-ports-parse-markdown ports) octets)
-                             (if (null document)
-                                 (funcall on-rejected
-                                          code
-                                          message
-                                          :path
-                                          path
-                                          :diagnostics
-                                          (and offset (list (json-object "offset" offset "message" message)))
-                                          :repairs
-                                          (%md-schema-repair command "Check the Markdown input."))
-                                 (let ((heading (aitools.md.domain:md-document-heading document section)))
-                                   (if (null heading)
-                                       (funcall on-rejected
-                                                "selection.no-match"
-                                                (format nil "section ~D does not exist" section)
-                                                :path
-                                                path
-                                                :repairs
-                                                (%md-schema-repair command "Choose an ordinal from md headings."))
-                                       (let* ((updated (funcall (md-ports-splice-section ports) document heading replacement))
-                                              (requests
-                                               (if (equalp octets updated)
-                                                   nil
-                                                   (list (aitools.store.domain:write-file-request path updated)))))
-                                         (funcall on-committed
-                                                  requests
-                                                  (list (cons "section" section)
-                                                        (cons "heading" (aitools.md.domain:md-heading-heading heading))
-                                                        (cons "level" (aitools.md.domain:md-heading-level heading))
-                                                        (cons "line" (aitools.md.domain:md-heading-line heading)))))))))))
-         (aitools.store.application:store-byte-limit-error ()
-           (funcall on-rejected
-                    "refusal.too-large"
-                    "Markdown file exceeds the 16777216-byte input limit"
-                    :path
-                    path
-                    :repairs
-                    (%md-schema-repair command "Use a smaller Markdown file.")))
-         (aitools.store.application:store-io-error (condition)
-           (funcall on-rejected
-                    "environment.io"
-                    (princ-to-string condition)
-                    :path
-                    path
-                    :repairs
-                    (%md-schema-repair command "Check file permissions."))))))))
-
 (defun %md-write-plan (ports path section replacement expect-hash)
   (aitools.edit.application:make-write-plan :command
                                             "md.replace"
@@ -146,7 +66,15 @@
                                               (list (first paths) (princ-to-string section)))
                                             :plan
                                             (lambda (context &key on-committed on-rejected)
-                                              (%md-plan-write ports context section replacement on-committed on-rejected))))
+                                              (aitools.kernel.domain:flow-call
+                                               (%md-plan-write/k ports context section replacement)
+                                               (:on-committed (requests fields)
+                                                              (funcall on-committed requests fields))
+                                               (:on-rejected (code message &key path diagnostics repairs)
+                                                             (funcall on-rejected code message
+                                                                      :path path
+                                                                      :diagnostics diagnostics
+                                                                      :repairs repairs))))))
 
 (aitools.kernel.domain:define-flow (md-replace/k ports path section &key root lock-timeout dry-run tx display-argv expect-hash stdin on-ok on-partial on-error)
                                    (declare (type function on-ok on-partial on-error))

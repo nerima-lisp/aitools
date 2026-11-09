@@ -2,7 +2,7 @@
 
 (defpackage #:aitools.md.application
             (:use #:cl)
-            (:import-from #:aitools.protocol.domain #:json-object #:json-null #:repair)
+            (:import-from #:aitools.protocol.domain #:json-object #:repair)
             (:export #:+md-max-input-bytes+
                      #:md-ports
                      #:make-md-ports

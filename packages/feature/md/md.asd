@@ -21,6 +21,7 @@
                         ((:file "package") (:file "ports")
                          (:file "read-document")
                          (:file "read-flow")
+                         (:file "replace-plan")
                          (:file "replace-flow")))
                (:module "infrastructure"
                         :depends-on
