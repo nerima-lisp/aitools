@@ -182,7 +182,18 @@
                 (format t "~&~A coverage: expression ~D/~D, branch ~D/~D~%"
                         (first entry) (getf stats :expression-covered)
                         (getf stats :expression-total)
-                        (getf stats :branch-covered) (getf stats :branch-total))))
+                        (getf stats :branch-covered) (getf stats :branch-total))
+                (when (eq (first entry) :text)
+                  (dolist (file
+                           (uiop:symbol-call
+                            "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                            :include-pathnames (cdr (assoc :text groups))))
+                    (format t "~&coverage file TEXT ~A: expression ~D/~D, branch ~D/~D~%"
+                            (coverage-relative-path (getf file :pathname) root)
+                            (getf file :expression-covered)
+                            (getf file :expression-total)
+                            (getf file :branch-covered)
+                            (getf file :branch-total))))))
             (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
                               (merge-pathnames "coverage.json" root)
                               (merge-pathnames "coverage/cover-index.html" root)
