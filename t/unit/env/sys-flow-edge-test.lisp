@@ -157,6 +157,24 @@
           (expect (mapcar (lambda (item) (object-field item "pid"))
                           (field fields "items"))
                   :to-equal '(5)))))
+  #+linux
+  (it "keeps valid Linux metrics when ps returns an incomplete row from a disappearing PID"
+    (let ((boundaries
+            (cl-boundary-kit:boundary-context-with
+             (linux-metrics-boundaries)
+             :env-run-program
+             (lambda (program arguments timeout)
+               (declare (ignore program arguments timeout))
+               (values :exited 0
+                       (format nil "10 120.0 100 worker~%11 50.0~%") "")))))
+      (multiple-value-bind (kind fields)
+          (run-flow (function sys-metrics/k) boundaries)
+        (expect kind :to-be :ok)
+        (expect (mapcar (lambda (item)
+                          (list (object-field item "pid")
+                                (object-field item "command")))
+                        (field fields "items"))
+                :to-equal (list (list 10 "worker"))))))
 
   (it "repeats the pattern in the next command of a partial process list"
     (multiple-value-bind (kind fields)
