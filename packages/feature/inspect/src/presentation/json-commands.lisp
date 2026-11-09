@@ -14,9 +14,18 @@
 (defun %repeated-option (name description &key value-name)
   (make-option :name name :kind :value :multiple-p t :value-name value-name :description description))
 
-(defun %doc-get-command (ports)
-  (make-command
-   :name "get" :description (command-summary "doc.get" aitools.data:*inspect-format-command-schemas*)
+(defmacro %define-doc-command (name action &key positionals options handler)
+  (let ((summary-key (concatenate 'string "doc." action)))
+    `(defun ,name (ports)
+       (make-command
+        :name ,action
+        :description (command-summary ,summary-key
+                                       aitools.data:*inspect-format-command-schemas*)
+        :positionals ,positionals
+        :options ,options
+        :handler ,handler))))
+
+(%define-doc-command %doc-get-command "get"
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
    :options (list (value-option "format" "Document format; defaults from the file extension."
@@ -34,11 +43,9 @@
                      (positional-value invocation :pointer))
                (list :max-bytes (option-value invocation :max-bytes)
                      :keys (option-value invocation :keys)
-                     :raw (option-value invocation :raw))))))
+                     :raw (option-value invocation :raw)))))
 
-(defun %doc-select-command (ports)
-  (make-command
-   :name "select" :description (command-summary "doc.select" aitools.data:*inspect-format-command-schemas*)
+(%define-doc-command %doc-select-command "select"
    :positionals (list (make-positional :key :path :name "path" :required-p t)
                       (make-positional :key :pointer :name "pointer" :required-p t))
    :options (list (value-option "format" "Document format; defaults from the file extension."
@@ -63,11 +70,9 @@
                      :sort-by (option-value invocation :sort-by)
                      :desc (option-value invocation :desc)
                      :output (option-value invocation :output)
-                     :limit (option-value invocation :limit))))))
+                     :limit (option-value invocation :limit)))))
 
-(defun %doc-diff-command (ports)
-  (make-command
-   :name "diff" :description (command-summary "doc.diff" aitools.data:*inspect-format-command-schemas*)
+(%define-doc-command %doc-diff-command "diff"
    :positionals (list (make-positional :key :a :name "a" :required-p t)
                       (make-positional :key :b :name "b" :required-p t))
    :options (list (value-option "format" "Use one format for both files; otherwise use each extension."
@@ -81,7 +86,7 @@
                      (positional-value invocation :b))
                (list (positional-value invocation :a)
                      (positional-value invocation :b))
-               (list :limit (option-value invocation :limit))))))
+               (list :limit (option-value invocation :limit)))))
 
 (define-inspect-command "doc.get" "doc" '%doc-get-command
   aitools.data:*inspect-format-command-schemas*)

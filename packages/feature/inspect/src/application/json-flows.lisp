@@ -14,6 +14,17 @@
       ((< code #x10000) 3)
       (t 4))))
 
+(defmacro %with-json-flow-error-forwarder (&body body)
+  `(labels ((report-error (code message
+                                &key candidates diagnostics conflicts repairs)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message
+               :candidates candidates
+               :diagnostics diagnostics
+               :conflicts conflicts
+               :repairs repairs)))
+     ,@body))
+
 (defun %utf8-length (string)
   (loop for char across string
         sum (%utf8-char-length char)))

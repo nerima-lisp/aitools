@@ -24,84 +24,95 @@
         :choices *document-format-choices*
         :description description))
 
+(defmacro %inspect-format-read-schema (name summary description args output-fields errors)
+  `(list :name ,name
+         :summary ,summary
+         :description ,description
+         :args ,args
+         :output-fields ,output-fields
+         :error-codes ,errors))
+
 (defun %inspect-format-read-schemas (group format)
   (let ((read-errors '("argument.invalid" "input.not-found" "input.syntax-error"
                        "input.unsupported-format" "input.unsupported-value"
                        "refusal.not-a-file" "environment.busy" "environment.io")))
     (list
-     (list :name (format nil "~A.get" group)
-           :summary (format nil "Get a value from a ~A." format)
-           :description (concatenate 'string
-                                     "Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes "
-                                     "are returned as a preview with truncated:true (status partial, exit 3).")
-           :args (list (list :name "path" :kind "positional" :type "string" :required t
-                             :description (format nil "~A file." format))
-                       '(:name "pointer" :kind "positional" :type "string" :required t
-                         :description "RFC 6901 pointer.")
-                       (%document-format-arg "Document format; defaults from the path extension.")
-                       '(:name "--max-bytes" :type "size" :default "16KiB"
-                         :description "Largest rendered value returned.")
-                       '(:name "--keys" :type "flag"
-                         :description "Return the object's keys or the array's indexes.")
-                       '(:name "--raw" :type "flag"
-                         :description "Return a string value unescaped."))
-           :output-fields '((:name "pointer" :description "The pointer asked for.")
-                            (:name "type" :description "object, array, string, number, boolean, or null.")
-                            (:name "length" :description "Elements, keys, or characters; null for other types.")
-                            (:name "value" :description "The value (default).")
-                            (:name "keys" :description "With --keys.")
-                            (:name "text" :description "With --raw.")
-                            (:name "value_preview" :description "The start of a value longer than --max-bytes.")
-                            (:name "truncated" :description "True when --max-bytes cut the value.")
-                            (:name "approx_tokens" :description "ceil(characters of the returned value / 4).")
-                            (:name "next_commands" :description "Narrower reads when truncated."))
-           :error-codes read-errors)
-     (list :name (format nil "~A.select" group)
-           :summary (format nil "Filter, sort, and project a ~A array." format)
-           :description (concatenate 'string
-                                     "Operators are =, !=, <, <=, >, >=, and ~ (regex on strings). "
-                                     "--where <rel-pointer><op><json-value> repeats for AND. The right side is JSON "
-                                     "when it parses as JSON, otherwise it is a string. "
-                                     "A missing member satisfies only !=.")
-           :args (list (list :name "path" :kind "positional" :type "string" :required t
-                             :description (format nil "~A file." format))
-                       '(:name "pointer" :kind "positional" :type "string" :required t
-                         :description "Pointer to the array.")
-                       (%document-format-arg "Document format; defaults from the path extension.")
-                       '(:name "--where" :type "string" :multiple t
-                         :description "Condition on each element.")
-                       '(:name "--pick" :type "string" :multiple t
-                         :description "Relative pointer to return instead of the element.")
-                       '(:name "--sort-by" :type "string"
-                         :description "Relative pointer to order by.")
-                       '(:name "--desc" :type "flag" :description "Descending order.")
-                       '(:name "--output" :type "enum" :choices ("items" "count")
-                         :default "items" :description "Sets mode.")
-                       '(:name "--limit" :type "integer" :default 50
-                         :description "Maximum items returned."))
-           :output-fields '((:name "mode" :description "items or count.")
-                            (:name "items" :description "[{pointer,value}] of the selected elements.")
-                            (:name "count" :description "Selected elements, in count mode.")
-                            (:name "total" :description "Selected elements, in items mode.")
-                            (:name "truncated" :description "True when --limit cut items (status partial, exit 3)."))
-           :error-codes read-errors)
-     (list :name (format nil "~A.diff" group)
-           :summary (format nil "List value changes between two ~A files." format)
-           :description (concatenate 'string
-                                     "Values are compared after conversion to JSON. Key order is ignored; numbers "
-                                     "compare by value, and array elements compare by index.")
-           :args (list (list :name "a" :kind "positional" :type "string" :required t
-                             :description (format nil "Old ~A file." format))
-                       (list :name "b" :kind "positional" :type "string" :required t
-                             :description (format nil "New ~A file." format))
-                       (%document-format-arg "Apply this format to both files; otherwise use each path extension.")
-                       '(:name "--limit" :type "integer" :default 100
-                         :description "Maximum operations returned."))
-           :output-fields '((:name "identical" :description "No differences.")
-                            (:name "ops" :description "[{op,pointer,old?,new?}], op add, remove, or replace.")
-                            (:name "total" :description "Number of operations.")
-                            (:name "truncated" :description "True when --limit cut ops (status partial, exit 3)."))
-           :error-codes read-errors))))
+     (%inspect-format-read-schema
+      (format nil "~A.get" group)
+      (format nil "Get a value from a ~A." format)
+      (concatenate 'string
+                   "Use RFC 6901 pointers. Values rendered as JSON longer than --max-bytes "
+                   "are returned as a preview with truncated:true (status partial, exit 3).")
+      (list (list :name "path" :kind "positional" :type "string" :required t
+                  :description (format nil "~A file." format))
+            '(:name "pointer" :kind "positional" :type "string" :required t
+              :description "RFC 6901 pointer.")
+            (%document-format-arg "Document format; defaults from the path extension.")
+            '(:name "--max-bytes" :type "size" :default "16KiB"
+              :description "Largest rendered value returned.")
+            '(:name "--keys" :type "flag"
+              :description "Return the object's keys or the array's indexes.")
+            '(:name "--raw" :type "flag"
+              :description "Return a string value unescaped."))
+      '((:name "pointer" :description "The pointer asked for.")
+        (:name "type" :description "object, array, string, number, boolean, or null.")
+        (:name "length" :description "Elements, keys, or characters; null for other types.")
+        (:name "value" :description "The value (default).")
+        (:name "keys" :description "With --keys.")
+        (:name "text" :description "With --raw.")
+        (:name "value_preview" :description "The start of a value longer than --max-bytes.")
+        (:name "truncated" :description "True when --max-bytes cut the value.")
+        (:name "approx_tokens" :description "ceil(characters of the returned value / 4).")
+        (:name "next_commands" :description "Narrower reads when truncated."))
+      read-errors)
+     (%inspect-format-read-schema
+      (format nil "~A.select" group)
+      (format nil "Filter, sort, and project a ~A array." format)
+      (concatenate 'string
+                   "Operators are =, !=, <, <=, >, >=, and ~ (regex on strings). "
+                   "--where <rel-pointer><op><json-value> repeats for AND. The right side is JSON "
+                   "when it parses as JSON, otherwise it is a string. "
+                   "A missing member satisfies only !=.")
+      (list (list :name "path" :kind "positional" :type "string" :required t
+                  :description (format nil "~A file." format))
+            '(:name "pointer" :kind "positional" :type "string" :required t
+              :description "Pointer to the array.")
+            (%document-format-arg "Document format; defaults from the path extension.")
+            '(:name "--where" :type "string" :multiple t
+              :description "Condition on each element.")
+            '(:name "--pick" :type "string" :multiple t
+              :description "Relative pointer to return instead of the element.")
+            '(:name "--sort-by" :type "string"
+              :description "Relative pointer to order by.")
+            '(:name "--desc" :type "flag" :description "Descending order.")
+            '(:name "--output" :type "enum" :choices ("items" "count")
+              :default "items" :description "Sets mode.")
+            '(:name "--limit" :type "integer" :default 50
+              :description "Maximum items returned."))
+      '((:name "mode" :description "items or count.")
+        (:name "items" :description "[{pointer,value}] of the selected elements.")
+        (:name "count" :description "Selected elements, in count mode.")
+        (:name "total" :description "Selected elements, in items mode.")
+        (:name "truncated" :description "True when --limit cut items (status partial, exit 3)."))
+      read-errors)
+     (%inspect-format-read-schema
+      (format nil "~A.diff" group)
+      (format nil "List value changes between two ~A files." format)
+      (concatenate 'string
+                   "Values are compared after conversion to JSON. Key order is ignored; numbers "
+                   "compare by value, and array elements compare by index.")
+      (list (list :name "a" :kind "positional" :type "string" :required t
+                  :description (format nil "Old ~A file." format))
+            (list :name "b" :kind "positional" :type "string" :required t
+                  :description (format nil "New ~A file." format))
+            (%document-format-arg "Apply this format to both files; otherwise use each path extension.")
+            '(:name "--limit" :type "integer" :default 100
+              :description "Maximum operations returned."))
+      '((:name "identical" :description "No differences.")
+        (:name "ops" :description "[{op,pointer,old?,new?}], op add, remove, or replace.")
+        (:name "total" :description "Number of operations.")
+        (:name "truncated" :description "True when --limit cut ops (status partial, exit 3)."))
+      read-errors))))
 
 (defparameter *inspect-format-command-schemas*
   `(,@(%inspect-format-read-schemas "doc" "structured document")

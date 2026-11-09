@@ -21,19 +21,8 @@
                    format-override)
  "doc select. WHERE and PICK are lists of texts. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
- (labels ((report-error (code message
-                              &key
-                              candidates
-                              diagnostics
-                              conflicts
-                              repairs)
-            (aitools.kernel.domain:flow-continue
-             :on-error code message
-             :candidates candidates
-             :diagnostics diagnostics
-             :conflicts conflicts
-             :repairs repairs)))
-   (let ((bad-pointer
+ (%with-json-flow-error-forwarder
+  (let ((bad-pointer
           (find-if
            (lambda (text)
              (eq (parse-json-pointer text) :invalid))
