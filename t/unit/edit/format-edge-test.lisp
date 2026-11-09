@@ -67,6 +67,56 @@ entries WRITE-TAR does not produce."
               :to-equal '((:directory "out/d" nil) (:symlink "out/d/l" "../a")))
       (expect (refusal-code (lambda () (extract-plan octets :tar :lookup (lambda (path) (if (string= path "out/d") :file :absent)))))
               :to-equal "refusal.exists")))
+  (it "finishes every prefix cursor after a mid-plan refusal"
+    (let ((next-cursor-id 0)
+          (created-cursors '())
+          (finished-cursors '())
+          (checker-cleanup-count 0)
+          (looked-up-paths '())
+          (octets
+            (aitools.text.domain:write-tar
+             (list (member-file "first/file" "A")
+                   (member-file "blocked/file" "B")))))
+      (expect
+       (refusal-code
+        (lambda ()
+          (plan-archive-extraction
+           octets :tar "out" :max-bytes 100 :max-entries 2
+           :lookup-kind
+           (lambda (path)
+             (push path looked-up-paths)
+             :absent)
+           :make-prefix-checker
+           (lambda (archive-symlink-paths)
+             (declare (ignore archive-symlink-paths))
+             (lambda (action &optional cursor component)
+               (ecase action
+                 (:start
+                  (let ((id (incf next-cursor-id)))
+                    (push id created-cursors)
+                    (list id)))
+                 (:enter
+                  (values (append cursor (list component))
+                          (if (string= component "blocked")
+                              :symlink
+                              :clear)))
+                 (:parent
+                  (if (null (cdr cursor))
+                      (values cursor :outside)
+                      (values (butlast cursor) :clear)))
+                 (:finish
+                  (if cursor
+                      (push (first cursor) finished-cursors)
+                      (incf checker-cleanup-count))
+                  (values cursor :clear))))))))
+       :to-equal "refusal.outside-workspace")
+      (expect (nreverse (copy-list looked-up-paths))
+              :to-equal '("out/first/file"))
+      (expect (sort (copy-list created-cursors) #'<)
+              :to-equal '(1 2))
+      (expect (sort (copy-list finished-cursors) #'<)
+              :to-equal '(1 2))
+      (expect checker-cleanup-count :to-be 1)))
 
   (it "resolves a tar hard link to the file it names and refuses one naming no file"
     (let* ((tar (aitools.text.domain:write-tar (list (member-file "a.txt" "shared" :mode #o600) (member-file "h" ""))))
