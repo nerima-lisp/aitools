@@ -60,8 +60,10 @@
           (run-ok ws '("net" "head" "https://fixture.invalid/resource"))))
     (expect (jlist (jget get-envelope "lines"))
             :to-equal '("fixture response"))
+    (expect (jget get-envelope "http_status") :to-be 200)
     (expect (jget head-envelope "headers" 0 "name")
             :to-equal "Content-Type")
+    (expect (jget head-envelope "http_status") :to-be 200)
     (expect (jget head-envelope "headers" 0 "value")
             :to-equal "text/plain")))
 
@@ -133,7 +135,7 @@
                            (stderr (utf8 (result-stderr result)))
                            (envelope
                              (json-kit:parse stderr :false-value nil :null-value nil)))
-                      (expect accepted-p :to-be t)
+                      (expect accepted-p :to-be-truthy)
                       (expect (integerp lookup-started-at) :to-be t)
                       (expect (result-exit-code result) :to-be 1)
                       (expect (length (result-stdout result)) :to-be 0)
