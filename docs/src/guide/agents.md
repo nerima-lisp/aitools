@@ -298,8 +298,9 @@ Choose by the operation, not just the executable name. For example,
 `sed -n` or `perl -ne` used to print selected lines belongs with `read` or
 `search`, not an editing command. Arbitrary sed, Perl, awk, and jq programs
 can retain their exact behavior through `run` when no built-in operation
-matches. `transform` changes a file in place; it is not a drop-in replacement
-for a shell filter that only prints output.
+matches. For changes, use `edit` for one exact occurrence or `replace` for
+every pattern match with a required count. `transform` changes a file in place;
+it is not a drop-in replacement for a shell filter that only prints output.
 
 An agent that calls a shell command name by habit gets `argument.invalid`
 with `repairs` naming the aitools command to use instead:
