@@ -38,17 +38,18 @@
             (expect (first failure) :to-equal "internal.unexpected")
             (expect (second failure) :to-be-truthy))))))
   (cl-weave:it "fails closed when the pinned numeric opener is unavailable"
-    (let* ((opener-symbol (quote http-kit/network::%network-open-address))
-           (original-opener
-             (and (fboundp opener-symbol)
-                  (symbol-function opener-symbol)))
+    (let* ((original-opener
+             (and (fboundp (quote http-kit/network::%network-open-address))
+                  (symbol-function (quote http-kit/network::%network-open-address))))
            (uri (http-kit:parse-http-uri "http://origin.test/"))
            (address (http-test-loopback-address))
            (failure nil))
-      (expect (fboundp opener-symbol) :to-be-truthy)
+      (expect (fboundp (quote http-kit/network::%network-open-address))
+              :to-be-truthy)
+      (expect original-opener :to-be-truthy)
       (unwind-protect
            (progn
-             (fmakunbound opener-symbol)
+             (fmakunbound (quote http-kit/network::%network-open-address))
              (setf failure
                    (http-test-error
                     (lambda ()
@@ -56,6 +57,10 @@
                        (list address) uri 3d0))))
              (expect (first failure) :to-equal "internal.unexpected"))
         (when original-opener
-          (setf (symbol-function opener-symbol) original-opener)))
-      (expect (fboundp opener-symbol) :to-be-truthy)
-      (expect (symbol-function opener-symbol) :to-be original-opener))))
+          (setf (symbol-function
+                 (quote http-kit/network::%network-open-address))
+                original-opener)))
+      (expect (fboundp (quote http-kit/network::%network-open-address))
+              :to-be-truthy)
+      (expect (symbol-function (quote http-kit/network::%network-open-address))
+              :to-be original-opener))))
