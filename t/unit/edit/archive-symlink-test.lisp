@@ -179,7 +179,8 @@
   (it-each (("lib" "lib64" "lib64/tool")
             ("a/b" "../c" "c")
             ("bin/tool" "../lib/tool" "lib/tool")
-            ("libfoo.so" "libfoo.so.1" "libfoo.so.1"))
+            ("libfoo.so" "libfoo.so.1" "libfoo.so.1")
+            ("lib" "lib64//tool" "lib64/tool"))
       "allows valid link ~A -> ~A with target ~A"
       (link-name link-target target-name)
     (let* ((steps (extract-plan

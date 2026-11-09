@@ -124,6 +124,7 @@
      (:file "unit/edit/format-test")
      (:file "unit/edit/format-edge-test")
      (:file "unit/edit/archive-path-limits-test")
+     (:file "unit/edit/archive-pax-limit-test")
      (:file "unit/edit/archive-symlink-test")
      (:module "yaml-toml-write-tests" :pathname "unit/edit/" :serial t
       :components ((:file "yaml-doc-test")
