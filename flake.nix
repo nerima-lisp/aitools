@@ -86,6 +86,26 @@
       flake = false;
     };
 
+    cl-http-kit = {
+      url = "github:nerima-lisp/cl-http-kit/v0.5.0";
+      flake = false;
+    };
+
+    cl-http-message-kit = {
+      url = "github:nerima-lisp/cl-http-message-kit/v2.0.1";
+      flake = false;
+    };
+
+    cl-hpack-codec-kit = {
+      url = "github:nerima-lisp/cl-hpack-codec-kit/v1.1.2";
+      flake = false;
+    };
+
+    cl-tls-kit = {
+      url = "github:nerima-lisp/cl-tls-kit/v0.5.2";
+      flake = false;
+    };
+
     cl-resilience-kit = {
       url = "github:nerima-lisp/cl-resilience-kit/v1.0.0";
       flake = false;
@@ -143,6 +163,10 @@
       cl-weave,
       cl-crypto-kit,
       cl-deflate-kit,
+      cl-http-kit,
+      cl-http-message-kit,
+      cl-hpack-codec-kit,
+      cl-tls-kit,
       cl-resilience-kit,
       cl-yaml-kit,
       cl-toml-kit,

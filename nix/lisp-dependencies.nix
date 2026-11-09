@@ -17,6 +17,10 @@ let
     cl-process-kit
     cl-crypto-kit
     cl-deflate-kit
+    cl-http-kit
+    cl-http-message-kit
+    cl-hpack-codec-kit
+    cl-tls-kit
     cl-resilience-kit
     cl-yaml-kit
     cl-toml-kit
@@ -116,6 +120,43 @@ let
     src = cl-deflate-kit;
     lispSystem = "cl-deflate-kit";
   };
+  hpackCodecKit = ctx.cl.lispDerivation {
+    pname = "cl-hpack-codec-kit";
+    version = ctx.cl.fromAsdSystem "${cl-hpack-codec-kit}/cl-hpack-codec-kit.asd";
+    src = cl-hpack-codec-kit;
+    lispSystem = "cl-hpack-codec-kit";
+  };
+  httpMessageKit = ctx.cl.lispDerivation {
+    pname = "cl-http-message-kit";
+    version = ctx.cl.fromAsdSystem "${cl-http-message-kit}/cl-http-message-kit.asd";
+    src = cl-http-message-kit;
+    lispSystem = "cl-http-message-kit";
+    lispDependencies = [ hpackCodecKit ];
+  };
+  bordeauxThreads = ctx.cl.fromNixpkgsLisp {
+    drv = ctx.pkgs.sbclPackages."bordeaux-threads";
+    lispImplementation = "sbcl";
+  };
+  tlsKit = ctx.cl.lispDerivation {
+    pname = "cl-tls-kit";
+    version = ctx.cl.fromAsdSystem "${cl-tls-kit}/cl-tls-kit.asd";
+    src = cl-tls-kit;
+    lispSystem = "cl-tls-kit";
+    lispDependencies = [ bordeauxThreads ];
+  };
+  httpKit = ctx.cl.lispDerivation {
+    pname = "cl-http-kit";
+    version = ctx.cl.fromAsdSystem "${cl-http-kit}/cl-http-kit.asd";
+    src = cl-http-kit;
+    lispSystem = "cl-http-kit/tls";
+    lispDependencies = [
+      httpMessageKit
+      codecKit
+      deflateKit
+      cryptoKit
+      tlsKit
+    ];
+  };
   resilienceKit = ctx.cl.lispDerivation {
     pname = "cl-resilience-kit";
     version = ctx.cl.fromAsdSystem "${cl-resilience-kit}/cl-resilience-kit.asd";
@@ -181,6 +222,7 @@ in
   processKit
   cryptoKit
   deflateKit
+  httpKit
   resilienceKit
   yamlKit
   tomlKit

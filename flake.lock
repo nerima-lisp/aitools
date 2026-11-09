@@ -136,6 +136,57 @@
         "type": "github"
       }
     },
+    "cl-hpack-codec-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792828717,
+        "narHash": "sha256-BlJYkzY36E8nrApkhOEHorJrtvfsrp66jx8OmIYjbrk=",
+        "owner": "nerima-lisp",
+        "repo": "cl-hpack-codec-kit",
+        "rev": "9b40f62b748225c1f9d1afd1d8f42c76a5e92b93",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v1.1.2",
+        "repo": "cl-hpack-codec-kit",
+        "type": "github"
+      }
+    },
+    "cl-http-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793253875,
+        "narHash": "sha256-3/dS1z/PU4JwrtGN6GPw/bfS7Ko7qjjTB6bOU6q7foU=",
+        "owner": "nerima-lisp",
+        "repo": "cl-http-kit",
+        "rev": "5c754b26ea7b7a8fc1d5f82f121a9ba4bd2eddec",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.5.0",
+        "repo": "cl-http-kit",
+        "type": "github"
+      }
+    },
+    "cl-http-message-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793098470,
+        "narHash": "sha256-4KUopBhueMlix5D8mSXEF8i3U99bSZzfpUPfM1nlXTU=",
+        "owner": "nerima-lisp",
+        "repo": "cl-http-message-kit",
+        "rev": "1bc39c8659ec282496366d24fab6e5c21096caa2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v2.0.1",
+        "repo": "cl-http-message-kit",
+        "type": "github"
+      }
+    },
     "cl-json-kit": {
       "flake": false,
       "locked": {
@@ -294,6 +345,23 @@
         "type": "github"
       }
     },
+    "cl-tls-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793133560,
+        "narHash": "sha256-NXHw8obz+CePWf1trCX/IjXum4oaY9kkmDndYTZzzjI=",
+        "owner": "nerima-lisp",
+        "repo": "cl-tls-kit",
+        "rev": "8ffa71e8690de4f04f81a752412ab2f4e21fd4b1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.5.2",
+        "repo": "cl-tls-kit",
+        "type": "github"
+      }
+    },
     "cl-toml-kit": {
       "flake": false,
       "locked": {
@@ -410,6 +478,9 @@
         "cl-date-kit": "cl-date-kit",
         "cl-deflate-kit": "cl-deflate-kit",
         "cl-host-kit": "cl-host-kit",
+        "cl-hpack-codec-kit": "cl-hpack-codec-kit",
+        "cl-http-kit": "cl-http-kit",
+        "cl-http-message-kit": "cl-http-message-kit",
         "cl-json-kit": "cl-json-kit",
         "cl-log-kit": "cl-log-kit",
         "cl-nix-forge": "cl-nix-forge",
@@ -419,6 +490,7 @@
         "cl-process-kit": "cl-process-kit",
         "cl-regex-kit": "cl-regex-kit",
         "cl-resilience-kit": "cl-resilience-kit",
+        "cl-tls-kit": "cl-tls-kit",
         "cl-toml-kit": "cl-toml-kit",
         "cl-weave": "cl-weave",
         "cl-yaml-kit": "cl-yaml-kit",
