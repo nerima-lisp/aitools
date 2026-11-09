@@ -197,27 +197,36 @@ The process-info and signal-process ports remain the production ports."
 
   #+linux
   (describe "aitools Linux process list failures"
-    (it "maps an unavailable proc directory to a port error"
-      (cl-weave:with-mocked-functions
-          (((symbol-function (quote sb-posix:opendir))
-            (lambda (&rest arguments)
-              (declare (ignore arguments))
-              nil)))
-        (cl-weave:signals aitools.process.application:process-port-error
-          (aitools.process.infrastructure::%host-list-pids))))
+    (it "maps a failed proc open to a port error"
+      (cl-weave:signals aitools.process.application:process-port-error
+        (aitools.process.infrastructure::%host-list-pids
+         (lambda (path)
+           (declare (ignore path))
+           (error "opening failed")))))
     (it "maps a failed proc listing to a port error and closes the directory"
-      (let ((original-closedir (symbol-function (quote sb-posix:closedir)))
-            (closed nil))
-        (cl-weave:with-mocked-functions
-            (((symbol-function (quote sb-posix:closedir))
-              (lambda (stream)
-                (funcall original-closedir stream)
-                (setf closed t))))
-          (cl-weave:signals aitools.process.application:process-port-error
-            (aitools.process.infrastructure::%host-list-pids
-             (lambda (pattern)
-               (declare (ignore pattern))
-               (error "listing failed")))))
+      (let ((closed nil))
+        (cl-weave:signals aitools.process.application:process-port-error
+          (aitools.process.infrastructure::%host-list-pids
+           (function sb-posix:opendir)
+           (lambda (pattern)
+             (declare (ignore pattern))
+             (error "listing failed"))
+           (lambda (stream)
+             (prog1 (sb-posix:closedir stream)
+               (setf closed t)))))
+        (expect closed :to-be t)))
+    (it "reports a proc close failure after releasing the directory"
+      (let ((closed nil))
+        (cl-weave:signals aitools.process.application:process-port-error
+          (aitools.process.infrastructure::%host-list-pids
+           (function sb-posix:opendir)
+           (lambda (pattern)
+             (declare (ignore pattern))
+             (list #p"/proc/2/"))
+           (lambda (stream)
+             (sb-posix:closedir stream)
+             (setf closed t)
+             (error "closing failed"))))
         (expect closed :to-be t))))
 
   #+darwin
