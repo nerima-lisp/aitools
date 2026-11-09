@@ -9,6 +9,23 @@
 (defun %git-component-p (relative)
   (some #'git-metadata-name-p (path-components relative)))
 
+(defun git-metadata-path-inside-p (directory candidate)
+  "True when CANDIDATE is DIRECTORY or below it, comparing normalized
+components without case. This fail-closed match protects metadata when path
+resolution preserves the caller spelling on case-insensitive filesystems."
+  (let ((directory-components
+          (mapcar (lambda (component)
+                    (sb-unicode:normalize-string component :nfd))
+                  (path-components directory)))
+        (candidate-components
+          (mapcar (lambda (component)
+                    (sb-unicode:normalize-string component :nfd))
+                  (path-components candidate))))
+    (and (<= (length directory-components) (length candidate-components))
+         (loop for directory-component in directory-components
+               for candidate-component in candidate-components
+               always (string-equal directory-component candidate-component)))))
+
 (defun write-target-verdict (&key root real-root target real-target temporary-root real-state-root
                                real-git-directories)
   "Classify a write to TARGET. ROOT/REAL-ROOT are the workspace root's
@@ -37,6 +54,6 @@ root, or inside a git directory found by its real path, as `git init
     ((or (%git-component-p (path-relative-to real-root real-target))
          (and (path-inside-p root target)
               (%git-component-p (path-relative-to root target)))
-         (some (lambda (directory) (path-inside-p directory real-target)) real-git-directories))
+         (some (lambda (directory) (git-metadata-path-inside-p directory real-target)) real-git-directories))
      :git-directory)
     (t :inside)))

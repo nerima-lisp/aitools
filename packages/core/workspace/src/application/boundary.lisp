@@ -12,14 +12,15 @@
   "Check a write to TARGET against ROOT (a WORKSPACE-ROOT) and call exactly
 one continuation.
 
-TARGET is absolute, or relative to ROOT's path. TEMPORARY-ROOT is the
+TARGET is absolute, or relative to ROOT path. TEMPORARY-ROOT is the
 absolute mktemp area, supplied by the store context, or NIL.
 STATE-ROOT is the <state-home>/aitools path (WORKSPACE-STATE-ROOT), or NIL.
 Every target there except the mktemp area is refused as :STATE-DIRECTORY.
-ROOT's git directory and common directory are refused as :GIT-DIRECTORY.
+The repository git directory and any common directory at or below ROOT are
+refused as :GIT-DIRECTORY.
 
 ON-INSIDE receives a kernel WORKSPACE-PATH and the verdict (:INSIDE or
-:TEMPORARY). For :TEMPORARY, the path's RELATIVE slot holds the real path.
+:TEMPORARY). For :TEMPORARY, the path RELATIVE slot holds the real path.
 ON-OUTSIDE receives the verdict (:OUTSIDE-ROOT, :SYMLINK-ESCAPE,
 :GIT-DIRECTORY, :STATE-DIRECTORY, or :UNRESOLVABLE for a symlink loop),
 the lexical target, and the real target (NIL when unresolvable)."
@@ -34,11 +35,50 @@ the lexical target, and the real target (NIL when unresolvable)."
          (repository (workspace-root-repository root))
          (git-real
            (and repository
-                (remove nil
-                        (mapcar
-                         (lambda (directory) (resolve-real-path host directory))
-                         (list (git-repository-git-dir repository)
-                               (git-repository-common-dir repository)))))))
+                (let* ((git-directory
+                         (resolve-real-path host
+                                            (git-repository-git-dir repository)))
+                       (common-directory
+                         (resolve-real-path host
+                                            (git-repository-common-dir repository)))
+                       (real-root (workspace-root-real root))
+                       (common-is-parent
+                         (and common-directory
+                              (aitools.workspace.domain:git-metadata-path-inside-p common-directory real-root)
+                              (not (aitools.workspace.domain:git-metadata-path-inside-p real-root common-directory))))
+                       (common-metadata-directories
+                         (and common-directory
+                              (loop for name in (list "branches"
+                                                      "annex"
+                                                      "config"
+                                                      "config.worktree"
+                                                      "description"
+                                                      "HEAD"
+                                                      "hooks"
+                                                      "index"
+                                                      "info"
+                                                      "logs"
+                                                      "lfs"
+                                                      "modules"
+                                                      "objects"
+                                                      "packed-refs"
+                                                      "refs"
+                                                      "reftable"
+                                                      "rr-cache"
+                                                      "shallow"
+                                                      "svn"
+                                                      "worktrees")
+                                    for path = (resolve-real-path
+                                                host
+                                                (join-path common-directory name))
+                                    when path collect path))))
+                  ;; The common directory itself contains ROOT for linked checkouts.
+                  ;; Core Git metadata and known extension stores need write guards.
+                  (remove nil
+                          (append (list git-directory)
+                                  (unless common-is-parent
+                                    (list common-directory))
+                                  common-metadata-directories))))))
     (if (null real)
         (aitools.kernel.domain:flow-continue
          :on-outside :unresolvable lexical nil)

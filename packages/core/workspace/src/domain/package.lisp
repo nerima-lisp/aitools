@@ -83,4 +83,5 @@
    #:workspace-root-real
    #:workspace-root-repository
    ;; boundary.lisp
-   #:write-target-verdict))
+   #:write-target-verdict
+   #:git-metadata-path-inside-p))

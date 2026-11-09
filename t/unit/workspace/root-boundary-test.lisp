@@ -171,7 +171,165 @@
   (it "treats a symlink loop as unresolvable"
     (let* ((host (make-fake-workspace-boundaries :directories '("/ws") :symlinks '(("/ws/a" . "b") ("/ws/b" . "a"))))
            (root (resolved-root host :root "/ws")))
-      (expect (boundary-verdict host root "a/x") :to-be :unresolvable))))
+      (expect (boundary-verdict host root "a/x") :to-be :unresolvable)))
+  (it "allows a checkout nested below its common directory"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                           (cons "/bare/worktrees/wt/HEAD" "0123")
+                           (cons "/bare/worktrees/wt/commondir" "../..")
+                           (cons "/bare/.worktrees/wt/.git" "gitdir: /bare/worktrees/wt"))
+              :directories (list "/bare/.worktrees/wt/src")
+              :cwd "/bare/.worktrees/wt"))
+           (root (resolved-root host))
+           (repository (workspace-root-repository root)))
+      (expect (git-repository-top repository) :to-equal "/bare/.worktrees/wt")
+      (expect (git-repository-git-dir repository) :to-equal "/bare/worktrees/wt")
+      (expect (git-repository-common-dir repository) :to-equal "/bare")
+      (expect (boundary-verdict host root "src/new.txt") :to-be :inside)))
+  (it "allows checkouts in normal common-directory siblings"
+    (dolist (checkout (list "/bare/.worktrees/wt"
+                           "/bare/checkouts/wt"
+                           "/bare/objects-old/wt"
+                           "/BARE/.WORKTREES/wt"))
+      (let* ((host
+               (make-fake-workspace-boundaries
+                :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                             (cons "/bare/worktrees/wt/HEAD" "0123")
+                             (cons "/bare/worktrees/wt/commondir" "../..")
+                             (cons (format nil "~A/.git" checkout)
+                                   "gitdir: /bare/worktrees/wt"))
+                :directories (list (format nil "~A/src" checkout))
+                :cwd checkout))
+             (root (resolved-root host))
+             (repository (workspace-root-repository root)))
+        (expect (git-repository-common-dir repository) :to-equal "/bare")
+        (expect (boundary-verdict host root "src/new.txt") :to-be :inside))))
+  (it "refuses roots nested under Git common-directory metadata"
+    (dolist (metadata (list "annex" "lfs" "svn" "objects" "refs" "hooks" "worktrees" "info" "reftable" "logs" "branches" "modules"))
+      (let* ((checkout (format nil "/bare/~A/checkout" metadata))
+             (host
+               (make-fake-workspace-boundaries
+                :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                             (cons "/bare/worktrees/wt/HEAD" "0123")
+                             (cons "/bare/worktrees/wt/commondir" "../..")
+                             (cons (format nil "~A/.git" checkout)
+                                   "gitdir: /bare/worktrees/wt"))
+                :directories (list (format nil "~A/src" checkout))
+                :cwd checkout))
+             (root (resolved-root host))
+             (repository (workspace-root-repository root)))
+        (expect (git-repository-common-dir repository) :to-equal "/bare")
+        (expect (git-repository-git-dir repository) :to-equal "/bare/worktrees/wt")
+        (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory))))
+  (it "protects common-directory metadata reached through symlinks"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                           (cons "/bare/worktrees/wt/HEAD" "0123")
+                           (cons "/bare/worktrees/wt/commondir" "../..")
+                           (cons "/bare/objects/wt/.git"
+                                 "gitdir: /bare/worktrees/wt"))
+              :directories (list "/bare/objects/wt/src"
+                                 "/external/objects/wt/src")
+              :symlinks (list (cons "/bare/objects" "/external/objects"))
+              :cwd "/bare/objects/wt"))
+           (root (resolved-root host))
+           (repository (workspace-root-repository root)))
+      (expect (workspace-root-real root) :to-equal "/external/objects/wt")
+      (expect (git-repository-common-dir repository) :to-equal "/bare")
+      (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory)))
+  (it "refuses case-variant roots under Git metadata"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                           (cons "/bare/worktrees/wt/HEAD" "0123")
+                           (cons "/bare/worktrees/wt/commondir" "../..")
+                           (cons "/BARE/OBJECTS/wt/.git"
+                                 "gitdir: /bare/worktrees/wt"))
+              :directories (list "/BARE/OBJECTS/wt/src"
+                                 "/bare/objects/wt/src")
+              :cwd "/BARE/OBJECTS/wt"))
+           (root (resolved-root host))
+           (repository (workspace-root-repository root)))
+      (expect (workspace-root-real root) :to-equal "/BARE/OBJECTS/wt")
+      (expect (git-repository-git-dir repository) :to-equal "/bare/worktrees/wt")
+      (expect (git-repository-common-dir repository) :to-equal "/bare")
+      (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory)))
+  (it "allows a sibling with case-variant Git paths"
+    (let* ((checkout "/bare/.worktrees/wt")
+           (host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                           (cons "/BARE/worktrees/wt/HEAD" "0123")
+                           (cons "/BARE/worktrees/wt/commondir" "../..")
+                           (cons (format nil "~A/.git" checkout)
+                                 "gitdir: /BARE/worktrees/wt"))
+              :directories (list (format nil "~A/src" checkout))
+              :cwd checkout))
+           (root (resolved-root host))
+           (repository (workspace-root-repository root)))
+      (expect (git-repository-git-dir repository) :to-equal "/BARE/worktrees/wt")
+      (expect (git-repository-common-dir repository) :to-equal "/BARE")
+      (expect (boundary-verdict host root "src/new.txt") :to-be :inside)))
+  (it "refuses writes when the common directory is the workspace root"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/bare/.git" "gitdir: /meta/worktrees/wt")
+                           (cons "/meta/worktrees/wt/HEAD" "0123")
+                           (cons "/meta/worktrees/wt/commondir" "/bare"))
+              :directories (list "/bare/src")
+              :cwd "/bare"))
+           (root (resolved-root host :root "/bare"))
+           (repository (workspace-root-repository root)))
+      (expect (workspace-root-real root) :to-equal "/bare")
+      (expect (git-repository-git-dir repository) :to-equal "/meta/worktrees/wt")
+      (expect (git-repository-common-dir repository) :to-equal "/bare")
+      (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory)))
+  (it "refuses writes when ROOT and common dir are Unicode-normalization aliases"
+  (let* ((nfc-root (concatenate (quote string) "/bare/Caf" (string (code-char #xE9)) "Repo"))
+         (nfd-root (concatenate (quote string) "/bare/Cafe" (string (code-char #x301)) "Repo"))
+         (git-directory "/meta/worktrees/wt")
+         (host
+           (make-fake-workspace-boundaries
+            :files (list (cons (concatenate (quote string) nfd-root "/.git")
+                               "gitdir: /meta/worktrees/wt")
+                         (cons (concatenate (quote string) git-directory "/HEAD") "0123")
+                         (cons (concatenate (quote string) git-directory "/commondir")
+                               nfc-root))
+            :directories (list (concatenate (quote string) nfd-root "/src"))
+            :cwd nfd-root))
+         (root (resolved-root host :root nfd-root))
+         (repository (workspace-root-repository root)))
+    (expect (workspace-root-real root) :to-equal nfd-root)
+    (expect (git-repository-common-dir repository) :to-equal nfc-root)
+    (expect (git-metadata-path-inside-p nfc-root nfd-root) :to-be-truthy)
+    (expect (git-metadata-path-inside-p nfd-root nfc-root) :to-be-truthy)
+    (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory)))
+  (it "refuses metadata reached through canonical Unicode aliases"
+    (let* ((nfc-common (concatenate (quote string) "/bare/Caf" (string (code-char #xE9)) "Repo"))
+           (nfd-common (concatenate (quote string) "/bare/Cafe" (string (code-char #x301)) "Repo"))
+           (git-directory (concatenate (quote string) nfc-common "/worktrees/wt"))
+           (checkout (concatenate (quote string) nfd-common "/objects/wt"))
+           (host
+             (make-fake-workspace-boundaries
+              :files (list (cons (concatenate (quote string) git-directory "/HEAD") "0123")
+                           (cons (concatenate (quote string) git-directory "/commondir") "../..")
+                           (cons (concatenate (quote string) checkout "/.git")
+                                 (format nil "gitdir: ~A" git-directory)))
+              :directories (list (concatenate (quote string) checkout "/src")
+                                 (concatenate (quote string) nfc-common "/objects/wt/src"))
+              :cwd checkout))
+           (root (resolved-root host))
+           (repository (workspace-root-repository root)))
+      (expect (workspace-root-real root) :to-equal checkout)
+      (expect (git-repository-common-dir repository) :to-equal nfc-common)
+      (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory)
+      (expect (git-metadata-path-inside-p nfc-common checkout) :to-be-truthy)
+      (expect (git-metadata-path-inside-p
+               (concatenate (quote string) nfc-common "/objects")
+               checkout)
+              :to-be-truthy))))
 (describe "aitools.workspace.application nested-root scan"
   (it "inherits repository ignore rules and applies a nested negation"
     (let* ((host
