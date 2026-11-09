@@ -83,7 +83,7 @@
           (expect (equalp (getf response :body) #(7 9)) :to-be t)
           (expect (assoc "Location" (getf response :headers)
                          :test (function string-equal))
-                  :to-equal nil))))
+                  :to-equal nil)))))
   (it "passes HEAD as the only other supported method"
     (let ((methods nil)
           (requester (make-http-requester
@@ -161,5 +161,38 @@
                  (funcall requester "GET" "https://origin.test/" 10d0)))))
       (expect (first failure) :to-equal "environment.io")
       (expect (search "secret transport exception" (second failure))
-              :to-equal nil)))))
+              :to-equal nil)))
+  (it "maps proxy errors unless their cause is internal.unexpected"
+    (let ((requester
+            (make-http-requester
+             (http-test-resolver (http-test-public-address)))))
+      (dolist (case
+                (list
+                 (cons :proxy-failure
+                       '("environment.io" "The HTTP request failed."))
+                 (cons
+                  (make-condition 'aitools.net.domain:net-error
+                                  :code "environment.io"
+                                  :detail "resolver detail")
+                  '("environment.io" "The HTTP request failed."))
+                 (cons
+                  (make-condition 'aitools.net.domain:net-error
+                                  :code "internal.unexpected"
+                                  :detail "internal detail")
+                  '("internal.unexpected" "internal detail"))))
+        (let* ((cause (car case))
+               (expected (cdr case))
+               (aitools.net.infrastructure::*http-client-send-function*
+                 (lambda (&rest arguments)
+                   (declare (ignore arguments))
+                   (error
+                    (make-condition
+                     'http-kit/client:http-proxy-error
+                     :message "fixture proxy failure"
+                     :detail (list :cause cause)))))
+               (failure
+                 (http-test-error
+                  (lambda ()
+                    (funcall requester "GET" "https://origin.test/" 10d0)))))
+          (expect failure :to-equal expected))))))
 

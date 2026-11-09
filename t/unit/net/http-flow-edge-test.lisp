@@ -68,7 +68,7 @@
                        (declare (ignore ignored))
                        (incf calls)
                        (http-response 200 #()))))
-                (dolist (url (list nil "" 42))
+                (dolist (url (list nil "" 42 (format nil "https://bad~C.example" (code-char 0))))
                   (multiple-value-bind (kind fields) (run-http-head sender url)
                     (expect kind :to-be :error)
                     (expect (first fields) :to-equal "argument.invalid")))
@@ -77,6 +77,19 @@
                   (expect kind :to-be :error)
                   (expect (first fields) :to-equal "argument.invalid"))
                 (expect calls :to-be 0)))
+          (it "uses the default timeout for HEAD requests"
+              (let ((call nil))
+                (multiple-value-bind (kind fields)
+                    (run-http-head
+                     (lambda (method url timeout)
+                       (setf call (list method url timeout))
+                       (http-response 200 #()))
+                     "https://example.test/")
+                  (expect kind :to-be :ok)
+                  (expect call
+                          :to-equal
+                          '("HEAD" "https://example.test/" 30))
+                  (expect (http-fields-value fields "http_status") :to-be 200))))
           (it "preserves net-error code and detail for GET and HEAD"
               (dolist (flow (list #'run-http-get #'run-http-head))
                 (multiple-value-bind (kind fields)

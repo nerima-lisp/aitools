@@ -54,6 +54,7 @@
                  (:file "unit/net/http-client-test")
                  (:file "unit/net/http-client-edge-test")
                  (:file "unit/net/http-transport-edge-test")
+                 (:file "unit/net/http-transport-opener-coverage-test")
                  (:file "unit/net/http-address-policy-test")
                  (:file "unit/net/http-address-policy-edge-test")
                  (:file "unit/net/http-ssrf-edge-test")

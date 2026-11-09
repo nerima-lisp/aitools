@@ -147,14 +147,26 @@
           (expect (resolver-error-code (lambda () (funcall resolver "lookup.example")))
                   :to-equal "environment.io"))))
     #+sbcl
-(it "rejects NaN and minimum finite resolver values"
-  (let ((nan (sb-kernel:make-double-float #x7ff80000 0)))
+(it "rejects NaN and overflowed resolver deadlines"
+  (let* ((nan (sb-kernel:make-double-float #x7ff80000 0))
+         (lookups 0)
+         (near-max (* most-positive-double-float 0.75d0))
+         (resolver
+           (make-os-resolver
+            :lookup-function (lambda (host) (declare (ignore host)) (incf lookups))
+            :clock-function (constantly near-max))))
     (expect (aitools.net.infrastructure::%finite-real-p
              most-negative-double-float)
             :to-be nil)
     (expect (aitools.net.infrastructure::%finite-real-p nan)
             :to-be nil)
     (expect (aitools.net.infrastructure::%valid-ipv6-host-p "not-ipv6")
-            :to-be nil)))
+            :to-be nil)
+    (sb-int:with-float-traps-masked (:overflow)
+      (expect (resolver-error-code
+               (lambda ()
+                 (funcall resolver "lookup.example" :timeout near-max)))
+              :to-equal "argument.invalid"))
+    (expect lookups :to-be 0)))
 
     )
