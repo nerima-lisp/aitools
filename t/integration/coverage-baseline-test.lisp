@@ -1,9 +1,4 @@
 (in-package #:aitools.integration.structure-test)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((*package* *package*))
-    (load (merge-pathnames
-           "t/integration/coverage-exclusion-runner.lisp"
-           (asdf:system-source-directory "aitools/test/shared")))))
 (progn
   (defun %call-with-coverage-baseline-fixture
     (state function &key (context :aggregate) coverage-exclusions)

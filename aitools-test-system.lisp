@@ -106,7 +106,10 @@
                                                           (:file "structure-dead-code-production-scan-test" :depends-on ("structure-dead-code-scan"))
                                                           (:file "store-structure-contract-test" :depends-on ("structure-context-allowances"))
                                                           (:file "coverage-baseline-reader")
-                                                          (:file "coverage-baseline-test")
+                                                          (:file "coverage-exclusion-runner")
+                                                          (:file "coverage-gap-report" :depends-on ("coverage-exclusion-runner"))
+                                                          (:file "coverage-baseline-test" :depends-on ("coverage-exclusion-runner" "coverage-gap-report"))
+                                                          (:file "coverage-gap-report-test" :depends-on ("coverage-gap-report"))
                                                           (:file "structure-timeout-test")
                                                           (:file "coverage-artifact-validation")
                                                           (:file "run-policy-and-coverage-artifact-validation-test"
