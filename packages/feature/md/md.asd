@@ -66,5 +66,5 @@
                                   :serial
                                   t
                                   :components
-                                  ((:file "md-command-test") (:file "md-write-test")))
+                                  ((:file "md-command-test") (:file "md-write-test") (:file "md-write-edge-test")))
                          (:module "e2e" :pathname "e2e/" :serial t :components ((:file "md-cli-test")))))))
