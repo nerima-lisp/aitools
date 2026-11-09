@@ -116,46 +116,51 @@
 
     #+sb-thread
     (it "uses only the remaining deadline after starting the worker"
-      (let ((sb-ext:*exit-timeout* 0))
+      (let ((exit-timeout-after-call nil))
         (let* ((clock-values (list 0d0 0d0 0d0 11d0))
-             (started (sb-thread:make-semaphore :count 0))
-             (release (sb-thread:make-semaphore :count 0))
-             (finished (sb-thread:make-semaphore :count 0))
-             (released nil)
-             (finished-p nil)
-             (resolver
-               (make-os-resolver
-                :clock-function (lambda () (or (pop clock-values) 11d0))
-                :lookup-function
-                (lambda (host)
-                  (declare (ignore host))
-                  (sb-thread:signal-semaphore started)
-                  (sb-thread:wait-on-semaphore release)
-                  (sb-thread:signal-semaphore finished)
-                  nil)))
-             (caller
-               (sb-thread:make-thread
-                (lambda ()
-                  (handler-case
-                      (progn (funcall resolver "slow.example" :timeout 10d0)
-                             :returned)
-                    (net-error (condition) (net-error-code condition)))))))
-        (unwind-protect
-             (progn
-               (expect (sb-thread:wait-on-semaphore started :timeout 1d0)
-                       :to-be-truthy)
-               (expect (sb-thread:join-thread caller
-                                              :timeout 1d0
-                                              :default :still-waiting)
-                       :to-equal "environment.timeout")
-               (expect (sb-thread:wait-on-semaphore finished :timeout 0.001d0)
-                       :to-be nil)
-               (setf released t)
-               (sb-thread:signal-semaphore release)
-               (setf finished-p (sb-thread:wait-on-semaphore finished :timeout 1d0))
-               (expect finished-p :to-be-truthy))
-          (unless released
-            (sb-thread:signal-semaphore release))
-          (unless finished-p
-            (sb-thread:wait-on-semaphore finished :timeout 1d0))))))
+               (started (sb-thread:make-semaphore :count 0))
+               (release (sb-thread:make-semaphore :count 0))
+               (finished (sb-thread:make-semaphore :count 0))
+               (released nil)
+               (finished-p nil)
+               (resolver
+                 (make-os-resolver
+                  :clock-function (lambda () (or (pop clock-values) 11d0))
+                  :lookup-function
+                  (lambda (host)
+                    (declare (ignore host))
+                    (sb-thread:signal-semaphore started)
+                    (sb-thread:wait-on-semaphore release)
+                    (sb-thread:signal-semaphore finished)
+                    nil)))
+               (caller
+                 (sb-thread:make-thread
+                  (lambda ()
+                    (let ((sb-ext:*exit-timeout* 60))
+                      (let ((result
+                              (handler-case
+                                  (progn (funcall resolver "slow.example" :timeout 10d0)
+                                         :returned)
+                                (net-error (condition) (net-error-code condition)))))
+                        (setf exit-timeout-after-call sb-ext:*exit-timeout*)
+                        result))))))
+          (unwind-protect
+               (progn
+                 (expect (sb-thread:wait-on-semaphore started :timeout 1d0)
+                         :to-be-truthy)
+                 (expect (sb-thread:join-thread caller
+                                                :timeout 1d0
+                                                :default :still-waiting)
+                         :to-equal "environment.timeout")
+                 (expect exit-timeout-after-call :to-be 0)
+                 (expect (sb-thread:wait-on-semaphore finished :timeout 0.001d0)
+                         :to-be nil)
+                 (setf released t)
+                 (sb-thread:signal-semaphore release)
+                 (setf finished-p (sb-thread:wait-on-semaphore finished :timeout 1d0))
+                 (expect finished-p :to-be-truthy))
+            (unless released
+              (sb-thread:signal-semaphore release))
+            (unless finished-p
+              (sb-thread:wait-on-semaphore finished :timeout 1d0))))))
 )

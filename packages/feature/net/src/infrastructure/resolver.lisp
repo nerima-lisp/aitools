@@ -141,8 +141,7 @@
           (unless worker-started-p
             (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
         (let ((remaining-after-start (- deadline (funcall clock-function))))
-          (when (<= remaining-after-start 0)
-            (%resolver-timeout))
+          (when (<= remaining-after-start 0) (%resolver-timeout t))
           (let ((outcome
                   (sb-thread:join-thread thread
                                          :timeout remaining-after-start
