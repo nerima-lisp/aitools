@@ -5,8 +5,6 @@
  :expression-total 1795
  :branch-covered 212
  :branch-total 246
- :coverage-exclusion-counts (:expression 2 :branch 4)
- :coverage-uncovered-counts (:expression 4 :branch 7)
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.PROTOCOL.DOMAIN" :symbol "COMMAND-SCHEMA"
    :reason "SB-COVER does not mark keyword defaults in the generated DEFSTRUCT constructor; schema tests exercise the omitted defaults.")
