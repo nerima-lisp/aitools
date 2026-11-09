@@ -44,7 +44,8 @@
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
    (:file "presentation/edit/command-schema-data")
-   (:file "presentation/edit/doc-command-schema-data")))
+   (:file "presentation/edit/doc-command-schema-data")
+   (:file "presentation/net/command-schema-data")))
 
 (defsystem "aitools"
   :description "An AI-agent-oriented replacement for cat/grep/sed/find/jq/tar and friends: JSON-only output, crash-safe writes, and a built-in undo history."
@@ -68,7 +69,8 @@
                "aitools/feature/process"
                "aitools/feature/org"
                "aitools/feature/env"
-               "aitools/feature/util")
+               "aitools/feature/util"
+               "aitools/feature/net")
   :pathname "."
   :around-compile (lambda (next)
                     (let ((*package* (or (find-package "AITOOLS") *package*)))
@@ -106,7 +108,8 @@
                "aitools/feature/process/presentation"
                "aitools/feature/org/presentation"
                "aitools/feature/env/presentation"
-               "aitools/feature/util/presentation")
+               "aitools/feature/util/presentation"
+               "aitools/feature/net/presentation")
   :pathname "."
   :components ((:module "src"
                 :pathname "src/"

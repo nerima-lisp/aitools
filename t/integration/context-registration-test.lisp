@@ -47,7 +47,7 @@
 
 (describe "Feature command registration"
   (it "registers every feature presentation in CLI dependency order"
-    (let ((expected (list :search :inspect :edit :journal :process :org :env :util))
+    (let ((expected (list :search :inspect :edit :journal :process :org :env :util :net))
           (declared (%declared-feature-presentation-contexts))
           (actual
            (mapcar (function first)

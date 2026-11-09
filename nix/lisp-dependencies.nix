@@ -148,7 +148,7 @@ let
     pname = "cl-http-kit";
     version = ctx.cl.fromAsdSystem "${cl-http-kit}/cl-http-kit.asd";
     src = cl-http-kit;
-    lispSystem = "cl-http-kit/tls";
+    lispSystems = [ "cl-http-kit/client" "cl-http-kit/tls" ];
     lispDependencies = [
       httpMessageKit
       codecKit

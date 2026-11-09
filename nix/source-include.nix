@@ -12,6 +12,8 @@
   ../packages/feature/inspect/inspect.asd
   ../packages/feature/journal/journal.asd
   ../packages/feature/org/org.asd
+  ../packages/feature/net/net.asd
+  ../t/integration/fixtures/net-https-server.py
   ../packages/feature/process/process.asd
   ../packages/feature/search/search.asd
   ../packages/feature/util/util.asd

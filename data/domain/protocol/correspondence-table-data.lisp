@@ -105,6 +105,14 @@
                 :command "aitools sys network")
                (:detail "List listening TCP sockets, not every connection or route."
                 :command "aitools sys ports")))
+    (:foreign-names ("curl" "WebFetch")
+     :repairs ((:detail "Fetch an HTTP resource with GET and a bounded response body."
+                :command "aitools net get")
+               (:detail "Fetch response headers with HEAD."
+                :command "aitools net head")))
+    (:foreign-names ("dig" "nslookup")
+     :repairs ((:detail "Resolve A and AAAA address results through the operating system resolver; other DNS record types and CNAME chains require dig or nslookup."
+                :command "aitools net resolve")))
     (:foreign-names ("date")
      :repairs ((:detail "Read or convert the current or a given time."
                 :command "aitools time now")))
