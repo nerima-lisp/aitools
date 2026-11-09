@@ -46,6 +46,12 @@
                "Parses HTTP URLs through cl-http-kit 0.5.0.")
           ("net" (:infrastructure) "HTTP-KIT/CLIENT" "HTTP-CLIENT-SEND"
                "Sends bounded HTTP requests through cl-http-kit 0.5.0.")
+          ("net" (:infrastructure) "HTTP-KIT/CLIENT" "HTTP-PROXY-ERROR"
+               "Catches cl-http-kit 0.5.0 proxy transport errors for net error mapping.")
+          ("net" (:infrastructure) "HTTP-KIT/CLIENT" "HTTP-CLIENT-ERROR-DETAIL"
+               "Reads the cause attached to a cl-http-kit 0.5.0 proxy error.")
+          ("net" (:infrastructure) "HTTP-KIT/NETWORK" "%NETWORK-OPEN-ADDRESS"
+               "Opens checked numeric addresses through the private cl-http-kit 0.5.0 API; tests require four arguments.")
           ("net" (:infrastructure) "HTTP-KIT/CLIENT" "MAKE-HTTP-CLIENT"
                "Builds the bounded cl-http-kit 0.5.0 client.")
           ("net" (:infrastructure) "HTTP-KIT/CLIENT" "MAKE-HTTP-CONTENT-DECODERS"
