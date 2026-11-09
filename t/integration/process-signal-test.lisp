@@ -203,25 +203,21 @@ The process-info and signal-process ports remain the production ports."
             (lambda (&rest arguments)
               (declare (ignore arguments))
               nil)))
-        (signals aitools.process.application:process-port-error
+        (cl-weave:signals aitools.process.application:process-port-error
           (aitools.process.infrastructure::%host-list-pids))))
     (it "maps a failed proc listing to a port error and closes the directory"
-      (let ((original-opendir (symbol-function (quote sb-posix:opendir)))
-            (original-closedir (symbol-function (quote sb-posix:closedir)))
+      (let ((original-closedir (symbol-function (quote sb-posix:closedir)))
             (closed nil))
         (cl-weave:with-mocked-functions
-            (((symbol-function (quote sb-posix:opendir))
-              (lambda (path) (funcall original-opendir path)))
-             ((symbol-function (quote directory))
-              (lambda (&rest arguments)
-                (declare (ignore arguments))
-                (error "listing failed")))
-             ((symbol-function (quote sb-posix:closedir))
+            (((symbol-function (quote sb-posix:closedir))
               (lambda (stream)
                 (funcall original-closedir stream)
                 (setf closed t))))
-          (signals aitools.process.application:process-port-error
-            (aitools.process.infrastructure::%host-list-pids)))
+          (cl-weave:signals aitools.process.application:process-port-error
+            (aitools.process.infrastructure::%host-list-pids
+             (lambda (pattern)
+               (declare (ignore pattern))
+               (error "listing failed")))))
         (expect closed :to-be t))))
 
   #+darwin
