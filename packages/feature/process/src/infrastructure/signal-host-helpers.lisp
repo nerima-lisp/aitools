@@ -151,11 +151,13 @@
 (defun %join-argv (argv)
   (format nil "~{~A~^ ~}" argv))
 
+#+darwin
 (defun %nul-field (bytes start)
   (let ((end (position 0 bytes :start start)))
     (when end
       (values (sb-ext:octets-to-string bytes :start start :end end :external-format :utf-8)
               (1+ end)))))
 
+#+darwin
 (defun %le (bytes offset width)
   (loop for index below width sum (ash (aref bytes (+ offset index)) (* 8 index))))
