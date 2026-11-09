@@ -18,7 +18,7 @@
    :file "packages/core/kernel/src/domain/unified-diff.lisp" :lines (135 137)
    :reason "The CONTEXT and FINAL-NEWLINE-A/B defaults are exercised by default-option specs; SB-COVER does not attribute lambda-list initialization forms.")
   (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "GENERATE-UNIFIED-DIFF"
-   :file "packages/core/kernel/src/domain/unified-diff.lisp" :lines (214 216)
+   :file "packages/core/kernel/src/domain/unified-diff.lisp" :lines (214 215)
    :reason "The CONTEXT and FINAL-NEWLINE-A/B defaults are exercised by default-option specs; SB-COVER does not attribute lambda-list initialization forms.")
   (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "PARSE-UNIFIED-DIFF"
    :file "packages/core/kernel/src/domain/unified-diff-patch.lisp" :lines (58)
