@@ -7,6 +7,11 @@
 
 (defpackage #:aitools.kernel.domain
   (:use #:cl)
+  (:import-from #:aitools.data
+                #:*kernel-duration-unit-milliseconds*
+                #:*kernel-size-unit-multipliers*
+                #:*kernel-selector-catalog-data*
+                #:*kernel-selector-command-acceptance-data*)
   (:export
    ;; path.lisp
    #:workspace-path

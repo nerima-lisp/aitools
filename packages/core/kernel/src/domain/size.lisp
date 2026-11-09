@@ -15,8 +15,7 @@
             (:copier nil))
   (bytes nil :type (integer 0) :read-only t))
 
-(defparameter *size-unit-multipliers*
-  '(("KiB" . 1024) ("MiB" . 1048576) ("GiB" . 1073741824)))
+(defparameter *size-unit-multipliers* *kernel-size-unit-multipliers*)
 
 (defun parse-size (text)
   "Parse `<number>`, `<number>KiB`, `<number>MiB`, or `<number>GiB` into a

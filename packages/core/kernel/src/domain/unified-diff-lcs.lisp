@@ -57,7 +57,7 @@ is already in chronological (earliest-first) order without a final reverse."
             (setf (%edit-op-count previous) (+ (%edit-op-count previous) 1))
             (push op result))))))
 
-(defun %edit-script (a b &key (max-cells *default-max-lcs-cells*))
+(defun %edit-script (a b max-cells)
   "Return a chronological list of %EDIT-OP runs turning vector A into vector
 B, comparing elements with EQUAL. Returns :REPLACE-ALL when the LCS table
 would exceed MAX-CELLS cells."

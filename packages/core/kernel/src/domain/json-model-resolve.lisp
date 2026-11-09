@@ -20,3 +20,13 @@
                       (second missing)
                       (third missing))
        (flow-continue :on-found value))))
+
+(defun json-model-pointer-get (model value tokens)
+  (let ((result nil))
+    (json-model-resolve/k
+     model value tokens
+     :on-found (lambda (found) (setf result found))
+     :on-missing (lambda (path current token)
+                   (declare (ignore current))
+                   (%json-model-missing (append path (list token)))))
+    result))

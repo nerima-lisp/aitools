@@ -89,11 +89,10 @@ layer that owns ARGUMENT.INVALID formatting catches it."
   (uniqueness nil :type (member :ambiguous :select-all :fixed) :read-only t))
 
 (defparameter *selector-catalog*
-  (list (make-selector-catalog-entry :kind :old :basis :content :uniqueness :ambiguous)
-        (make-selector-catalog-entry :kind :range :basis :position :uniqueness :fixed)
-        (make-selector-catalog-entry :kind :symbol :basis :position :uniqueness :ambiguous)
-        (make-selector-catalog-entry :kind :between :basis :content :uniqueness :ambiguous)
-        (make-selector-catalog-entry :kind :match :basis :content :uniqueness :select-all))
+  (loop for (kind basis uniqueness) in *kernel-selector-catalog-data*
+        collect (make-selector-catalog-entry :kind kind
+                                             :basis basis
+                                             :uniqueness uniqueness))
   "One entry per selector, in the order --old, --range, --symbol, --between,
 --match.")
 
@@ -111,15 +110,7 @@ layer that owns ARGUMENT.INVALID formatting catches it."
    (%selector-catalog-entry
     (if (selector-p selector-or-kind) (selector-kind selector-or-kind) selector-or-kind))))
 
-(defparameter *selector-command-acceptance*
-  '((:edit          . (:old :range :symbol :between :match))
-    (:read          . (:range :symbol :between :match))
-    (:transform     . (:range :symbol :between :match))
-    (:move-lines    . (:range :symbol :between :match))
-    (:archive-read  . (:range :symbol :between :match))
-    (:insert        . (:range :symbol :between :match))
-    (:replace       . (:range :symbol :between :match)))
-  "The selectors each command accepts, as data. A command absent from this alist accepts no selector at all.")
+(defparameter *selector-command-acceptance* *kernel-selector-command-acceptance-data*)
 
 (defun selector-accepts-command-p (command kind)
   "True when COMMAND (a keyword such as :EDIT) accepts a selector of KIND."

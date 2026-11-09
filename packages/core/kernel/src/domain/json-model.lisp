@@ -77,17 +77,6 @@
   (%json-model-error "input.not-found" "no value at JSON pointer ~S"
                      (format-json-pointer tokens)))
 
-(defun json-model-pointer-get (model value tokens)
-  (let ((current value)
-        (seen '()))
-    (dolist (token tokens current)
-      (push token seen)
-      (multiple-value-bind (child present)
-          (json-model-child model current token)
-        (unless present
-          (%json-model-missing (nreverse seen)))
-        (setf current child)))))
-
 (defun %json-model-update-at (model value tokens function &optional (path '()))
   (if (null (rest tokens))
       (funcall function value (first tokens))

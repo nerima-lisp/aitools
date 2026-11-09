@@ -141,7 +141,7 @@ the number of unchanged lines kept on each side of a change, as `diff -u`'s
 own default. FINAL-NEWLINE-A/-B (default true) mark the last DIFF-LINE that
 touches the corresponding file's true last line with NO-NEWLINE when false."
   (let* ((a (coerce lines-a 'simple-vector)) (b (coerce lines-b 'simple-vector))
-         (script (%edit-script a b :max-cells max-cells)))
+         (script (%edit-script a b max-cells)))
     (when (eq script :replace-all)
       (setf script (list (%make-edit-op :delete (length a)) (%make-edit-op :insert (length b)))))
     (let ((blocks (%script-blocks (%script-regions script))))

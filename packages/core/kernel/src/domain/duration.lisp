@@ -16,10 +16,7 @@
             (:copier nil))
   (milliseconds nil :type (integer 0) :read-only t))
 
-(defparameter *duration-unit-milliseconds*
-  '(("ms" . 1) ("s" . 1000) ("m" . 60000) ("h" . 3600000) ("d" . 86400000))
-  "Longest suffix candidates are tried first in PARSE-DURATION so that `ms`
-does not get misread as the unit `m` plus a dangling `s`.")
+(defparameter *duration-unit-milliseconds* *kernel-duration-unit-milliseconds*)
 
 (defun %parse-decimal-number (text)
   "Parse TEXT as a nonnegative decimal number (`123`, `1.5`) and return an
