@@ -1,4 +1,53 @@
 (in-package #:aitools.process.test)
+(describe "process borrowed input edge coverage"
+  (it "returns zero for an empty sequence"
+    (let ((input
+            (make-instance (quote aitools.process.infrastructure::%borrowed-binary-input)
+                           :source (make-fake-binary-input #())
+                           :process :fake)))
+      (expect (sb-gray:stream-read-sequence input #()) :to-be 0)))
+  (it "keeps a non-capture output destination for borrowed input"
+    (let ((spawn-output nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote process-kit:spawn))
+            (lambda (program arguments &rest options)
+              (declare (ignore program arguments))
+              (setf spawn-output (getf options :output))
+              :process))
+           ((symbol-function (quote process-kit:communicate))
+            (lambda (process &rest options)
+              (declare (ignore process options))
+              :communicated))
+           ((symbol-function (quote process-kit:process-try-wait))
+            (lambda (process) (declare (ignore process)) t))
+           ((symbol-function (quote process-kit:close-process-streams))
+            (lambda (process) (declare (ignore process)))))
+        (aitools.process.infrastructure::%run-borrowing-input
+         (list "tool") 100 :null (make-string-input-stream "input") nil nil))
+      (expect spawn-output :to-be :null)))
+  #+linux
+  (it "returns EOF after an idle pipe stops polling"
+    (let ((read-fd nil) (write-fd nil) (source nil) (alive-checks 0))
+      (multiple-value-setq (read-fd write-fd) (sb-posix:pipe))
+      (setf source (sb-sys:make-fd-stream
+                    read-fd :input t :element-type (quote (unsigned-byte 8)))
+            read-fd nil)
+      (unwind-protect
+           (progn
+             (cl-weave:with-mocked-functions
+                 (((symbol-function (quote process-kit:process-alive-p))
+                   (lambda (process)
+                     (declare (ignore process))
+                     (= (incf alive-checks) 1))))
+               (let ((input
+                       (make-instance
+                        (quote aitools.process.infrastructure::%borrowed-binary-input)
+                        :source source :process :fake)))
+                 (expect (sb-gray:stream-read-byte input) :to-be :eof)))
+             (expect alive-checks :to-be 2))
+        (when source (close source))
+        (when write-fd (sb-posix:close write-fd))
+        (when read-fd (sb-posix:close read-fd))))))
 
 (describe "aitools process borrowing runner"
   (it "launches with streams and closes an unfinished borrowed-input process"

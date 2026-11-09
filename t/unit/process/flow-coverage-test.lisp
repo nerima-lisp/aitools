@@ -1,4 +1,20 @@
 (in-package #:aitools.process.test)
+(describe "process signal identity coverage"
+  (it "rejects targets without readable argv before signalling"
+    (multiple-value-bind (boundaries sent)
+        (signal-fixture :count 1 :nil-command-line 2101)
+      (let ((target
+              (funcall
+               (cl-boundary-kit:boundary-context-require boundaries
+                                                         :process-process-info)
+               2101)))
+        (expect (aitools.process.application::%signal-alive-p boundaries target)
+                :to-be nil))
+      (multiple-value-bind (kind fields)
+          (signal-flow boundaries :pid 2101 :expect-command "sleep")
+        (expect kind :to-be :error)
+        (expect (field fields :code) :to-equal "refusal.target-changed"))
+      (expect (funcall sent) :to-equal (quote ())))))
 
 (defun flow-coverage-bg-world (text &rest options)
   (let ((world (apply #'make-fake-world options)))

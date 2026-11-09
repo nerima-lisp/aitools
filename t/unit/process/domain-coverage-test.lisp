@@ -1,4 +1,17 @@
 (in-package #:aitools.process.test)
+(describe "process coverage of inline domain predicates"
+  (it "executes the ASCII digit predicate directly"
+    (let ((digit-p (symbol-function (quote aitools.process.domain::%ascii-digit-p))))
+      (expect (funcall digit-p #\0) :to-be t)
+      (expect (funcall digit-p #\9) :to-be t)
+      (expect (funcall digit-p #\/) :to-be nil)
+      (expect (funcall digit-p #\:) :to-be nil)))
+  (it "executes terminal byte range checks directly"
+    (let ((code-in-p (symbol-function (quote aitools.process.domain::%code-in-p))))
+      (expect (funcall code-in-p #\0 #x30 #x3f) :to-be t)
+      (expect (funcall code-in-p #\? #x30 #x3f) :to-be t)
+      (expect (funcall code-in-p #\/ #x30 #x3f) :to-be nil)
+      (expect (funcall code-in-p #\@ #x30 #x3f) :to-be nil))))
 
 (describe "aitools.process.domain constructor defaults"
   (it "leaves optional bg-record fields absent when omitted"

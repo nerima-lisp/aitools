@@ -1,4 +1,51 @@
 (in-package #:aitools.process.test)
+(describe "process infrastructure coverage boundaries"
+  (it "expands the guarded process I/O macro"
+    (let ((expansion
+            (macroexpand-1
+             (quote
+              (aitools.process.infrastructure::%process-boundary-io
+               ("reading ~A" path)
+               (open path))))))
+      (expect (first expansion) :to-be (quote handler-case))))
+  (it "rejects an invalid process group identifier before probing"
+    (let ((probed nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.process.infrastructure::%kill-probe-p))
+            (lambda (pid)
+              (declare (ignore pid))
+              (setf probed t))))
+        (expect (aitools.process.infrastructure::%group-alive-p "invalid")
+                :to-be nil)
+        (expect probed :to-be nil))))
+  (it "fails closed when the current process identity has no argv"
+    (let* ((uid (sb-posix:getuid))
+           (pid (1+ (sb-posix:getpid)))
+           (pgid (1+ (sb-posix:getpgid 0)))
+           (expected
+             (aitools.process.domain:make-process-identity
+              :pid pid :ppid 1 :pgid pgid :uid uid :ruid uid
+              :start "start" :command-line "tool"))
+           (actual
+             (aitools.process.domain:make-process-identity
+              :pid pid :ppid 1 :pgid pgid :uid uid :ruid uid
+              :start "start" :command-line nil))
+           (ancestor-checked nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.process.infrastructure::%safe-process-info))
+            (lambda (observed-pid)
+              (declare (ignore observed-pid))
+              actual))
+           ((symbol-function
+             (quote aitools.process.infrastructure::%ancestor-p))
+            (lambda (observed-pid)
+              (declare (ignore observed-pid))
+              (setf ancestor-checked t))))
+        (expect (aitools.process.infrastructure::%safe-target-p expected)
+                :to-be nil)
+        (expect ancestor-checked :to-be nil)))))
 
 (describe "aitools process infrastructure file boundary"
   (it "reads octets and maps a missing input file to a port error"
