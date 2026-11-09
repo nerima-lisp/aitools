@@ -27,11 +27,14 @@
                 context metric covered total base-covered base-total))))
   t)
 (defvar *harvest-sb-cover-marks-after-source-load* nil)
-(defmethod asdf:perform :after ((operation asdf:load-op)
+(defmethod asdf:perform :around ((operation asdf:load-op)
                                 (component asdf:cl-source-file))
   (declare (ignore operation component))
-  (when *harvest-sb-cover-marks-after-source-load*
-    (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")))
+  (if *harvest-sb-cover-marks-after-source-load*
+      (sb-sys:without-gcing
+        (prog1 (call-next-method)
+          (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")))
+      (call-next-method)))
 (defvar *coverage-package-form-files-asserted* (make-hash-table :test (function equal)))
 (defun assert-coverage-package-forms-covered (pathnames)
   (let ((pending (remove-if (lambda (pathname)
