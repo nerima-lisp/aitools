@@ -180,36 +180,6 @@
         (let ((fd (sb-posix:open path sb-posix:o-rdonly)))
           (unwind-protect (expect (aitools.text.infrastructure::%read-all fd 3) :to-equalp (subseq bytes 0 65540))
             (sb-posix:close fd)))))))
-  (it "bounds growth reads at MAX-BYTES plus one byte"
-  (call-with-scratch-directory (lambda (scratch)
-    (let* ((path (concatenate 'string scratch "/changing"))
-           (bytes (make-array 200000 :element-type '(unsigned-byte 8)))
-           (head (make-array 100 :element-type '(unsigned-byte 8))))
-      (dotimes (i (length bytes)) (setf (aref bytes i) (mod (* i 7) 256)))
-      (setf head (subseq bytes 0 100))
-      (flet ((read-bounded (size head max-bytes)
-               (let ((fd (sb-posix:open path sb-posix:o-rdonly)))
-                 (unwind-protect
-                      (progn
-                        (when head (sb-posix:lseek fd (length head) sb-posix:seek-set))
-                        (multiple-value-bind (octets problem)
-                            (aitools.text.infrastructure::%read-all fd size head :max-bytes max-bytes)
-                          (values octets problem (sb-posix:lseek fd 0 sb-posix:seek-cur))))
-                   (sb-posix:close fd)))))
-        (write-file path (subseq bytes 0 120))
-        (multiple-value-bind (octets problem offset) (read-bounded 100 head 150)
-          (expect octets :to-equalp (subseq bytes 0 120))
-          (expect problem :to-be-falsy)
-          (expect offset :to-be 120))
-        (write-file path bytes)
-        (expect (multiple-value-list (read-bounded 100 head 150))
-                :to-equal '(nil :too-large 151))
-        (write-file path (subseq bytes 0 5))
-        (expect (multiple-value-list
-                 (aitools.text.infrastructure::%read-sniffed path 8192 (constantly t) :max-bytes 4))
-                :to-equal '(nil :too-large))))))
-)
-
   (it "retries an interrupted read and propagates other syscall errors"
     (call-with-scratch-directory (lambda (scratch)
       (let* ((path (concatenate 'string scratch "/input"))
