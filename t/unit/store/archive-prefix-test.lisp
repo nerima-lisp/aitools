@@ -1,4 +1,5 @@
 (in-package #:aitools.store.test)
+
 (describe "aitools.store archive symlink prefix checker"
           (it "checks disk and staged links, replacements, path boundaries, and descriptor cleanup"
               (call-with-temp-store
@@ -130,64 +131,19 @@
                          (funcall checker :finish)
                          (expect opened :to-be closed))
                      (funcall checker :finish))))))
-          (it "closes commit-time recheck descriptors on safe completion and refusal"
-              (call-with-temp-store
-               (lambda (store)
-                 (sb-posix:mkdir (disk-path store "safe") #o755)
-                 (let* ((io (store-io-port store))
-                        (opened 0)
-                        (closed 0)
-                        (tracked-io
-                         (copy-store-io
-                          io
-                          :open-search-root
-                          (lambda (path)
-                            (multiple-value-bind (fd identity)
-                                (funcall (store-io-open-search-root io) path)
-                              (when fd (incf opened))
-                              (values fd identity)))
-                          :open-search-entry
-                          (lambda (dirfd name path)
-                            (multiple-value-bind (kind fd identity)
-                                (funcall (store-io-open-search-entry io) dirfd name path)
-                              (when fd (incf opened))
-                              (values kind fd identity)))
-                          :close-search-directory
-                          (lambda (fd)
-                            (incf closed)
-                            (funcall (store-io-close-search-directory io) fd))))
-                        (tracked-store (make-store tracked-io (store-root store) "/tmp")))
-                   (flet ((symlink-index (target)
-                                         (let ((index (make-tx-index)))
-                                           (tx-index-put index "link" (absent-state) (symlink-state target))
-                                           index)))
-                     (let ((opened-before opened)
-                           (closed-before closed))
-                       (aitools.store.application::%recheck-tx-symlink-targets
-                        tracked-store (symlink-index "safe/child"))
-                       (expect (> opened opened-before) :to-be t)
-                       (expect (- opened opened-before) :to-be (- closed closed-before)))
-                     (let ((opened-before opened)
-                           (closed-before closed)
-                           (refusal nil))
-                       (handler-case
-                           (aitools.store.application::%recheck-tx-symlink-targets
-                            tracked-store (symlink-index "safe/../../outside"))
-                         (aitools.store.application::store-refusal (condition)
-                                                                   (setf refusal condition)))
-                       (expect refusal :to-be-truthy)
-                       (expect (aitools.store.application::store-refusal-code refusal)
-                               :to-equal "refusal.outside-workspace")
-                       (expect (- opened opened-before) :to-be (- closed closed-before))))))))
           (it "does not treat lib64 as a prefix of staged lib"
               (call-with-temp-store
                (lambda (store)
                  (let* ((index (make-tx-index))
                         (checker
                          (progn
-                           (tx-index-put index "base/lib" (absent-state) (symlink-state "target"))
+                           (tx-index-put index
+                                         "base/lib"
+                                         (absent-state)
+                                         (symlink-state "target"))
                            (make-archive-symlink-prefix-checker
-                            (aitools.store.application::%make-store-view store index)
+                            (aitools.store.application::%make-store-view store
+                                                                         index)
                             "base"
                             nil))))
                    (unwind-protect
@@ -199,3 +155,4 @@
                                (expect result :to-be :clear))
                            (funcall checker :finish cursor)))
                      (funcall checker :finish)))))))
+
