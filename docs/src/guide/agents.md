@@ -81,7 +81,7 @@ Unicode spelling after empty and `.` path components are removed. Thus
 `README` and `readme` are distinct entries on a case-sensitive filesystem. On
 a case-insensitive filesystem, both may pass planning. Applying the extraction
 returns `refusal.exists` if the destination aliases the paths; with `--tx`,
-this occurs when staged changes are applied.
+this occurs when `tx commit` applies the staged changes.
 
 The `--to` path names the extraction root. A destination symlink is followed
 when it resolves inside the workspace; a target outside the workspace is
