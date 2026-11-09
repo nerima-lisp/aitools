@@ -3,43 +3,41 @@
 (defconstant +http-max-line-bytes+
   16384)
 
-(progn
-  (defun %net-timeout-seconds (text)
-    (when (stringp text)
-      (handler-case
-          (let* ((milliseconds
-                   (aitools.kernel.domain:duration-milliseconds
-                    (aitools.kernel.domain:parse-duration text)))
-                 (seconds (/ milliseconds 1000)))
-            (when (and (plusp milliseconds)
-                       (< seconds most-positive-double-float))
-              seconds))
-        (aitools.kernel.domain:invalid-duration-error ()
-          nil))))
+(defun %net-timeout-seconds (text)
+  (when (stringp text)
+    (handler-case
+        (let* ((milliseconds
+                 (aitools.kernel.domain:duration-milliseconds
+                  (aitools.kernel.domain:parse-duration text)))
+               (seconds (/ milliseconds 1000)))
+          (when (and (plusp milliseconds)
+                     (< seconds most-positive-double-float))
+            seconds))
+      (aitools.kernel.domain:invalid-duration-error ()
+        nil))))
 
-  (defmacro %with-net-validation (validations &body body)
-    `(cond
-       ,@(mapcar
-          (lambda (validation)
-            `((not ,(first validation))
-              (aitools.kernel.domain:flow-continue
-               :on-error "argument.invalid" ,(second validation))))
-          validations)
-       (t ,@body)))
+(defmacro %with-net-validation (validations &body body)
+  `(cond
+     ,@(mapcar
+        (lambda (validation)
+          `((not ,(first validation))
+            (aitools.kernel.domain:flow-continue
+             :on-error "argument.invalid" ,(second validation))))
+        validations)
+     (t ,@body)))
 
-  (defmacro %with-net-error-continuation ((&optional io-detail) &body body)
-    `(handler-case
-         (progn ,@body)
-       (aitools.net.domain:net-error (condition)
-         (aitools.kernel.domain:flow-continue
-          :on-error
-          (aitools.net.domain:net-error-code condition)
-          (aitools.net.domain:net-error-detail condition)))
-       ,@(when io-detail
-           `((error ()
-               (aitools.kernel.domain:flow-continue
-                :on-error "environment.io" ,io-detail))))))
-)
+(defmacro %with-net-error-continuation ((&optional io-detail) &body body)
+  `(handler-case
+       (progn ,@body)
+     (aitools.net.domain:net-error (condition)
+       (aitools.kernel.domain:flow-continue
+        :on-error
+        (aitools.net.domain:net-error-code condition)
+        (aitools.net.domain:net-error-detail condition)))
+     ,@(when io-detail
+         `((error ()
+             (aitools.kernel.domain:flow-continue
+              :on-error "environment.io" ,io-detail))))))
 
 (defun %http-range-bounds (range)
   (if (null range)
