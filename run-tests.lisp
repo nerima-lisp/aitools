@@ -32,6 +32,7 @@
   (declare (ignore operation component))
   (if *harvest-sb-cover-marks-after-source-load*
       (sb-sys:without-gcing
+        (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")
         (prog1 (call-next-method)
           (uiop:symbol-call "SB-COVER" "REFRESH-COVERAGE-BITS")))
       (call-next-method)))
