@@ -34,6 +34,7 @@
                          (:file "mtime")
                          (:file "table")
                          (:file "split")
+                         (:file "archive-plan-support")
                          (:file "archive-plan")
                          (:file "archive-build")))
                (:module "application"
