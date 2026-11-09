@@ -12,7 +12,8 @@
                          read-stdin-octets
                          parse-markdown
                          splice-section))
-     (:copier nil))
+     (:copier nil)
+     (:predicate nil))
   (workspace-host nil :read-only t)
   (text-source nil :read-only t)
   (open-store nil :type (or null function) :read-only t)
