@@ -5,15 +5,24 @@
 
 (defun fake-source (files &optional reads)
   "A TEXT-SOURCE over FILES, an alist of (path . octets). READS, when
-given, is a cons whose car collects (operation path) records."
+given, is a cons whose car collects (operation path [limit]) records."
   (flet ((lookup (path) (cdr (assoc path files :test #'string=)))
-         (note (operation path) (when reads (push (list operation path) (car reads)))))
+         (note (operation path &optional detail)
+           (when reads
+             (push (if detail (list operation path detail) (list operation path)) (car reads)))))
     (make-text-source
      :file-size (lambda (path) (let ((bytes (lookup path))) (and bytes (length bytes))))
      :read-prefix (lambda (path count)
                     (note :prefix path)
                     (let ((bytes (lookup path))) (and bytes (subseq bytes 0 (min count (length bytes))))))
-     :read-octets (lambda (path) (note :all path) (lookup path))
+     :read-octets (lambda (path &key max-bytes)
+                    (let ((bytes (lookup path)))
+                      (if max-bytes
+                          (note :all-bounded path max-bytes)
+                          (note :all path))
+                      (if (and bytes max-bytes (> (length bytes) max-bytes))
+                          (values nil :too-large)
+                          bytes)))
      :call-with-chunks (lambda (path size function)
                          (let ((bytes (lookup path)))
                            (and bytes
@@ -78,15 +87,18 @@ call and (:rest path) when it goes on past the prefix."
     (make-text-source
      :file-size (lambda (path) (source-file-size base path))
      :read-prefix (lambda (path count) (aitools.text.application::source-read-prefix base path count))
-     :read-octets (lambda (path) (source-read-octets base path))
+     :read-octets (lambda (path &key max-bytes)
+                    (source-read-octets base path :max-bytes max-bytes))
      :call-with-chunks (lambda (path size function) (source-call-with-chunks base path size function))
-     :read-sniffed (lambda (path count continue-p)
+     :read-sniffed (lambda (path count continue-p &key max-bytes)
                      (push (list :open path) (car reads))
                      (let ((bytes (cdr (assoc path files :test #'string=))))
                        (cond ((null bytes) (values nil (and (string= path "/locked") :unreadable)))
                              ((funcall continue-p (subseq bytes 0 (min count (length bytes))) (length bytes))
                               (push (list :rest path) (car reads))
-                              bytes)
+                              (if (and max-bytes (> (length bytes) max-bytes))
+                                  (values nil :too-large)
+                                  bytes))
                              (t (subseq bytes 0 (min count (length bytes))))))))))
 
 (defun sniffed-outcome (source path &key max-bytes)
@@ -153,6 +165,44 @@ call and (:rest path) when it goes on past the prefix."
                                    (lambda (prefix size) (declare (ignore prefix size)) t))
               :to-equalp (string-bytes "tiny"))
       (expect (reverse (car reads)) :to-equal '((:prefix "/s") (:prefix "/s") (:prefix "/s") (:all "/s")))))
+  (it "caps a composed read after fstat growth and reports the first excess byte"
+  (let* ((actual (make-array 8193 :element-type '(unsigned-byte 8) :initial-element 65))
+         (read-limit nil)
+         (source (make-text-source
+                  :file-size (lambda (path) (declare (ignore path)) 8192)
+                  :read-prefix (lambda (path count)
+                                 (declare (ignore path))
+                                 (subseq actual 0 (min count (length actual))))
+                  :read-octets (lambda (path &key max-bytes)
+                                 (declare (ignore path))
+                                 (setf read-limit max-bytes)
+                                 (if (> (length actual) max-bytes)
+                                     (values nil :too-large)
+                                     actual))
+                  :call-with-chunks (lambda (path size function)
+                                      (declare (ignore path size function))
+                                      nil))))
+    (expect (sniffed-outcome source "/grown" :max-bytes 8192)
+            :to-equal '(:too-large 8193))
+    (expect read-limit :to-be 8192)))
+  (it "rejects a short composed prefix that grew past MAX-BYTES"
+  (let* ((actual (make-array 5 :element-type '(unsigned-byte 8) :initial-element 65))
+         (whole-read nil)
+         (source (make-text-source
+                  :file-size (lambda (path) (declare (ignore path)) 4)
+                  :read-prefix (lambda (path count)
+                                 (declare (ignore path))
+                                 (subseq actual 0 (min count (length actual))))
+                  :read-octets (lambda (path &key max-bytes)
+                                 (declare (ignore path max-bytes))
+                                 (setf whole-read t)
+                                 actual)
+                  :call-with-chunks (lambda (path size function)
+                                      (declare (ignore path size function))
+                                      nil))))
+    (expect (sniffed-outcome source "/grown-short" :max-bytes 4)
+            :to-equal '(:too-large 5))
+    (expect whole-read :to-be-falsy)))
 
   (it "refuses a READ-SNIFFED that is not a function"
     (expect (handler-case (make-text-source :file-size #'identity :read-prefix #'identity :read-octets #'identity
