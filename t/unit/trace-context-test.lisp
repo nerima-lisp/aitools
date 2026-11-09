@@ -135,7 +135,21 @@
                   (expect values :to-equal '(0 :payload))
                   (expect calls :to-be 1)
                   (expect (aitools/cli::%trace-envelope-meta :ok) :to-be-falsy)
-                  (expect aitools/cli::*trace-session* :to-be-falsy)))))
+                  (expect aitools/cli::*trace-session* :to-be-falsy))))
+          (it-each
+           (("left starts earlier" 0 1 "a" "b" t)
+            ("left starts later" 1 0 "a" "b" nil)
+            ("equal starts with ascending IDs" 0 0 "a" "b" t)
+            ("equal starts with descending IDs" 0 0 "b" "a" nil))
+           "compares spans by time and ID: ~A"
+           (label left-start right-start left-id right-id expected)
+           (expect
+            (not
+             (null
+              (aitools/cli::%trace-projected-span<
+               (aitools/cli::%make-projected-span :kit-id left-id :start-ns left-start)
+               (aitools/cli::%make-projected-span :kit-id right-id :start-ns right-start))))
+            :to-be expected)))
 
 (describe "aitools CLI trace projection guards"
   (it "rejects an outcome outside the trace contract"
