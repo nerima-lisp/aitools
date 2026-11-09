@@ -78,59 +78,11 @@
     (if exclusions
         (coverage-statistics-with-exclusions statistics exclusions (coverage-uncovered-form-locations-for pathnames))
       (values statistics nil))))
-(progn
-  (defun coverage-uncovered-form-locations-for-file (source)
-    (let* ((get-records
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
-                               "GET-RECORDS" t))
-           (read-source
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
-                               "READ-SOURCE" t))
-           (read-maps
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
-                               "READ-AND-RECORD-SOURCE-MAPS" t))
-           (source-position
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
-                               "SOURCE-PATH-SOURCE-POSITION" t))
-           (make-sample-count
-             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
-                               "MAKE-SAMPLE-COUNT" t)))
-      (let* ((source-text (funcall read-source source :default))
-             (source-maps (funcall read-maps source-text))
-             (counts (list :branch (funcall make-sample-count :branch)
-                           :expression (funcall make-sample-count :expression)))
-             (locations nil))
-        (dolist (record (funcall get-records source counts))
-          (destructuring-bind (path state . ignored) record
-            (declare (ignore ignored))
-            (let ((uncovered-count
-                    (coverage-uncovered-unit-count-for-state state)))
-              (when (plusp uncovered-count)
-                (let* ((path (reverse path))
-                       (tlf (nth (car path) source-maps))
-                       (form (car tlf))
-                       (source-map (cdr tlf)))
-                  (when source-map
-                    (multiple-value-bind (start end)
-                        (funcall source-position (cons 0 (cdr path))
-                                 form source-map)
-                      (when (and start end)
-                        (push
-                         (append
-                          (list :pathname (pathname source)
-                                :kind (if (= state 2) :expression :branch)
-                                :uncovered-count uncovered-count)
-                          (uiop:symbol-call "CL-WEAVE"
-                                            "COVERAGE-FORM-POSITION"
-                                            source-text start end))
-                         locations)))))))))
-        (nreverse locations))))
-
-  (defun coverage-uncovered-form-locations-for (pathnames)
-    (loop for file in (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
-                                        :include-pathnames pathnames)
-          for source = (namestring (getf file :pathname))
-          append (coverage-uncovered-form-locations-for-file source))))
+(defun coverage-uncovered-form-locations-for (pathnames)
+  (loop for file in (uiop:symbol-call "CL-WEAVE" "COVERAGE-FILE-STATISTICS"
+                                      :include-pathnames pathnames)
+        for source = (namestring (getf file :pathname))
+        append (coverage-uncovered-form-locations-for-file source)))
 (defun measure-context-coverage (root groups)
   (mapcar (lambda (group)
             (let* ((context (car group))

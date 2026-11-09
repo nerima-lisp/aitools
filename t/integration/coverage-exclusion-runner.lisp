@@ -112,12 +112,53 @@
           (when (= (length matches) 1)
             (first matches))))))
 
-  (progn
   (defun coverage-uncovered-unit-count-for-state (state)
     (case state
       ((2 6 9) 1)
       (10 2)
       (otherwise 0)))
+
+  (defun coverage-uncovered-form-locations-for-file (source)
+    (let* ((get-records
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
+                               "GET-RECORDS" t))
+           (read-source
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
+                               "READ-SOURCE" t))
+           (read-maps
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
+                               "READ-AND-RECORD-SOURCE-MAPS" t))
+           (source-position
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
+                               "SOURCE-PATH-SOURCE-POSITION" t))
+           (make-sample-count
+             (uiop:symbol-call "CL-WEAVE" "COVERAGE-INTERNAL-SYMBOL"
+                               "MAKE-SAMPLE-COUNT" t))
+           (source-text (funcall read-source source :default))
+           (source-maps (funcall read-maps source-text))
+           (counts (list :branch (funcall make-sample-count :branch)
+                         :expression (funcall make-sample-count :expression))))
+      (loop for record in (funcall get-records source counts)
+            for path = (reverse (first record))
+            for state = (second record)
+            for uncovered-count = (coverage-uncovered-unit-count-for-state state)
+            when (plusp uncovered-count)
+              append
+              (let* ((tlf (nth (car path) source-maps))
+                     (form (car tlf))
+                     (source-map (cdr tlf)))
+                (when source-map
+                  (multiple-value-bind (start end)
+                      (funcall source-position (cons 0 (cdr path))
+                               form source-map)
+                    (when (and start end)
+                      (list
+                       (append
+                        (list :pathname (pathname source)
+                              :kind (if (= state 2) :expression :branch)
+                              :uncovered-count uncovered-count)
+                        (uiop:symbol-call "CL-WEAVE" "COVERAGE-FORM-POSITION"
+                                          source-text start end))))))))))
 
   (defun coverage-adjust-statistics-for-exclusions (statistics exclusions owned-locations)
     (unless (coverage-exclusion-records-valid-p exclusions)
@@ -148,7 +189,7 @@
             (error "Coverage exclusion exceeds measured ~A total: ~S" metric count))
           (decf (getf adjusted metric) count)
           (push (append (copy-list exclusion) (list :excluded-count count)) applied)))
-      (values adjusted (nreverse applied)))))
+      (values adjusted (nreverse applied))))
 
   (defun coverage-statistics-with-exclusions (statistics exclusions locations)
     (let* ((pathnames
