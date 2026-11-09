@@ -163,10 +163,13 @@
                              (let ((requester (%https-test-requester)))
                                (let ((raw-condition nil))
                                  (multiple-value-bind (kind response detail)
-                                     (handler-bind ((error
+                                     (handler-bind ((condition
                                                       (lambda (condition)
                                                         (unless raw-condition
-                                                          (setf raw-condition (type-of condition))))))
+                                                          (setf raw-condition
+                                                                (list :type (type-of condition)
+                                                                      :report
+                                                                      (princ-to-string condition)))))))
                                        (%https-test-outcome
                                         requester "GET"
                                         (format nil "https://localhost:~D/ok" trusted-port)
