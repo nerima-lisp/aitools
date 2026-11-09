@@ -101,7 +101,9 @@
   (handler-case
       (values :ok (funcall requester method uri timeout))
     (net-error (condition)
-      (values :error (net-error-code condition)))))
+      (values :error
+              (net-error-code condition)
+              (aitools.net.domain:net-error-detail condition)))))
 
 (defun %https-test-call-with-trust-anchor (certificate function)
   (let ((previous (sb-posix:getenv "SSL_CERT_FILE")))
@@ -112,6 +114,12 @@
       (if previous
           (sb-posix:setenv "SSL_CERT_FILE" previous 1)
           (sb-posix:unsetenv "SSL_CERT_FILE")))))
+
+(defun %https-test-expect-success (operation kind response detail)
+  (expect (if (eq kind :ok)
+              :ok
+            (list :failed operation response detail))
+         :to-be :ok))
 
 (describe "aitools net HTTPS transport integration"
   (it "enforces the trusted CA, host identity, timeout, and body limit"
@@ -151,30 +159,33 @@
                            trusted-certificate
                            (lambda ()
                              (let ((requester (%https-test-requester)))
-                               (multiple-value-bind (kind response)
+                               (multiple-value-bind (kind response detail)
                                    (%https-test-outcome
                                     requester "GET"
                                     (format nil "https://localhost:~D/ok" trusted-port)
                                     5d0)
-                                 (expect kind :to-be :ok)
+                                 (%https-test-expect-success
+                                  "GET https://localhost/ok" kind response detail)
                                  (expect (getf response :status) :to-be 200)
                                  (expect (sb-ext:octets-to-string
                                           (getf response :body) :external-format :utf-8)
                                          :to-equal (format nil "loopback response~%")))
-                               (multiple-value-bind (kind response)
+                               (multiple-value-bind (kind response detail)
                                    (%https-test-outcome
                                     requester "HEAD"
                                     (format nil "https://localhost:~D/ok" trusted-port)
                                     5d0)
-                                 (expect kind :to-be :ok)
+                                 (%https-test-expect-success
+                                  "HEAD https://localhost/ok" kind response detail)
                                  (expect (getf response :status) :to-be 200)
                                  (expect (length (getf response :body)) :to-be 0))
-                               (multiple-value-bind (kind response)
+                               (multiple-value-bind (kind response detail)
                                    (%https-test-outcome
                                     requester "GET"
                                     (format nil "https://127.0.0.1:~D/ok" trusted-port)
                                     5d0)
-                                 (expect kind :to-be :ok)
+                                 (%https-test-expect-success
+                                  "GET https://127.0.0.1/ok" kind response detail)
                                  (expect (getf response :status) :to-be 200))
                                (multiple-value-bind (kind code)
                                    (%https-test-outcome
