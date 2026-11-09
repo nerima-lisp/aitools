@@ -40,6 +40,7 @@
                         (:file "unit/text/archive-zip-date-test")
                         (:file "unit/text/archive-tar-test")
                         (:file "unit/text/archive-safety-test")
+                        (:file "unit/text/archive-metadata-test")
                         (:file "unit/text/source-test")
                         (:file "unit/text/source-range-test")
                         (:file "integration/text-archive-fixtures")

@@ -123,6 +123,7 @@
      (:file "unit/edit/pipeline-edge-test")
      (:file "unit/edit/format-test")
      (:file "unit/edit/format-edge-test")
+     (:file "unit/edit/archive-symlink-test")
      (:module "yaml-toml-write-tests" :pathname "unit/edit/" :serial t
       :components ((:file "yaml-doc-test")
                    (:file "toml-doc-test")
@@ -150,6 +151,8 @@
                    (:file "edit-text-write-commands-test")
                    (:file "edit-text-paths-extra-test")
                    (:file "edit-file-formats-test")
+                   (:file "edit-archive-symlink-safety-test")
+                   (:file "edit-archive-tx-symlink-test")
                    (:file "edit-file-metadata-test")
                    (:file "edit-rm-safety-test")
                    (:file "edit-mktemp-race-test")
