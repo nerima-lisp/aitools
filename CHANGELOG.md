@@ -28,7 +28,7 @@
   spelling. Case-sensitive filesystems keep case-only paths distinct.
   On a case-insensitive destination filesystem, applying the extraction returns
   `refusal.exists` if the filesystem aliases the paths. With `--tx`, this
-  occurs when staged changes are applied.
+  occurs when `tx commit` applies the staged changes.
 - `aitools sys info` returns `environment.unavailable` when its uptime source
   is missing or malformed; previously, its response could contain a `null`
   uptime. CPU and memory values are optional, but uptime is required for a
@@ -36,7 +36,7 @@
 
 ## v0.4.0
 
-- Remove the top-level `delete` command. Use `rm` for files, symlinks, empty directories, and recursive trees.
+- Use `rm` for files, symlinks, empty directories, and recursive trees.
 - Map the shell command `rmdir` to `aitools rm`. Calling the removed top-level
   `delete` command returns
   `argument.invalid` with a repair suggesting `aitools rm`.
