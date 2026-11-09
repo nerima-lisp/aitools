@@ -1,4 +1,12 @@
 (in-package #:aitools.process.test)
+#+linux
+(describe "aitools Linux argv truncation"
+  (it "rejects a terminated prefix with an unterminated final argument"
+    (let ((bytes
+            (make-array 3 :element-type (quote (unsigned-byte 8))
+                        :initial-contents (list 65 0 66))))
+      (expect (aitools.process.infrastructure::%linux-argv bytes)
+              :to-be nil))))
   (defun process-test-safe-target (expected actual &key ancestor)
     (cl-weave:with-mocked-functions
         (((symbol-function

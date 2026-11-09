@@ -62,11 +62,12 @@
 #+linux
 (defun %linux-argv (bytes)
   (when (and bytes (plusp (length bytes)))
-    (loop with start = 0 for end = (position 0 bytes :start start)
+    (loop with start = 0
+          for end = (position 0 bytes :start start)
           while end
           collect (sb-ext:octets-to-string bytes :start start :end end :external-format :utf-8) into args
           do (setf start (1+ end))
-          finally (return (and args (%join-argv args))))))
+          finally (return (and args (= start (length bytes)) (%join-argv args))))))
 
 #+linux
 (defun %linux-process-info (pid)
