@@ -5,7 +5,7 @@
 (in-package #:aitools.workspace.domain)
 
 (defparameter *builtin-ignore-list*
-  (parse-ignore-lines aitools.data:*workspace-builtin-exclude-patterns* :source :builtin))
+  (parse-ignore-lines aitools.data:*workspace-builtin-exclude-patterns*))
 
 (defun builtin-ignore-list ()
   *builtin-ignore-list*)

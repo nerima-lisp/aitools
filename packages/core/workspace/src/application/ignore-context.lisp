@@ -80,9 +80,9 @@ the index's sorted path vector, or NIL."
                       host (join-path (git-repository-git-dir repository) "config.worktree") 0))))
     (append system global local worktree (%environment-config-entries host))))
 
-(defun %ignore-file-list (host path source)
+(defun %ignore-file-list (host path)
   (let ((octets (host-read-octets host path)))
-    (and octets (parse-ignore-octets octets :source source))))
+    (and octets (parse-ignore-octets octets))))
 
 (defun %tracked-paths (host repository config)
   (let ((octets (host-read-octets host (join-path (git-repository-git-dir repository) "index")))
@@ -106,9 +106,8 @@ the index's sorted path vector, or NIL."
               (excludes-path (if (stringp excludes-setting)
                                  (normalize-path (join-path top (expand-config-path excludes-setting home)))
                                  (%xdg-git-path host "ignore")))
-              (info (%ignore-file-list host (join-path (git-repository-common-dir repository) "info/exclude")
-                                       :info-exclude))
-              (global (%ignore-file-list host excludes-path :excludes-file)))
+              (info (%ignore-file-list host (join-path (git-repository-common-dir repository) "info/exclude")))
+              (global (%ignore-file-list host excludes-path)))
          (make-ignore-context
           :source :gitignore
           :casefold (git-config-boolean (git-config-value config "core.ignorecase"))

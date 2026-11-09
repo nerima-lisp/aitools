@@ -18,12 +18,10 @@ path patterns) one leading `/` already removed."
   (basename-only-p nil :type boolean :read-only t))
 
 (defstruct (ignore-list (:copier nil))
-  "BASE is the directory holding the source file, relative to the repository
-top, without a trailing `/` (\"\" for the top itself). SOURCE labels the
-file for diagnostics."
+  "BASE is the directory of the ignore file, relative to the repository top,
+without a trailing `/` (empty for the top itself)."
   (base "" :type simple-string :read-only t)
-  (patterns #() :type simple-vector :read-only t)
-  (source nil :read-only t))
+  (patterns #() :type simple-vector :read-only t))
 
 (defun %trim-trailing-spaces (line)
   "git's trim_trailing_spaces: drop unescaped trailing spaces (not tabs)."
@@ -57,11 +55,10 @@ nothing matchable remains."
                              :directory-only-p directory-only
                              :basename-only-p basename-only)))))
 
-(defun parse-ignore-lines (lines &key (base "") source)
+(defun parse-ignore-lines (lines &key (base ""))
   "An IGNORE-LIST from LINES (strings without line terminators)."
   (make-ignore-list
    :base (coerce base 'simple-string)
-   :source source
    :patterns (coerce (loop for line in lines
                            for trimmed = (%trim-trailing-spaces line)
                            for pattern = (and (plusp (length trimmed))
@@ -70,7 +67,7 @@ nothing matchable remains."
                            when pattern collect pattern)
                      'simple-vector)))
 
-(defun parse-ignore-octets (octets &key (base "") source)
+(defun parse-ignore-octets (octets &key (base ""))
   "An IGNORE-LIST from the raw bytes of an ignore file, split the way git
 splits it: on LF, dropping one CR before each LF and a leading UTF-8 BOM.
 Invalid UTF-8 decodes to U+FFFD, which then matches no real file name."
@@ -87,7 +84,7 @@ Invalid UTF-8 decodes to U+FFFD, which then matches no real file name."
                  (setf line-start (1+ i))))
     (when (< line-start (length text))
       (push (subseq text line-start) lines))
-    (parse-ignore-lines (nreverse lines) :base base :source source)))
+    (parse-ignore-lines (nreverse lines) :base base)))
 
 (defun %path-under-base (path base casefold)
   "PATH's remainder below BASE (both relative to the repository top), or

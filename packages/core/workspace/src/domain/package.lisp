@@ -44,7 +44,6 @@
    #:ignore-list-p
    #:ignore-list-base
    #:ignore-list-patterns
-   #:ignore-list-source
    #:parse-ignore-lines
    #:parse-ignore-octets
    #:ignore-list-verdict

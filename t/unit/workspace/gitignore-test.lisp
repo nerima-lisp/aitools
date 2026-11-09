@@ -145,14 +145,12 @@
       (expect (aitools.workspace.domain::%parse-pattern "") :to-be nil))))
 
 (describe "workspace ignore parser defaults"
-  (it "initializes base and source defaults through APPLY"
+  (it "initializes parser base defaults through APPLY"
     (let ((lines (apply #'parse-ignore-lines (list '("line.log"))))
           (octets (apply #'parse-ignore-octets
                          (list (string-bytes "octet.log")))))
       (expect (ignore-list-base lines) :to-equal "")
-      (expect (ignore-list-source lines) :to-be nil)
       (expect (ignore-list-base octets) :to-equal "")
-      (expect (ignore-list-source octets) :to-be nil)
       (expect (ignore-list-verdict lines "line.log" nil) :to-be :ignored)
       (expect (ignore-list-verdict octets "octet.log" nil) :to-be :ignored))))
 

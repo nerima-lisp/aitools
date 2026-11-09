@@ -34,7 +34,7 @@ NIL). A symlinked .gitignore is not read, as git refuses to follow it."
            (octets (%read-file-octets host overlay
                                       (join-path (ignore-context-top context) file-top-relative)
                                       (%root-relative context file-top-relative))))
-      (and octets (parse-ignore-octets octets :base directory-top-relative :source file-top-relative)))))
+      (and octets (parse-ignore-octets octets :base directory-top-relative)))))
 
 (defun %gitignore-entry (host context overlay directory-top-relative)
   "The .gitignore listing entry of a directory the walk has not listed."
