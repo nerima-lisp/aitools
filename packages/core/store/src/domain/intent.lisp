@@ -11,9 +11,9 @@
 ;;;; A record is complete only with both lines and a matching checksum.
 ;;;;
 ;;;; Steps apply in phases, then path order within a phase: mkdir (parents
-;;;; first), move, replace/unlink/chmod/utime, rmdir (children first). Strict path
-;;;; order alone would remove a directory before its contents and could
-;;;; write a destination before a move vacated it.
+;;;; first), move, replace and metadata changes, unlink, rmdir (children first).
+;;;; Strict path order alone would remove a directory before its contents and
+;;;; could write a destination before a move vacated it.
 (in-package #:aitools.store.domain)
 
 (defstruct (intent-step (:copier nil))
@@ -36,12 +36,16 @@
 
 (defun %step-phase (step)
   (ecase (intent-step-op step)
-    (:mkdir 0) (:move 1) ((:replace :unlink :chmod :utime) 2) (:rmdir 3)))
+    (:mkdir 0)
+    (:move 1)
+    ((:replace :chmod :utime) 2)
+    (:unlink 3)
+    (:rmdir 4)))
 
 (defun %step< (a b)
   (let ((phase-a (%step-phase a)) (phase-b (%step-phase b)))
     (cond ((/= phase-a phase-b) (< phase-a phase-b))
-          ((= phase-a 3) (string> (intent-step-path a) (intent-step-path b)))
+          ((= phase-a 4) (string> (intent-step-path a) (intent-step-path b)))
           (t (string< (intent-step-path a) (intent-step-path b))))))
 
 (defun change-keeps-content-p (result)
