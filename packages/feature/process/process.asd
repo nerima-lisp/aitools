@@ -27,10 +27,11 @@
                  (:file "runner") (:file "bg-launcher") (:file "boundaries")))))
 (defsystem "aitools/feature/process/presentation"
   :description "Process CLI commands."
-  :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-cli")
+  :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-boundary-kit" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t :components ((:file "package") (:file "commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "commands")))
+   (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/process"
   :description "Process context tests."
