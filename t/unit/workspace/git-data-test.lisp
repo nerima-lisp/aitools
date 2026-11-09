@@ -86,7 +86,10 @@ the extra flag word."
              (format nil "outside = ignored~%# before~%; before~%[broken~%[core]~%# inside~%; inside~%@bad = ignored~%key = kept~%[remote \"R\"~%url = ignored~%"))))
       (expect (git-config-value entries "core.key") :to-equal "kept")
       (expect (git-config-value entries "remote.R.url") :to-be nil)
-      (expect (parse-git-config "[core]") :to-equal nil)
+      (progn
+        (expect (parse-git-config "[core]") :to-equal nil)
+        (expect (parse-git-config (format nil "[remote \"R]~%url = ignored~%"))
+                :to-equal nil))
       (expect (parse-git-config "[core") :to-equal nil))))
 
 (describe "aitools.workspace.domain git index"
