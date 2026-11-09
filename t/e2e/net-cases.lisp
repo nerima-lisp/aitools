@@ -36,6 +36,9 @@
                     (utf8 (result-stdout result))
                     (utf8 (result-stderr result)))))
     target))
+(eval-when (:load-toplevel)
+  ;; Keep the cold binary build outside the per-spec timeout.
+  (setf *net-e2e-binary* (build-net-e2e-binary)))
 
 (defmacro define-net-row-case ((row name &key foreign) (workspace) &body body)
   (let ((title (format nil "row ~2,'0D: ~A" row name)))
