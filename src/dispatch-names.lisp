@@ -75,13 +75,35 @@ invoked. NIL when no command was in scope."
           (command-name command)))))
 
 (defun %unknown-command-repairs (registry argv name)
-  "Return retired structured-document repairs before generic foreign-name suggestions."
-  (let* ((tokens (rest argv))
-         (group (and (member name (list "json" "yaml" "toml")
-                              :test (function string=))
+  (declare (special *application*))
+  (let* ((group (and (member name (list "json" "yaml" "toml")
+                             :test (function string=))
                      name))
-         (index (and group (position group tokens :test (function string=))))
-         (verb (and index (nth (1+ index) tokens)))
+         (tokens (when group
+                   (let* ((app (first *application*))
+                          (parser-app
+                            (cl-cli:make-app
+                             :name (cl-cli:app-name app)
+                             :version (cl-cli:app-version app)
+                             :global-options (cl-cli:app-global-options app)
+                             :positionals
+                             (list (cl-cli:make-positional
+                                    :key :repair-tokens
+                                    :rest-p t))
+                             :allow-abbreviated-options
+                             (cl-cli:app-allow-abbreviated-options app)
+                             :expand-response-files
+                             (cl-cli:app-expand-response-files app)
+                             :allow-negative-numbers
+                             (cl-cli:app-allow-negative-numbers app)
+                             :require-command nil
+                             :auto-help (cl-cli:app-auto-help app)))
+                          (invocation (cl-cli:parse-argv parser-app argv)))
+                     (cl-cli:positional-value invocation :repair-tokens))))
+         (verb (and group
+                    tokens
+                    (string= (first tokens) group)
+                    (second tokens)))
          (retired (and group verb (format nil "~A.~A" group verb))))
     (cond ((and retired
                 (aitools.protocol.domain:correspondence-name-p retired))

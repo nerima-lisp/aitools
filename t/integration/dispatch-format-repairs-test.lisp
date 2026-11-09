@@ -29,6 +29,12 @@
             (expect (value envelope "error" "code") :to-equal "argument.invalid")
             (expect (repair-commands envelope)
                     :to-equal (list (format nil "aitools doc ~A" verb))))))))
+  (it "recognizes retired format commands after a value-taking global option"
+    (multiple-value-bind (code envelope)
+        (run-plain "--root" "json" "json" "get")
+      (expect code :to-be 1)
+      (expect (value envelope "error" "code") :to-equal "argument.invalid")
+      (expect (repair-commands envelope) :to-equal (list "aitools doc get"))))
   (it "uses the generic repair for an unknown retired-format verb"
     (multiple-value-bind (code envelope)
         (run-plain "yaml" "frobnicate")
