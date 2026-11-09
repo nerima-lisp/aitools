@@ -184,7 +184,6 @@
         (let ((fd (sb-posix:open path sb-posix:o-rdonly)))
           (unwind-protect (expect (aitools.text.infrastructure::%read-all fd 3) :to-equalp (subseq bytes 0 65540))
             (sb-posix:close fd)))))))
-
   (it "retries an interrupted read and propagates other syscall errors"
     (call-with-scratch-directory (lambda (scratch)
       (let* ((path (concatenate 'string scratch "/input"))

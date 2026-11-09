@@ -9,16 +9,26 @@
          (note (operation path) (when reads (push (list operation path) (car reads)))))
     (cl-boundary-kit:make-boundary-context
      :text-read-sniffed
-     (lambda (path count continue-p)
+     (lambda (path count continue-p &key max-bytes)
        (note :open path)
        (let ((bytes (lookup path)))
          (if (null bytes)
              (values nil (and (string= path unreadable-path) :unreadable))
-             (let* ((prefix (subseq bytes 0 (min count (length bytes))))
+             (let* ((read-count (if max-bytes (min count (1+ max-bytes)) count))
+                    (prefix (subseq bytes 0 (min read-count (length bytes))))
                     (continue (funcall continue-p prefix (length bytes))))
-               (if (and continue (= (length prefix) count))
-                   (progn (note :rest path) bytes)
-                   prefix))))))))
+               (cond ((not continue) prefix)
+                     ((and max-bytes (> (length bytes) max-bytes))
+                      (values nil :too-large))
+                     ((= (length prefix) read-count)
+                      (note :rest path)
+                      bytes)
+                     (t prefix)))))))))
+(defun composed-source (file-size read-prefix read-octets)
+  (cl-boundary-kit:make-boundary-context
+   :text-file-size file-size
+   :text-read-prefix read-prefix
+   :text-read-octets read-octets))
 
 (defun read-outcome (source path &key max-bytes)
   (call-with-text-file/k source path
@@ -145,6 +155,81 @@
                (error (condition) (princ-to-string condition)))))
         (expect result :to-equal
                 "No :ON-TOO-LARGE continuation was supplied for 5 bytes"))))
+(describe "aitools.text.application composed sniffed-read fallback"
+  (it "bounds growth and preserves unbounded, short, binary, and error reads"
+    (let* ((limit 9000)
+           (file-size-value limit)
+           (file-size-problem nil)
+           (prefix-problem nil)
+           (bytes (make-array (1+ limit) :element-type '(unsigned-byte 8) :initial-element 65))
+           (read-arguments nil)
+           (boundaries
+             (composed-source
+              (lambda (path)
+                (declare (ignore path))
+                (values file-size-value file-size-problem))
+              (lambda (path count)
+                (declare (ignore path))
+                (if prefix-problem
+                    (values nil prefix-problem)
+                    (subseq bytes 0 (min count (length bytes)))))
+              (lambda (path &rest arguments)
+                (declare (ignore path))
+                (setf read-arguments arguments)
+                (let ((max-bytes (getf arguments :max-bytes)))
+                  (if (and max-bytes (> (length bytes) max-bytes))
+                      (values nil :too-large)
+                      bytes))))))
+      (expect (sniffed-outcome boundaries "/grown" :max-bytes limit)
+              :to-equal (list :too-large (1+ limit)))
+      (expect read-arguments :to-equal (list :max-bytes limit))
+      (setf bytes (subseq bytes 0 limit)
+            read-arguments nil)
+      (expect (sniffed-outcome boundaries "/unbounded")
+              :to-equal (list :text limit))
+      (expect read-arguments :to-be nil)
+      (setf bytes (make-array 5 :element-type '(unsigned-byte 8) :initial-element 65)
+            file-size-value 4
+            read-arguments nil)
+      (expect (sniffed-outcome boundaries "/prefix-grown" :max-bytes 4)
+              :to-equal (list :too-large 5))
+      (expect read-arguments :to-be nil)
+      (setf (aref bytes 0) 0
+            file-size-value 5)
+      (expect (sniffed-outcome boundaries "/binary" :max-bytes 4)
+              :to-equal (list :binary 5 5))
+      (setf bytes (make-array 2 :element-type '(unsigned-byte 8) :initial-element 65)
+            file-size-value 2)
+      (expect (sniffed-outcome boundaries "/short" :max-bytes 4)
+              :to-equal (list :text 2))
+      (setf file-size-value nil)
+      (expect (sniffed-outcome boundaries "/missing" :max-bytes 4)
+              :to-equal (list :missing "/missing"))
+      (setf file-size-value 2
+            prefix-problem :unreadable)
+      (expect (sniffed-outcome boundaries "/unreadable" :max-bytes 4)
+              :to-equal (list :unreadable "/unreadable")))))
+(describe "aitools.text.application bounded growth"
+  (it "reports the first excess byte when a text file grows after fstat"
+    (let* ((limit 8192)
+           (bytes (make-array (1+ limit) :element-type '(unsigned-byte 8) :initial-element 65))
+           (received-limit nil)
+           (boundaries
+             (cl-boundary-kit:make-boundary-context
+              :text-read-sniffed
+              (lambda (path count continue-p &key max-bytes)
+                (declare (ignore path))
+                (setf received-limit max-bytes)
+                (let* ((prefix (subseq bytes 0 (min count (length bytes))))
+                       (continue (funcall continue-p prefix limit)))
+                  (cond ((not continue) prefix)
+                        ((and max-bytes (> (length bytes) max-bytes))
+                         (values nil :too-large))
+                        ((= (length prefix) count) bytes)
+                        (t prefix)))))))
+      (expect (sniffed-outcome boundaries "/grown" :max-bytes limit)
+              :to-equal (list :too-large (1+ limit)))
+      (expect received-limit :to-be limit))))
 
 (describe "aitools.text.infrastructure make-host-text-source"
   (it "provides all file operations as boundary keys"
