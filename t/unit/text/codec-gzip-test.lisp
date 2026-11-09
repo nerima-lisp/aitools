@@ -1,4 +1,18 @@
 (in-package #:aitools.text.test)
+(describe "gzip FNAME validation order"
+  (it "checks the signature and reserved flags before an overlong FNAME"
+    (let* ((name (make-array
+                  (1+ aitools.text.domain:+archive-max-path-bytes+)
+                  :element-type '(unsigned-byte 8)
+                  :initial-element 65))
+           (bad-prefix
+             (join-octets (octets 0 #x8b 8 8 0 0 0 0 0 3) name (octets 0)))
+           (reserved-flags
+             (join-octets (octets #x1f #x8b 8 #x28 0 0 0 0 0 3) name (octets 0))))
+      (expect (gzip-reason (lambda () (gzip-member-header bad-prefix)))
+              :to-equal (list 'archive-error "not a gzip stream"))
+      (expect (gzip-reason (lambda () (gzip-member-header reserved-flags)))
+              :to-equal (list 'archive-error "reserved gzip flags are set")))))
 
 (defun gzip-reason (function)
   (handler-case (progn (funcall function) :no-error)

@@ -61,6 +61,29 @@
               timed-out
               (uiop:read-file-string (disk "depth-probe.stdout"))
               (uiop:read-file-string (disk "depth-probe.stderr"))))))
+(describe "archive extraction in staged views"
+  (it "reads an archive created earlier in the same transaction"
+    (call-with-edit-workspace (lambda ()
+      (put "src/a.txt" "payload")
+      (let ((tx (begin-tx)))
+        (expect (run-in tx "archive.create" (list "staged.tar" "src") :format "tar") :to-be :ok)
+        (expect (run-in tx "archive.extract" (list "staged.tar") :to "unpacked") :to-be :ok)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (text "unpacked/src/a.txt") :to-equal "payload")
+        (expect (kind "staged.tar") :to-be :file)))))
+  (it "commits an archive symlink with a safe parent traversal"
+    (call-with-edit-workspace (lambda ()
+      (put "links.tar"
+           (aitools.text.domain:write-tar
+            (list (member-file "target" "payload")
+                  (aitools.text.domain:make-archive-member
+                   :name "nested/link" :kind :symlink :link-target "../target"))))
+      (let ((tx (begin-tx)))
+        (expect (run-in tx "archive.extract" (list "links.tar") :to "dest") :to-be :ok)
+        (expect (commit-tx tx) :to-be :committed)
+        (expect (kind "dest/nested/link") :to-be :symlink)
+        (expect (sb-posix:readlink (disk "dest/nested/link")) :to-equal "../target")
+        (expect (text "dest/target") :to-equal "payload"))))))
 
 (describe "archive extraction symlinks in transaction views"
   #+darwin
