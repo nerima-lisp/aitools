@@ -64,6 +64,30 @@
                              (cons "hash" (aitools.kernel.domain:content-hash empty))))))))
 
 (aitools.kernel.domain:define-flow
+    (%check-mktemp-area/k host workspace-root store tmp &key on-ok on-error)
+  "Reject a temporary area inside Git metadata before creating or cleaning it."
+  (aitools.workspace.application:call-with-workspace-boundary/k
+   host workspace-root tmp
+   :temporary-root tmp
+   :state-root
+   (aitools.store.application:workspace-state-root
+    (aitools.store.application:store-state-directory store))
+   :on-inside
+   (lambda (path verdict)
+     (declare (ignore path verdict))
+     (aitools.kernel.domain:flow-continue :on-ok))
+   :on-outside
+   (lambda (verdict lexical real)
+     (if (and (eq verdict :state-directory)
+              (string= lexical tmp)
+              (string= real tmp))
+         (aitools.kernel.domain:flow-continue :on-ok)
+         (aitools.kernel.domain:flow-continue
+          :on-error
+          "refusal.outside-workspace"
+          (%outside-message verdict lexical))))))
+
+(aitools.kernel.domain:define-flow
     (mktemp-flow ports options &key root on-ok on-error)
   "Create a file (or with --dir a directory) in the workspace's
 tmp/ area, after removing entries there older than 7 days. Not
@@ -84,25 +108,34 @@ journaled; the returned absolute path is a valid write target inside the workspa
          (lambda (workspace-root)
            (let* ((store (funcall (edit-ports-open-store ports)
                                   (aitools.workspace.application:workspace-root-real workspace-root)))
-                  (tmp (aitools.store.domain:tmp-directory (aitools.store.application:store-state-directory store)))
+                  (tmp
+                   (let ((path
+                           (aitools.store.domain:tmp-directory
+                            (aitools.store.application:store-state-directory store))))
+                     (or (aitools.workspace.application:resolve-real-path host path)
+                         path)))
                   (now (funcall (edit-ports-unix-now ports))))
-             (handler-case
-                 (progn
-                   ;; The state home may sit behind a symlink ($XDG_STATE_HOME=/tmp/x,
-                   ;; /tmp -> /private/tmp): create and answer the real path, the
-                   ;; form the write boundary compares a mktemp path with.
-                   (setf tmp (or (aitools.workspace.application:resolve-real-path host tmp) tmp))
-                   (%ensure-directory store tmp)
-                   (dolist (name (%io store #'aitools.store.application:store-io-list-directory tmp))
-                     (let* ((path (aitools.workspace.domain:join-path tmp name))
-                            (entry (aitools.workspace.application:host-stat host path)))
-                       (when (and entry
-                                  (< (aitools.workspace.application:workspace-entry-mtime entry)
-                                     (- now +mktemp-max-age-seconds+)))
-                         (%remove-tree store path))))
-                   (aitools.kernel.domain:flow-continue
-                    :on-ok
-                    (%mktemp-result store tmp suffix (getf options :dir))))
-               (aitools.store.application:store-io-error (condition)
-                 (aitools.kernel.domain:flow-continue
-                  :on-error "environment.io" (princ-to-string condition))))))))))
+             (aitools.kernel.domain:flow-call
+              (%check-mktemp-area/k host workspace-root store tmp)
+              (:on-ok ()
+                (handler-case
+                    (progn
+                      ;; The state home may sit behind a symlink ($XDG_STATE_HOME=/tmp/x,
+                      ;; /tmp -> /private/tmp): create and answer the real path, the
+                      ;; form the write boundary compares a mktemp path with.
+                      (%ensure-directory store tmp)
+                      (dolist (name (%io store (function aitools.store.application:store-io-list-directory) tmp))
+                        (let* ((path (aitools.workspace.domain:join-path tmp name))
+                               (entry (aitools.workspace.application:host-stat host path)))
+                          (when (and entry
+                                     (< (aitools.workspace.application:workspace-entry-mtime entry)
+                                        (- now +mktemp-max-age-seconds+)))
+                            (%remove-tree store path))))
+                      (aitools.kernel.domain:flow-continue
+                       :on-ok
+                       (%mktemp-result store tmp suffix (getf options :dir))))
+                  (aitools.store.application:store-io-error (condition)
+                    (aitools.kernel.domain:flow-continue
+                     :on-error "environment.io" (princ-to-string condition)))))
+              (:on-error (code message)
+                (aitools.kernel.domain:flow-continue :on-error code message)))))))))

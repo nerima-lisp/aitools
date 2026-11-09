@@ -22,6 +22,7 @@
    (:file "domain/protocol/selector-options-data")
    (:file "domain/process/process-tables-data")
    (:file "domain/workspace/builtin-excludes-data")
+   (:file "domain/workspace/git-metadata-data")
    (:file "domain/text/cp932-data-part-001")
    (:file "domain/text/cp932-data-part-002")
    (:file "domain/text/cp932-data-part-003")

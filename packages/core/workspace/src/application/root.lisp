@@ -16,27 +16,43 @@
     (and octets (decode-git-text octets))))
 
 (defun %repository-at (host directory)
-  "The GIT-REPOSITORY whose top is DIRECTORY, or NIL when DIRECTORY has no
-usable `.git` entry. A `.git` directory must contain HEAD, as git requires."
+  "The GIT-REPOSITORY whose top is DIRECTORY, or NIL when it has neither a
+usable `.git` entry nor a common Git directory layout."
   (let* ((dot-git (join-path directory ".git"))
          (entry (host-stat host dot-git)))
-    (when entry
-      (let ((git-dir
-              (if (and (eq (workspace-entry-kind entry) :file))
-                  (let* ((text (%read-text host dot-git))
-                         (target (and text (parse-gitdir-file text))))
-                    (and target (normalize-path (join-path directory target))))
-                  (and (%directory-p host dot-git) dot-git))))
-        (when (and git-dir (host-stat host (join-path git-dir "HEAD")))
-          (let* ((commondir-text (%read-text host (join-path git-dir "commondir")))
-                 (common (if commondir-text
-                             (normalize-path
-                              (join-path git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
-                                                              commondir-text)))
-                             git-dir)))
-            (make-git-repository :top (coerce directory 'simple-string)
-                                 :git-dir (coerce git-dir 'simple-string)
-                                 :common-dir (coerce common 'simple-string))))))))
+    (or
+     (when entry
+       (let ((git-dir
+               (if (and (eq (workspace-entry-kind entry) :file))
+                   (let* ((text (%read-text host dot-git))
+                          (target (and text (parse-gitdir-file text))))
+                     (and target (normalize-path (join-path directory target))))
+                   (and (%directory-p host dot-git) dot-git))))
+         (when (and git-dir (host-stat host (join-path git-dir "HEAD")))
+           (let* ((commondir-text (%read-text host (join-path git-dir "commondir")))
+                  (common (if commondir-text
+                              (normalize-path
+                               (join-path git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
+                                                               commondir-text)))
+                              git-dir)))
+             (make-git-repository :top (coerce directory 'simple-string)
+                                  :git-dir (coerce git-dir 'simple-string)
+                                  :common-dir (coerce common 'simple-string))))))
+     ;; Git v2.55.0 setup.c:is_git_directory checks HEAD, objects/, and refs/.
+     (let ((head (host-stat host (join-path directory "HEAD"))))
+       (when (and head
+                  (%directory-p host (join-path directory "objects"))
+                  (%directory-p host (join-path directory "refs")))
+         (make-git-repository :top (coerce directory 'simple-string)
+                              :git-dir (coerce directory 'simple-string)
+                              :common-dir (coerce directory 'simple-string)))))))
+
+(defun find-git-repositories (host start)
+  "All repositories rooted at START or an ancestor, innermost first."
+  (loop for directory = start then (path-parent directory)
+        while directory
+        for repository = (%repository-at host directory)
+        when repository collect repository))
 
 (defun find-git-repository (host start)
   "The innermost GIT-REPOSITORY whose top is START or one of its ancestors,

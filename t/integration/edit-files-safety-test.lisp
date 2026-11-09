@@ -100,7 +100,39 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
                             nil)))
          (lambda ()
            (let ((path (mktemp-path)))
-             (expect (probe-file path) :to-be-truthy)))))))))
+             (expect (probe-file path) :to-be-truthy))))))))
+  (it "refuses mktemp when its state area is inside the parent Git common directory"
+    (call-with-edit-workspace
+     (lambda ()
+       (let* ((common (aitools.workspace.domain:path-parent *root*))
+              (git-dir (aitools.workspace.domain:join-path common "worktrees/wt"))
+              (dot-git (aitools.workspace.domain:join-path *root* ".git"))
+              (result nil))
+         (ensure-directories-exist
+          (sb-ext:parse-native-namestring
+           (aitools.workspace.domain:join-path git-dir "HEAD")))
+         (labels ((write-text (path text)
+                    (with-open-file (out (sb-ext:parse-native-namestring path)
+                                         :direction :output :if-exists :supersede
+                                         :if-does-not-exist :create)
+                      (write-string text out))))
+           (write-text (aitools.workspace.domain:join-path common "HEAD")
+                       "ref: refs/heads/main")
+           (write-text (aitools.workspace.domain:join-path git-dir "HEAD") "0123")
+           (write-text (aitools.workspace.domain:join-path git-dir "commondir") "../..")
+           (write-text dot-git (format nil "gitdir: ~A" git-dir))
+           (let ((*home* common))
+             (dolist (root (list nil *root*))
+               (run-edit-command *ports* "mktemp" nil nil
+                                 :root root
+                                 :on-ok (lambda (fields)
+                                          (setf result (list :ok fields)))
+                                 :on-error (lambda (code message &rest keys)
+                                             (declare (ignore message keys))
+                                             (setf result (list :error code)))
+                                 :on-partial (function identity))
+               (expect result :to-equal (list :error "refusal.outside-workspace"))
+               (expect (probe-file (format nil "~A/aitools/" common)) :to-be nil)))))))))
 
 (describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
