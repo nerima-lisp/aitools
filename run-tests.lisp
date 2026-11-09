@@ -183,6 +183,7 @@
                         (first entry) (getf stats :expression-covered)
                         (getf stats :expression-total)
                         (getf stats :branch-covered) (getf stats :branch-total))))
+            (report-coverage-gaps root groups measured)
             (uiop:symbol-call :aitools/test :%validate-coverage-artifacts
                               (merge-pathnames "coverage.json" root)
                               (merge-pathnames "coverage/cover-index.html" root)
