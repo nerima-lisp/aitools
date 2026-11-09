@@ -28,14 +28,14 @@
              (environment-with
               `(("AITOOLS_E2E_NET_CLI_OUTPUT" . ,(native target))
                 ("AITOOLS_E2E_NET_CLI_FASL" . ,(native fasl-directory))))
-             :timeout-seconds +build-timeout-seconds+))
+             :timeout-seconds +build-timeout-seconds+)))
     (unless (and (eql (result-exit-code result) 0) (probe-file target))
       (fail "~A"
             (format nil "building the net e2e CLI failed (exit ~A): ~A~%~A"
                     (result-exit-code result)
                     (utf8 (result-stdout result))
                     (utf8 (result-stderr result)))))
-    target)))
+    target))
 
 (defmacro define-net-row-case ((row name &key foreign) (workspace) &body body)
   (let ((title (format nil "row ~2,'0D: ~A" row name)))
