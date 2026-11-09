@@ -16,8 +16,8 @@ aitools schema edit read        # arguments, output fields, error codes
 aitools schema doc get          # a group command, as typed
 ```
 
-`schema` without arguments returns only names and summaries, so it stays
-short. The detail object lists each argument's type and default, each output
+`schema` without arguments returns only command names and summaries. The detail
+object lists each argument's type and default, each output
 field, and the error codes the command declares. The
 [command reference](../reference/commands/index.md) and its context pages show the same data.
 Use the same `doc` commands for JSON, YAML, and TOML files; the path extension selects the format,
@@ -29,7 +29,7 @@ and `--format` overrides it.
 |---|---|
 | 0 | Use the result on standard output. |
 | 3 | The result on standard output is incomplete (`status:"partial"`). Follow `next_commands` when present, or narrow the request. For `run`, check the child outcome before considering a retry; see [Run an external program](#run-an-external-program). |
-| 2 | The file is not in the state you assumed. Read it again, then retry with a fresh selection, hash, or count. |
+| 2 | A precondition failed. Read the command's error details and follow its repair. Refresh any file selection, hash, count, or transaction state before retrying. |
 | 1 | Read `error.code`; treat `error.repairs` as suggestions and review a command before running it. |
 
 Standard output carries success; standard error carries the error envelope.
@@ -40,7 +40,7 @@ Each is exactly one JSON object.
 A relative path argument resolves against the current working directory,
 as in a shell. `--root` selects the workspace (the write boundary, the state
 directory, and the ignore rules) and does not change what a relative path
-means. Write output gives paths relative to the workspace root. `read`,
+means. Write commands return paths relative to the workspace root. `read`,
 `info`, `check`, and `diff` give a file inside the root relative to it and a
 file outside the root as its absolute real path.
 
@@ -51,21 +51,21 @@ symlink that leaves it, or into the workspace's `.git/` fail with
 or nested directory that resolves into `.git/` is refused.
 
 During planning, `archive extract` rejects symlink targets that leave the
-resolved extraction root or pass through a symlink at any target component. It
-checks each component, including the component immediately before `..` and the
-last component. For example, with `D -> .`, a target of `D/..` is refused.
+resolved extraction root or pass through an archive symlink at any target
+component. It checks each component, including the one immediately before
+`..` and the last component. For example, with `D -> .`, a target of `D/..` is
+refused.
 
-The prefix check combines disk entries, symlinks in the transaction's staged
-view, and symlinks in the archive being planned. This includes symlinks staged
-by earlier archive operations in the same transaction. For this check, staged
-and archive symlink components use Unicode NFD normalization and full case
-folding on every platform. Other archive-name comparisons follow the spelling
-rules below.
+The prefix check walks filesystem components without following symlinks. It
+also checks symlinks in the transaction's staged view and the archive being
+planned, including links staged by earlier archive operations. Staged and
+archive symlink components use Unicode NFD normalization and full case folding
+on every platform. Other archive-name comparisons follow the spelling rules
+below.
 
-For an archive symlink's target, planning refuses paths that cross an existing
-destination symlink, even when that symlink is the target's final component.
-Planning also refuses archive entries whose parent paths cross archive or
-destination symlinks.
+Planning also refuses an archive symlink target that crosses an existing
+destination symlink, including at the target's final component. It refuses
+archive entries whose parent paths cross archive or destination symlinks.
 
 Without `--tx`, `archive extract` writes after planning against the resolved
 extraction root. With `--tx`, it stages the entries after the same planning
@@ -75,17 +75,18 @@ an archive. An unsafe target or prefix rejects the commit with
 `refusal.outside-workspace` and leaves the transaction open. Remove or replace
 the offending staged link and retry `tx commit`, or run `tx abort`.
 
-Entry selection with `--entry`, duplicate-name checks, and hard-link target
-lookup preserve case and Unicode spelling after empty and `.` path components
-are removed. Thus `README` and `readme` are distinct entries on a case-sensitive
-filesystem. On a case-insensitive filesystem, both may pass planning. Applying
-the extraction returns `refusal.exists` if the destination aliases the paths;
-with `--tx`, this occurs when staged changes are applied.
+Archive entry paths containing `..` are refused. Entry selection with
+`--entry`, duplicate-name checks, and hard-link target lookup preserve case and
+Unicode spelling after empty and `.` path components are removed. Thus
+`README` and `readme` are distinct entries on a case-sensitive filesystem. On
+a case-insensitive filesystem, both may pass planning. Applying the extraction
+returns `refusal.exists` if the destination aliases the paths; with `--tx`,
+this occurs when staged changes are applied.
 
-The `--to` path names the extraction root. The existing write-target resolver
-follows an in-workspace destination symlink and refuses a target outside the
-workspace. Archive member paths and link targets are checked within that
-resolved extraction root.
+The `--to` path names the extraction root. A destination symlink is followed
+when it resolves inside the workspace; a target outside the workspace is
+refused. Archive member paths and link targets are checked within the resolved
+extraction root.
 
 Archive extraction caps entry paths at 4,095 UTF-8 bytes, path components at
 255 UTF-8 bytes, path depth at 2,048 nonempty, non-`.` components, and link
@@ -98,8 +99,8 @@ lengths and uncompressed symlink target sizes; tar counts emitted UTF-8 name
 and link-target bytes. This limits the path and target text retained across
 entries. Exceeding a limit returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
-other-writable, and never setuid, setgid, or sticky. The state
-directory lives outside the root, so writes there are refused too. The one
+other-writable, and never setuid, setgid, or sticky. Aitools' state directory
+lives outside the root, so writes there are refused too. The one
 exception is the temporary area that `aitools mktemp` creates; writes below
 the path it returns are allowed.
 
@@ -112,9 +113,10 @@ $ aitools read nums.txt --max-lines 3
 {"schema_version":2,"status":"partial","command":"read","mode":"text","path":"nums.txt","start_line":1,"lines":["1","2","3"],"total_lines":100,"hash":"93d4e5c7...","truncated":true,"encoding_errors":0,"approx_tokens":2,"next_commands":["aitools read nums.txt --range 4:6"]}
 ```
 
-`approx_tokens` estimates the size of the returned text as
-`ceil(characters / 4)` (a multi-byte UTF-8 character counts once),
-independent of any model's tokenizer. Use it to decide whether to read more
+`approx_tokens` estimates returned text size as `ceil(characters / 4)`. It
+counts characters in the returned string, not UTF-8 bytes, so a multi-byte
+UTF-8 character counts once. The estimate is independent of any model's
+tokenizer. Use it to decide whether to read more
 or to narrow the range.
 
 ## Write with guards
@@ -175,8 +177,9 @@ without following their targets. The default limits are 1,000 entries and
 64 MiB of regular-file content; `--max-entries` and `--max-bytes` override
 them. These limits bound the selected deletion, not process memory.
 
-For `rm`, workspace, home, and filesystem roots, `.git/`, `.jj/`, and the state
-directory are protected. Keep the returned `op_id` to undo the deletion.
+For `rm`, the workspace root, home directory, filesystem roots, `.git/`,
+`.jj/`, and aitools' state directory are protected. Keep the returned `op_id`
+to undo the deletion.
 Stop external writers to the target tree before running the operation.
 Neither a dry run nor the journal reserves the tree against other processes.
 If a committed write needs recovery, inspect its diagnostics before retrying;
@@ -198,8 +201,8 @@ aitools tx diff tx-...                  # what commit would change
 aitools tx commit tx-...                # one op_id for everything
 ```
 
-If another process changed a file first, `tx commit` fails with exit code 2
-and repairs that name `tx rebase` or a re-read. See
+If another process changed a file after the transaction read it, `tx commit`
+fails with exit code 2 and repairs that name `tx rebase` or a re-read. See
 [Transactions](../reference/transactions.md) for the full model.
 
 ## Read a resource snapshot
