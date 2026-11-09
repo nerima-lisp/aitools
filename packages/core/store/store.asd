@@ -41,6 +41,7 @@
                         (:file "unit/store/record-codec-test")
                         (:file "unit/store/tx-model-test")
                         (:file "unit/store/archive-prefix-test")
+                        (:file "unit/store/tx-commit-test")
                         (:file "integration/store-write-protocol-test")
                         (:file "integration/store-journal-undo-test")
                         (:file "integration/store-recovery-test")

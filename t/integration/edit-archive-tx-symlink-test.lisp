@@ -71,19 +71,22 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "unpacked/src/a.txt") :to-equal "payload")
         (expect (kind "staged.tar") :to-be :file)))))
-  (it "commits an archive symlink with a safe parent traversal"
-    (call-with-edit-workspace (lambda ()
-      (put "links.tar"
-           (aitools.text.domain:write-tar
-            (list (member-file "target" "payload")
-                  (aitools.text.domain:make-archive-member
-                   :name "nested/link" :kind :symlink :link-target "../target"))))
-      (let ((tx (begin-tx)))
-        (expect (run-in tx "archive.extract" (list "links.tar") :to "dest") :to-be :ok)
-        (expect (commit-tx tx) :to-be :committed)
-        (expect (kind "dest/nested/link") :to-be :symlink)
-        (expect (sb-posix:readlink (disk "dest/nested/link")) :to-equal "../target")
-        (expect (text "dest/target") :to-equal "payload"))))))
+  (it "commits an archive symlink with a safe parent traversal through a disk directory"
+      (call-with-edit-workspace (lambda ()
+                                  (put "dest/nested/marker" "kept")
+                                  (put "links.tar"
+                                       (aitools.text.domain:write-tar
+                                        (list (member-file "target" "payload")
+                                              (aitools.text.domain:make-archive-member
+                                               :name "nested/link" :kind :symlink :link-target "../target"))))
+                                  (let ((tx (begin-tx)))
+                                    (expect (run-in tx "archive.extract" (list "links.tar") :to "dest")
+                                            :to-be :ok)
+                                    (expect (commit-tx tx) :to-be :committed)
+                                    (expect (kind "dest/nested/link") :to-be :symlink)
+                                    (expect (sb-posix:readlink (disk "dest/nested/link")) :to-equal "../target")
+                                    (expect (text "dest/target") :to-equal "payload")
+                                    (expect (text "dest/nested/marker") :to-equal "kept"))))))
 
 (describe "archive extraction symlinks in transaction views"
   #+darwin
