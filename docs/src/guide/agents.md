@@ -318,6 +318,9 @@ with `repairs` naming the aitools command to use instead:
 | `df` | `aitools sys disk` | Read capacity of the filesystem containing a path, not every mount. |
 | `netstat` | `aitools sys network` | Read cumulative interface counters, not rates or connectivity. |
 | `netstat` | `aitools sys ports` | List listening TCP sockets, not every connection or route. |
+| `curl`, `WebFetch` | `aitools net get` | Fetch an HTTP resource with GET and a bounded response body. |
+| `curl`, `WebFetch` | `aitools net head` | Fetch response headers with HEAD. |
+| `dig`, `nslookup` | `aitools net resolve` | Resolve A and AAAA address results through the operating system resolver; other DNS record types and CNAME chains require dig or nslookup. |
 | `date` | `aitools time now` | Read or convert the current or a given time. |
 | `base64`, `xxd` | `aitools util encode` | Encode bytes with util encode; use util decode to decode them. |
 | `bc`, `expr` | `aitools util calc` | Evaluate an arithmetic expression. |

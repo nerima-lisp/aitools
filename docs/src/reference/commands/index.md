@@ -214,6 +214,9 @@ groups to the fixed output order.
 | [`util calc`](util.md#util-calc) | util | Evaluate integer, decimal, and rational arithmetic with arbitrary precision. |
 | [`util uuid`](util.md#util-uuid) | util | Generate RFC 9562 UUIDs from the OS cryptographic random source. |
 | [`util random`](util.md#util-random) | util | Generate uniformly random strings over hex, alnum, or base64url. |
+| [`net get`](net.md#net-get) | net | Fetch an HTTP resource with GET. |
+| [`net head`](net.md#net-head) | net | Fetch HTTP response headers with HEAD. |
+| [`net resolve`](net.md#net-resolve) | net | Resolve A and AAAA addresses with the operating system resolver. |
 | [`schema`](#schema) | composition root | List implemented commands, or show one command's full schema. |
 | [`batch`](#batch) | composition root | Run several aitools invocations from one JSON input, optionally as one tx. |
 

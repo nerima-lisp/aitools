@@ -139,11 +139,13 @@ nix build                    # -> ./result/bin/aitools
 
 ## Building the binary
 
-`nix build` produces the delivered binary in two SBCL processes
-(`overrideOutputs` in `flake.nix`):
+`nix build` produces the delivered binary in two SBCL processes. The
+`overrideOutputs` definition in `flake.nix` imports
+`nix/delivery-overrides.nix` to set up this build:
 
-1. `aitools-cli-fasls` compiles and loads every fasl of the `aitools/cli`
-   closure through cl-nix-forge's `lispDerivation`, without dumping an image.
+1. `aitools-cli-fasls` compiles and loads every FASL (compiled Lisp file) in
+   the `aitools/cli` closure through cl-nix-forge's `lispDerivation`, without
+   dumping an image.
 2. cl-nix-forge's `mkExecutable` runs `asdf:program-op` on `aitools/cli`
    over that precompiled tree in a fresh process. The fasls carry the same
    normalized store timestamp as their sources, so ASDF loads them without
@@ -176,7 +178,8 @@ step and check the next run's `recovered` result.
 
 ## The component lists
 
-Each context's ASD under `packages/` owns its library and test systems.
+Each context's ASD (ASDF system definition) under `packages/` owns its library
+and test systems.
 `aitools.asd` loads those ASD files and
 composes the root systems; it also owns the shared data system and CLI
 composition root. The production components, test components, and count-floor
@@ -199,10 +202,10 @@ files are:
   are checked by the shared `t/spec-count-baselines/loader.lisp`.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
-store, then feature search, inspect, journal, edit, process, org, env, util.
-A context loads after every context whose application package it calls:
-journal before edit (edit registers its `tx rebase` replayers with journal),
-inspect before edit and edit before util.
+store, then feature search, inspect, journal, edit, process, org, env, util,
+and net. A context loads after every context whose application package it
+calls: journal before edit (edit registers its `tx rebase` replayers with
+journal), inspect before edit and edit before util.
 
 To add or move context library or presentation files, edit that context's ASD.
 Update `aitools.asd` when adding shared data or changing root system
@@ -240,10 +243,12 @@ in `aitools-test-system.lisp`.
    context name, `register-<context>-commands`, and the constructor. Existing
    contexts use their own registration file; update the constructor when a
    command needs new effects. Each context owns its constructor and dependency
-   value. As it migrates, it can change that value from ports to boundary
-   objects without changing the registration macro contract. The macro stores
-   the constructor without inspecting it or its result; the composition root
-   passes the result to the registration function unchanged.
+   value. Ports expose effects to application flows as plain functions, such as
+   an HTTP requester. Boundary objects group related operations behind an
+   interface. As a context migrates, it can change the dependency value from
+   ports to boundary objects without changing the registration macro contract.
+   The macro stores the constructor without inspecting it or its result; the
+   composition root passes the result to the registration function unchanged.
 4. Each command builder returns a cl-cli command with a handler. The handler
    returns a command result for dispatch by calling the application flow through
    `aitools.protocol.application:call-with-command-result/k`. That function

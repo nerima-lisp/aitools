@@ -5,14 +5,17 @@ not interchangeable invocations. Check the arguments, input, output, exit
 status, and side effects before replacing a command. Use `aitools schema`
 with command words to inspect the current contract.
 
-This catalog was derived from locally recorded Codex and Claude Code tool
-calls using command-position extractors. Raw session logs and the local
-audit results are not distributed with the release; the catalog is migration
-guidance, not reproducible evidence for each historical invocation.
+This catalog was derived from Codex and Claude Code tool-call records available
+in the local authoring environment. The extractors recorded names only when
+they appeared in command position, so the catalog is not a complete history.
+Raw session logs and audit results are not distributed with the release; use
+the catalog as migration guidance, not evidence for a particular invocation.
 
-## Native candidates
+## Built-in candidates
 
-Uses outside the stated subset need external execution.
+The table maps detected names to built-in `aitools` commands. A row using
+`run -- ...` invokes an external program. Other uses outside the stated subset
+need external execution.
 
 | Detected names | Candidate and limits |
 |---|---|
@@ -44,6 +47,8 @@ Uses outside the stated subset need external execution.
 | `date` | `time now`, `time convert`, `time diff`. |
 | `sleep` | [`wait --duration`](../reference/commands/process.md#wait): JSON output; `--duration` sets the requested delay, while `--timeout` limits the wait (default 60 seconds). Set a timeout longer than the duration for longer delays. |
 | `kill` | `bg stop`: managed job IDs only, not arbitrary PIDs or signals. |
+| `curl WebFetch` | `net get URL` (GET) and `net head URL` (HEAD): HTTP/HTTPS only, a 30-second default deadline, and at most five redirects. HTTPS-to-HTTP redirects are refused. Redirect policy is fixed for the entire chain by the original DNS answers: if all initial answers are non-public, redirects to public or non-public addresses are allowed. If any initial answer is public, the initial request uses only public answers and every redirect hop must resolve entirely to public addresses. Known IPv4-embedded IPv6 forms (`64:ff9b::/96`, `::ffff:0:0/96`, `::/96`, `2002::/16`, and `2001:0::/32`) are classified by embedded IPv4; loopback, private, link-local, and other non-public embedded IPv4 values are non-public for redirect checks. `64:ff9b:1::/48` is non-public, and public native IPv6 is allowed. Network-specific NAT64 prefixes ([RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html)) are not detected because Pref64 discovery ([RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html)) is not implemented. An IPv6 address synthesized from a non-public IPv4 address under such a prefix may be misclassified as public and used by an initial request or pass the redirect target filter; this remains a residual risk. GET keeps bodies in memory with a 16 MiB limit. See [`net get`](../reference/commands/net.md#net-get) for address and secret masking rules. No authentication-header or arbitrary-method option; use `run -- curl` for those. |
+| `dig nslookup` | `net resolve HOST`: A and AAAA address results from the operating system resolver. It does not return CNAME chains, other record types, or DNS response codes; use `run -- dig` or `run -- nslookup` for those. |
 
 ## External argv
 
@@ -52,11 +57,11 @@ installed, executable under OS permissions, and allowed by the caller's
 execution policy. This list is not an aitools allowlist:
 
 ```text
-basename bash brew cargo cc clang code curl defaults deno dig
+basename bash brew cargo cc clang code defaults deno
 direnv dirname diskutil docker emacs fish gh gtimeout
 home-manager jj just kubectl launchctl make man nc nice nix
 nix-instantiate nix-shell nix-store nixfmt node nohup npm npx
-nslookup open orca osascript paredit ping pip pip3
+open orca osascript paredit ping pip pip3
 pkill plutil pnpm psql python python3 readlink realpath rsync ruby
 rustc sbcl security sh shellcheck sips sqlite3 ssh sudo swift sysctl
 tee terraform time timeout tmux treefmt tsc wget xargs yq zsh
@@ -111,7 +116,8 @@ containing `<<`, including quoted text and here-strings. Duplicate tool-call
 IDs are collapsed under the assumption that they identify the same call.
 
 Remaining native gaps include
-general open-file queries, disk I/O and device/mount inventories, DNS and
+general open-file queries, disk I/O and device/mount inventories, DNS
+record queries beyond `net resolve` A/AAAA results (including CNAME chains),
 connectivity checks, arbitrary signal selection and jq/awk/sed/yq programs,
 hardlinks, version-control writes, and service/container/database operations.
 See [State inspection](state-inspection.md) for observation boundaries and
