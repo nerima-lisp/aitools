@@ -17,12 +17,17 @@
   link targets to 4,095 UTF-8 bytes. It accepts at most 200,000 nonzero tar
   header records; all-zero end-of-archive records do not count, while PAX and
   GNU metadata headers do. ZIP archives may contain at most 65,534
-  central-directory entries. Larger inputs return `refusal.too-large`.
+  central-directory entries. Archive readers also cap the combined entry-name
+  and link-target metadata byte count at 16 MiB per archive. ZIP counts raw name
+  lengths and uncompressed symlink target sizes; tar counts emitted UTF-8 name
+  and link-target bytes. This limits the path and target text retained across
+  entries. Larger inputs return `refusal.too-large`.
 - Entry selection, duplicate-name checks, and hard-link target lookup compare
   names after removing empty and `.` path components while preserving case and
   Unicode spelling. Case-sensitive filesystems keep case-only paths distinct.
-  On a case-insensitive destination filesystem, `archive extract` returns
-  `refusal.exists` during commit if the filesystem aliases those paths.
+  On a case-insensitive destination filesystem, applying the extraction returns
+  `refusal.exists` if the filesystem aliases the paths. With `--tx`, this
+  occurs when staged changes are applied.
 - `aitools sys info` returns `environment.unavailable` when its uptime source
   is missing or malformed; previously, its response could contain a `null`
   uptime. CPU and memory values are optional, but uptime is required for a
