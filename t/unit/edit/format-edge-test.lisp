@@ -175,10 +175,25 @@ entries WRITE-TAR does not produce."
       (path format)
     (expect (archive-format-for-path path) :to-be format))
 
-  (it "builds a gz archive holding one member under the given name"
-    (let ((octets (build-archive :gz (list (member-file "a.txt" "payload")) :name "a.txt")))
-      (expect (aitools.text.domain:gzip-decompress octets) :to-equalp (bytes "payload"))
-      (expect (aitools.text.domain:gzip-member-header octets) :to-equal "a.txt"))))
+  (it "builds readable gzip, zip, and tar archives with the expected member"
+    (let* ((members (list (member-file "a.txt" "payload")))
+           (gzip (build-archive :gz members :name "a.txt"))
+           (zip (build-archive :zip members))
+           (tar (build-archive :tar members))
+           (zip-entry (first (aitools.text.domain:read-zip-entries zip)))
+           (tar-entry (first (aitools.text.domain:read-tar-entries tar))))
+      (expect (aitools.text.domain:gzip-decompress gzip)
+              :to-equalp (bytes "payload"))
+      (expect (aitools.text.domain:gzip-member-header gzip)
+              :to-equal "a.txt")
+      (expect (aitools.text.domain:archive-entry-name zip-entry)
+              :to-equal "a.txt")
+      (expect (aitools.text.domain:archive-entry-data zip zip-entry)
+              :to-equalp (bytes "payload"))
+      (expect (aitools.text.domain:archive-entry-name tar-entry)
+              :to-equal "a.txt")
+      (expect (aitools.text.domain:archive-entry-data tar tar-entry)
+              :to-equalp (bytes "payload")))))
 
 (describe "aitools.edit.domain remaining value-model and archive-path branches"
   (it "refuses pointers through numbers and strings, and a patch that is a string"
