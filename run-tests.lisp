@@ -26,6 +26,23 @@
                 "~&coverage comparison ~A ~A: measured ~D/~D, baseline ~D/~D (pass)~%"
                 context metric covered total base-covered base-total))))
   t)
+(defun report-process-coverage-gaps (groups)
+  (let* ((pathnames (cdr (assoc :process groups)))
+         (locations (coverage-uncovered-form-locations-for pathnames))
+         (definitions
+           (loop for pathname in pathnames
+                 append (coverage-source-definitions-for pathname))))
+    (format t "~&PROCESS uncovered coverage forms: ~D~%" (length locations))
+    (dolist (location locations)
+      (let ((owner (coverage-owner-for-location location definitions)))
+        (format t "  ~A::~A ~A ~A offset ~D (+~D)~%"
+                (or (getf owner :package) "UNOWNED")
+                (or (getf owner :symbol) "UNKNOWN")
+                (getf location :kind)
+                (namestring (getf location :pathname))
+                (getf location :start)
+                (getf location :uncovered-count))))
+    (length locations)))
 (defvar *harvest-sb-cover-marks-after-source-load* nil)
 (defmethod asdf:perform :after ((operation asdf:load-op)
                                 (component asdf:cl-source-file))
@@ -144,7 +161,11 @@
                        (first entry) (second entry) (third entry) (fourth entry))
                       (list :executed-spec-count (cdr (assoc (first entry) context-counts)) :coverage-exclusions (fifth entry))))
                    measured)))
-            (write-context-measurements root aggregate contexts (append exclusions (context-coverage-exclusions measured)))
+            (progn
+              (report-process-coverage-gaps groups)
+              (write-context-measurements root aggregate contexts
+                                          (append exclusions
+                                                  (context-coverage-exclusions measured))))
             (format t "~&aitools coverage suite: ~D specs run~%" executed)
             (format t "~&aitools coverage: expression ~D/~D, branch ~D/~D~%"
                     (getf statistics :expression-covered)
