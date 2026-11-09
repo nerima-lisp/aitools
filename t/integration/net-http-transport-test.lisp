@@ -115,10 +115,12 @@
           (sb-posix:setenv "SSL_CERT_FILE" previous 1)
           (sb-posix:unsetenv "SSL_CERT_FILE")))))
 
-(defun %https-test-expect-success (operation kind response detail)
+(defun %https-test-expect-success (operation kind response detail &optional raw-condition)
   (expect (if (eq kind :ok)
               :ok
-            (list :failed operation response detail))
+              (append (list :failed operation response detail)
+                      (when raw-condition
+                        (list :raw-condition raw-condition))))
          :to-be :ok))
 
 (describe "aitools net HTTPS transport integration"
@@ -159,17 +161,22 @@
                            trusted-certificate
                            (lambda ()
                              (let ((requester (%https-test-requester)))
-                               (multiple-value-bind (kind response detail)
-                                   (%https-test-outcome
-                                    requester "GET"
-                                    (format nil "https://localhost:~D/ok" trusted-port)
-                                    5d0)
-                                 (%https-test-expect-success
-                                  "GET https://localhost/ok" kind response detail)
-                                 (expect (getf response :status) :to-be 200)
-                                 (expect (sb-ext:octets-to-string
-                                          (getf response :body) :external-format :utf-8)
-                                         :to-equal (format nil "loopback response~%")))
+                               (let ((raw-condition nil))
+                                 (multiple-value-bind (kind response detail)
+                                     (handler-bind ((error
+                                                      (lambda (condition)
+                                                        (unless raw-condition
+                                                          (setf raw-condition (type-of condition))))))
+                                       (%https-test-outcome
+                                        requester "GET"
+                                        (format nil "https://localhost:~D/ok" trusted-port)
+                                        5d0))
+                                   (%https-test-expect-success
+                                    "GET https://localhost/ok" kind response detail raw-condition)
+                                   (expect (getf response :status) :to-be 200)
+                                   (expect (sb-ext:octets-to-string
+                                            (getf response :body) :external-format :utf-8)
+                                           :to-equal (format nil "loopback response~%"))))
                                (multiple-value-bind (kind response detail)
                                    (%https-test-outcome
                                     requester "HEAD"
