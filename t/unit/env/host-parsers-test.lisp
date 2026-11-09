@@ -49,6 +49,13 @@ a0* 16384 <Link#1> 8 9 700 11 12 1000 0
       (expect (getf record :cpu-percent) :to-equal 125.5d0)
       (expect (getf record :rss-bytes) :to-be 2097152)
       (expect (getf record :command) :to-equal "worker")))
+  (it "keeps valid process metrics when one ps row is incomplete"
+    (let ((records
+            (parse-process-metrics
+             (format nil "42 125.5 2048 /usr/bin/worker~%43 0~%"))))
+      (expect records :to-equal
+              (list (list :pid 42 :cpu-percent 125.5d0 :rss-bytes 2097152
+                          :command "worker")))))
   (it-each (("")
             ("   ")
             ("42")

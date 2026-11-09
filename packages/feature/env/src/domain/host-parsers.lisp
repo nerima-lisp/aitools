@@ -121,18 +121,20 @@
           (float (* 100 (/ (- total (nth 3 deltas) (nth 4 deltas)) total)) 1d0))))))
 
 (defun parse-process-metrics (text)
-  "NIL for an empty or malformed source; commands contain no argument vector."
-  (block parse
-    (loop for line in (and text (%split-lines text))
-          for fields = (split-fields line)
-          when fields
-            collect (let* ((pid (%parse-field-integer (first fields)))
-                           (cpu (and (second fields) (%metric-decimal (second fields))))
-                           (rss (and (third fields) (%parse-field-integer (third fields))))
-                           (command (and (fourth fields) (format nil "~{~A~^ ~}" (nthcdr 3 fields)))))
-                      (unless (and pid (plusp pid) cpu rss command) (return-from parse nil))
-                      (list :pid pid :cpu-percent (float cpu 1d0) :rss-bytes (* rss 1024)
-                            :command (subseq command (1+ (or (position #\/ command :from-end t) -1))))))))
+  "NIL when no valid process rows remain; commands contain no argument vector."
+  (loop for line in (and text (%split-lines text))
+        for fields = (split-fields line)
+        for pid = (%parse-field-integer (first fields))
+        for cpu = (and (second fields) (%metric-decimal (second fields)))
+        for rss = (and (third fields) (%parse-field-integer (third fields)))
+        for command = (and (fourth fields)
+                           (format nil "~{~A~^ ~}" (nthcdr 3 fields)))
+        when (and pid (plusp pid) cpu rss command)
+          collect (list :pid pid
+                        :cpu-percent (float cpu 1d0)
+                        :rss-bytes (* rss 1024)
+                        :command (subseq command
+                                         (1+ (or (position #\/ command :from-end t) -1))))))
 
 (defun %split-lines (text)
   (with-input-from-string (stream text)

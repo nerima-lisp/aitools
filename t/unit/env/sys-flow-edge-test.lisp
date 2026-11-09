@@ -128,6 +128,35 @@
                               (object-field item "command") (null-or (object-field item "started"))))
                       (field fields "items"))
               :to-equal '((5 "4242" "[a]" nil) (6 nil "[b]" nil)))))
+  (it "keeps valid Linux process records when a PID disappears during its stat read"
+      (let* ((files
+              (list (cons "/proc/stat" (format nil "cpu 1 2 3~%btime 1700000000~%"))
+                    (cons "/proc/5/stat" "5 (worker) S 1 5 5 0 -1 0 1 0 0 0 1 1 0 0 20 0 1 0 5 1 1")))
+             (filesystem
+              (cl-boundary-kit:make-filesystem
+               :read-file-fn
+               (lambda (path &key external-format)
+                 (declare (ignore external-format))
+                 (if (equal path "/proc/6/stat")
+                     (error 'file-error :pathname path)
+                   (cdr (assoc path files :test #'equal))))
+               :path-exists-p-fn
+               (lambda (path)
+                 (or (equal path "/proc/6/stat")
+                     (assoc path files :test #'equal)))))
+             (boundaries
+              (cl-boundary-kit:boundary-context-with
+               (make-fake-env-boundaries
+                :identity *linux-identity*
+                :files files
+                :directories '(("/proc" "5" "6")))
+               :env-filesystem filesystem)))
+        (multiple-value-bind (kind fields)
+            (run-flow #'sys-procs/k boundaries)
+          (expect kind :to-be :ok)
+          (expect (mapcar (lambda (item) (object-field item "pid"))
+                          (field fields "items"))
+                  :to-equal '(5)))))
 
   (it "repeats the pattern in the next command of a partial process list"
     (multiple-value-bind (kind fields)
