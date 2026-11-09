@@ -200,4 +200,44 @@
                (lambda ()
                  (aitools.net.infrastructure::%open-inspected-addresses
                   (list (http-test-loopback-address)) uri 3d0)))))
-      (expect (first failure) :to-equal "internal.unexpected"))))
+      (expect (first failure) :to-equal "internal.unexpected")))
+  (cl-weave:it "limits response content codings before body processing"
+    (flet ((supported-p (value)
+             (aitools.net.infrastructure::%supported-content-encoding-p
+              (list (http-kit:make-http-header "Content-Encoding" value)))))
+      (expect (aitools.net.infrastructure::%supported-content-encoding-p nil)
+              :to-be t)
+      (expect (supported-p "gzip") :to-be t)
+      (expect (supported-p "gzip, deflate") :to-be t)
+      (expect (supported-p "") :to-be nil)
+      (expect (supported-p "gzip,,deflate") :to-be nil)
+      (expect (supported-p "gzip, br") :to-be nil)
+      (expect (supported-p "gzip, deflate, gzip") :to-be nil)
+      (expect
+       (aitools.net.infrastructure::%supported-content-encoding-p
+        (list (http-kit:make-http-header "Content-Encoding" "gzip")
+              (http-kit:make-http-header "Content-Encoding" "deflate")
+              (http-kit:make-http-header "Content-Encoding" "gzip")))
+       :to-be nil)
+      (let* ((sender-completed-p nil)
+             (error-code nil)
+             (uri (http-kit:parse-http-uri "http://origin.test/"))
+             (headers
+               (list (http-kit:make-http-header
+                      "Content-Encoding" "gzip, deflate, gzip"))))
+        (let ((aitools.net.infrastructure::*http-client-send-function*
+                (lambda (client method request-uri
+                         &key on-response-headers &allow-other-keys)
+                  (declare (ignore client method request-uri))
+                  (funcall on-response-headers 200 headers)
+                  (setf sender-completed-p t)
+                  (http-test-response 200 :headers headers))))
+          (setf error-code
+                (first
+                 (http-test-error
+                  (lambda ()
+                    (aitools.net.infrastructure::%send-http-request
+                     "GET" uri (list (http-test-loopback-address))
+                     (+ (aitools.net.infrastructure::%monotonic-time) 3d0))))))
+        (expect error-code :to-equal "environment.io")
+        (expect sender-completed-p :to-be nil))))))

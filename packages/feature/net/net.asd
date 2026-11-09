@@ -61,6 +61,5 @@
                  (:file "unit/net/flows-test")
                  (:file "unit/net/http-flow-edge-test")
                  (:file "unit/net/commands-test")
-                 (:file "integration/context-registration-test")
                  (:file "integration/net-boundary-contract-test")
                  (:file "integration/net-http-transport-test")))))

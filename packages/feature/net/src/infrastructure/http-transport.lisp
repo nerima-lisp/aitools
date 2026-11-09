@@ -98,17 +98,20 @@
       (http-kit/client:make-http-content-decoders)))))
 
 (defun %supported-content-encoding-p (headers)
-  (loop for field in (http-kit:http-header-values headers "Content-Encoding")
-        always
-        (loop with start = 0
-              for comma = (position #\, field :start start)
-              for coding = (string-downcase
-                            (string-trim (list #\Space #\Tab)
-                                         (subseq field start comma)))
-              always (member coding (list "gzip" "deflate")
-                             :test (function string=))
-              while comma
-              do (setf start (1+ comma)))))
+  (let ((coding-count 0))
+    (loop for field in (http-kit:http-header-values headers "Content-Encoding")
+          always
+          (loop with start = 0
+                for comma = (position #\, field :start start)
+                for coding = (string-downcase
+                              (string-trim (list #\Space #\Tab)
+                                           (subseq field start comma)))
+                do (incf coding-count)
+                always (and (<= coding-count 2)
+                            (member coding (list "gzip" "deflate")
+                                    :test (function string=)))
+                while comma
+                do (setf start (1+ comma))))))
 
 (defun %send-http-request (method uri addresses deadline)
   (let* ((client (%make-http-client (http-kit:http-uri-host uri) addresses))
