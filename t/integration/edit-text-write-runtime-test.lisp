@@ -62,6 +62,36 @@
                       (setf result (list :error code))))
          (expect result :to-equal (list :error "refusal.too-large"))
          (expect (snapshot) :to-equal before)))))
+  (it "stops checking hashes after the first mismatch"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "a-small.md" "ok")
+       (put "z-large.md" "12345")
+       (let ((before (snapshot))
+             (result nil))
+         (aitools.edit.application:run-write-command/k
+          *ports*
+          (aitools.edit.application:make-write-plan
+           :command "md.replace"
+           :targets (list
+                     (aitools.edit.application:make-write-target "a-small.md")
+                     (aitools.edit.application:make-write-target "z-large.md"))
+           :expect-hashes
+           (list (format nil "a-small.md=~A" (hash "z-large.md"))
+                 (format nil "z-large.md=~A" (hash "z-large.md")))
+           :max-target-bytes 4
+           :plan (lambda (context &key on-committed on-rejected)
+                   (declare (ignore context on-rejected))
+                   (funcall on-committed (list))))
+          :root *root*
+          :on-ok (lambda (fields)
+                   (declare (ignore fields))
+                   (setf result :ok))
+          :on-error (lambda (code message &rest keys)
+                      (declare (ignore message keys))
+                      (setf result (list :error code))))
+         (expect result :to-equal (list :error "refusal.target-changed"))
+         (expect (snapshot) :to-equal before)))))
   (it "requires a store view for bounded path hashes"
     (call-with-edit-workspace
      (lambda ()
