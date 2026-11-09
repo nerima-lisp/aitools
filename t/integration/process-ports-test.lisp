@@ -6,14 +6,15 @@
 ;;;; t/integration/process-ports-launch-test.lisp and use port helpers here.
 (in-package #:aitools.process.integration-test)
 
-(defun production-ports (&optional state-directory)
-  (aitools.process.infrastructure:make-production-process-ports
-   :state-directory-function (and state-directory (lambda () state-directory))))
+(defun production-boundaries (&optional state-directory)
+  (aitools.process.composition::make-process-dependencies :state-directory-function (and state-directory
+                                  (lambda () state-directory))))
 
-(defun call-port (ports accessor &rest arguments)
-  (apply (funcall accessor ports) arguments))
+(defun call-capability (boundaries key &rest arguments)
+  (apply (cl-boundary-kit:boundary-context-require boundaries key)
+         arguments))
 
-(defun port-error-message (function)
+(defun boundary-error-message (function)
   "Run FUNCTION and return a printed PROCESS-PORT-ERROR, or :NO-ERROR."
   (handler-case (progn (funcall function) :no-error)
     (aitools.process.application:process-port-error (condition)
@@ -50,19 +51,19 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
 (describe "aitools process production ports: files (integration)"
   (it "creates a private file exclusively and refuses an existing file or a symlink"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (path (merge-pathnames "bg-1.log" directory))
             (link (merge-pathnames "bg-2.log" directory))
             (target (merge-pathnames "target" directory)))
-        (expect (call-port ports 'aitools.process.application::process-ports-create-file-exclusive path "one")
+        (expect (call-capability ports :process-create-file-exclusive path "one")
                 :to-be t)
         (expect (uiop:read-file-string path) :to-equal "one")
         (expect (file-mode path) :to-be #o600)
-        (expect (call-port ports 'aitools.process.application::process-ports-create-file-exclusive path "two")
+        (expect (call-capability ports :process-create-file-exclusive path "two")
                 :to-be nil)
         (expect (uiop:read-file-string path) :to-equal "one")
         (sb-posix:symlink (uiop:native-namestring target) (uiop:native-namestring link))
-        (expect (call-port ports 'aitools.process.application::process-ports-create-file-exclusive link "x")
+        (expect (call-capability ports :process-create-file-exclusive link "x")
                 :to-be nil)
         (expect (probe-file target) :to-be nil)))
     :prefix "aitools-process"))
@@ -71,29 +72,27 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((path (merge-pathnames "missing/bg-1.log" directory)))
         (expect (starts-with-p (format nil "creating ~A failed: " path)
-                               (port-error-message
+                               (boundary-error-message
                                 (lambda ()
-                                  (call-port (production-ports)
-                                             'aitools.process.application::process-ports-create-file-exclusive
-                                             path ""))))
+                                  (call-capability (production-boundaries) :process-create-file-exclusive path ""))))
                 :to-be t)))
     :prefix "aitools-process"))
 
   (it "replaces a record atomically, private, and leaves no temporary file behind"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (path (merge-pathnames "bg-1.json" directory)))
         (write-file path "old")
-        (call-port ports 'aitools.process.application::process-ports-replace-file path "new")
+        (call-capability ports :process-replace-file path "new")
         (expect (uiop:read-file-string path) :to-equal "new")
         (expect (file-mode path) :to-be #o600)
-        (expect (call-port ports 'aitools.process.application::process-ports-list-directory directory)
+        (expect (call-capability ports :process-list-directory directory)
                 :to-equal '("bg-1.json"))))
     :prefix "aitools-process"))
 
   (it "retries after two temporary-name collisions and errors when every name collides"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let* ((ports (production-ports))
+      (let* ((ports (production-boundaries))
              (path (merge-pathnames "bg-1.json" directory))
              (victim (merge-pathnames "victim" directory))
              (planted (merge-pathnames ".bg-1.tmp-PLANTED.json" directory))
@@ -103,17 +102,16 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
         (cl-weave:with-mocked-functions
             (((symbol-function 'aitools.process.infrastructure::%random-temp-suffix)
               (lambda () (or (pop suffixes) "FRESH"))))
-          (call-port ports 'aitools.process.application::process-ports-replace-file path "v1")
+          (call-capability ports :process-replace-file path "v1")
           (expect (uiop:read-file-string path) :to-equal "v1")
           (expect suffixes :to-equal '()))
         (cl-weave:with-mocked-functions
             (((symbol-function 'aitools.process.infrastructure::%random-temp-suffix)
               (lambda () "PLANTED")))
           (expect (starts-with-p (format nil "writing ~A failed: " path)
-                                 (port-error-message
+                                 (boundary-error-message
                                   (lambda ()
-                                    (call-port ports 'aitools.process.application::process-ports-replace-file
-                                               path "v2"))))
+                                    (call-capability ports :process-replace-file path "v2"))))
                   :to-be t))
         (expect (uiop:read-file-string path) :to-equal "v1")
         (expect (probe-file victim) :to-be nil)))
@@ -123,21 +121,20 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((path (merge-pathnames "missing/bg-1.json" directory)))
         (expect (starts-with-p (format nil "writing ~A failed: " path)
-                               (port-error-message
+                               (boundary-error-message
                                 (lambda ()
-                                  (call-port (production-ports)
-                                             'aitools.process.application::process-ports-replace-file path "x"))))
+                                  (call-capability (production-boundaries) :process-replace-file path "x"))))
                 :to-be t)))
     :prefix "aitools-process"))
 
   (it "removes a file and ignores one that is already gone"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (path (write-file (merge-pathnames "bg-1.log" directory) "x")))
-        (call-port ports 'aitools.process.application::process-ports-remove-file path)
+        (call-capability ports :process-remove-file path)
         (expect (probe-file path) :to-be nil)
-        (expect (port-error-message
-                 (lambda () (call-port ports 'aitools.process.application::process-ports-remove-file path)))
+        (expect (boundary-error-message
+                 (lambda () (call-capability ports :process-remove-file path)))
                 :to-be :no-error)))
     :prefix "aitools-process"))
 
@@ -146,8 +143,7 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
       (write-file (merge-pathnames "bg-1.json" directory) "{}")
       (write-file (merge-pathnames "bg-1.log" directory) "")
       (ensure-directories-exist (merge-pathnames "bg-2.json/" directory))
-      (expect (sort (call-port (production-ports) 'aitools.process.application::process-ports-list-directory
-                               directory)
+      (expect (sort (call-capability (production-boundaries) :process-list-directory directory)
                     #'string<)
               :to-equal '("bg-1.json" "bg-1.log")))
     :prefix "aitools-process"))
@@ -171,8 +167,7 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
                     stream))))
             (unwind-protect
                  (progn
-                   (expect (call-port (production-ports)
-                                      'aitools.process.application::process-ports-read-file-text path)
+                   (expect (call-capability (production-boundaries) :process-read-file-text path)
                            :to-equal "original")
                    (expect opens :to-be 1)
                    (expect (open-stream-p opened) :to-be nil))
@@ -181,25 +176,24 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
 
   (it "reads byte ranges, sizes, and text with replacement, and NIL for a missing file"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (path (merge-pathnames "bg-1.log" directory))
             (missing (merge-pathnames "bg-9.log" directory)))
         (with-open-file (out path :direction :output :element-type '(unsigned-byte 8))
           (write-sequence (coerce '(97 98 99 255 100) '(vector (unsigned-byte 8))) out))
-        (expect (coerce (call-port ports 'aitools.process.application::process-ports-read-file-octets path 1 3) 'list)
+        (expect (coerce (call-capability ports :process-read-file-octets path 1 3) 'list)
                 :to-equal '(98 99))
-        (expect (coerce (call-port ports 'aitools.process.application::process-ports-read-file-octets path 3 99) 'list)
+        (expect (coerce (call-capability ports :process-read-file-octets path 3 99) 'list)
                 :to-equal '(255 100))
-        (expect (call-port ports 'aitools.process.application::process-ports-file-size path) :to-be 5)
-        (expect (call-port ports 'aitools.process.application::process-ports-read-file-text path)
+        (expect (call-capability ports :process-file-size path) :to-be 5)
+        (expect (call-capability ports :process-read-file-text path)
                 :to-equal (coerce (list #\a #\b #\c (code-char #xfffd) #\d) 'string))
-        (expect (call-port ports 'aitools.process.application::process-ports-file-size missing) :to-be nil)
-        (expect (call-port ports 'aitools.process.application::process-ports-read-file-text missing) :to-be nil)
+        (expect (call-capability ports :process-file-size missing) :to-be nil)
+        (expect (call-capability ports :process-read-file-text missing) :to-be nil)
         (expect (starts-with-p (format nil "reading ~A failed: " missing)
-                               (port-error-message
+                               (boundary-error-message
                                 (lambda ()
-                                  (call-port ports 'aitools.process.application::process-ports-read-file-octets
-                                             missing 0 1))))
+                                  (call-capability ports :process-read-file-octets missing 0 1))))
                 :to-be t)))
     :prefix "aitools-process")))
 

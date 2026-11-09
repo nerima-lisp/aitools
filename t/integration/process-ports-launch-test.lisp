@@ -13,11 +13,9 @@
              (marker (merge-pathnames "child-ran" directory))
              (touch-path (program-on-path "touch")))
         (expect (starts-with-p (format nil "creating ~A failed: " target)
-                               (port-error-message
+                               (boundary-error-message
                                 (lambda ()
-                                  (call-port (production-ports)
-                                             'aitools.process.application::process-ports-run-program
-                                             (list touch-path (uiop:native-namestring marker))
+                                  (call-capability (production-boundaries) :process-run-program (list touch-path (uiop:native-namestring marker))
                                              5000 :stdout-path target))))
                 :to-be t)
         (expect (probe-file marker) :to-be nil))) :prefix "aitools-process"))
@@ -25,8 +23,7 @@
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((target (merge-pathnames "out.txt" directory)))
         (multiple-value-bind (status message program)
-            (call-port (production-ports) 'aitools.process.application::process-ports-run-program
-                       (list "aitools-no-such-program") 5000 :stdout-path target)
+            (call-capability (production-boundaries) :process-run-program (list "aitools-no-such-program") 5000 :stdout-path target)
           (expect status :to-be :unavailable)
           (expect (starts-with-p "cannot start aitools-no-such-program: " message) :to-be t)
           (expect program :to-equal "aitools-no-such-program")
@@ -51,7 +48,7 @@ OVERRIDE, and PATH is PATH."
 MESSAGE PROGRAM). A started process is killed by group at once, so a test
 that expected otherwise never leaks it."
   (multiple-value-bind (status value program)
-      (call-port ports 'aitools.process.application::process-ports-launch-detached argv log exit)
+      (call-capability ports :process-launch-detached argv log exit)
     (ecase status
       (:started
        (kill-group value)
@@ -108,7 +105,7 @@ that expected otherwise never leaks it."
          directory
          (lambda ()
            (destructuring-bind (kind message program)
-               (launch (production-ports) (list sleep-path "30")
+               (launch (production-boundaries) (list sleep-path "30")
                        (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
              (expect kind :to-be :unavailable)
              (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
@@ -121,7 +118,7 @@ that expected otherwise never leaks it."
         (call-with-launcher-environment
          directory
          (lambda ()
-           (expect (launch (production-ports) (list script)
+           (expect (launch (production-boundaries) (list script)
                            (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
                    :to-equal (list :unavailable
                                    (format nil "cannot start ~A: not an executable file or not found on PATH" script)
@@ -137,7 +134,7 @@ that expected otherwise never leaks it."
          directory
          (lambda ()
            (destructuring-bind (kind message program)
-               (launch (production-ports) (list sleep-path "30")
+               (launch (production-boundaries) (list sleep-path "30")
                        (merge-pathnames "bg-1.log" directory) (merge-pathnames "bg-1.exit" directory))
              (expect kind :to-be :unavailable)
              (expect (starts-with-p (format nil "cannot start ~A: " sleep-path) message) :to-be t)
@@ -156,9 +153,9 @@ that expected otherwise never leaks it."
          directory
          (lambda ()
            (expect (starts-with-p (format nil "starting ~A failed: " sleep-path)
-                                  (port-error-message
+                                  (boundary-error-message
                                    (lambda ()
-                                     (launch (production-ports) (list sleep-path "30")
+                                     (launch (production-boundaries) (list sleep-path "30")
                                              log (merge-pathnames "bg-1.exit" directory)))))
                    :to-be t))
          :override (uiop:native-namestring garbage))
@@ -182,10 +179,9 @@ the supervisor has finished forking it. On Darwin a group signal sent while
 that fork is in progress can miss the new child (an escaped `sleep` was seen
 keeping the group alive), so a spec that signals the group waits for this."
   (let ((log (merge-pathnames "bg-1.log" directory)))
-    (call-port ports 'aitools.process.application::process-ports-create-file-exclusive log "")
+    (call-capability ports :process-create-file-exclusive log "")
     (multiple-value-bind (status value program)
-        (call-port ports 'aitools.process.application::process-ports-launch-detached
-                   (list (program-on-path "sh") "-c" "echo ready; exec \"$0\" 30" (program-on-path "sleep"))
+        (call-capability ports :process-launch-detached (list (program-on-path "sh") "-c" "echo ready; exec \"$0\" 30" (program-on-path "sleep"))
                    log (merge-pathnames "bg-1.exit" directory))
       (ecase status
         (:started (funcall on-started value))
@@ -199,42 +195,41 @@ keeping the group alive), so a spec that signals the group waits for this."
     "aitools process production ports: process groups (integration; skipped without the cl-process-kit-spawn trampoline)"
   (it "sees a started group alive, signals it, and then reports it gone"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (pid nil))
         (unwind-protect
              (progn
                (launch-running-sleeper ports directory (lambda (started) (setf pid started)))
-               (expect (call-port ports 'aitools.process.application::process-ports-group-alive-p pid) :to-be t)
+               (expect (call-capability ports :process-group-alive-p pid) :to-be t)
                ;; A signal number the kernel rejects is an I/O failure, not "gone".
                (expect (starts-with-p (format nil "signalling process group ~D failed: " pid)
-                                      (port-error-message
+                                      (boundary-error-message
                                        (lambda ()
-                                         (call-port ports 'aitools.process.application::process-ports-signal-group
-                                                    pid 999))))
+                                         (call-capability ports :process-signal-group pid 999))))
                        :to-be t)
-               (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be t)
+               (expect (call-capability ports :process-signal-group pid 15) :to-be t)
                (expect (loop repeat 500
-                             unless (call-port ports 'aitools.process.application::process-ports-group-alive-p pid)
+                             unless (call-capability ports :process-group-alive-p pid)
                                return t
                              do (sleep 0.02))
                        :to-be t)
-               (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be nil))
+               (expect (call-capability ports :process-signal-group pid 15) :to-be nil))
           (when pid (kill-group pid))))) :prefix "aitools-process"))
 
   (it "reaps the supervisor it launched, so its zombie never keeps the group alive"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-ports))
+      (let ((ports (production-boundaries))
             (pid nil))
         (unwind-protect
              (call-without-sigchld-reaping
               (lambda ()
                 (launch-running-sleeper ports directory (lambda (started) (setf pid started)))
-                (expect (call-port ports 'aitools.process.application::process-ports-signal-group pid 15) :to-be t)
+                (expect (call-capability ports :process-signal-group pid 15) :to-be t)
                 ;; With nothing else reaping, the supervisor's PID disappears
                 ;; only if the port's own probes reap it; an unreaped zombie
                 ;; answers kill(2) on it (and, on Linux, on its group).
                 (expect (loop repeat 500
-                              unless (or (call-port ports 'aitools.process.application::process-ports-group-alive-p pid)
+                              unless (or (call-capability ports :process-group-alive-p pid)
                                          (handler-case (progn (sb-posix:kill pid 0) t)
                                            (sb-posix:syscall-error (condition)
                                              (/= (sb-posix:syscall-errno condition) sb-posix:esrch))))

@@ -11,7 +11,7 @@
 (defun run-with (behavior &rest request-arguments)
   (let ((world (make-fake-world :run-behavior behavior)))
     (multiple-value-bind (kind fields)
-        (run-flow #'aitools.process.application:run-command/k (fake-ports world)
+        (run-flow #'aitools.process.application:run-command/k (make-fake-process-boundaries world)
                   (apply #'run-request request-arguments))
       (values kind fields world))))
 
@@ -110,7 +110,7 @@
 ;;; ------------------------------------------------------------------ bg
 
 (defun bg-start (world &optional (argv '("sleep" "60")) name)
-  (run-flow #'aitools.process.application:bg-start/k (fake-ports world) argv name))
+  (run-flow #'aitools.process.application:bg-start/k (make-fake-process-boundaries world) argv name))
 
 (defun bg-path (name)
   (merge-pathnames name #p"/state/ws/bg/"))

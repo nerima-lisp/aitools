@@ -76,8 +76,7 @@ child reads aitools's package-qualified symbols only after loading them."
                             ',asdf/output-translations:*output-translations-parameter*)))
                      (asdf:load-system "aitools/cli")))
            (start `(let* ((registry (aitools.protocol.application:make-command-registry))
-                          (ports (aitools.process.infrastructure:make-production-process-ports
-                                  :state-directory-function (lambda () ,(namestring (state-directory root)))))
+                          (ports (aitools.process.composition::make-process-dependencies :state-directory-function (lambda () ,(namestring (state-directory root)))))
                           (stdout (make-string-output-stream)))
                      (aitools.process.presentation:register-process-commands registry ports)
                      (let ((code (aitools/cli:dispatch

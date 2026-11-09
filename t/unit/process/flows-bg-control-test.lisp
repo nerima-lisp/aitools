@@ -1,7 +1,7 @@
 (in-package #:aitools.process.test)
 
 (defun bg-logs (world id &rest options)
-  (apply #'run-flow #'aitools.process.application:bg-logs/k (fake-ports world) id options))
+  (apply #'run-flow #'aitools.process.application:bg-logs/k (make-fake-process-boundaries world) id options))
 
 (defun world-with-log (text &key (behavior :start))
   (let ((world (make-fake-world :launch-behavior behavior)))
@@ -66,7 +66,7 @@
             (expect (field fields "next_offset") :to-be 21)))))))
 
 (defun bg-status (world &optional id)
-  (run-flow #'aitools.process.application:bg-status/k (fake-ports world) id))
+  (run-flow #'aitools.process.application:bg-status/k (make-fake-process-boundaries world) id))
 
 (describe "aitools.process.application bg-status/k"
   (it "lists running and ended processes with the recorded exit status and missing-ID candidates"
@@ -141,13 +141,12 @@
   (it "reports a record removed after directory enumeration as unavailable"
     (let ((world (make-fake-world)))
       (bg-start world)
-      (let* ((base (fake-ports world))
-             (ports (aitools.process.application:make-process-ports
-                     :bg-directory (aitools.process.application::process-ports-bg-directory base)
-                     :read-file-text (aitools.process.application::process-ports-read-file-text base)
-                     :list-directory
+      (let* ((base (make-fake-process-boundaries world))
+             (ports (make-test-process-boundaries :process-bg-directory (cl-boundary-kit:boundary-context-require base :process-bg-directory)
+                     :process-read-file-text (cl-boundary-kit:boundary-context-require base :process-read-file-text)
+                     :process-list-directory
                      (lambda (directory)
-                       (prog1 (funcall (aitools.process.application::process-ports-list-directory base)
+                       (prog1 (funcall (cl-boundary-kit:boundary-context-require base :process-list-directory)
                                        directory)
                          (remhash (namestring (bg-path "bg-1.json")) (fake-world-files world)))))))
         (multiple-value-bind (kind fields)
@@ -174,7 +173,7 @@
           (expect (json-alist-value item "signal") :to-be json-kit:+json-null+))))))
 
 (defun bg-stop (world id &optional (grace "5s"))
-  (run-flow #'aitools.process.application:bg-stop/k (fake-ports world) id :grace grace))
+  (run-flow #'aitools.process.application:bg-stop/k (make-fake-process-boundaries world) id :grace grace))
 
 (describe "aitools.process.application bg-stop/k"
   (it "sends SIGTERM and reports the signal it recorded before sending"

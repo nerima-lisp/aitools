@@ -1,7 +1,7 @@
 (in-package #:aitools.process.test)
 
 (defun wait-on (world &rest request-arguments)
-  (run-flow #'aitools.process.application:wait-command/k (fake-ports world)
+  (run-flow #'aitools.process.application:wait-command/k (make-fake-process-boundaries world)
             (apply #'aitools.process.application:make-wait-request request-arguments)))
 
 (describe "aitools.process.application wait-command/k"
@@ -11,6 +11,26 @@
         (expect kind :to-be :ok)
         (expect (field fields "matched") :to-be t)
         (expect (field fields "elapsed_ms") :to-be 250))))
+  (it "continues polling after waking before the probe is ready"
+    (let* ((world (make-fake-world))
+           (probes '())
+           (matched nil)
+           (timed-out nil))
+      (aitools.process.application:wait-until/k
+       (make-fake-process-boundaries world) 400
+       (lambda (elapsed)
+         (push elapsed probes)
+         (and (>= elapsed 250) (list (cons "ready" t))))
+       :poll-ms 100
+       :wake-at-ms 150
+       :on-matched (lambda (result elapsed)
+                     (setf matched (list result elapsed)))
+       :on-timeout (lambda (elapsed)
+                     (setf timed-out elapsed)))
+      (expect (reverse probes) :to-equal '(0 100 150 250))
+      (expect matched :to-equal (list (list (cons "ready" t)) 250))
+      (expect timed-out :to-be nil)
+      (expect (fake-world-clock world) :to-be 250)))
 
   (it "matches a line once it appears in the file"
     (let ((world (make-fake-world)))

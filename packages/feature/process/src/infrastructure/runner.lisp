@@ -1,5 +1,5 @@
 ;;;;
-;;;; The RUN-PROGRAM port over process-kit:RUN: argv without a shell, the
+;;;; The process-run-program capability over process-kit:RUN: argv without a shell, the
 ;;;; child in its own process group (so a timeout's SIGTERM -> SIGKILL reaches
 ;;;; everything it spawned), stdin at /dev/null (nothing reads stdin
 ;;;; implicitly), output decoded as UTF-8 with replacement.
@@ -141,7 +141,7 @@ unbounded child must not exhaust aitools's heap; past this the result says
         ;; :IF-EXISTS NIL is O_CREAT|O_EXCL: it refuses an existing file and a
         ;; final-component symlink alike, so the check and the create are one
         ;; step.
-        (let ((stream (%port-io ("creating ~A" stdout-path)
+        (let ((stream (%process-boundary-io ("creating ~A" stdout-path)
                         (open stdout-path :direction :output :element-type '(unsigned-byte 8)
                                           :if-exists nil :if-does-not-exist :create))))
           (if (null stream)
@@ -163,7 +163,7 @@ unbounded child must not exhaust aitools's heap; past this the result says
     (flet ((run (input)
              (%run-program-with-input argv timeout-ms input cwd environment stdout-path)))
       (if stdin-file
-          (%port-io ("reading ~A" stdin-file)
+          (%process-boundary-io ("reading ~A" stdin-file)
             ;; Opening first with O_NONBLOCK avoids a FIFO wait; checking the
             ;; same descriptor avoids a path replacement between stat and open.
             (let ((fd (sb-posix:open (uiop:native-namestring (merge-pathnames stdin-file))

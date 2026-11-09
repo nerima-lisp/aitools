@@ -37,7 +37,7 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun %grep-option ()
   (make-option :name "grep" :kind :value :value-name "RE" :description "Line pattern."))
 
-(defun %run-command (ports)
+(defun %run-command (boundaries)
   (make-command
    :name "run" :description (%summary "run")
    :positionals (list (%argv-positional))
@@ -64,7 +64,7 @@ continuations, returning the resulting COMMAND-RESULT."
                   (make-option :name "stdout-to" :kind :value :value-name "PATH"
                                :description "Write stdout to this new file instead of returning it."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:run-command/k ports
+              (%run-flow #'aitools.process.application:run-command/k boundaries
                          (aitools.process.application:make-run-request
                           :argv (positional-value invocation :argv)
                           :timeout (option-value invocation :timeout)
@@ -81,7 +81,7 @@ continuations, returning the resulting COMMAND-RESULT."
                           :env (option-value invocation :env)
                           :root (option-value invocation :root))))))
 
-(defun %wait-command (ports)
+(defun %wait-command (boundaries)
   (make-command
    :name "wait" :description (%summary "wait")
    :options (list (make-option :name "file" :kind :value :value-name "PATH" :description "File to watch.")
@@ -94,7 +94,7 @@ continuations, returning the resulting COMMAND-RESULT."
                   (make-option :name "timeout" :kind :value :value-name "DURATION" :default "60s"
                                :description "Give up after this long."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:wait-command/k ports
+              (%run-flow #'aitools.process.application:wait-command/k boundaries
                          (aitools.process.application:make-wait-request
                           :file (option-value invocation :file)
                           :pattern (option-value invocation :pattern)
@@ -104,17 +104,17 @@ continuations, returning the resulting COMMAND-RESULT."
                           :duration (option-value invocation :duration)
                           :timeout (option-value invocation :timeout))))))
 
-(defun %bg-start-command (ports)
+(defun %bg-start-command (boundaries)
   (make-command
    :name "start" :description (%summary "bg.start")
    :positionals (list (%argv-positional))
    :options (list (make-option :name "name" :kind :value :value-name "LABEL" :description "Label for bg status."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:bg-start/k ports
+              (%run-flow #'aitools.process.application:bg-start/k boundaries
                          (positional-value invocation :argv)
                          (option-value invocation :name)))))
 
-(defun %bg-logs-command (ports)
+(defun %bg-logs-command (boundaries)
   (make-command
    :name "logs" :description (%summary "bg.logs")
    :positionals (list (%id-positional t))
@@ -125,33 +125,33 @@ continuations, returning the resulting COMMAND-RESULT."
                   (%grep-option)
                   (%strip-ansi-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:bg-logs/k ports
+              (%run-flow #'aitools.process.application:bg-logs/k boundaries
                          (positional-value invocation :id)
                          :tail (option-value invocation :tail)
                          :from (option-value invocation :from)
                          :grep (option-value invocation :grep)
                          :strip-ansi (and (option-value invocation :strip-ansi) t)))))
 
-(defun %bg-status-command (ports)
+(defun %bg-status-command (boundaries)
   (make-command
    :name "status" :description (%summary "bg.status")
    :positionals (list (%id-positional nil))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:bg-status/k ports
+              (%run-flow #'aitools.process.application:bg-status/k boundaries
                          (positional-value invocation :id)))))
 
-(defun %bg-stop-command (ports)
+(defun %bg-stop-command (boundaries)
   (make-command
    :name "stop" :description (%summary "bg.stop")
    :positionals (list (%id-positional t))
    :options (list (make-option :name "grace" :kind :value :value-name "DURATION" :default "5s"
                                :description "Time between SIGTERM and SIGKILL."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:bg-stop/k ports
+              (%run-flow #'aitools.process.application:bg-stop/k boundaries
                          (positional-value invocation :id)
                          :grace (option-value invocation :grace)))))
 
-(defun %signal-command (ports)
+(defun %signal-command (boundaries)
   (make-command
    :name "signal" :description (%summary "signal")
    :options (list (make-option :name "pid" :kind :value :type :integer :min 0
@@ -169,7 +169,7 @@ continuations, returning the resulting COMMAND-RESULT."
                   (make-option :name "grace" :kind :value :value-name "DURATION"
                                :description "With TERM, send KILL if still running after this duration."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.process.application:signal-command/k ports
+              (%run-flow #'aitools.process.application:signal-command/k boundaries
                          :pid (option-value invocation :pid)
                          :pattern (option-value invocation :pattern)
                          :expect-command (option-value invocation :expect-command)
@@ -178,9 +178,9 @@ continuations, returning the resulting COMMAND-RESULT."
                          :signal (option-value invocation :signal)
                          :grace (option-value invocation :grace)))))
 
-(defun register-process-commands (registry ports)
+(defun register-process-commands (registry boundaries)
   "Register `run`, `wait`, and `bg start|logs|status|stop` on REGISTRY, each
-handler running against PORTS (an AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS)."
+handler running against the process boundary context."
   (aitools.protocol.application:register-command-declarations
    registry
    (list
@@ -216,4 +216,4 @@ handler running against PORTS (an AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS)."
      (:group "bg"
       :command-builder #'%bg-stop-command
       :schema (%schema "bg.stop"))))
-   ports))
+   boundaries))

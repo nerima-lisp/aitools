@@ -3,22 +3,22 @@
 ;;; ------------------------------------------------------------- bg logs
 
 (aitools.kernel.domain:define-flow
-    (bg-logs/k ports id &key (tail 100) from grep (strip-ansi t) on-ok on-partial on-error)
+    (bg-logs/k boundaries id &key (tail 100) from grep (strip-ansi t) on-ok on-partial on-error)
   "Lines of ID's log. Without FROM, the last TAIL lines; with FROM
 (a byte offset), up to TAIL lines starting there. `next_offset` is where the
 following `--from` read continues without skipping or repeating a line."
   (aitools.kernel.domain:flow-call
    (%call-with-line-pattern grep "bg.logs")
    (:on-pattern (pattern)
-     (%reporting-port-errors "bg.logs"
+     (%reporting-boundary-errors "bg.logs"
        (aitools.kernel.domain:flow-call
-        (%call-with-bg-directory ports "bg.logs")
+        (%call-with-bg-directory boundaries "bg.logs")
         (:on-directory (directory)
           (aitools.kernel.domain:flow-call
-           (%call-with-bg-record ports directory id)
+           (%call-with-bg-record boundaries directory id)
            (:on-record (record)
              (let* ((log-path (%bg-path directory (aitools.process.domain:bg-log-file-name id)))
-                    (size (or (funcall (process-ports-file-size ports) log-path) 0)))
+                    (size (or (process-boundary-call boundaries :process-file-size log-path) 0)))
                (if (and from (> from size))
                    (aitools.kernel.domain:flow-continue
                     :on-error
@@ -32,9 +32,9 @@ following `--from` read continues without skipping or repeating a line."
                                    (princ-to-string size)))))
                  (let* ((start (if from from (max 0 (- size +log-read-limit+))))
                         (end (if from (min size (+ from +log-read-limit+)) size))
-                        (running (nth-value 0 (%bg-state ports directory record)))
+                        (running (nth-value 0 (%bg-state boundaries directory record)))
                         (slice (aitools.process.domain:slice-log
-                                (funcall (process-ports-read-file-octets ports) log-path start end)
+                                (process-boundary-call boundaries :process-read-file-octets log-path start end)
                                 start
                                 :count tail :from-p (and from t) :final-p (and (not running) (= end size))
                                 :strip-p strip-ansi :pattern pattern
@@ -70,20 +70,20 @@ following `--from` read continues without skipping or repeating a line."
 
 ;;; ----------------------------------------------------------- bg status
 
-(defun %status-item (ports directory record)
-  (multiple-value-bind (running exit-code signal) (%bg-state ports directory record)
+(defun %status-item (boundaries directory record)
+  (multiple-value-bind (running exit-code signal) (%bg-state boundaries directory record)
     (aitools.process.domain:bg-status-item record running exit-code signal)))
 
 (aitools.kernel.domain:define-flow
-    (bg-status/k ports id &key on-ok on-partial on-error)
+    (bg-status/k boundaries id &key on-ok on-partial on-error)
   "Every bg process started in this workspace, or only ID."
-  (%reporting-port-errors "bg.status"
+  (%reporting-boundary-errors "bg.status"
     (aitools.kernel.domain:flow-call
-     (%call-with-bg-directory ports "bg.status")
+     (%call-with-bg-directory boundaries "bg.status")
      (:on-directory (directory)
        (flet ((report (records observed-total omitted)
                 (let ((fields
-                        (list (cons "items" (mapcar (lambda (record) (%status-item ports directory record))
+                        (list (cons "items" (mapcar (lambda (record) (%status-item boundaries directory record))
                                                     records))
                               (cons "total" (length records))
                               (cons "observed_total" observed-total)
@@ -93,18 +93,17 @@ following `--from` read continues without skipping or repeating a line."
                       (aitools.kernel.domain:flow-continue :on-ok fields)))))
          (if id
              (aitools.kernel.domain:flow-call
-              (%call-with-bg-record ports directory id)
+              (%call-with-bg-record boundaries directory id)
               (:on-record (record)
                 (report (list record) 1 nil))
               (:on-error (code message &key repairs candidates)
                 (aitools.kernel.domain:flow-continue
                  :on-error code message :repairs repairs :candidates candidates)))
-             (let ((ids (%recorded-bg-ids ports directory))
+             (let ((ids (%recorded-bg-ids boundaries directory))
                    (records '())
                    (omitted '()))
                (dolist (listed-id ids)
-                 (let* ((text (funcall (process-ports-read-file-text ports)
-                                       (%bg-path directory
+                 (let* ((text (process-boundary-call boundaries :process-read-file-text (%bg-path directory
                                                  (aitools.process.domain:bg-record-file-name listed-id))))
                         (reason (if text
                                     (handler-case

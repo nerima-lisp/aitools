@@ -14,12 +14,12 @@
 #+darwin
 (defun %darwin-argv (pid)
   (let ((size (%darwin-query-argv-size pid)))
-    (when (and size (<= 6 size (* 1024 1024)))
+    (when (typep size '(integer 6 1048576))
       (%darwin-parse-argv (%darwin-query-argv-bytes pid size)))))
 
 #+darwin
 (defun %host-process-info (pid)
-  (when (and (integerp pid) (>= pid 2))
+  (when (typep pid '(integer 2 *))
     (let ((bytes (%darwin-pid-bytes pid)))
       (when (and bytes (= pid (%le bytes 12 4)))
         (%darwin-process-identity pid bytes)))))
@@ -80,7 +80,7 @@
 
 #+linux
 (defun %host-process-info (pid)
-  (when (and (integerp pid) (>= pid 2))
+  (when (typep pid '(integer 2 *))
     (%linux-process-info pid)))
 
 #+linux
