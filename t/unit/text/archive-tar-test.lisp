@@ -67,6 +67,46 @@
               :to-equal '(archive-limit-exceeded "entry size"))
       (expect (archive-reason (lambda () (archive-entry-data (subseq archive 0 513) entry)))
               :to-equal '(archive-error "tar entry data is truncated")))))
+(describe "aitools.text.domain tar pax extensions"
+  (it "ignores unknown PAX keys without decoding or retaining their values"
+    (flet ((invalid-value-record (key)
+             (let* ((record (aitools.text.domain::%pax-record key "x"))
+                    (equals (position #x3D record)))
+               (setf (aref record (1+ equals)) #xFF)
+               record))
+           (invalid-key-record ()
+             (let* ((record (aitools.text.domain::%pax-record "vendor.key" "x"))
+                    (space (position 32 record)))
+               (setf (aref record (1+ space)) #xFF)
+               record)))
+      (let* ((records (append (loop for index below 32
+                                    collect (invalid-value-record (format nil "vendor.~D" index)))
+                              (list (invalid-key-record))))
+             (unknown-records (apply #'join-octets records))
+             (archive (tar-of (tar-block "Global" #\g :data unknown-records)
+                              (tar-block "Global" #\g :data (aitools.text.domain::%pax-record "path" "global"))
+                              (tar-block "f" #\0))))
+        (expect (aitools.text.domain::%parse-pax-records unknown-records 0 (length unknown-records))
+                :to-equal nil)
+        (expect (tar-summary archive) :to-equal '(("global" :file 0 0 nil))))))
+
+  (it "bounds PAX numbers before integer conversion"
+    (let* ((too-large-size (make-string 128 :initial-element #\9))
+           (size-archive (tar-of (tar-block "PaxHeader" #\x
+                                            :data (aitools.text.domain::%pax-record "size" too-large-size))
+                                 (tar-block "f" #\0)))
+           (max-mtime (1- (* 127 (expt 256 11))))
+           (exact-mtime (tar-of (tar-block "PaxHeader" #\x
+                                           :data (aitools.text.domain::%pax-record "mtime" (princ-to-string max-mtime)))
+                                (tar-block "f" #\0)))
+           (over-mtime (tar-of (tar-block "PaxHeader" #\x
+                                          :data (aitools.text.domain::%pax-record "mtime" (princ-to-string (1+ max-mtime))))
+                               (tar-block "f" #\0))))
+      (expect (tar-entries-reason size-archive)
+              :to-equal '(archive-limit-exceeded "tar pax size"))
+      (expect (archive-entry-mtime (first (read-tar-entries exact-mtime))) :to-be max-mtime)
+      (expect (tar-entries-reason over-mtime)
+              :to-equal '(archive-limit-exceeded "tar pax mtime")))))
 
 (describe "aitools.text.domain tar"
   (it "round-trips names (long and non-ASCII via pax), kinds, modes, links, and bytes"

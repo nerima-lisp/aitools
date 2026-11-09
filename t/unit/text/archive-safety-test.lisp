@@ -210,33 +210,36 @@
       (put-u16 archive (+ eocd 8) +archive-max-zip-records+)
       (put-u16 archive (+ eocd 10) #xFFFF)
       (signals archive-limit-exceeded (read-zip-entries archive))))
-  (it "accepts the gzip FNAME raw-byte limit and rejects one byte more"
-    (flet ((gzip-header (name-bytes)
-             (let* ((name-length (length name-bytes))
-                    (header (make-array (+ 11 name-length)
-                                        :element-type '(unsigned-byte 8)
-                                        :initial-element 0)))
-               (setf (aref header 0) #x1F
-                     (aref header 1) #x8B
-                     (aref header 2) 8
-                     (aref header 3) 8)
-               (replace header name-bytes :start1 10)
-               (setf (aref header (+ 10 name-length)) 0)
-               header)))
-      (let ((exact (make-array +archive-max-path-bytes+
-                               :element-type '(unsigned-byte 8)
-                               :initial-element 0))
-            (over (make-array (1+ +archive-max-path-bytes+)
-                              :element-type '(unsigned-byte 8)
-                              :initial-element 0)))
-        (loop for index from 0 below 4094 by 2
-              do (setf (aref exact index) #xC3
-                       (aref exact (1+ index)) #xA9))
-        (setf (aref exact 4094) 65)
+  (it "accepts raw gzip FNAME limits and checks optional fields on overlong names"
+    (flet ((gzip-header (name flags &optional (extra (octets)) (comment (octets)) crc)
+             (let* ((header (join-octets (octets #x1F #x8B 8 flags 0 0 0 0 0 3) extra
+                                         (join-octets name (octets 0)) comment))
+                    (checksum (logand (aitools.text.domain:crc32 header) #xFFFF)))
+               (if (logtest flags 2)
+                   (join-octets header (or crc (octets (logand checksum #xFF) (ash checksum -8))))
+                   header))))
+      (let ((over (make-array (1+ +archive-max-path-bytes+)
+                              :element-type '(unsigned-byte 8) :initial-element 0)))
         (loop for index from 0 below (length over) by 2
-              do (setf (aref over index) #xC3
-                       (aref over (1+ index)) #xA9))
-        (expect (length (nth-value 0 (gzip-member-header (gzip-header exact))))
-                :to-be 2048)
-        (signals archive-limit-exceeded
-          (gzip-member-header (gzip-header over)))))))
+              do (setf (aref over index) #xC3 (aref over (1+ index)) #xA9))
+        (let ((exact (subseq over 0 +archive-max-path-bytes+)))
+          (setf (aref exact (1- +archive-max-path-bytes+)) 65)
+          (expect (length (nth-value 0 (gzip-member-header (gzip-header exact 8)))) :to-be 2048)
+          (signals archive-limit-exceeded (gzip-member-header (gzip-header over 8)))
+          (expect (multiple-value-list
+                   (gzip-member-header (gzip-header (octets 65) #x1E (octets 2 0 9 9) (octets 67 0))))
+                  :to-equal (list "A" 0 20))
+          (signals archive-limit-exceeded
+            (gzip-member-header (gzip-header over #x1E (octets 2 0 9 9) (octets 67 0))))
+          (expect (gzip-reason (lambda () (gzip-member-header
+                                           (gzip-header over #x1C (octets #xFF #xFF 9 9) (octets 67 0)))))
+                  :to-equal (list 'archive-error "field is truncated"))
+          (expect (gzip-reason (lambda () (gzip-member-header (gzip-header over #x18 (octets) (octets 67)))))
+                  :to-equal (list 'archive-error "unterminated gzip header string"))
+          (expect (gzip-reason (lambda () (gzip-member-header (gzip-header over #x0A (octets) (octets) (octets 0)))))
+                  :to-equal (list 'archive-error "gzip header is truncated"))
+          (let ((bad-crc (gzip-header over #x0A)))
+            (setf (aref bad-crc (1- (length bad-crc)))
+                  (logxor (aref bad-crc (1- (length bad-crc))) 1))
+            (expect (gzip-reason (lambda () (gzip-member-header bad-crc)))
+                    :to-equal (list 'archive-error "gzip header CRC-32 mismatch"))))))))

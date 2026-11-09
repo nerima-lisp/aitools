@@ -60,6 +60,21 @@ component)."
 (defconstant +archive-max-link-target-bytes+ 4095)
 (defconstant +archive-max-tar-records+ 200000)
 (defconstant +archive-max-zip-records+ 65534)
+(defconstant +archive-max-path-metadata-bytes+ (* 16 1024 1024))
+(defun %archive-path-metadata-total (current additional)
+  (let ((total (+ current additional)))
+    (when (> total +archive-max-path-metadata-bytes+)
+      (error 'archive-limit-exceeded
+             :limit +archive-max-path-metadata-bytes+
+             :reason "archive path metadata"))
+    total))
+(defun %archive-utf8-byte-length (string)
+  (loop for character across string
+        for code = (char-code character)
+        sum (cond ((<= code #x7F) 1)
+                  ((<= code #x7FF) 2)
+                  ((<= code #xFFFF) 3)
+                  (t 4))))
 (defun %archive-path-octets-problem (octets start end)
   (declare (type octets octets) (type fixnum start end))
   (when (> (- end start) +archive-max-path-bytes+)

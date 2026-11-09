@@ -50,6 +50,7 @@
   (it "composes under NFC and decomposes under NFD"
     (let ((decomposed (coerce (list #\e (code-char #x301)) 'string)))
       (expect (normalize-text decomposed :nfc) :to-equal (string (code-char #xE9)))
+      (expect (casefold-text (format nil "Stra~Ce" (code-char #xDF))) :to-equal "strasse")
       (expect (normalize-text (string (code-char #xE9)) :nfd) :to-equal decomposed))))
 
 (describe "aitools.text.domain language table"

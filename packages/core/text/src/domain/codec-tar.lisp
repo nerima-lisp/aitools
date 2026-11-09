@@ -11,6 +11,7 @@
 
 (defconstant +tar-block+ 512)
 (defconstant +tar-record+ 10240)
+(defconstant +tar-max-pax-mtime+ (1- (* 127 (expt 256 11))))
 
 (defun %tar-number (octets offset length)
   "A tar numeric field: octal digits ended by space or NUL, or GNU base-256
@@ -61,55 +62,110 @@ when the first byte has its high bit set."
     (or (= stored unsigned) (= stored signed))))
 
 (defun %parse-pax-records (octets start end)
-  "An alist of (KEY . VALUE) strings from pax records in OCTETS[START,END)."
-  (let ((position start) (records '()))
-    (loop while (< position end)
-          do (when (zerop (aref octets position)) (return))
-             (let* ((space (or (position 32 octets :start position :end end)
-                               (%archive-fail "pax record has no length")))
-                    (length (loop with value = 0
-                                  for i from position below space
-                                  for byte = (aref octets i)
-                                  do (unless (<= 48 byte 57) (%archive-fail "pax record length is not decimal"))
-                                     (setf value (+ (* value 10) (- byte 48)))
-                                  finally (return value)))
-                    (record-end (+ position length)))
-               (when (or (<= length (- space position)) (> record-end end)
-                         (/= (aref octets (1- record-end)) 10))
-                 (%archive-fail "malformed pax record"))
-               (let ((equals (or (position 61 octets :start (1+ space) :end record-end)
-                                 (%archive-fail "pax record has no key"))))
-                 (let* ((key (decode-utf8 octets :start (1+ space) :end equals))
-                        (value-start (1+ equals))
-                        (value-end (1- record-end))
-                        (link-target-p (string= key "linkpath")))
-                   (when (member key '("path" "linkpath") :test #'string=)
-                     (when (and link-target-p
-                                (> (- value-end value-start) +archive-max-link-target-bytes+))
-                       (error 'archive-limit-exceeded
-                              :limit +archive-max-link-target-bytes+
-                              :reason "tar link target"))
-                     (let ((problem (%archive-path-octets-problem octets value-start value-end)))
-                       (when problem
-                         (error 'archive-limit-exceeded
-                                :limit (ecase problem
-                                         (:path-too-long +archive-max-path-bytes+)
-                                         (:component-too-long +archive-max-component-bytes+)
-                                         (:too-deep +archive-max-depth+))
-                                :reason (if link-target-p "tar link target" "tar path")))))
-                   (push (cons key (decode-utf8 octets :start value-start :end value-end))
-                         records)))
-               (setf position record-end)))
-    (nreverse records)))
+  "An alist of recognized pax records from OCTETS[START,END)."
+  (let ((position start)
+        (records '())
+        (maximum-mtime +tar-max-pax-mtime+))
+    (labels ((ascii-key-p (key-start key-end name)
+                          (and (= (- key-end key-start) (length name))
+                               (loop for index from key-start below key-end
+                                     for name-index from 0
+                                     always (= (aref octets index)
+                                               (char-code (char name name-index))))))
+             (pax-key (key-start key-end)
+                      (cond ((ascii-key-p key-start key-end "path") "path")
+                            ((ascii-key-p key-start key-end "linkpath") "linkpath")
+                            ((ascii-key-p key-start key-end "size") "size")
+                            ((ascii-key-p key-start key-end "mtime") "mtime")))
+             (pax-number (value-start value-end maximum fractional-p reason)
+                         (let* ((dot (and fractional-p
+                                          (position 46 octets :start value-start :end value-end)))
+                                (integer-end (or dot value-end))
+                                (value 0))
+                           (when (= integer-end value-start)
+                             (%archive-fail "pax numeric value is not decimal"))
+                           (loop for index from value-start below integer-end
+                                 for byte = (aref octets index)
+                                 do (unless (<= 48 byte 57)
+                                      (%archive-fail "pax numeric value is not decimal"))
+                                 (let ((digit (- byte 48)))
+                                   (when (> value (floor (- maximum digit) 10))
+                                     (error 'archive-limit-exceeded
+                                            :limit maximum
+                                            :reason reason))
+                                   (setf value (+ (* value 10) digit))))
+                           (when dot
+                             (loop for index from (1+ dot) below value-end
+                                   for byte = (aref octets index)
+                                   unless (<= 48 byte 57)
+                                   do (%archive-fail "pax numeric value is not decimal")))
+                           value)))
+      (loop while (< position end)
+            do (when (zerop (aref octets position)) (return))
+            (let* ((space (or (position 32 octets :start position :end end)
+                              (%archive-fail "pax record has no length")))
+                   (length
+                    (let ((available (- end position))
+                          (value 0)
+                          (too-large nil))
+                      (loop for index from position below space
+                            for byte = (aref octets index)
+                            do (unless (<= 48 byte 57)
+                                 (%archive-fail "pax record length is not decimal"))
+                            (unless too-large
+                              (let ((digit (- byte 48)))
+                                (if (> value (floor (- available digit) 10))
+                                    (setf too-large t)
+                                  (setf value (+ (* value 10) digit))))))
+                      (when too-large (%archive-fail "malformed pax record"))
+                      value))
+                   (record-end (+ position length)))
+              (when (or (<= length (- space position)) (> record-end end)
+                        (/= (aref octets (1- record-end)) 10))
+                (%archive-fail "malformed pax record"))
+              (let* ((equals (or (position 61 octets :start (1+ space) :end record-end)
+                                 (%archive-fail "pax record has no key")))
+                     (key-start (1+ space))
+                     (value-start (1+ equals))
+                     (value-end (1- record-end))
+                     (key (pax-key key-start equals))
+                     (duplicate-p (and key (assoc key records :test #'string=)))
+                     (value
+                      (when (and key
+                                 (or (not duplicate-p)
+                                     (member key '("path" "linkpath") :test #'string=)))
+                        (cond
+                         ((member key '("path" "linkpath") :test #'string=)
+                          (let ((link-target-p (string= key "linkpath")))
+                            (when (and link-target-p
+                                       (> (- value-end value-start)
+                                          +archive-max-link-target-bytes+))
+                              (error 'archive-limit-exceeded
+                                     :limit +archive-max-link-target-bytes+
+                                     :reason "tar link target"))
+                            (let ((problem (%archive-path-octets-problem
+                                            octets value-start value-end)))
+                              (when problem
+                                (error 'archive-limit-exceeded
+                                       :limit (ecase problem
+                                                (:path-too-long +archive-max-path-bytes+)
+                                                (:component-too-long +archive-max-component-bytes+)
+                                                (:too-deep +archive-max-depth+))
+                                       :reason (if link-target-p
+                                                   "tar link target"
+                                                 "tar path"))))
+                            (decode-utf8 octets :start value-start :end value-end)))
+                         ((string= key "size")
+                          (pax-number value-start value-end (- (length octets) end)
+                                      nil "tar pax size"))
+                         ((string= key "mtime")
+                          (pax-number value-start value-end maximum-mtime
+                                      t "tar pax mtime")))))) (when (and key (not duplicate-p))
+                       (push (cons key value) records))
+                (setf position record-end)))) (nreverse records)
+      )))
 
-(defun %pax-integer (records key)
-  "The integer part of pax KEY's decimal value (mtime may carry a fraction)."
-  (let ((value (cdr (assoc key records :test #'string=))))
-    (when value
-      (let ((end (or (position #\. value) (length value))))
-        (unless (and (plusp end) (every (lambda (char) (char<= #\0 char #\9)) (subseq value 0 end)))
-          (%archive-fail "pax numeric value is not decimal"))
-        (parse-integer value :end end)))))
+(defun %pax-integer (records key) "The integer part of recognized PAX numeric KEY." (let ((value (cdr (assoc key records :test (function string=))))) (and (integerp value) value)))
 
 (defun read-tar-entries (octets)
   "The ARCHIVE-ENTRY list of the tar archive OCTETS, ending at the first
@@ -117,158 +173,73 @@ zero block or the end of the data. Metadata-only headers (pax, GNU long
 names) are consumed, not listed. Directory names lose their trailing '/'."
   (declare (type octets octets))
   (let ((position 0) (entries '()) (global '()) (pax '())
-        (long-name nil) (long-link nil) (record-count 0))
+        (long-name nil) (long-link nil) (path-metadata-bytes 0) (record-count 0))
     (loop
-      (when (> (+ position +tar-block+) (length octets))
-        (when (< position (length octets)) (%archive-fail "tar archive ends inside a header"))
-        (return))
-      (when (loop for index from position below (+ position +tar-block+)
-                  always (zerop (aref octets index)))
-        (return))
-      (incf record-count)
-      (when (> record-count +archive-max-tar-records+)
-        (error 'archive-limit-exceeded
-               :limit +archive-max-tar-records+
-               :reason "tar records"))
-      (unless (%tar-checksum-ok-p octets position) (%archive-fail "tar header checksum mismatch"))
-      (let* ((type (code-char (aref octets (+ position 156))))
-             (records (append pax global))
-             (size (or (and (not (member type '(#\x #\g))) (%pax-integer records "size"))
-                       (%tar-number octets (+ position 124) 12)))
-             (data-start (+ position +tar-block+))
-             (next (+ data-start (* +tar-block+ (ceiling size +tar-block+)))))
-        (when (> (+ data-start size) (length octets)) (%archive-fail "tar entry data is truncated"))
-        (case type
-          (#\x (setf pax (%parse-pax-records octets data-start (+ data-start size))))
-          (#\g (setf global (append (%parse-pax-records octets data-start (+ data-start size)) global)))
-          (#\L (setf long-name (%tar-string octets data-start size)))
-          (#\K (setf long-link (%tar-string octets data-start size t)))
-          (t
-           (let* ((ustar (and (= (aref octets (+ position 257)) 117)
-                              (string= "ustar" (map 'string #'code-char (subseq octets (+ position 257) (+ position 262))))
-                              (= (aref octets (+ position 262)) 0)))
-                  (field-name (%tar-string octets position 100))
-                  (prefix (and ustar (%tar-string octets (+ position 345) 155)))
-                  (name (or (cdr (assoc "path" records :test #'string=))
-                            long-name
-                            (if (and prefix (plusp (length prefix)))
-                                (concatenate 'string prefix "/" field-name)
-                                field-name)))
-                  (link (or (cdr (assoc "linkpath" records :test #'string=))
-                            long-link
-                            (%tar-string octets (+ position 157) 100 t)))
-                  (kind (case type
-                          ((#\0 #\7 #\Nul) (if (and (plusp (length name))
-                                                              (char= (char name (1- (length name))) #\/))
-                                                         :directory :file))
-                          (#\1 :hardlink)
-                          (#\2 :symlink)
-                          (#\5 :directory)
-                          (t :other))))
-             (push (make-archive-entry :format :tar
-                                       :name (string-right-trim "/" name)
-                                       :kind kind
-                                       :size size
-                                       :mode (logand (%tar-number octets (+ position 100) 8) #o7777)
-                                       :mtime (or (%pax-integer records "mtime")
-                                                  (%tar-number octets (+ position 136) 12))
-                                       :link-target (and (member kind '(:symlink :hardlink)) link)
-                                       :data-offset data-start
-                                       :compressed-size size)
-                   entries)
-             (setf pax '() long-name nil long-link nil))))
-        (setf position next)))
+     (when (> (+ position +tar-block+) (length octets))
+       (when (< position (length octets)) (%archive-fail "tar archive ends inside a header"))
+       (return))
+     (when (loop for index from position below (+ position +tar-block+)
+                 always (zerop (aref octets index)))
+       (return))
+     (incf record-count)
+     (when (> record-count +archive-max-tar-records+)
+       (error 'archive-limit-exceeded
+              :limit +archive-max-tar-records+
+              :reason "tar records"))
+     (unless (%tar-checksum-ok-p octets position) (%archive-fail "tar header checksum mismatch"))
+     (let* ((type (code-char (aref octets (+ position 156))))
+            (records (append pax global))
+            (size (or (and (not (member type '(#\x #\g))) (%pax-integer records "size"))
+                      (%tar-number octets (+ position 124) 12)))
+            (data-start (+ position +tar-block+))
+            (next (+ data-start (* +tar-block+ (ceiling size +tar-block+)))))
+       (when (> (+ data-start size) (length octets)) (%archive-fail "tar entry data is truncated"))
+       (case type
+         (#\x (setf pax (%parse-pax-records octets data-start (+ data-start size))))
+         (#\g (setf global (let ((new-records (%parse-pax-records octets data-start (+ data-start size)))) (append new-records (remove-if (lambda (record) (assoc (car record) new-records :test (function string=))) global)))))
+         (#\L (setf long-name (%tar-string octets data-start size)))
+         (#\K (setf long-link (%tar-string octets data-start size t)))
+         (t
+          (let* ((ustar (and (= (aref octets (+ position 257)) 117)
+                             (string= "ustar" (map 'string #'code-char (subseq octets (+ position 257) (+ position 262))))
+                             (= (aref octets (+ position 262)) 0)))
+                 (field-name (%tar-string octets position 100))
+                 (prefix (and ustar (%tar-string octets (+ position 345) 155)))
+                 (name (or (cdr (assoc "path" records :test #'string=))
+                           long-name
+                           (if (and prefix (plusp (length prefix)))
+                               (concatenate 'string prefix "/" field-name)
+                             field-name)))
+                 (link (or (cdr (assoc "linkpath" records :test #'string=))
+                           long-link
+                           (%tar-string octets (+ position 157) 100 t)))
+                 (kind (case type
+                         ((#\0 #\7 #\Nul) (if (and (plusp (length name))
+                                                   (char= (char name (1- (length name))) #\/))
+                                              :directory :file))
+                         (#\1 :hardlink)
+                         (#\2 :symlink)
+                         (#\5 :directory)
+                         (t :other))))
+            (progn
+              (setf path-metadata-bytes
+                    (%archive-path-metadata-total
+                     path-metadata-bytes
+                     (+ (%archive-utf8-byte-length (string-right-trim "/" name))
+                        (if (member kind '(:symlink :hardlink))
+                            (%archive-utf8-byte-length link)
+                          0))))
+              (push (make-archive-entry :format :tar
+                                        :name (string-right-trim "/" name)
+                                        :kind kind
+                                        :size size
+                                        :mode (logand (%tar-number octets (+ position 100) 8) #o7777)
+                                        :mtime (or (%pax-integer records "mtime")
+                                                   (%tar-number octets (+ position 136) 12))
+                                        :link-target (and (member kind '(:symlink :hardlink)) link)
+                                        :data-offset data-start
+                                        :compressed-size size)
+                    entries))
+            (setf pax '() long-name nil long-link nil))))
+       (setf position next)))
     (nreverse entries)))
-
-;;; ------------------------------------------------------------ writing
-
-(defun %ascii-octets-p (octets)
-  (every (lambda (byte) (< 0 byte 128)) octets))
-
-(defun %split-ustar-name (octets)
-  "(VALUES PREFIX NAME) byte vectors fitting ustar's 155/100-byte fields, or
-NIL when OCTETS cannot be split at a `/` to fit."
-  (if (<= (length octets) 100)
-      (values (make-array 0 :element-type '(unsigned-byte 8)) octets)
-      (loop for i from 1 below (min (length octets) 156)
-            when (and (= (aref octets i) 47) (<= (- (length octets) i 1) 100) (< i (1- (length octets))))
-              return (values (subseq octets 0 i) (subseq octets (1+ i))))))
-
-(defun %pax-record (key value)
-  "One pax record, `LENGTH KEY=VALUE\n`, LENGTH counting its own digits."
-  (let* ((body (concatenate 'octets (encode-utf8 key) #(61) (encode-utf8 value) #(10)))
-         (base (1+ (length body)))
-         (total (+ base (length (princ-to-string base)))))
-    (when (> (length (princ-to-string total)) (length (princ-to-string base)))
-      (incf total))
-    (concatenate 'octets (encode-utf8 (princ-to-string total)) #(32) body)))
-
-(defun %octal-field (value width)
-  "VALUE as WIDTH-1 zero-padded octal digits and a NUL."
-  (let ((text (format nil "~v,'0O" (1- width) value)))
-    (concatenate 'octets (map 'octets #'char-code text) #(0))))
-
-(defun %tar-header (name-octets prefix-octets link-octets size mode mtime type)
-  (let ((header (make-array +tar-block+ :element-type '(unsigned-byte 8) :initial-element 0)))
-    (flet ((field (offset octets) (replace header octets :start1 offset)))
-      (field 0 (subseq name-octets 0 (min 100 (length name-octets))))
-      (field 100 (%octal-field mode 8))
-      (field 108 (%octal-field 0 8))
-      (field 116 (%octal-field 0 8))
-      (field 124 (%octal-field size 12))
-      (field 136 (%octal-field mtime 12))
-      (field 148 (make-array 8 :element-type '(unsigned-byte 8) :initial-element 32))
-      (setf (aref header 156) (char-code type))
-      (field 157 (subseq link-octets 0 (min 100 (length link-octets))))
-      (field 257 (map 'octets #'char-code "ustar"))
-      (field 263 (map 'octets #'char-code "00"))
-      (field 329 (%octal-field 0 8))
-      (field 337 (%octal-field 0 8))
-      (field 345 (subseq prefix-octets 0 (min 155 (length prefix-octets))))
-      (let ((sum (reduce #'+ header)))
-        (field 148 (map 'octets #'char-code (format nil "~6,'0O" sum)))
-        (setf (aref header 154) 0 (aref header 155) 32)))
-    header))
-
-(defun write-tar (members)
-  "A tar archive holding MEMBERS (ARCHIVE-MEMBERs) in order, with uid/gid 0
-and empty owner names so the output depends only on MEMBERS."
-  (let ((sink (%byte-sink))
-        (octal-limit (expt 8 11)))
-    (flet ((put-padded (octets)
-             (%put-octets sink octets)
-             (loop repeat (mod (- (length octets)) +tar-block+) do (vector-push-extend 0 sink))))
-      (dolist (member members)
-        (let* ((kind (archive-member-kind member))
-               (name (encode-utf8 (if (eq kind :directory)
-                                      (concatenate 'string (archive-member-name member) "/")
-                                      (archive-member-name member))))
-               (link (encode-utf8 (or (and (eq kind :symlink) (archive-member-link-target member)) "")))
-               (data (if (eq kind :file) (archive-member-data member) #()))
-               (mtime (archive-member-mtime member))
-               (records '()))
-          (multiple-value-bind (prefix short-name) (and (%ascii-octets-p name) (%split-ustar-name name))
-            (unless short-name
-              (push (%pax-record "path" (archive-member-name member)) records)
-              (setf prefix (make-array 0 :element-type '(unsigned-byte 8))
-                    short-name (map 'octets (lambda (byte) (if (< 0 byte 128) byte 95))
-                                    (subseq name (max 0 (- (length name) 100))))))
-            (when (or (> (length link) 100) (not (%ascii-octets-p link)))
-              (push (%pax-record "linkpath" (archive-member-link-target member)) records))
-            (when (>= (length data) octal-limit)
-              (push (%pax-record "size" (princ-to-string (length data))) records))
-            (when (>= mtime octal-limit)
-              (push (%pax-record "mtime" (princ-to-string mtime)) records))
-            (when records
-              (let ((body (apply #'concatenate 'octets (reverse records)))
-                    (pax-name (map 'octets #'char-code "PaxHeader/entry")))
-                (put-padded (%tar-header pax-name #() #() (length body) #o644 (min mtime (1- octal-limit)) #\x))
-                (put-padded body)))
-            (put-padded (%tar-header short-name prefix link (min (length data) (1- octal-limit))
-                                     (archive-member-mode member)
-                                     (min mtime (1- octal-limit))
-                                     (ecase kind (:file #\0) (:directory #\5) (:symlink #\2))))
-            (put-padded data))))
-      (loop repeat (* 2 +tar-block+) do (vector-push-extend 0 sink))
-      (loop repeat (mod (- (fill-pointer sink)) +tar-record+) do (vector-push-extend 0 sink)))
-    (coerce sink 'octets)))
