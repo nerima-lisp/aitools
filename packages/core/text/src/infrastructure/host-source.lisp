@@ -63,46 +63,56 @@ read another file."
              (funcall function fd (sb-posix:stat-size stat))))
       (sb-posix:close fd))))
 
-(defun %read-grown (head fd first-byte)
-  "Concatenate HEAD (the fstat-sized prefix, all valid), FIRST-BYTE (the one
-extra byte already read that proved the file grew past its stat size), and
-the rest of FD read in chunks. Rare: a file appended to between fstat and
-read. Chunked, never one byte at a time."
+(defun %read-grown (head fd first-byte &optional max-bytes)
+  "Concatenate HEAD, the first byte already read past its fstat size, and the
+rest of FD. When MAX-BYTES is given, stop after observing its first excess
+byte and return (VALUES NIL :TOO-LARGE); otherwise read through EOF."
   (let ((chunks (list head)) (total (length head)))
     (let ((probe (make-array 1 :element-type '(unsigned-byte 8))))
       (setf (aref probe 0) first-byte)
       (push probe chunks)
       (incf total 1))
+    (when (and max-bytes (> total max-bytes))
+      (return-from %read-grown (values nil :too-large)))
     (loop
-      (let* ((chunk (make-array +read-buffer-size+ :element-type '(unsigned-byte 8)))
-             (n (%read-fully fd chunk 0 +read-buffer-size+)))
+      (let* ((capacity (if max-bytes
+                           (min +read-buffer-size+ (- (1+ max-bytes) total))
+                           +read-buffer-size+))
+             (chunk (make-array capacity :element-type '(unsigned-byte 8)))
+             (n (%read-fully fd chunk 0 capacity)))
+        (when (and max-bytes (> (+ total n) max-bytes))
+          (return-from %read-grown (values nil :too-large)))
         (when (plusp n)
           (push (%shrink chunk n) chunks)
           (incf total n))
-        (when (< n +read-buffer-size+) (return))))
+        (when (< n capacity) (return))))
     (let ((result (make-array total :element-type '(unsigned-byte 8))) (offset 0))
       (dolist (chunk (nreverse chunks) result)
         (replace result chunk :start1 offset)
         (incf offset (length chunk))))))
 
-(defun %read-all (fd size &optional head)
+(defun %read-all (fd size &optional head &key max-bytes)
   "Every byte of the regular file behind FD, whose fstat size is SIZE, after
-HEAD, the bytes already read from its start (none by default). One buffer of
-SIZE is filled by read(2); a single one-byte probe past it names end of file
-(the common case: the buffer is returned with no copy) or catches a file
-grown since fstat and hands it to the chunked fallback. A file that shrank
-returns its shorter prefix."
-  (let* ((start (if head (length head) 0))
-         (buffer (make-array (max size start) :element-type '(unsigned-byte 8)))
-         (got (+ start (%read-fully fd buffer start (- (length buffer) start)))))
-    (when head (replace buffer head))
-    (if (< got size)
-        (%shrink buffer got)
-        (let* ((probe (make-array 1 :element-type '(unsigned-byte 8)))
-               (extra (%read-fully fd probe 0 1)))
-          (if (zerop extra)
-              buffer
-              (%read-grown buffer fd (aref probe 0)))))))
+HEAD, the bytes already read from its start (none by default). With MAX-BYTES,
+refuse an oversized fstat size before allocation and stop after reading at
+most MAX-BYTES plus one byte if the file grows. Growth beyond the limit returns
+(VALUES NIL :TOO-LARGE); unbounded reads retain the existing EOF behavior."
+  (let ((start (if head (length head) 0)))
+    (when (and max-bytes (> (max size start) max-bytes))
+      (return-from %read-all (values nil :too-large)))
+    (let* ((buffer (make-array (max size start) :element-type '(unsigned-byte 8)))
+           (got (+ start (%read-fully fd buffer start (- (length buffer) start)))))
+      (when head (replace buffer head))
+      (if (< got size)
+          (%shrink buffer got)
+          (let* ((probe (make-array 1 :element-type '(unsigned-byte 8)))
+                 (extra (%read-fully fd probe 0 1)))
+            (if (zerop extra)
+                buffer
+                (if (and max-bytes (>= got max-bytes))
+                    (values nil :too-large)
+                    (%read-grown buffer fd (aref probe 0) max-bytes)))))))
+)
 
 (defun %file-size (path)
   (%call-with-regular-file path (lambda (fd size) (declare (ignore fd)) size)))
@@ -115,17 +125,24 @@ returns its shorter prefix."
                                     (got (%read-fully fd buffer 0 count)))
                                (%shrink buffer got)))))
 
-(defun %read-sniffed (path count continue-p)
+(defun %read-sniffed (path count continue-p &key max-bytes)
   (%call-with-regular-file path
                            (lambda (fd size)
-                             (let* ((buffer (make-array count :element-type '(unsigned-byte 8)))
-                                    (prefix (%shrink buffer (%read-fully fd buffer 0 count))))
-                               (if (and (funcall continue-p prefix size) (= (length prefix) count))
-                                   (%read-all fd size prefix)
-                                   prefix)))))
+                             (let* ((read-count (if max-bytes (min count (1+ max-bytes)) count))
+                                    (buffer (make-array read-count :element-type '(unsigned-byte 8)))
+                                    (prefix (%shrink buffer (%read-fully fd buffer 0 read-count)))
+                                    (continue (funcall continue-p prefix size)))
+                               (cond ((not continue) prefix)
+                                     ((and max-bytes (> (length prefix) max-bytes))
+                                      (values nil :too-large))
+                                     ((= (length prefix) read-count)
+                                      (%read-all fd size prefix :max-bytes max-bytes))
+                                     (t prefix))))))
 
-(defun %read-octets (path)
-  (%call-with-regular-file path (lambda (fd size) (%read-all fd size))))
+(defun %read-octets (path &key max-bytes)
+  (%call-with-regular-file path
+                           (lambda (fd size)
+                             (%read-all fd size nil :max-bytes max-bytes))))
 
 (defun %read-range (path start end)
   "(VALUES octets size): the bytes [START, END) of PATH clamped to its fstat

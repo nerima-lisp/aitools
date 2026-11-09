@@ -15,15 +15,24 @@
 (defun %composed-read-sniffed (file-size read-prefix read-octets)
   "READ-SNIFFED from the other three port functions, for a source that has
 no single-open reader: a size, a prefix, and then the whole file, in up to
-three opens."
-  (lambda (path count continue-p)
+three opens. Bounded reads limit the prefix and forward MAX-BYTES to
+READ-OCTETS, which must return (VALUES NIL :TOO-LARGE) without retaining more
+than MAX-BYTES bytes."
+  (lambda (path count continue-p &key max-bytes)
     (multiple-value-bind (size problem) (funcall file-size path)
       (if (null size)
           (values nil problem)
-          (multiple-value-bind (prefix problem) (funcall read-prefix path count)
-            (cond ((null prefix) (values nil problem))
-                  ((or (not (funcall continue-p prefix size)) (< (length prefix) count)) prefix)
-                  (t (funcall read-octets path))))))))
+          (let ((read-count (if max-bytes (min count (1+ max-bytes)) count)))
+            (multiple-value-bind (prefix problem) (funcall read-prefix path read-count)
+              (if (null prefix)
+                  (values nil problem)
+                  (let ((continue (funcall continue-p prefix size)))
+                    (cond ((and continue max-bytes (> (length prefix) max-bytes))
+                           (values nil :too-large))
+                          ((or (not continue) (< (length prefix) read-count)) prefix)
+                          (max-bytes (funcall read-octets path :max-bytes max-bytes))
+                          (t (funcall read-octets path))))))))))
+)
 
 (defun %composed-read-range (file-size call-with-chunks)
   "READ-RANGE from FILE-SIZE and CALL-WITH-CHUNKS, for a source that cannot
@@ -56,15 +65,20 @@ by the range even though the bytes before it are still read."
 FILE-SIZE (path) -> byte size of the regular file PATH, or NIL when PATH is
   missing or not a regular file (after following symlinks).
 READ-PREFIX (path count) -> at most COUNT leading bytes, or NIL.
-READ-OCTETS (path) -> every byte, or NIL.
+READ-OCTETS (path &key max-bytes) -> every byte, or NIL. A bounded call must
+  stop after at most MAX-BYTES plus one byte and return (VALUES NIL :TOO-LARGE)
+  when the file exceeds the limit.
 CALL-WITH-CHUNKS (path chunk-size function) -> calls FUNCTION with each
   successive chunk (a fresh octet vector) until FUNCTION returns :STOP;
   returns T, or NIL when PATH could not be opened.
-READ-SNIFFED (path count continue-p), optional -> opens PATH once, reads at
-  most COUNT leading bytes, and calls CONTINUE-P (prefix size) with them and
-  the byte size. Returns the prefix when CONTINUE-P returns false, else every
-  byte of the file read on the same descriptor; NIL when PATH could not be
-  read. When not given, it is composed from the three readers above.
+READ-SNIFFED (path count continue-p &key max-bytes), optional -> opens PATH
+  once, reads at most COUNT leading bytes, and calls CONTINUE-P (prefix size)
+  with them and the byte size. Returns the prefix when CONTINUE-P returns
+  false, else every byte of the file read on the same descriptor. A bounded
+  call returns (VALUES NIL :TOO-LARGE) if the file grows past MAX-BYTES; its
+  reader must stop after at most MAX-BYTES plus one byte. When not given, it is
+  composed from FILE-SIZE, READ-PREFIX, and READ-OCTETS; READ-OCTETS must honor
+  MAX-BYTES for that bounded fallback.
 READ-RANGE (path start end), optional -> (VALUES octets size): the bytes
   [START, END) clamped to the file, read without the bytes before START,
   and the byte size of the whole file, from one open; NIL when PATH could
@@ -95,14 +109,18 @@ returns :UNREADABLE as its second value; a lone NIL means missing."
 (defun source-read-prefix (source path count)
   (funcall (text-source-read-prefix source) path count))
 
-(defun source-read-octets (source path)
-  (funcall (text-source-read-octets source) path))
+(defun source-read-octets (source path &key max-bytes)
+  (if max-bytes
+      (funcall (text-source-read-octets source) path :max-bytes max-bytes)
+      (funcall (text-source-read-octets source) path)))
 
 (defun source-call-with-chunks (source path chunk-size function)
   (funcall (text-source-call-with-chunks source) path chunk-size function))
 
-(defun source-read-sniffed (source path count continue-p)
-  (funcall (text-source-read-sniffed source) path count continue-p))
+(defun source-read-sniffed (source path count continue-p &key max-bytes)
+  (if max-bytes
+      (funcall (text-source-read-sniffed source) path count continue-p :max-bytes max-bytes)
+      (funcall (text-source-read-sniffed source) path count continue-p)))
 
 (defun source-read-range (source path start end)
   (funcall (text-source-read-range source) path start end))
@@ -112,37 +130,52 @@ returns :UNREADABLE as its second value; a lone NIL means missing."
    source path &key max-bytes on-text on-binary on-missing on-unreadable
    (on-too-large (lambda (size) (funcall nil size))))
   "The binary-before-read decision over one open of PATH: the first
-+BINARY-SNIFF-LENGTH+ bytes decide, and only a text file within MAX-BYTES is
-read further, on the same descriptor. Calls exactly one continuation:
++BINARY-SNIFF-LENGTH+ bytes decide. With MAX-BYTES smaller than that prefix,
+MAX-BYTES plus one bytes decide instead. Only a text file within MAX-BYTES is
+read further, on the same descriptor. A bounded reader that detects growth
+past MAX-BYTES returns :TOO-LARGE after reading at most MAX-BYTES plus one
+byte; ON-TOO-LARGE receives MAX-BYTES plus one as the observed lower bound.
+Calls exactly one continuation:
 
 ON-TEXT (octets): every byte of a text file.
-ON-BINARY (prefix size): the sniffed prefix (enough for GUESS-MIME) and the
-  byte size; nothing past the prefix is read.
+ON-BINARY (prefix size): the sniffed prefix and byte size; nothing past the
+  prefix is read.
 ON-MISSING (path): PATH is absent or not a regular file.
 ON-UNREADABLE (path): PATH exists but may not be read (EACCES).
 ON-TOO-LARGE (size): a text file larger than MAX-BYTES (only when MAX-BYTES
-  is given); nothing past the prefix is read."
+  is given); nothing past the bounded prefix is read for a stat-size rejection."
   (declare (type function on-text on-binary on-missing on-unreadable))
   (let ((outcome :text) (file-size 0))
     (multiple-value-bind (octets problem)
-        (source-read-sniffed source path +binary-sniff-length+
-                             (lambda (prefix size)
-                               (setf file-size size
-                                     outcome (cond ((binary-octets-p prefix) :binary)
-                                                   ((and max-bytes (> size max-bytes)) :too-large)
-                                                   (t :text)))
-                               (eq outcome :text)))
+        (if max-bytes
+            (source-read-sniffed source path +binary-sniff-length+
+                                 (lambda (prefix size)
+                                   (setf file-size size
+                                         outcome (cond ((binary-octets-p prefix) :binary)
+                                                       ((and max-bytes (> size max-bytes)) :too-large)
+                                                       (t :text)))
+                                   (eq outcome :text))
+                                 :max-bytes max-bytes)
+            (source-read-sniffed source path +binary-sniff-length+
+                                 (lambda (prefix size)
+                                   (setf file-size size
+                                         outcome (if (binary-octets-p prefix) :binary :text))
+                                   (eq outcome :text))))
       (cond
-            ((null octets)
-             (if (eq problem :unreadable)
-                 (aitools.kernel.domain:flow-continue :on-unreadable path)
-                 (aitools.kernel.domain:flow-continue :on-missing path)))
-            ((eq outcome :binary)
-             (aitools.kernel.domain:flow-continue :on-binary octets file-size))
-            ((eq outcome :too-large)
-             (aitools.kernel.domain:flow-continue :on-too-large file-size))
-            (t
-             (aitools.kernel.domain:flow-continue :on-text octets))))))
+        ((eq problem :too-large)
+         (aitools.kernel.domain:flow-continue :on-too-large
+                                              (and max-bytes (1+ max-bytes))))
+        ((null octets)
+         (if (eq problem :unreadable)
+             (aitools.kernel.domain:flow-continue :on-unreadable path)
+             (aitools.kernel.domain:flow-continue :on-missing path)))
+        ((eq outcome :binary)
+         (aitools.kernel.domain:flow-continue :on-binary octets file-size))
+        ((eq outcome :too-large)
+         (aitools.kernel.domain:flow-continue :on-too-large file-size))
+        (t
+         (aitools.kernel.domain:flow-continue :on-text octets)))))
+)
 
 (aitools.kernel.domain:define-flow
   (call-with-text-file/k
