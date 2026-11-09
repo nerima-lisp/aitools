@@ -7,6 +7,7 @@
   (asdf:load-system "aitools/cli"))
 
 (let ((registry (aitools.protocol.application:make-command-registry))
+      (elapsed-ms nil)
       (checks 0))
   (aitools.env.presentation:register-env-commands
    registry (aitools.env.infrastructure:make-production-env-ports))
@@ -16,9 +17,15 @@
     (flet ((check (condition label)
              (incf checks)
              (unless condition (error "Metrics smoke failed: ~A" label))))
-      (let* ((code (aitools/cli:dispatch app registry
-                            (list "aitools" "sys" "metrics" "--limit" "1")
-                            :stdout stdout :stderr stderr))
+      (let* ((code
+  (let ((started (get-internal-real-time)))
+    (prog1
+        (aitools/cli:dispatch app registry
+                              (list "aitools" "sys" "metrics" "--limit" "1")
+                              :stdout stdout :stderr stderr)
+      (setf elapsed-ms
+            (floor (* 1000 (- (get-internal-real-time) started))
+                   internal-time-units-per-second)))))
              (error-output (get-output-stream-string stderr))
              (stdout-output (get-output-stream-string stdout))
              (response (if (member code (list 0 3)) stdout-output error-output))
@@ -32,11 +39,12 @@
           (let* ((status (gethash "status" document))
                  (error-object (gethash "error" document))
                  (error-code (and (hash-table-p error-object) (gethash "code" error-object))))
-            (format t "~&Metrics smoke diagnostic: exit=~D status=~A error-code=~A stderr-present=~A~%"
+            (format t "~&Metrics smoke diagnostic: exit=~D status=~A error-code=~A stderr-present=~A elapsed-ms=~D limit-ms=none~%"
                     code
-                    (if (member status '("ok" "partial" "error") :test #'equal) status "other")
+                    (if (member status (list "ok" "partial" "error") :test (function equal)) status "other")
                     (if (equal error-code "environment.unavailable") error-code "other")
-                    (plusp (length error-output)))))
+                    (plusp (length error-output))
+                    elapsed-ms)))
         (check (member code '(0 3)) "success or bounded partial exit")
         (check (equal error-output "") "empty stderr")
         (let* ((cpu (gethash "cpu" document))

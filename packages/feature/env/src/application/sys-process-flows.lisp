@@ -101,32 +101,44 @@ userspace tick (USER_HZ) at 100."
 #+linux
 (defun %metrics-cpu (ports os)
   (when (eq os :linux)
-    (let* ((before-text (%read-text ports "/proc/stat"))
+    (let* ((sample-start (get-internal-real-time))
+           (before-start (get-internal-real-time))
+           (before-text (%read-text ports "/proc/stat"))
+           (before-elapsed (%elapsed-milliseconds-since before-start))
            (before (aitools.env.domain:parse-cpu-counters before-text)))
       (cond ((null before-text)
-             (%report-metrics-source-classification ports :cpu-counter-before :missing))
+             (%report-metrics-source-classification
+              ports :cpu-counter-before :missing before-elapsed nil))
             ((null before)
-             (%report-metrics-source-classification ports :cpu-counter-before :malformed)))
+             (%report-metrics-source-classification
+              ports :cpu-counter-before :malformed before-elapsed nil)))
       (if before
-          (let* ((after-text nil)
-                 (after nil)
-                 (busy nil))
-            (funcall (env-ports-sleep-seconds ports) 1)
-            (setf after-text (%read-text ports "/proc/stat")
-                  after (aitools.env.domain:parse-cpu-counters after-text))
-            (cond ((null after-text)
-                   (%report-metrics-source-classification ports :cpu-counter-after :missing))
-                  ((null after)
-                   (%report-metrics-source-classification ports :cpu-counter-after :malformed)))
-            (when after
-              (setf busy
-                    (aitools.env.domain:cpu-busy-percent
-                     before after :iowait-may-decrease t))
-              (when (null busy)
-                (%report-metrics-source-classification ports :cpu-interval :invalid)))
-            busy)
           (progn
-            (%report-metrics-source-classification ports :cpu-counter-after :skipped)
+            (funcall (env-ports-sleep-seconds ports) 1)
+            (let* ((after-start (get-internal-real-time))
+                   (after-text (%read-text ports "/proc/stat"))
+                   (after-elapsed (%elapsed-milliseconds-since after-start))
+                   (after (aitools.env.domain:parse-cpu-counters after-text))
+                   (busy (and after
+                              (aitools.env.domain:cpu-busy-percent
+                               before after :iowait-may-decrease t))))
+              (cond ((null after-text)
+                     (%report-metrics-source-classification
+                      ports :cpu-counter-after :missing after-elapsed nil))
+                    ((null after)
+                     (%report-metrics-source-classification
+                      ports :cpu-counter-after :malformed after-elapsed nil)))
+              (%report-metrics-source-classification
+               ports :cpu-interval (if busy :ok :invalid)
+               (%elapsed-milliseconds-since sample-start) nil 1000)
+              busy))
+          (progn
+            (%report-metrics-source-classification
+             ports :cpu-counter-after :skipped
+             (%elapsed-milliseconds-since sample-start) nil)
+            (%report-metrics-source-classification
+             ports :cpu-interval :skipped
+             (%elapsed-milliseconds-since sample-start) nil 1000)
             nil)))))
 #-linux
 (defun %metrics-cpu (ports os)
@@ -142,48 +154,62 @@ userspace tick (USER_HZ) at 100."
   nil)
 (progn
   (defun %load-average (ports os)
-    #+linux
-    (when (eq os :linux)
-      (let* ((text (%read-text ports "/proc/loadavg"))
-             (values (aitools.env.domain:parse-proc-load-average text)))
-        (cond ((null text)
-               (%report-metrics-source-classification ports :load-average :missing))
-              ((null values)
-               (%report-metrics-source-classification ports :load-average :malformed)))
-        values))
-    #+darwin
-    (when (eq os :darwin)
-      (let ((values (funcall (env-ports-sysctl-mib ports) :vm-loadavg)))
-        (when (and (listp values)
-                   (= (length values) 3)
-                   (every (lambda (value) (and (realp value) (>= value 0))) values))
-          (mapcar (lambda (value) (float value 1d0)) values))))
-    #-(or linux darwin)
-    nil)
-  (defun %metrics-process-records (ports program)
-    (if (null program)
-        (progn
-          (%report-metrics-source-classification ports :ps-program :not-found)
-          nil)
+  #+linux
+  (when (eq os :linux)
+    (let* ((started (get-internal-real-time))
+           (text (%read-text ports "/proc/loadavg"))
+           (elapsed (%elapsed-milliseconds-since started))
+           (values (aitools.env.domain:parse-proc-load-average text)))
+      (cond ((null text)
+             (%report-metrics-source-classification
+              ports :load-average :missing elapsed nil))
+            ((null values)
+             (%report-metrics-source-classification
+              ports :load-average :malformed elapsed nil)))
+      values))
+  #+darwin
+  (when (eq os :darwin)
+    (let ((values (funcall (env-ports-sysctl-mib ports) :vm-loadavg)))
+      (when (and (listp values)
+                 (= (length values) 3)
+                 (every (lambda (value) (and (realp value) (>= value 0))) values))
+        (mapcar (lambda (value) (float value 1d0)) values))))
+  #-(or linux darwin)
+  nil)
+  (defun %metrics-process-records (ports program program-elapsed-ms)
+  (if (null program)
+      (progn
+        (%report-metrics-source-classification
+         ports :ps-program :not-found program-elapsed-ms nil)
+        nil)
+      (let ((command-start (get-internal-real-time)))
         (multiple-value-bind (status exit-code output)
             (%run ports program (quote ("-ax" "-o" "pid=,pcpu=,rss=,comm="))
                   *source-timeout-seconds*)
-          (cond ((not (eq status :exited))
-                 (%report-metrics-source-classification
-                  ports :ps-command
-                  (case status
-                    (:timeout :timeout)
-                    (:not-started :not-started)
-                    (otherwise :failed)))
-                 nil)
-                ((not (eql exit-code 0))
-                 (%report-metrics-source-classification ports :ps-command :nonzero-exit)
-                 nil)
-                (t
-                 (let ((records (aitools.env.domain:parse-process-metrics output)))
-                   (when (null records)
-                     (%report-metrics-source-classification ports :ps-rows :no-valid-rows))
-                   records)))))))
+          (let ((command-elapsed (%elapsed-milliseconds-since command-start)))
+            (cond ((not (eq status :exited))
+                   (%report-metrics-source-classification
+                    ports :ps-command
+                    (case status
+                      (:timeout :timeout)
+                      (:not-started :not-started)
+                      (otherwise :failed))
+                    command-elapsed
+                    (* 1000 *source-timeout-seconds*))
+                   nil)
+                  ((not (eql exit-code 0))
+                   (%report-metrics-source-classification
+                    ports :ps-command :nonzero-exit command-elapsed
+                    (* 1000 *source-timeout-seconds*))
+                   nil)
+                  (t
+                   (let* ((parse-start (get-internal-real-time))
+                          (records (aitools.env.domain:parse-process-metrics output))
+                          (parse-elapsed (%elapsed-milliseconds-since parse-start)))
+                     (when (null records)
+                       (%report-metrics-source-classification
+                        ports :ps-rows :no-valid-rows parse-elapsed nil))
+                     records)))))))))
 
 (aitools.kernel.domain:define-flow
     (sys-metrics/k ports &key (limit 20) on-ok on-partial on-error)
@@ -192,7 +218,7 @@ userspace tick (USER_HZ) at 100."
          (load-average (%load-average ports os)))
     (multiple-value-bind (cpus total available)
         (%cpus-and-memory ports os :strict t)
-      (let* ((program
+      (let* ((program-start (get-internal-real-time)) (program
                (progn
                  #+linux
                  (and (eq os :linux) (find-executable ports "ps"))
@@ -200,7 +226,7 @@ userspace tick (USER_HZ) at 100."
                  (and (eq os :darwin) (%darwin-program :ps ports))
                  #-(or linux darwin)
                  nil))
-             (records (%metrics-process-records ports program)))
+             (records (%metrics-process-records ports program (%elapsed-milliseconds-since program-start))))
         (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
                       available (<= 0 available total) records))
             (aitools.kernel.domain:flow-continue

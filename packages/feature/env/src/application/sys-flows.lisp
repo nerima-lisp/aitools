@@ -129,57 +129,79 @@ would turn load into environment.unavailable.")
 ;;; ---------------------------------------------------------------- sys info
 
 (progn
-  (defun %report-metrics-source-classification (ports source status)
-    ;; Emit fixed labels only; source output can contain process names and paths.
-    (when (equal (%getenv ports "AITOOLS_COVERAGE") "1")
-      (format *trace-output* "~&metrics source classification: ~A ~A~%"
-              (ecase source
-                (:cpu-counter-before "cpu-counter-before")
-                (:cpu-counter-after "cpu-counter-after")
-                (:cpu-interval "cpu-interval")
-                (:load-average "load-average")
-                (:cpuinfo "cpuinfo")
-                (:meminfo-total "meminfo-total")
-                (:meminfo-available "meminfo-available")
-                (:ps-program "ps-program")
-                (:ps-command "ps-command")
-                (:ps-rows "ps-rows"))
-              (ecase status
-                (:missing "missing")
-                (:malformed "malformed")
-                (:invalid "invalid")
-                (:incomplete "incomplete")
-                (:skipped "skipped")
-                (:not-found "not-found")
-                (:timeout "timeout")
-                (:not-started "not-started")
-                (:nonzero-exit "nonzero-exit")
-                (:failed "failed")
-                (:no-valid-rows "no-valid-rows")))
-      nil))
+  (defun %elapsed-milliseconds-since (started)
+    (floor (* 1000 (- (get-internal-real-time) started))
+           internal-time-units-per-second))
+  (defun %report-metrics-source-classification (ports source status elapsed-ms limit-ms &optional target-ms)
+  ;; Emit fixed labels only; source output can contain process names and paths.
+  (when (equal (%getenv ports "AITOOLS_COVERAGE") "1")
+    (format *trace-output* "~&metrics source classification: ~A ~A elapsed-ms=~D limit-ms=~A target-ms=~A~%"
+            (ecase source
+              (:cpu-counter-before "cpu-counter-before")
+              (:cpu-counter-after "cpu-counter-after")
+              (:cpu-interval "cpu-interval")
+              (:load-average "load-average")
+              (:cpuinfo "cpuinfo")
+              (:meminfo-total "meminfo-total")
+              (:meminfo-available "meminfo-available")
+              (:ps-program "ps-program")
+              (:ps-command "ps-command")
+              (:ps-rows "ps-rows"))
+            (ecase status
+              (:ok "ok")
+              (:missing "missing")
+              (:malformed "malformed")
+              (:invalid "invalid")
+              (:incomplete "incomplete")
+              (:skipped "skipped")
+              (:not-found "not-found")
+              (:timeout "timeout")
+              (:not-started "not-started")
+              (:nonzero-exit "nonzero-exit")
+              (:failed "failed")
+              (:no-valid-rows "no-valid-rows"))
+            elapsed-ms
+            (if (numberp limit-ms) limit-ms "none")
+            (if (numberp target-ms) target-ms "none"))
+    nil))
   (defun %cpus-and-memory (ports os &key strict)
     "(VALUES CPUS MEMORY-TOTAL MEMORY-AVAILABLE), each NIL when unknown."
     (case os
       (:linux
-       (let* ((cpuinfo (%read-text ports "/proc/cpuinfo"))
+       (let* ((cpuinfo-start (get-internal-real-time))
+              (cpuinfo (%read-text ports "/proc/cpuinfo"))
+              (cpuinfo-elapsed (%elapsed-milliseconds-since cpuinfo-start))
               (cpus (and cpuinfo
                          (let ((count (aitools.env.domain:count-cpuinfo-processors cpuinfo)))
                            (and (plusp count) count))))
-              (meminfo (%read-text ports "/proc/meminfo")))
+              (meminfo-start (get-internal-real-time))
+              (meminfo (%read-text ports "/proc/meminfo"))
+              (meminfo-elapsed (%elapsed-milliseconds-since meminfo-start)))
          (multiple-value-bind (total available)
              (if meminfo
                  (aitools.env.domain:parse-meminfo meminfo :strict strict)
                  (values nil nil))
            (when (and strict (null cpuinfo))
-             (%report-metrics-source-classification ports :cpuinfo :missing))
+             (%report-metrics-source-classification
+              ports :cpuinfo :missing cpuinfo-elapsed nil))
            (when (and strict cpuinfo (null cpus))
-             (%report-metrics-source-classification ports :cpuinfo :malformed))
+             (%report-metrics-source-classification
+              ports :cpuinfo :malformed cpuinfo-elapsed nil))
            (when (and strict (null meminfo))
-             (%report-metrics-source-classification ports :meminfo-total :missing))
+             (%report-metrics-source-classification
+              ports :meminfo-total :missing meminfo-elapsed nil))
            (when (and strict meminfo (null total))
-             (%report-metrics-source-classification ports :meminfo-total :malformed))
+             (%report-metrics-source-classification
+              ports :meminfo-total :malformed meminfo-elapsed nil))
+           (when (and strict meminfo total (not (plusp total)))
+             (%report-metrics-source-classification
+              ports :meminfo-total :invalid meminfo-elapsed nil))
            (when (and strict meminfo (null available))
-             (%report-metrics-source-classification ports :meminfo-available :incomplete))
+             (%report-metrics-source-classification
+              ports :meminfo-available :incomplete meminfo-elapsed nil))
+           (when (and strict total available (not (<= 0 available total)))
+             (%report-metrics-source-classification
+              ports :meminfo-available :invalid meminfo-elapsed nil))
            (values cpus total available))))
       (:darwin
        (let* ((sysctl (%run-output ports (%darwin-program :sysctl) (quote ("-n" "hw.ncpu" "hw.memsize"))))
