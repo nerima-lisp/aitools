@@ -109,6 +109,7 @@
                    (:file "yaml-flows-test")
                    (:file "toml-flows-test")))
      (:file "unit/inspect/json-query-test")
+     (:file "unit/inspect/json-flow-skeleton-test")
      (:file "unit/inspect/json-query-property-test")
      (:file "unit/inspect/table-test")
      (:file "unit/inspect/table-edge-test")
