@@ -60,8 +60,21 @@
 
   (it "stops feeding an open input pipe when the child exits or times out"
     (dolist (command '(("true") ("sleep" "2")))
-      (let ((producer (sb-ext:run-program (program-on-path "sleep") '("20")
-                                         :output :stream :wait nil)))
+      (let ((producer (let* ((diagnostic-symbol (find-symbol "*METRICS-SMOKE-DIAGNOSTIC-FAILED*" :cl-user))
+                             (diagnostic-p (and diagnostic-symbol
+                                                 (boundp diagnostic-symbol)
+                                                 (symbol-value diagnostic-symbol)))
+                             (invoke (lambda () (sb-ext:run-program (program-on-path "sleep") '("20")
+                                         :output :stream :wait nil))))
+                         (if diagnostic-p
+                             (let ((started nil))
+                               (unwind-protect
+                                    (prog1 (funcall invoke)
+                                      (setf started t))
+                                 (format *error-output*
+                                         "Metrics later child diagnostic: attempted=1 started=~A~%"
+                                         (if started "yes" "no"))))
+                               (funcall invoke)))))
         (unwind-protect
              (let ((*standard-input* (sb-ext:process-output producer))
                    (started (get-internal-real-time)))
