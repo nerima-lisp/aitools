@@ -17,12 +17,6 @@
                                  (return-from path-problem
                                    :path-too-long)) (if (char= char #\/)
                                                         (progn
-                                                          (when
-                                                              (> component-bytes
-                                                                 aitools.text.domain:+archive-max-component-bytes+)
-                                                            (return-from
-                                                                path-problem
-                                                              :component-too-long))
                                                           (unless
                                                               (or
                                                                (= index
@@ -55,11 +49,6 @@
                                                                 path-problem
                                                               :component-too-long))))
           finally (progn
-                    (when
-                        (> component-bytes
-                           aitools.text.domain:+archive-max-component-bytes+)
-                      (return-from path-problem
-                        :component-too-long))
                     (unless
                         (or (= component-start (length path))
                             (and (= component-bytes 1)
