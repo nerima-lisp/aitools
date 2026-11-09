@@ -49,9 +49,6 @@
         (error ()
           (values nil nil nil)))))
 
-(defun %http-url-input-p (url)
-  (and (stringp url) (plusp (length url)) (not (find (code-char 0) url))))
-
 (defun %http-secret-header-p (name)
   (or (aitools.protocol.domain:secret-key-name-p (substitute #\_ #\- name))
       (member name
@@ -168,7 +165,9 @@
      (%http-range-bounds range)
    (let ((timeout-seconds (%net-timeout-seconds timeout)))
      (%with-net-validation
-         (((%http-url-input-p url) "URL must be a non-empty string.")
+         (((and (stringp url)
+                (plusp (length url))
+                (not (find (code-char 0) url))) "URL must be a non-empty string.")
           (timeout-seconds "Timeout must be a positive finite duration.")
           ((and (integerp max-lines) (plusp max-lines))
            "Maximum lines must be a positive integer.")
@@ -194,7 +193,9 @@
  (declare (type function on-ok on-error))
  (let ((timeout-seconds (%net-timeout-seconds timeout)))
    (%with-net-validation
-       (((%http-url-input-p url) "URL must be a non-empty string.")
+       (((and (stringp url)
+              (plusp (length url))
+              (not (find (code-char 0) url))) "URL must be a non-empty string.")
         (timeout-seconds "Timeout must be a positive finite duration."))
      (%with-net-error-continuation ("The HTTP request failed.")
        (let ((response
