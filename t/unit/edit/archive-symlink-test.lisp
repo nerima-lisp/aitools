@@ -198,6 +198,17 @@
     (let ((steps (extract-plan (zip-of (member-file "a.txt" "A") (member-file "d/b.txt" "B" :mode #o755)) :zip)))
       (expect (mapcar #'extract-step-path steps) :to-equal '("out/a.txt" "out/d/b.txt"))
       (expect (extract-step-mode (second steps)) :to-be #o755)))
+  (it "selects a hard link when its later file target is not selected"
+      (let* ((archive
+              (aitools.text.domain:write-tar
+               (list (member-file "link" "")
+                     (member-file "target" "payload" :mode #o600))))
+             (hardlink (retype-tar-entry archive 0 #\1 :link "target"))
+             (steps (extract-plan hardlink :tar :selected (list "link"))))
+        (expect (mapcar (lambda (step) (extract-step-path step)) steps)
+                :to-equal (list "out/link"))
+        (expect (extract-step-data (first steps)) :to-equalp (bytes "payload"))
+        (expect (extract-step-mode (first steps)) :to-be #o600)))
 
   (it-each (("../evil" "refusal.outside-workspace")
             ("/etc/passwd" "refusal.outside-workspace")
