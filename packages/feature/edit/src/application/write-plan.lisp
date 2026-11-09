@@ -29,20 +29,11 @@ on a symlink rather than what it points at (delete, move, link)."
 
 (defstruct
     (write-plan (:constructor make-write-plan
-                   (&key command
-                         targets
-                         inputs
-                         guard-requirements
-                         expect-hashes
-                         expect-count
-                         replayable
-                         plan
-                         record-options
-                         record-positionals))
+                   (&key command targets inputs guard-requirements expect-hashes expect-count max-target-bytes replayable plan record-options record-positionals))
      (:copier nil) (:predicate nil))
   "What one write command wants, independent of how it runs.
 
-COMMAND: dispatch name (\"edit\", \"doc.set\").
+COMMAND: dispatch name, such as edit or doc.set.
 TARGETS: WRITE-TARGETs, boundary-checked in order; the plan sees their
   workspace-relative paths as CONTEXT-PATHS.
 INPUTS: strings or octet vectors checked for the redaction placeholder.
@@ -50,7 +41,8 @@ GUARD-REQUIREMENTS: (:EXPECT-HASH user-path) and (:EXPECT-COUNT) entries
   that the guard rules make mandatory for this invocation.
 EXPECT-HASHES: the raw --expect-hash arguments; EXPECT-COUNT the raw
   --expect-count text or NIL.
-REPLAYABLE: true when `tx rebase` may re-run the op from its argv.
+MAX-TARGET-BYTES: when non-NIL, caps regular-file reads used by --expect-hash.
+REPLAYABLE: true when tx rebase may re-run the op from its argv.
 PLAN: a function of CONTEXT that receives :ON-COMMITTED and :ON-REJECTED.
   ON-COMMITTED receives change requests and optional extra output fields.
   ON-REJECTED receives a code, message, and optional candidates,
@@ -65,6 +57,7 @@ RECORD-OPTIONS / RECORD-POSITIONALS: the option plist (or a function of the
   (guard-requirements '() :type list :read-only t)
   (expect-hashes '() :type list :read-only t)
   (expect-count nil :read-only t)
+  (max-target-bytes nil :read-only t)
   (replayable nil :read-only t)
   (plan nil :type function :read-only t)
   (record-options '() :read-only t)

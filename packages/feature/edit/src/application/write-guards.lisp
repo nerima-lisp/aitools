@@ -177,18 +177,20 @@ commands a `tx rebase` replays (+REPLAYABLE-COMMANDS+) discovers paths."
                    :on-outside
                    (%outside-message verdict lexical)))))
 
-(defun view-hash (view path host)
-  "The change-detection hash of PATH in VIEW, by the rule `info` reports
-(AITOOLS.STORE.APPLICATION:PATH-HASH): a file's content hash; for a
-symlink, the content hash of the regular file it leads to (followed through
-HOST, the workspace host), else of its target text; NIL for a directory or
-an absent path."
-  (let ((state (aitools.store.application:view-path-state view path)))
+(defun view-hash (view path host &optional max-bytes)
+  "The change-detection hash of PATH in VIEW, by the rule PATH-HASH:
+a regular file hash; for a symlink, the content hash of the regular file it
+leads to (followed through HOST), else the hash of target text; NIL for a
+directory or absent path. MAX-BYTES caps regular-file reads."
+  (let ((state (aitools.store.application:view-path-state view path :max-bytes max-bytes)))
     (case (aitools.store.domain:entry-state-kind state)
       (:file (aitools.store.domain:entry-state-hash state))
       (:symlink
        (let ((root (aitools.store.application:store-root (aitools.store.application:store-view-store view))))
-         (aitools.store.application:path-hash host root view (aitools.workspace.domain:join-path root path))))
+         (aitools.store.application:path-hash
+          host root view
+          (aitools.workspace.domain:join-path root path)
+          :max-bytes max-bytes)))
       (t nil))))
 
 (defun %hash-conflict (path expected actual)

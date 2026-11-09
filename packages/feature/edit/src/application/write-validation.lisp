@@ -44,19 +44,30 @@
                    (setf failure-code code
                          failure-message message)))
       (unless failure-code
-        (dolist (entry hash-entries)
-          (unless failure-code
-            (multiple-value-bind (path entry-area) (hash-path entry)
-              (let* ((expected (aitools.kernel.domain:expect-hash-entry-hash entry))
-                     (actual (and path (view-hash (hash-view entry-area) path host))))
-                (unless (equal expected actual)
-                  (setf failure-code "refusal.target-changed"
-                        failure-message (format nil
-                                                "~A changed: expected hash ~A, found ~A"
-                                                path
-                                                expected
-                                                (or actual "none"))
-                        failure-conflicts (list (%hash-conflict path expected actual)))))))))
+        (handler-case
+            (dolist (entry hash-entries)
+              (unless failure-code
+                (multiple-value-bind (path entry-area) (hash-path entry)
+                  (let* ((expected (aitools.kernel.domain:expect-hash-entry-hash entry))
+                         (actual (and path
+                                      (view-hash (hash-view entry-area)
+                                                 path
+                                                 host
+                                                 (write-plan-max-target-bytes write-plan)))))
+                    (unless (equal expected actual)
+                      (setf failure-code "refusal.target-changed"
+                            failure-message (format nil
+                                                    "~A changed: expected hash ~A, found ~A"
+                                                    path
+                                                    expected
+                                                    (or actual "none"))
+                            failure-conflicts (list (%hash-conflict path expected actual))))))))
+          (aitools.store.application:store-byte-limit-error ()
+            (setf failure-code "refusal.too-large"
+                  failure-message (format nil
+                                          "~A target exceeds the ~D-byte read limit"
+                                          command
+                                          (write-plan-max-target-bytes write-plan))))))
       (if failure-code
           (if failure-conflicts
               (aitools.kernel.domain:flow-continue

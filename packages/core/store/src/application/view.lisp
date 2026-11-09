@@ -109,9 +109,9 @@ walk; the write protocol's temp files are left out, as every scan excludes them.
 (defun %hash-child-path (directory name)
   (if (zerop (length directory)) name (concatenate 'string directory "/" name)))
 
-(defun path-hash (host root view absolute)
-  "The change-detection `hash` of the path ABSOLUTE, one rule shared
-by `info` and every write's --expect-hash:
+(defun path-hash (host root view absolute &key max-bytes)
+  "The change-detection hash of path ABSOLUTE, shared by info and guarded
+writes:
 
 - the content hash of the regular file the path leads to, symlinks followed;
 - for a symlink that leads to no regular file (dangling, a directory, a
@@ -122,17 +122,29 @@ by `info` and every write's --expect-hash:
 ROOT is the real root the VIEW (a store view, or NIL for the disk) is
 relative to. Symlinks resolve on disk; the resolved path, and the link
 itself when its directory is inside ROOT, are then read through VIEW, as
-`info --tx` reads them."
-  (let* ((real (aitools.workspace.application:resolve-real-path host absolute))
+info --tx reads them. MAX-BYTES caps regular-file reads made through VIEW. A
+non-NIL limit requires a store view because the disk-only host read has no
+byte limit."
+  (let* ((real (progn
+                 (when (and max-bytes (null view))
+                   (error 'type-error
+                          :datum view
+                          :expected-type 'store-view))
+                 (aitools.workspace.application:resolve-real-path host absolute)))
          (relative (%hash-view-relative root real)))
-    (flet ((viewed (path) (and view path (plusp (length path)) (view-path-state view path))))
+    (flet ((viewed (path)
+               (and view path (plusp (length path))
+                    (view-path-state view path :max-bytes max-bytes))))
       (or (and real
                (let ((state (viewed relative)))
                  (if state
                      (and (eq (entry-state-kind state) :file) (entry-state-hash state))
                      (let ((entry (aitools.workspace.application:host-stat host real)))
                        (and entry (eq (aitools.workspace.application:workspace-entry-kind entry) :file)
-                            (let ((octets (aitools.workspace.application:host-read-octets host real)))
+                            (let ((octets
+                              (and (null max-bytes)
+                                   (aitools.workspace.application:host-read-octets
+                                    host real))))
                               (and octets (aitools.kernel.domain:content-hash octets))))))))
           (let* ((parent (aitools.workspace.domain:path-parent absolute))
                  (parent-real (and parent (aitools.workspace.application:resolve-real-path host parent)))
