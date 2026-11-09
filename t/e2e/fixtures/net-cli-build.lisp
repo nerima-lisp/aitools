@@ -22,7 +22,7 @@
     ((string= method "GET")
      (list :status 200
            :headers '(("Content-Type" . "text/plain"))
-           :body (sb-ext:string-to-octets "fixture response~%"
+           :body (sb-ext:string-to-octets (format nil "fixture response~%")
                                           :external-format :utf-8)
            :url uri))
     ((string= method "HEAD")
@@ -62,14 +62,14 @@
            (when stream
              (close stream))
            (sb-bsd-sockets:socket-close socket))
-         nil)
+         nil))
       ((string= mode "resolved")
        (unless (string= host "fixture.example")
          (error "Unexpected fixture resolver host ~S." host))
        (list (cons :inet #(192 0 2 7))
              (cons :inet6 #(32 1 13 184 0 0 0 0 0 0 0 0 0 0 0 1))))
       (t
-       (error "AITOOLS_E2E_NET_LOOKUP_MODE is required."))))))
+       (error "AITOOLS_E2E_NET_LOOKUP_MODE is required.")))))
 
 (defun net-e2e-dependencies (&rest arguments)
   (declare (ignore arguments))
@@ -83,14 +83,15 @@
     (cl-boundary-kit:boundary-context-with
      boundaries :net-resolve resolver)))
 
-(let ((registration
-        (assoc :net aitools/cli::*context-command-registrations*)))
-  (unless registration
-    (error "The net context registration is unavailable."))
-  (setf (third registration) #'net-e2e-dependencies))
-
-(setf aitools/cli::*application*
-      (multiple-value-list (aitools/cli::build-app)))
+(defun net-e2e-image-entry-point ()
+  (let ((registration
+          (assoc :net aitools/cli::*context-command-registrations*)))
+    (unless registration
+      (error "The net context registration is unavailable."))
+    (setf (third registration) (function net-e2e-dependencies)))
+  (setf aitools/cli::*application*
+        (multiple-value-list (aitools/cli::build-app)))
+  (aitools/cli::image-entry-point))
 
 (defmethod asdf:output-files :around
     ((operation asdf:program-op)
@@ -101,4 +102,7 @@
       (error "AITOOLS_E2E_NET_CLI_OUTPUT is required."))
     (values (list (pathname target)) t)))
 
-(asdf:operate 'asdf:program-op "aitools/cli")
+(progn
+  (setf (asdf/system:component-entry-point (asdf:find-system "aitools/cli"))
+        "CL-USER::NET-E2E-IMAGE-ENTRY-POINT")
+  (asdf:operate 'asdf:program-op "aitools/cli"))
