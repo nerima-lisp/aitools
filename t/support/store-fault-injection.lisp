@@ -58,17 +58,31 @@ Returns (values fired-p thunk-value)."
     (string-right-trim "/" (sb-ext:native-namestring (truename (sb-ext:parse-native-namestring
                                                                  (concatenate 'string path "/")))))))
 
-(defun call-with-temp-store (function &key io)
+(defun call-with-temp-store (function &key io fake-monotonic-clock)
   "Call FUNCTION with a STORE over a fresh workspace directory and a fresh
-state home, both removed afterwards. IO defaults to the production adapter."
-  (let ((base (%make-temp-directory)))
+state home, both removed afterwards. IO defaults to the production adapter.
+FAKE-MONOTONIC-CLOCK makes retry deadlines advance by requested sleeps."
+  (let* ((base (%make-temp-directory))
+         (production-io (or io (aitools.store.infrastructure:make-posix-store-io)))
+         (test-io
+           (if fake-monotonic-clock
+               (let* ((clock-ms 0)
+                      (real-sleep (aitools.store.application:store-io-sleep production-io)))
+                 (aitools.store.application::copy-store-io
+                  production-io
+                  :monotonic-ms (lambda () clock-ms)
+                  :sleep (lambda (milliseconds)
+                           (funcall real-sleep milliseconds)
+                           (incf clock-ms milliseconds))))
+               production-io))
+         (root (format nil "~A/work" base))
+         (home (format nil "~A/state" base)))
     (unwind-protect
-         (let ((root (concatenate 'string base "/work"))
-               (home (concatenate 'string base "/state")))
+         (progn
            (sb-posix:mkdir root #o755)
-           (funcall function (aitools.store.application:make-store
-                              (or io (aitools.store.infrastructure:make-posix-store-io)) root home)))
-      (uiop:delete-directory-tree (sb-ext:parse-native-namestring (concatenate 'string base "/"))
+           (funcall function
+                    (aitools.store.application:make-store test-io root home)))
+      (uiop:delete-directory-tree (sb-ext:parse-native-namestring (format nil "~A/" base))
                                   :validate (lambda (path) (search "aitools-store-" (namestring path)))
                                   :if-does-not-exist :ignore))))
 

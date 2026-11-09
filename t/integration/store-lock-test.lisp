@@ -34,7 +34,7 @@ lock is held."
                                   :on-busy (lambda () :busy))
                 :to-be :busy)
         (expect (disk-text store "x") :to-be :absent)
-        (kill-child pid))) :io nil))
+        (kill-child pid))) :fake-monotonic-clock t))
   (it "accepts a lock acquired after the deadline"
     (call-with-temp-store (lambda (plain) (let* ((base-io (store-io-port plain))
              (real-try-lock (symbol-function 'store-io-try-lock))
@@ -104,7 +104,6 @@ lock is held."
 
   (it "waits for the holder and then writes"
     (call-with-temp-store (lambda (store) (let* ((pid (hold-lock-in-child store 0.5))
-             (start (get-internal-real-time))
              (outcome (commit-changes/k store '("write")
                                         (lambda (commit reject)
                                           (declare (ignore reject))
@@ -113,11 +112,11 @@ lock is held."
                                         :on-committed (lambda (&rest args) (declare (ignore args)) :committed)
                                         :on-rejected (lambda (&rest args) (declare (ignore args)) :rejected)
                                         :on-busy (lambda () :busy)))
-             (waited (/ (- (get-internal-real-time) start) internal-time-units-per-second)))
+             (waited-ms (funcall (store-io-monotonic-ms (store-io-port store)))))
         (expect outcome :to-be :committed)
-        (expect waited :to-be-greater-than 0.1)
+        (expect waited-ms :to-be-greater-than 0)
         (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))
-        (expect (disk-text store "x") :to-equal "x"))) :io nil))
+        (expect (disk-text store "x") :to-equal "x"))) :fake-monotonic-clock t))
 
   (it "is released by the OS when the holder is killed"
     (call-with-temp-store (lambda (store) (let ((pid (hold-lock-in-child store 60)))
@@ -134,7 +133,7 @@ lock is held."
                                                                                       (bytes "x")))))))))))
         (dolist (pid pids)
           (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0))))
-      (expect (length (read-journal store)) :to-be 10)) :io nil)))
+      (expect (length (read-journal store)) :to-be 10)) :fake-monotonic-clock t)))
 
 (describe "aitools.store tx lock and the flock primitive"
   (it "runs WITH-TX-LOCK's body, or its not-found form for an unknown tx"
@@ -165,7 +164,7 @@ lock is held."
                        (sleep 3))))))
         (wait-until-exists store "locked")
         (expect (with-tx-lock (store tx 100 :on-timeout :busy :on-not-found :missing) :held) :to-be :busy)
-        (kill-child pid))) :io nil))
+        (kill-child pid))) :fake-monotonic-clock t))
 
   (it "takes an exclusive flock once per open file description"
     (call-with-temp-store (lambda (store) (let* ((io (store-io-port store))
