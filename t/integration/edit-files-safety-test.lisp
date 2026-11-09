@@ -122,16 +122,17 @@ one with OVERRIDES (COPY-STORE-IO keywords) in place."
            (write-text (aitools.workspace.domain:join-path git-dir "commondir") "../..")
            (write-text dot-git (format nil "gitdir: ~A" git-dir))
            (let ((*home* common))
-             (run-edit-command *ports* "mktemp" nil nil
-                               :root nil
-                               :on-ok (lambda (fields)
-                                        (setf result (list :ok fields)))
-                               :on-error (lambda (code message &rest keys)
-                                           (declare (ignore message keys))
-                                           (setf result (list :error code)))
-                               :on-partial (function identity))
-             (expect result :to-equal (list :error "refusal.outside-workspace"))
-             (expect (probe-file (format nil "~A/aitools/" common)) :to-be nil))))))))
+             (dolist (root (list nil *root*))
+               (run-edit-command *ports* "mktemp" nil nil
+                                 :root root
+                                 :on-ok (lambda (fields)
+                                          (setf result (list :ok fields)))
+                                 :on-error (lambda (code message &rest keys)
+                                             (declare (ignore message keys))
+                                             (setf result (list :error code)))
+                                 :on-partial (function identity))
+               (expect result :to-equal (list :error "refusal.outside-workspace"))
+               (expect (probe-file (format nil "~A/aitools/" common)) :to-be nil)))))))))
 
 (describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
