@@ -137,7 +137,7 @@
       (expect (field fields "next_commands") :to-equal '("aitools sys procs / --limit 2"))))
 
   (it "attributes a socket shared by two processes to the first one listed"
-    (let ((ports (make-fake-env-boundaries
+    (let ((boundaries (make-fake-env-boundaries
                   :identity *linux-identity*
                   :files (list (cons "/proc/net/tcp" *proc-net-tcp-text*)
                                (cons "/proc/net/tcp6" "")
@@ -146,7 +146,7 @@
                   :directories '(("/proc" "1" "77") ("/proc/1/fd" "9") ("/proc/77/fd" "3" "4"))
                   :links '(("/proc/1/fd/9" . "socket:[55501]") ("/proc/77/fd/3" . "socket:[55501]")
                            ("/proc/77/fd/4" . "socket:[55501]")))))
-      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k ports)
+      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k boundaries)
         (expect kind :to-be :ok)
         (expect (mapcar (lambda (item)
                           (list (object-field item "port") (null-or (object-field item "pid"))
