@@ -3,7 +3,8 @@
 (require :asdf)
 (asdf:initialize-source-registry
  `(:source-registry (:directory ,(uiop:getcwd)) :inherit-configuration))
-(asdf:load-system "aitools/cli")
+(unless (find-package "AITOOLS/CLI")
+  (asdf:load-system "aitools/cli"))
 
 (let ((registry (aitools.protocol.application:make-command-registry))
       (checks 0))
@@ -15,10 +16,17 @@
     (flet ((check (condition label)
              (incf checks)
              (unless condition (error "Metrics smoke failed: ~A" label))))
-      (let* ((code (aitools/cli:dispatch app registry '("aitools" "sys" "metrics" "--limit" "1")
-                                        :stdout stdout :stderr stderr))
+      (let* ((code (aitools/cli:dispatch app registry
+                            (list "aitools" "sys" "metrics" "--limit" "1")
+                            :stdout stdout :stderr stderr))
              (error-output (get-output-stream-string stderr))
-             (document (json-kit:parse (get-output-stream-string stdout))))
+             (stdout-output (get-output-stream-string stdout))
+             (response (if (member code (list 0 3)) stdout-output error-output))
+             (document
+               (progn
+                 (check (plusp (length response))
+                        (format nil "nonempty response for exit ~D" code))
+                 (json-kit:parse response))))
         ;; Print classifications only: envelopes may contain process names or paths.
         (unless (member code '(0 3))
           (let* ((status (gethash "status" document))
