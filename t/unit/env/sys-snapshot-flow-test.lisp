@@ -3,7 +3,7 @@
 (describe "aitools.env.application snapshot"
   (it "succeeds when all five sources are available within output limits"
     (multiple-value-bind (kind fields)
-        (run-flow #'sys-snapshot/k (metrics-ports))
+        (run-flow #'sys-snapshot/k (metrics-boundaries))
       (expect kind :to-be :ok)
       (let ((limits (field fields "limits")))
         (expect (object-field limits "processes") :to-be 20)
@@ -15,7 +15,7 @@
   (it "preserves missing observations and independent source failures"
     (multiple-value-bind (kind fields)
         (run-flow #'sys-snapshot/k
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :identity #+linux '("Linux" "6.8.0-45-generic" "x86_64")
                              #+darwin '("Darwin" "25.6.0" "arm64")
                    :files #+linux (list (cons "/proc/uptime" "42.0 3.0"))
@@ -37,7 +37,7 @@
             (declare (ignore ports on-ok))
             (funcall on-error "environment.unavailable" "fixture"))))
       (multiple-value-bind (kind fields)
-          (run-flow #'sys-snapshot/k (make-fake-ports))
+          (run-flow #'sys-snapshot/k (make-fake-env-boundaries))
         (expect kind :to-be :partial)
         (let* ((sections (field fields "sections"))
                (info (object-field sections "info"))
@@ -48,7 +48,7 @@
           (expect (object-field (object-field sections "disk") "status")
                   :to-equal "ok")))))
   (it "bounds port results without changing the standalone ports flow"
-    (let ((ports (make-fake-ports :host (darwin-host))))
+    (let ((ports (make-fake-env-boundaries :host (darwin-host))))
       (multiple-value-bind (kind fields) (run-flow #'sys-snapshot/k ports :port-limit 1)
         (expect kind :to-be :partial)
         (let* ((section (object-field (field fields "sections") "ports"))
@@ -63,7 +63,7 @@
   (it "retains bounded collector output when a source reports unavailable"
     (multiple-value-bind (kind fields)
         (run-flow #'sys-snapshot/k
-                  (metrics-ports :space '(nil nil))
+                  (metrics-boundaries :space '(nil nil))
                   :process-limit 1
                   :network-limit 1)
       (expect kind :to-be :partial)
@@ -88,20 +88,25 @@
         (expect (object-field disk-reason "code")
                 :to-equal "environment.unavailable"))))
   (it-each ((0) (1001) (1.5)) "rejects invalid snapshot limits ~S" (limit)
-    (multiple-value-bind (kind error) (run-flow #'sys-snapshot/k (make-fake-ports) :port-limit limit)
+    (multiple-value-bind (kind error) (run-flow #'sys-snapshot/k (make-fake-env-boundaries) :port-limit limit)
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid")))
   (it "fails instead of succeeding when every source file is unreadable"
-    (let ((ports (make-env-ports
-                  :now-milliseconds (constantly 0)
-                  :environment-variable (constantly nil) :environment-variables (constantly nil)
-                  :read-file (constantly nil) :list-directory (constantly nil)
-                  :read-link (constantly nil) :executable-p (constantly nil)
-                  :run-program (constantly nil) :file-system-space (constantly nil)
-                  :user-id (constantly nil) :host-name (constantly nil)
-                  :user-name (constantly nil) :workspace-root (constantly nil)
-                  :system-identity (lambda () (error 'file-error :pathname "fixture")))))
-      (multiple-value-bind (kind error) (run-flow #'sys-snapshot/k ports :path "/fixture")
+    (let* ((boundaries
+             (cl-boundary-kit:boundary-context-with
+              (make-fake-env-boundaries
+               :identity #+linux '("Linux" "6.8.0-45-generic" "x86_64")
+                         #+darwin '("Darwin" "25.6.0" "arm64")
+               :files nil
+               :directories nil
+               :space '(nil nil)
+               #+darwin :cpu-counters
+               #+darwin nil
+               #+darwin :sysctl-mibs
+               #+darwin nil)
+              :env-system-identity
+              (lambda () (error 'file-error :pathname "fixture")))))
+      (multiple-value-bind (kind error) (run-flow #'sys-snapshot/k boundaries :path "/fixture")
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable")
         (let* ((diagnostics (getf (cddr error) :diagnostics))

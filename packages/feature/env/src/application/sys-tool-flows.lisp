@@ -1,26 +1,26 @@
 (in-package #:aitools.env.application)
 
-(defun find-executable (ports name)
+(defun find-executable (boundaries name)
   "The first PATH directory entry NAME that is an executable file, or NIL."
-  (let ((path (%getenv ports "PATH")))
+  (let ((path (%getenv boundaries "PATH")))
     (when path
       (dolist (directory (aitools.env.domain:split-search-path path))
         (let ((candidate (aitools.env.domain:join-directory directory name)))
-          (when (funcall (env-ports-executable-p ports) candidate)
+          (when (%executable-p boundaries candidate)
             (return candidate)))))))
 
-(defun %tool-version (ports path arguments timeout-seconds)
+(defun %tool-version (boundaries path arguments timeout-seconds)
   "The first nonblank line of PATH's version output (stdout, else stderr:
 some tools print their version there), or NIL when it did not finish in
 TIMEOUT-SECONDS or printed nothing."
-  (multiple-value-bind (status exit-code stdout stderr) (%run ports path arguments timeout-seconds)
+  (multiple-value-bind (status exit-code stdout stderr) (%run boundaries path arguments timeout-seconds)
     (declare (ignore exit-code))
     (when (eq status :exited)
       (or (aitools.env.domain:first-output-line (or stdout ""))
           (aitools.env.domain:first-output-line (or stderr ""))))))
 
 (aitools.kernel.domain:define-flow
-    (sys-tools/k ports &key names (timeout "5s") on-ok on-error)
+    (sys-tools/k boundaries &key names (timeout "5s") on-ok on-error)
   "NAMES NIL means the default tool list. TIMEOUT bounds each version probe."
   (let* ((bad (find-if-not #'aitools.env.domain:valid-tool-name-p names))
          (timeout-milliseconds
@@ -61,7 +61,7 @@ TIMEOUT-SECONDS or printed nothing."
              (items nil))
          (dolist (probe probes)
            (destructuring-bind (name . arguments) probe
-             (let ((path (find-executable ports name)))
+             (let ((path (find-executable boundaries name)))
                (push (%object
                       (cons "name" name)
                       (cons "path" (%null-if-nil path))
@@ -69,7 +69,7 @@ TIMEOUT-SECONDS or printed nothing."
                             (%null-if-nil
                              (and path
                                   (%tool-version
-                                   ports path arguments
+                                   boundaries path arguments
                                    (/ timeout-milliseconds 1000))))))
                      items))))
          (aitools.kernel.domain:flow-continue

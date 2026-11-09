@@ -1,6 +1,6 @@
 (in-package #:aitools.env.test)
 
-(defun convert (value &rest keys &key (ports (make-fake-ports)) &allow-other-keys)
+(defun convert (value &rest keys &key (ports (make-fake-env-boundaries)) &allow-other-keys)
   (let ((keys (loop for (key val) on keys by #'cddr unless (eq key :ports) append (list key val))))
     (apply #'run-flow #'time-convert/k ports value keys)))
 
@@ -11,7 +11,7 @@
 
 (describe "aitools.env.application time now"
   (it "reports one instant in every field"
-    (multiple-value-bind (kind fields) (run-flow #'time-now/k (make-fake-ports) :tz "Asia/Tokyo")
+    (multiple-value-bind (kind fields) (run-flow #'time-now/k (make-fake-env-boundaries) :tz "Asia/Tokyo")
       (expect kind :to-be :ok)
       (expect (field fields "epoch_ms") :to-be *fake-epoch-milliseconds*)
       (expect (field fields "iso8601") :to-equal "2026-03-08T15:30:00.250+09:00")
@@ -25,30 +25,30 @@
                 :to-be *fake-epoch-milliseconds*))))
 
   (it "uses $TZ when --tz is absent, then the /etc/localtime link"
-    (expect (field (nth-value 1 (run-flow #'time-now/k (make-fake-ports :environment '(("TZ" . "America/New_York")))))
+    (expect (field (nth-value 1 (run-flow #'time-now/k (make-fake-env-boundaries :environment '(("TZ" . "America/New_York")))))
                    "iso8601")
             :to-equal "2026-03-08T01:30:00.250-05:00")
     (expect (field (nth-value 1 (run-flow #'time-now/k
-                                         (make-fake-ports :environment nil
+                                         (make-fake-env-boundaries :environment nil
                                                           :links '(("/etc/localtime" . "/var/db/timezone/zoneinfo/Asia/Tokyo")))))
                    "timezone")
             :to-equal "Asia/Tokyo")
-    (expect (field (nth-value 1 (run-flow #'time-now/k (make-fake-ports :environment nil))) "timezone")
+    (expect (field (nth-value 1 (run-flow #'time-now/k (make-fake-env-boundaries :environment nil))) "timezone")
             :to-equal "UTC"))
 
   (it "rejects an unknown zone with argument.invalid and a repair"
-    (multiple-value-bind (kind error) (run-flow #'time-now/k (make-fake-ports) :tz "Nowhere/City")
+    (multiple-value-bind (kind error) (run-flow #'time-now/k (make-fake-env-boundaries) :tz "Nowhere/City")
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid")
       (expect (getf (first (getf (cddr error) :repairs)) :command) :to-equal "aitools time now --tz UTC")))
 
   (it "reports environment.unavailable when no zoneinfo directory exists"
-    (multiple-value-bind (kind error) (run-flow #'time-now/k (make-fake-ports :directories nil) :tz "Asia/Tokyo")
+    (multiple-value-bind (kind error) (run-flow #'time-now/k (make-fake-env-boundaries :directories nil) :tz "Asia/Tokyo")
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable")))
 
   (it "serves UTC without any zoneinfo database"
-    (multiple-value-bind (kind fields) (run-flow #'time-now/k (make-fake-ports :files nil :directories nil) :tz "UTC")
+    (multiple-value-bind (kind fields) (run-flow #'time-now/k (make-fake-env-boundaries :files nil :directories nil) :tz "UTC")
       (expect kind :to-be :ok)
       (expect (field fields "iso8601") :to-equal "2026-03-08T06:30:00.250Z"))))
 
@@ -77,7 +77,7 @@
   (it "reads an offset-less input in the --tz zone"
     (expect (convert-result "2026-03-08T15:30:00" :tz "Asia/Tokyo" :to "epoch_ms") :to-be 1772951400000))
 
-  (it "converts `now` from the clock port"
+  (it "converts `now` from the clock boundary"
     (multiple-value-bind (kind fields) (convert "now" :to "epoch_ms" :add '("1d"))
       (expect kind :to-be :ok)
       (expect (field fields "input_format") :to-equal "now")
@@ -111,21 +111,21 @@
 
 (describe "aitools.env.application time diff"
   (it "returns B minus A with a human form"
-    (multiple-value-bind (kind fields) (run-flow #'time-diff/k (make-fake-ports)
+    (multiple-value-bind (kind fields) (run-flow #'time-diff/k (make-fake-env-boundaries)
                                                  "2026-03-08T00:00:00Z" "2026-03-08T01:23:00Z")
       (expect kind :to-be :ok)
       (expect (field fields "diff_ms") :to-be 4980000)
       (expect (field fields "human") :to-equal "1h23m")))
 
   (it "is negative when B is earlier, and mixes formats"
-    (multiple-value-bind (kind fields) (run-flow #'time-diff/k (make-fake-ports) "1772951400" "2026-03-08T06:00:00Z")
+    (multiple-value-bind (kind fields) (run-flow #'time-diff/k (make-fake-env-boundaries) "1772951400" "2026-03-08T06:00:00Z")
       (expect kind :to-be :ok)
       (expect (field fields "diff_ms") :to-be -1800000)
       (expect (field fields "human") :to-equal "-30m")))
 
   (it "spans a DST change in wall-clock inputs"
     (multiple-value-bind (kind fields)
-        (run-flow #'time-diff/k (make-fake-ports :environment '(("TZ" . "America/New_York")))
+        (run-flow #'time-diff/k (make-fake-env-boundaries :environment '(("TZ" . "America/New_York")))
                   "2026-03-08T00:00:00" "2026-03-08T04:00:00")
       (expect kind :to-be :ok)
       (expect (field fields "human") :to-equal "3h")))
@@ -134,7 +134,7 @@
     (dolist (values '(("later" "now") ("now" "later")))
       (expect (first (nth-value 1
                                (apply #'run-flow #'time-diff/k
-                                      (make-fake-ports) values)))
+                                      (make-fake-env-boundaries) values)))
               :to-equal "input.syntax-error"))))
 
 (describe "aitools.env.application time zones and targets at their edges"
@@ -149,16 +149,16 @@
   (it-each (("../../etc/passwd") ("Asia//Tokyo") ("Asia/Tokyo,x"))
       "refuses the zone name ~S without reading any file"
       (name)
-    (let ((ports (make-fake-ports :files (list (cons (concatenate 'string "/usr/share/zoneinfo/" name)
+    (let ((ports (make-fake-env-boundaries :files (list (cons (concatenate 'string "/usr/share/zoneinfo/" name)
                                                      (latin-1-from-hex *tokyo-tzif-hex*))))))
       (multiple-value-bind (kind error) (run-flow #'time-now/k ports :tz name)
         (expect kind :to-be :error)
         (expect (first error) :to-equal "argument.invalid"))))
 
   (it "treats a zoneinfo file that is not TZif as an unknown zone, and keeps looking in later directories"
-    (let ((bad (make-fake-ports :files (list (cons "/usr/share/zoneinfo/Asia/Tokyo" "not a tzif file")))))
+    (let ((bad (make-fake-env-boundaries :files (list (cons "/usr/share/zoneinfo/Asia/Tokyo" "not a tzif file")))))
       (expect (first (nth-value 1 (run-flow #'time-now/k bad :tz "Asia/Tokyo"))) :to-equal "argument.invalid"))
-    (let ((later (make-fake-ports :files (list (cons "/usr/share/zoneinfo/Asia/Tokyo" "not a tzif file")
+    (let ((later (make-fake-env-boundaries :files (list (cons "/usr/share/zoneinfo/Asia/Tokyo" "not a tzif file")
                                                (cons "/etc/zoneinfo/Asia/Tokyo" (latin-1-from-hex *tokyo-tzif-hex*)))
                                   :directories '("/usr/share/zoneinfo" "/etc/zoneinfo"))))
       (multiple-value-bind (kind fields) (run-flow #'time-now/k later :tz "Asia/Tokyo")
@@ -178,7 +178,7 @@
   (it "rejects an explicitly empty zone name"
     (multiple-value-bind (kind error)
         (run-flow #'time-now/k
-                  (make-fake-ports :environment '(("TZ" . "Asia/Tokyo")))
+                  (make-fake-env-boundaries :environment '(("TZ" . "Asia/Tokyo")))
                   :tz "")
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid"))))

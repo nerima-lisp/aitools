@@ -6,71 +6,30 @@
 ;;;; AITOOLS.DATA:*ENV-COMMAND-SCHEMAS*.
 (in-package #:aitools.env.presentation)
 
-(defun register-env-commands (registry ports)
-  "Register the `sys` and `time` commands on REGISTRY, running their flows
-against PORTS (an AITOOLS.ENV.APPLICATION:ENV-PORTS)."
+(defmacro define-env-command (name group command-builder)
+  `(aitools.protocol.application:define-command
+     ,name
+     (:group ,group
+      :command-builder ,command-builder
+      :schema (%schema ,name))))
+
+(defun register-env-commands (registry boundaries)
+  "Register the `sys` and `time` commands on REGISTRY using BOUNDARIES,
+a cl-boundary-kit boundary context."
   (aitools.protocol.application:register-command-declarations
    registry
    (list
-    (aitools.protocol.application:define-command
-        "sys.info"
-      (:group "sys"
-       :command-builder #'%sys-info-command
-       :schema (%schema "sys.info")))
-    (aitools.protocol.application:define-command
-        "sys.env"
-      (:group "sys"
-       :command-builder #'%sys-env-command
-       :schema (%schema "sys.env")))
-    (aitools.protocol.application:define-command
-        "sys.tools"
-      (:group "sys"
-       :command-builder #'%sys-tools-command
-       :schema (%schema "sys.tools")))
-    (aitools.protocol.application:define-command
-        "sys.procs"
-      (:group "sys"
-       :command-builder #'%sys-procs-command
-       :schema (%schema "sys.procs")))
-    (aitools.protocol.application:define-command
-        "sys.metrics"
-      (:group "sys"
-       :command-builder #'%sys-metrics-command
-       :schema (%schema "sys.metrics")))
-    (aitools.protocol.application:define-command
-        "sys.network"
-      (:group "sys"
-       :command-builder #'%sys-network-command
-       :schema (%schema "sys.network")))
-    (aitools.protocol.application:define-command
-        "sys.disk"
-      (:group "sys"
-       :command-builder #'%sys-disk-command
-       :schema (%schema "sys.disk")))
-    (aitools.protocol.application:define-command
-        "sys.ports"
-      (:group "sys"
-       :command-builder #'%sys-ports-command
-       :schema (%schema "sys.ports")))
-    (aitools.protocol.application:define-command
-        "sys.snapshot"
-      (:group "sys"
-       :command-builder #'%sys-snapshot-command
-       :schema (%schema "sys.snapshot")))
-    (aitools.protocol.application:define-command
-        "time.now"
-      (:group "time"
-       :command-builder #'%time-now-command
-       :schema (%schema "time.now")))
-    (aitools.protocol.application:define-command
-        "time.convert"
-      (:group "time"
-       :command-builder #'%time-convert-command
-       :schema (%schema "time.convert")))
-    (aitools.protocol.application:define-command
-        "time.diff"
-      (:group "time"
-       :command-builder #'%time-diff-command
-       :schema (%schema "time.diff"))))
-   ports)
+    (define-env-command "sys.info" "sys" #'%sys-info-command)
+    (define-env-command "sys.env" "sys" #'%sys-env-command)
+    (define-env-command "sys.tools" "sys" #'%sys-tools-command)
+    (define-env-command "sys.procs" "sys" #'%sys-procs-command)
+    (define-env-command "sys.metrics" "sys" #'%sys-metrics-command)
+    (define-env-command "sys.network" "sys" #'%sys-network-command)
+    (define-env-command "sys.disk" "sys" #'%sys-disk-command)
+    (define-env-command "sys.ports" "sys" #'%sys-ports-command)
+    (define-env-command "sys.snapshot" "sys" #'%sys-snapshot-command)
+    (define-env-command "time.now" "time" #'%time-now-command)
+    (define-env-command "time.convert" "time" #'%time-convert-command)
+    (define-env-command "time.diff" "time" #'%time-diff-command))
+   boundaries)
   registry)

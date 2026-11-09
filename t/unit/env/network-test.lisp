@@ -99,7 +99,7 @@
   (it "limits sorted Linux interfaces and reports cumulative units"
     (multiple-value-bind (kind fields)
         (run-flow (function sys-network/k)
-                  (make-fake-ports
+                  (make-fake-env-boundaries
                    :identity (list "Linux" "test" "generic")
                    :files (list (cons "/proc/net/dev" *network-linux-text*)))
                   :limit 1)
@@ -111,7 +111,7 @@
       (expect (object-field (first (field fields "items")) "name") :to-equal "a0")))
   #+darwin (it "uses trusted Darwin netstat with fixed arguments despite PATH"
     (let ((host (make-fake-host :programs (list (cons "/usr/sbin/netstat" (exits-with *network-darwin-text*))))))
-      (expect (run-flow #'sys-network/k (make-fake-ports :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
+      (expect (run-flow #'sys-network/k (make-fake-env-boundaries :host host :environment '(("PATH" . "/untrusted")))) :to-be :ok)
       (expect (fake-host-runs host) :to-equal '(("/usr/sbin/netstat" ("-ibn"))))))
   #+darwin
   (it "limits sorted Darwin interfaces from trusted netstat"
@@ -120,7 +120,7 @@
                                        (exits-with *network-darwin-text*))))))
       (multiple-value-bind (kind fields)
           (run-flow (function sys-network/k)
-                    (make-fake-ports :host host)
+                    (make-fake-env-boundaries :host host)
                     :limit 1)
         (expect kind :to-be :partial)
         (expect (field fields "source") :to-equal "netstat -ibn")
@@ -133,16 +133,16 @@
         (expect (fake-host-runs host)
                 :to-equal (list (list "/usr/sbin/netstat" (list "-ibn")))))))
   (it-each ((0) (1001) (-1) (1.5)) "rejects out of range network limit ~S" (limit)
-    (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-ports) :limit limit)
+    (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-env-boundaries) :limit limit)
       (expect kind :to-be :error)
       (expect (first error) :to-equal "argument.invalid")))
   (it "does not turn unavailable or unsupported counters into an empty success"
     (dolist (identity '(("Other" "1" "generic") ("Linux" "1" "generic") ("Darwin" "1" "generic")))
-      (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-ports :identity identity))
+      (multiple-value-bind (kind error) (run-flow #'sys-network/k (make-fake-env-boundaries :identity identity))
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable"))))
   (it "reports one filesystem with bytes and an explicit availability basis"
-    (multiple-value-bind (kind fields) (run-flow #'sys-disk/k (make-fake-ports))
+    (multiple-value-bind (kind fields) (run-flow #'sys-disk/k (make-fake-env-boundaries))
       (expect kind :to-be :ok)
       (expect (field fields "path") :to-equal "/work")
       (expect (field fields "scope") :to-equal "filesystem_containing_path")
@@ -150,6 +150,6 @@
       (expect (field fields "available_bytes") :to-be 400)
       (expect (field fields "available_basis") :to-equal "unprivileged_available_blocks")))
   (it-each ((nil) ((100 101)) ((100 -1))) "rejects unavailable or inconsistent disk capacity ~S" (space)
-    (multiple-value-bind (kind error) (run-flow #'sys-disk/k (make-fake-ports :space space))
+    (multiple-value-bind (kind error) (run-flow #'sys-disk/k (make-fake-env-boundaries :space space))
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))

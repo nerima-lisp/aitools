@@ -1,6 +1,6 @@
 ;;;;
-;;;; ENV-PORTS from cl-boundary-kit boundaries plus the host adapters the kit
-;;;; has no boundary for: process-kit for commands, sb-posix for directory,
+;;;; Env boundaries combine cl-boundary-kit objects with host adapters the kit
+;;;; does not expose: process-kit for commands, sb-posix for directory,
 ;;;; link, uid, and permission checks, and direct statfs(2)/uname(2) calls.
 ;;;; sb-posix binds neither of the last two, and SBCL's SOFTWARE-VERSION is
 ;;;; cached on first use, which a saved image would carry over from its build
@@ -164,51 +164,43 @@ holding `.git`, else the working directory. Does not start git."
                              (function sb-alien:int sb-alien:unsigned-int sb-alien:unsigned-int))
        (sb-alien:extern-alien "mach_task_self_" sb-alien:unsigned-int) host))))
 
-(defun make-env-ports-from-boundaries (&key clock environment filesystem host-info
-                                         (sleep-seconds #'sleep)
+(defun make-env-boundaries (&key clock environment filesystem host-info
+                                         (sleep-seconds (function sleep))
                                          #+darwin (cpu-counters (function %cpu-counters))
                                          #+darwin (sysctl-mib (function %sysctl-mib))
-                                         (run-program #'%run-program)
-                                         (executable-p #'%executable-p)
-                                         (list-directory #'%list-directory)
-                                         (read-link #'%read-link)
-                                         (file-system-space #'%file-system-space)
-                                         (system-identity #'%system-identity)
-                                         (user-id #'sb-posix:getuid)
-                                         (workspace-root #'%workspace-root))
-  "ENV-PORTS over cl-boundary-kit CLOCK (whose CLOCK-NOW is Unix epoch
-milliseconds), ENVIRONMENT, FILESYSTEM, and HOST-INFO; the remaining
-keywords default to the host adapters above and are replaced by fakes in
-tests."
-  (aitools.env.application:make-env-ports
-   :now-milliseconds (lambda () (cl-boundary-kit:clock-now clock))
-   :sleep-seconds sleep-seconds
-   #+darwin :cpu-counters
-   #+darwin cpu-counters
-   #+darwin :sysctl-mib
-   #+darwin sysctl-mib
-   :environment-variable (lambda (name) (cl-boundary-kit:environment-get environment name))
-   :environment-variables (lambda () (cl-boundary-kit:environment-list environment))
-   :read-file (lambda (path external-format)
-                (when (cl-boundary-kit:filesystem-path-exists-p filesystem path)
-                  (handler-case (cl-boundary-kit:filesystem-read-file filesystem path
-                                                                     :external-format external-format)
-                    (file-error () nil))))
-   :list-directory list-directory
-   :read-link read-link
-   :executable-p executable-p
-   :run-program run-program
-   :file-system-space file-system-space
-   :system-identity system-identity
-   :user-id user-id
-   :host-name (lambda () (cl-boundary-kit:host-info-hostname host-info))
-   :user-name (lambda () (cl-boundary-kit:host-info-username host-info))
-   :workspace-root workspace-root))
+                                         (run-program (function %run-program))
+                                         (executable-p (function %executable-p))
+                                         (list-directory (function %list-directory))
+                                         (read-link (function %read-link))
+                                         (file-system-space (function %file-system-space))
+                                         (system-identity (function %system-identity))
+                                         (user-id (function sb-posix:getuid))
+                                         (workspace-root (function %workspace-root)))
+  "Build an env context from boundary objects and host-specific operations."
+  (let ((boundaries (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+             (list (cons :env-clock clock)
+                   (cons :env-environment environment)
+                   (cons :env-filesystem filesystem)
+                   (cons :env-host-info host-info)
+                   (cons :env-sleep-seconds sleep-seconds)
+                   #+darwin (cons :env-cpu-counters cpu-counters)
+                   #+darwin (cons :env-sysctl-mib sysctl-mib)
+                   (cons :env-run-program run-program)
+                   (cons :env-executable-p executable-p)
+                   (cons :env-list-directory list-directory)
+                   (cons :env-read-link read-link)
+                   (cons :env-file-system-space file-system-space)
+                   (cons :env-system-identity system-identity)
+                   (cons :env-user-id user-id)
+                   (cons :env-workspace-root workspace-root)))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries (car capability) (cdr capability))))
+    boundaries))
 
-(defun make-production-env-ports (&key state-directory-function with-span &allow-other-keys)
-  "The ENV-PORTS the binary uses. Construction does no I/O; every adapter
-reads the host only when a flow calls it. STATE-DIRECTORY-FUNCTION is part
-of the composition root's shared constructor protocol; env keeps no state."
+(defun make-production-env-boundaries (&key state-directory-function with-span &allow-other-keys)
+  "Return the binary env context; host access stays inside its capabilities."
   (declare (ignore state-directory-function))
   (labels ((span-outcome (values)
              (case (first values)
@@ -218,14 +210,14 @@ of the composition root's shared constructor protocol; env keeps no state."
            (instrumented-run-program (program arguments timeout-seconds)
              (if with-span
                  (funcall with-span :child_process "env.system-query"
-                          #'%run-program (list program arguments timeout-seconds)
-                          :outcome-function #'span-outcome)
+                          (function %run-program) (list program arguments timeout-seconds)
+                          :outcome-function (function span-outcome))
                  (%run-program program arguments timeout-seconds))))
-    (make-env-ports-from-boundaries
-     :clock (cl-boundary-kit:make-clock :now-fn #'%epoch-milliseconds)
+    (make-env-boundaries
+     :clock (cl-boundary-kit:make-clock :now-fn (function %epoch-milliseconds))
      :environment (cl-boundary-kit:make-environment)
      :filesystem (cl-boundary-kit:make-filesystem
-                  :read-file-fn #'%read-file-to-end
-                  :path-exists-p-fn #'%regular-file-p)
+                  :read-file-fn (function %read-file-to-end)
+                  :path-exists-p-fn (function %regular-file-p))
      :host-info (cl-boundary-kit:make-host-info)
-     :run-program #'instrumented-run-program)))
+     :run-program (function instrumented-run-program))))

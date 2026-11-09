@@ -12,19 +12,19 @@
 (defun %object (&rest alist)
   (aitools.protocol.domain:json-object-from-alist alist))
 
-(defun local-zone-name (ports)
+(defun local-zone-name (boundaries)
   "The zone `time` uses without --tz: $TZ when it names an IANA zone, else
 the /etc/localtime link target, else UTC."
-  (or (aitools.env.domain:zone-name-from-tz-variable (%getenv ports "TZ"))
+  (or (aitools.env.domain:zone-name-from-tz-variable (%getenv boundaries "TZ"))
       (aitools.env.domain:zone-name-from-localtime-link
-       (funcall (env-ports-read-link ports) "/etc/localtime"))
+       (%read-link boundaries "/etc/localtime"))
       "UTC"))
 
 (aitools.kernel.domain:define-flow
-    (time-now/k ports &key tz on-ok on-error)
-  (let ((now (%now ports)))
+    (time-now/k boundaries &key tz on-ok on-error)
+  (let ((now (%now boundaries)))
     (aitools.kernel.domain:flow-call
-        (%with-zone/k ports (or tz (local-zone-name ports)))
+        (%with-zone/k boundaries (or tz (local-zone-name boundaries)))
       (:on-zone (zone)
         (multiple-value-bind (offset daylight-p abbreviation)
             (aitools.env.domain:zone-offset-at zone now)
@@ -42,9 +42,9 @@ the /etc/localtime link target, else UTC."
          :on-error code message :repairs repairs)))))
 
 (aitools.kernel.domain:define-flow
-    (time-convert/k ports value &key (to "iso8601") add sub tz on-ok on-error)
+    (time-convert/k boundaries value &key (to "iso8601") add sub tz on-ok on-error)
   "ADD and SUB are duration strings. TZ controls ISO output and offset-less input; otherwise the local zone is used."
-  (let ((zone-name (or tz (local-zone-name ports)))
+  (let ((zone-name (or tz (local-zone-name boundaries)))
         (example (format nil "aitools time convert 2026-03-08T01:30:00Z --to ~A" to)))
     (if (not (member to *time-convert-targets* :test #'string=))
         (aitools.kernel.domain:flow-continue
@@ -60,7 +60,7 @@ the /etc/localtime link target, else UTC."
                 (%parse-durations/k sub)
               (:on-ok (subtracted)
                 (aitools.kernel.domain:flow-call
-                    (%parse-instant/k ports value zone-name example)
+                    (%parse-instant/k boundaries value zone-name example)
                   (:on-instant (instant input)
                     (let ((result-instant (+ instant added (- subtracted))))
                       (if (not
@@ -77,7 +77,7 @@ the /etc/localtime link target, else UTC."
                                          "Keep the result within years 0000-9999."
                                          example)))
                           (aitools.kernel.domain:flow-call
-                              (%with-zone/k ports zone-name)
+                              (%with-zone/k boundaries zone-name)
                             (:on-zone (zone)
                               (aitools.kernel.domain:flow-continue
                                :on-ok
@@ -110,16 +110,16 @@ the /etc/localtime link target, else UTC."
              :on-error code message :repairs repairs))))))
 
 (aitools.kernel.domain:define-flow
-    (time-diff/k ports a b &key on-ok on-error)
+    (time-diff/k boundaries a b &key on-ok on-error)
   "diff_ms is B minus A; offset-less inputs are read in the local zone."
-  (let ((zone-name (local-zone-name ports))
+  (let ((zone-name (local-zone-name boundaries))
         (example "aitools time diff 2026-03-08T00:00:00Z 2026-03-08T01:23:00Z"))
     (aitools.kernel.domain:flow-call
-        (%parse-instant/k ports a zone-name example)
+        (%parse-instant/k boundaries a zone-name example)
       (:on-instant (first-instant first-input)
         (declare (ignore first-input))
         (aitools.kernel.domain:flow-call
-            (%parse-instant/k ports b zone-name example)
+            (%parse-instant/k boundaries b zone-name example)
           (:on-instant (second-instant second-input)
             (declare (ignore second-input))
             (let ((difference (- second-instant first-instant)))

@@ -2,8 +2,7 @@
 
 (defsystem "aitools/feature/env"
   :description "Environment and time features."
-  :depends-on ("aitools/core/text" "cl-date-kit" "cl-json-kit"
-               "cl-host-kit" "cl-process-kit")
+  :depends-on ("aitools/core/text" "cl-boundary-kit" "cl-date-kit" "cl-json-kit" "cl-host-kit" "cl-process-kit")
   :pathname "src/"
   :components
   ((:module "domain"
@@ -18,7 +17,7 @@
                  (:file "host-values")))
    (:module "application"
     :components ((:file "package")
-                 (:file "ports")
+                 (:file "boundaries")
                  (:file "time-zone-flows")
                  (:file "time-input-flows")
                  (:file "time-flows")
@@ -40,7 +39,7 @@
 
 (defsystem "aitools/test/env"
   :description "Environment context tests."
-  :depends-on ("aitools/test/base" "aitools/feature/env" "aitools/cli")
+  :depends-on ("aitools/test/base" "aitools/feature/env" "aitools/cli" "cl-boundary-kit")
   :pathname "../../../"
   :components
   ((:module "t" :pathname "t/" :serial t
@@ -64,6 +63,7 @@
      (:module "integration" :pathname "integration/" :serial t
       :components ((:file "env-host-test")
                    (:file "env-host-trace-test")
+                   (:file "env-boundary-contract-test")
                    (:file "env-sysctl-test")
                    (:file "env-metrics-smoke")))
      (:module "e2e" :pathname "e2e/" :serial t
