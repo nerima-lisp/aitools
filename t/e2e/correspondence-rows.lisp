@@ -49,6 +49,8 @@
     "| `cmd &`、`nohup`、`tail -f`、`sleep`、ポートの待機、`timeout` | `bg start`、`bg logs --from`、`wait`、`run --timeout` |"
     "| `git status`、`git log`、`git diff`、`git blame`、`git show rev:path` | `run -- git …` |"
     "| `uname`、`whoami`、`hostname`、`nproc`、`env`、`which`、`ps`、`lsof -i` | `sys info`、`sys env`、`sys tools`、`sys procs`、`sys ports` |"
+    "| `curl`、`WebFetch` | `net get`、`net head` |"
+    "| `dig`、`nslookup` | `net resolve` |"
     "| `date`、`date -d '+1 day'`、`TZ=… date`、2 時刻の差 | `time now`、`time convert --add 1d`、`--tz`、`time diff` |"
     "| `base64`、`base64 -d > file`、`xxd -r -p`、URL エンコード | `util encode`、`util decode --to`、`util encode url` |"
     "| `bc`、`expr`、`$((…))`、`python3 -c 'print(…)'` | `util calc` |"

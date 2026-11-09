@@ -22,7 +22,7 @@
 (describe "aitools e2e meta: correspondence-table coverage"
   (it "has at least one e2e case for every table row and none for a row that does not exist"
     (let ((rows (length *correspondence-rows*)))
-      (expect rows :to-be 45)
+      (expect rows :to-be 47)
       (expect (loop for row from 1 to rows
                     unless (find row *row-cases* :key #'first)
                       collect row)

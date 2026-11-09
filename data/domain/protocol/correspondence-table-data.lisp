@@ -111,7 +111,7 @@
                (:detail "Fetch response headers with HEAD."
                 :command "aitools net head")))
     (:foreign-names ("dig" "nslookup")
-     :repairs ((:detail "Resolve A and AAAA address results through the operating system resolver; other DNS record types and CNAME chains require dig or nslookup."
+     :repairs ((:detail "Resolve A and AAAA address results through the operating system resolver. CNAME chains and DNS response codes require dig or nslookup."
                 :command "aitools net resolve")))
     (:foreign-names ("date")
      :repairs ((:detail "Read or convert the current or a given time."

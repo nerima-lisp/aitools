@@ -143,7 +143,7 @@
                                                          (:file "trace-byte-parity-cases")
                                                          (:file "byte-gate-test")
                                                          (:file "byte-gate-inventory-test" :depends-on ("byte-gate-test"))
-                                                         (:file "meta-test"))))))))
+                                                         (:file "net-cases") (:file "meta-test"))))))))
 (defsystem "aitools/test"
            :description "Run shared tests or dynamically discovered context tests."
            :depends-on ("aitools/test/base")
