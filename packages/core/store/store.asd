@@ -18,7 +18,9 @@
     :serial t
     :components ((:file "package") (:file "port") (:file "lock")
                  (:file "files") (:file "journal") (:file "blobs")
-                 (:file "view") (:file "write-completion")
+                 (:file "view")
+                 (:file "archive-prefix-view")
+                 (:file "archive-prefix-checker") (:file "write-completion")
                  (:file "write-preparation") (:file "write-planning")
                  (:file "write-protocol") (:file "recovery")
                  (:file "undo") (:file "tx") (:file "tx-stage")
