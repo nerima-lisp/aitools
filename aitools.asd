@@ -22,6 +22,7 @@
    (:file "domain/protocol/selector-options-data")
    (:file "domain/process/process-tables-data")
    (:file "domain/workspace/builtin-excludes-data")
+   (:file "domain/workspace/git-metadata-data")
    (:file "domain/text/cp932-data")
    (:file "domain/text/euc-jp-data")
    (:file "domain/text/encoding-aliases-data")

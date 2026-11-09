@@ -31,6 +31,7 @@
  (:file "unit/workspace/wildmatch-test")
  (:file "unit/workspace/gitignore-test")
  (:file "unit/workspace/root-boundary-test")
+ (:file "unit/workspace/root-boundary-linked-worktree-test")
  (:file "unit/workspace/workspace-values-test")
  (:file "unit/workspace/real-path-test")
  (:file "unit/workspace/git-data-test")
