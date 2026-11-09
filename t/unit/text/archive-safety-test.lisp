@@ -72,10 +72,10 @@
              (read-zip-entries (write-zip (list (make-archive-member :name name :data (octets)))))))
       (let ((exact (make-string +archive-max-component-bytes+ :initial-element #\a))
             (exact-utf8 (concatenate 'string
-                                     (make-string 127 :initial-element (code-char #xE9))
-                                     "a"))
+                                     (make-string 251 :initial-element (code-char 97))
+                                     (string (code-char #x1F600))))
             (over (make-string (1+ +archive-max-component-bytes+) :initial-element #\a))
-            (over-utf8 (make-string 128 :initial-element (code-char #xE9))))
+            (over-utf8 (make-string 64 :initial-element (code-char #x1F600))))
         (expect (length (tar-name exact)) :to-be 1)
         (expect (length (zip-name exact)) :to-be 1)
         (expect (length (tar-name exact-utf8)) :to-be 1)
