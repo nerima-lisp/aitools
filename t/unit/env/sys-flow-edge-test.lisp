@@ -170,3 +170,28 @@
                                                             (values :timeout nil nil nil))))))))
       (expect (first (nth-value 1 (run-flow #'sys-ports/k (make-fake-env-boundaries :host host))))
               :to-equal "environment.unavailable"))))
+(describe "aitools.env.application boundary helper contracts"
+  (it "expands and invokes an operation with its declared boundary and arguments"
+    (let* ((expansion
+             (macroexpand-1
+              (quote (aitools.env.application::define-env-operation
+                      %env-test-file-space :env-file-system-space (path)))))
+           (boundaries (make-fake-env-boundaries)))
+      (eval expansion)
+      (expect (multiple-value-list
+               (funcall (fdefinition (quote %env-test-file-space)) boundaries "/work"))
+              :to-equal (quote (1000 400)))))
+  (it "returns nil when an existing file raises file-error"
+    (let* ((filesystem
+             (cl-boundary-kit:make-filesystem
+              :read-file-fn
+              (lambda (path &key external-format)
+                (declare (ignore external-format))
+                (error (quote file-error) :pathname path))
+              :path-exists-p-fn (lambda (path) (string= path "/fixture"))))
+           (boundaries
+             (cl-boundary-kit:boundary-context-with
+              (make-fake-env-boundaries :files nil)
+              :env-filesystem filesystem)))
+      (expect (aitools.env.application::%read-text boundaries "/fixture")
+              :to-be nil))))

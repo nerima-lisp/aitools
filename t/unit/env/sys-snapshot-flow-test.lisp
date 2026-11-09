@@ -1,7 +1,7 @@
 (in-package #:aitools.env.test)
 
 (describe "aitools.env.application snapshot"
-  (it "succeeds when all five sources are available within output limits"
+  (it "uses default limits when all five sources are available"
     (multiple-value-bind (kind fields)
         (run-flow #'sys-snapshot/k (metrics-boundaries))
       (expect kind :to-be :ok)

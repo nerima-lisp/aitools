@@ -61,6 +61,13 @@
       (expect iso :to-equal "2026-03-08T15:30:00+09:00")
       (expect epoch-s :to-be 1772951400)
       (expect (convert-result (princ-to-string epoch-s) :to "epoch_ms") :to-be epoch-ms)))
+  (it "defaults to ISO 8601 when no target is given"
+    (multiple-value-bind (kind fields)
+        (run-flow #'time-convert/k (make-fake-env-boundaries) "1700000000")
+      (expect kind :to-be :ok)
+      (expect (field fields "to") :to-equal "iso8601")
+      (expect (field fields "result") :to-equal "2023-11-14T22:13:20Z")))
+
 
   (it "adds across the New York spring-forward boundary"
     (expect (convert-result "2026-03-08T01:30:00" :tz "America/New_York" :add '("1h"))
