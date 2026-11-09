@@ -8,22 +8,21 @@
 (defun %raise-net-error (code detail)
   (error 'net-error :code code :detail detail))
 
-(defun %finite-timeout-p (timeout)
-  (and (realp timeout)
+(defun %finite-real-p (value)
+  (and (realp value)
        (handler-case
-           (let ((number (float timeout 1d0)))
-             (and (> number 0d0)
+           (let ((number (float value 1d0)))
+             (and (> number most-negative-double-float)
                   (< number most-positive-double-float)
                   (= number number)))
          (error () nil))))
 
 (defun %request-deadline (timeout)
-  (unless (%finite-timeout-p timeout)
+  (unless (and (%finite-real-p timeout) (> timeout 0))
     (%raise-net-error "argument.invalid" "The request timeout is invalid."))
   (let* ((now (%monotonic-time))
          (deadline (+ now (float timeout 1d0))))
-    (unless (and (>= deadline now)
-                 (< deadline most-positive-double-float))
+    (unless (%finite-real-p deadline)
       (%raise-net-error "argument.invalid" "The request timeout is invalid."))
     deadline))
 

@@ -13,8 +13,10 @@ itself) against the app+registry baked into the image at build time
 registry is reused rather than rebuilt per process start; all
 per-invocation state (root, state directory, lock-timeout, environment) is still
 resolved at dispatch time."
-  (destructuring-bind (app registry) *application*
-    (funcall quit-function (funcall dispatch-function app registry argv))))
+  ;; A timed-out resolver sets this for the exit after dispatch returns.
+  (let ((sb-ext:*exit-timeout* sb-ext:*exit-timeout*))
+    (destructuring-bind (app registry) *application*
+      (funcall quit-function (funcall dispatch-function app registry argv)))))
 
 (defun image-entry-point (&key (main-function #'main))
   (setf *default-pathname-defaults* (uiop:getcwd))

@@ -1,16 +1,7 @@
 (in-package #:aitools.net.infrastructure)
-#+sbcl
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sb-bsd-sockets))
 (defparameter +default-resolver-timeout-seconds+ 30d0)
-(defun %monotonic-seconds ()
-  (/ (get-internal-real-time) internal-time-units-per-second))
-(defun %finite-real-p (value)
-  (and (realp value)
-       (handler-case
-           (and (> value most-negative-double-float)
-                (< value most-positive-double-float))
-         (floating-point-invalid-operation () nil))))
 (defun %ascii-digit-p (character)
   (let ((code (char-code character)))
     (<= 48 code 57)))
@@ -90,8 +81,11 @@
   (let ((now (funcall clock-function)))
     (unless (%finite-real-p now)
       (%raise-net-error "environment.io" "The monotonic clock is unavailable."))
-    (or deadline
-        (+ now (or timeout +default-resolver-timeout-seconds+)))))
+    (let ((deadline (or deadline
+                        (+ now (or timeout +default-resolver-timeout-seconds+)))))
+      (unless (%finite-real-p deadline)
+        (%raise-net-error "argument.invalid" "Resolver time values must be finite and positive."))
+      deadline)))
 (defun %default-os-lookup (host)
   (loop for host-ent in (multiple-value-list
                          (sb-bsd-sockets:get-host-by-name host))
@@ -110,23 +104,27 @@
                (error condition))
     (error ()
            (%raise-net-error "environment.io" "The operating system resolver failed."))))
-#+sb-thread
 (progn
-  ;; A timed-out getaddrinfo call cannot be interrupted, so cap abandoned workers.
+  ;; A stalled OS lookup cannot be interrupted. Keep only one outstanding worker,
+  ;; then let UIOP flush output and skip waiting for it during process exit.
   (defparameter *resolver-worker-semaphore*
     (sb-thread:make-semaphore :count 1))
+  (defun %resolver-timeout (&optional abandoned-worker-p)
+    (when abandoned-worker-p
+      (setf sb-ext:*exit-timeout* 0))
+    (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
   (defun %timed-lookup (lookup-function host deadline clock-function thread-function)
     (let ((remaining (- deadline (funcall clock-function))))
       (when (<= remaining 0)
-        (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+        (%resolver-timeout))
       (unless (sb-thread:wait-on-semaphore *resolver-worker-semaphore* :timeout remaining)
-        (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+        (%resolver-timeout))
       (let ((thread nil)
             (worker-started-p nil))
         (unwind-protect
              (progn
                (when (<= (- deadline (funcall clock-function)) 0)
-                 (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+                 (%resolver-timeout))
                (setf thread
                      (handler-case
                          (funcall thread-function
@@ -144,22 +142,18 @@
             (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
         (let ((remaining-after-start (- deadline (funcall clock-function))))
           (when (<= remaining-after-start 0)
-            (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+            (%resolver-timeout))
           (let ((outcome
                   (sb-thread:join-thread thread
                                          :timeout remaining-after-start
                                          :default :timed-out)))
             (when (eq outcome :timed-out)
-              (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+              (%resolver-timeout t))
             (when (>= (funcall clock-function) deadline)
-              (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+              (%resolver-timeout))
             (if (eq (first outcome) :ok)
                 (second outcome)
                 (error (second outcome)))))))))
-#-sb-thread
-  (defun %timed-lookup (lookup-function host deadline clock-function thread-function)
-    (declare (ignore lookup-function host deadline clock-function thread-function))
-    (%raise-net-error "environment.unavailable" "Resolver worker threads are unavailable."))
 (defun %address-type-and-size (family)
   (case family
     (:inet (values "A" 4))
@@ -207,19 +201,17 @@
            entries)
    :test (function %same-net-address-p)
    :from-end t))
-(defun make-os-resolver (&key lookup-function clock-function #+sb-thread thread-function)
+(defun make-os-resolver (&key lookup-function clock-function thread-function)
   (let* ((lookup-function (or lookup-function (function %default-os-lookup)))
-         (clock-function (or clock-function (function %monotonic-seconds)))
-         #+sb-thread
+         (clock-function (or clock-function (function %monotonic-time)))
          (thread-function (or thread-function (function sb-thread:make-thread))))
     (unless (and (functionp lookup-function)
                  (functionp clock-function)
-                 #+sb-thread (functionp thread-function))
+                 (functionp thread-function))
       (%raise-net-error "argument.invalid" "Resolver dependencies must be functions."))
     (lambda (host &key timeout deadline)
       (unless (%valid-host-p host)
         (%raise-net-error "argument.invalid" "The host must be a valid DNS name or numeric address."))
       (let ((deadline (%resolver-deadline timeout deadline clock-function)))
         (%net-addresses
-         (%timed-lookup lookup-function host deadline clock-function
-                        #+sb-thread thread-function #-sb-thread nil))))))
+         (%timed-lookup lookup-function host deadline clock-function thread-function))))))

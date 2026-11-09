@@ -7,7 +7,7 @@
           (http-test-error
            (lambda ()
              (aitools.net.infrastructure::%request-deadline timeout)))))
-    (expect (aitools.net.infrastructure::%finite-timeout-p timeout) :to-be nil)
+    (expect (and (aitools.net.infrastructure::%finite-real-p timeout) (> timeout 0)) :to-be nil)
     (expect (first failure) :to-equal "argument.invalid"))
   #+sbcl
   (cl-weave:with-mocked-functions
@@ -59,7 +59,7 @@
                 (expect (first failure) :to-equal "environment.io")))
           (it "requires strictly positive finite request timeouts"
               (dolist (timeout (list 0d0 -1d0 (expt 10 1000) "1s"))
-                (expect (aitools.net.infrastructure::%finite-timeout-p timeout)
+                (expect (and (aitools.net.infrastructure::%finite-real-p timeout) (> timeout 0))
                         :to-be
                         nil)
                 (expect
@@ -70,7 +70,7 @@
                  :to-equal
                  "argument.invalid"))
               (expect
-               (aitools.net.infrastructure::%finite-timeout-p 1d0)
+               (and (aitools.net.infrastructure::%finite-real-p 1d0) (> 1d0 0))
                :to-be
                t)
               (expect
@@ -82,7 +82,7 @@
                        (list sb-ext:double-float-positive-infinity
                              sb-ext:double-float-negative-infinity))
                 (expect
-                 (aitools.net.infrastructure::%finite-timeout-p timeout)
+                 (aitools.net.infrastructure::%finite-real-p timeout)
                  :to-be
                  nil)
                 (expect
