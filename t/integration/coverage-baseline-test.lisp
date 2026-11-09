@@ -98,7 +98,9 @@
            (owned-locations
              (list (list (list :kind :expression)
                          (list :package "TEST.PACKAGE" :symbol "TARGET"))
-                   (list (list :kind :branch)
+                   (list (list :kind :branch :uncovered-count 1)
+                         (list :package "TEST.PACKAGE" :symbol "TARGET"))
+                   (list (list :kind :branch :uncovered-count 2)
                          (list :package "TEST.PACKAGE" :symbol "TARGET"))))
            (statistics
              (list :expression-covered 2 :expression-total 5
@@ -109,8 +111,8 @@
         (expect (getf adjusted :expression-covered) :to-equal 2)
         (expect (getf adjusted :expression-total) :to-equal 4)
         (expect (getf adjusted :branch-covered) :to-equal 4)
-        (expect (getf adjusted :branch-total) :to-equal 6)
-        (expect (length applied) :to-equal 2))))
+        (expect (getf adjusted :branch-total) :to-equal 5)
+        (expect (getf (second applied) :excluded-count) :to-equal 3))))
 
   (it "fails when an exclusion no longer matches an uncovered location"
     (let* ((rule
@@ -178,65 +180,92 @@
         (expect (getf adjusted :expression-total) :to-equal 1)
         (expect (getf (first applied) :excluded-count) :to-equal 1))))
 
-  (it "applies the protocol exclusions and resolves kernel definitions"
-      (let* ((root (asdf:system-source-directory "aitools/test/shared"))
-             (baseline (cl-user::read-coverage-baseline root :protocol))
-             (rules (getf baseline :coverage-exclusions))
-             (source-files
-              (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
-                                "aitools/core/protocol" :include-dependencies nil))
-             (definitions
-              (loop for pathname in source-files
-                    append (cl-user::coverage-source-definitions-for pathname)))
-             (locations
-              (loop for rule in rules
-                    for owner =
-                    (find-if
-                     (lambda (definition)
-                       (and (string-equal (getf rule :package)
-                                          (getf definition :package))
-                            (string-equal (getf rule :symbol)
-                                          (getf definition :symbol))))
-                     definitions)
-                    do (unless owner
+  (it "applies protocol exclusions and resolves kernel definitions"
+    (let* ((root (asdf:system-source-directory "aitools/test/shared"))
+           (baseline (cl-user::read-coverage-baseline root :protocol))
+           (rules (getf baseline :coverage-exclusions))
+           (source-files
+             (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
+                               "aitools/core/protocol" :include-dependencies nil))
+           (definitions
+             (loop for pathname in source-files
+                   append (cl-user::coverage-source-definitions-for pathname)))
+           (locations
+             (loop for rule in rules
+                   for owner =
+                     (find-if
+                      (lambda (definition)
+                        (and (string-equal (getf rule :package)
+                                           (getf definition :package))
+                             (string-equal (getf rule :symbol)
+                                           (getf definition :symbol))))
+                      definitions)
+                   append
+                     (progn
+                       (unless owner
                          (error "Protocol exclusion has no source definition: ~A::~A"
                                 (getf rule :package) (getf rule :symbol)))
-                    collect (list :kind (getf rule :kind)
-                                  :pathname (getf owner :pathname)
-                                  :start (1+ (getf owner :start))
-                                  :end (+ 2 (getf owner :start)))))
-             (statistics
-              (list :expression-covered 2 :expression-total 10
-                    :branch-covered 12 :branch-total 20))
-             (kernel-rules
-              (getf (cl-user::read-coverage-baseline root :kernel)
-                    :coverage-exclusions))
-             (kernel-files
-              (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
-                                "aitools/core/kernel" :include-dependencies nil))
-             (kernel-definitions
-              (loop for pathname in kernel-files
-                    append (cl-user::coverage-source-definitions-for pathname))))
-        (multiple-value-bind (adjusted applied)
-            (cl-user::coverage-statistics-with-exclusions statistics rules locations)
-          (expect (length rules) :to-equal 6)
-          (expect (length applied) :to-equal 6)
-          (expect (getf adjusted :expression-total) :to-equal 8)
-          (expect (getf adjusted :branch-total) :to-equal 12)
-          (expect
-           (and
-            (every (lambda (entry) (= (getf entry :excluded-count) 1))
-                   applied)
-            (consp kernel-rules)
-            (cl-user::coverage-exclusion-records-valid-p kernel-rules)
-            (every
-             (lambda (rule)
-               (find-if
-                (lambda (definition)
-                  (and (string-equal (getf rule :package)
-                                     (getf definition :package))
-                       (string-equal (getf rule :symbol)
-                                     (getf definition :symbol))))
-                kernel-definitions))
-             kernel-rules))
-           :to-be-truthy)))))
+                       (loop repeat
+                             (if (eq (getf rule :kind) :expression)
+                                 2
+                               1)
+                             collect
+                             (list :kind (getf rule :kind)
+                                   :pathname (getf owner :pathname)
+                                   :start (1+ (getf owner :start))
+                                   :end (+ 2 (getf owner :start))
+                                   :uncovered-count
+                                   (if (or (eq (getf rule :kind) :expression)
+                                           (string-equal (getf rule :symbol)
+                                                         "%REDACT-VALUE"))
+                                       1
+                                     2))))))
+           (statistics
+             (list :expression-covered 2 :expression-total 10
+                   :branch-covered 12 :branch-total 20))
+           (kernel-rules
+             (getf (cl-user::read-coverage-baseline root :kernel)
+                   :coverage-exclusions))
+           (kernel-files
+             (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
+                               "aitools/core/kernel" :include-dependencies nil))
+           (kernel-definitions
+             (loop for pathname in kernel-files
+                   append (cl-user::coverage-source-definitions-for pathname))))
+      (multiple-value-bind (adjusted applied)
+          (cl-user::coverage-statistics-with-exclusions statistics rules locations)
+        (expect (length rules) :to-equal 6)
+        (expect (length applied) :to-equal 6)
+        (expect (getf adjusted :expression-total) :to-equal 6)
+        (expect (getf adjusted :branch-total) :to-equal 13)
+        (expect
+         (and
+          (= (loop for entry in applied
+                   when (eq (getf entry :kind) :expression)
+                     sum (getf entry :excluded-count))
+             4)
+          (= (loop for entry in applied
+                   when (eq (getf entry :kind) :branch)
+                     sum (getf entry :excluded-count))
+             7)
+          (= (cl-user::coverage-uncovered-unit-count-for-state 2) 1)
+          (= (cl-user::coverage-uncovered-unit-count-for-state 6) 1)
+          (= (cl-user::coverage-uncovered-unit-count-for-state 9) 1)
+          (= (cl-user::coverage-uncovered-unit-count-for-state 10) 2)
+          (zerop (cl-user::coverage-uncovered-unit-count-for-state 5))
+          (zerop (cl-user::coverage-uncovered-unit-count-for-state 1))
+          (null (getf baseline :coverage-exclusion-counts))
+          (null (getf baseline :coverage-uncovered-counts))
+          (consp kernel-rules)
+          (cl-user::coverage-exclusion-records-valid-p kernel-rules)
+          (every
+           (lambda (rule)
+             (find-if
+              (lambda (definition)
+                (and (string-equal (getf rule :package)
+                                   (getf definition :package))
+                     (string-equal (getf rule :symbol)
+                                   (getf definition :symbol))))
+              kernel-definitions))
+           kernel-rules))
+         :to-be-truthy)))))

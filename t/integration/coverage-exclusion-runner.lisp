@@ -112,6 +112,13 @@
           (when (= (length matches) 1)
             (first matches))))))
 
+  (progn
+  (defun coverage-uncovered-unit-count-for-state (state)
+    (case state
+      ((2 6 9) 1)
+      (10 2)
+      (otherwise 0)))
+
   (defun coverage-adjust-statistics-for-exclusions (statistics exclusions owned-locations)
     (unless (coverage-exclusion-records-valid-p exclusions)
       (error "Invalid coverage exclusion records"))
@@ -130,18 +137,18 @@
                                  (string-equal (getf exclusion :symbol)
                                                (getf owner :symbol)))
                          collect location))
-               (count (length matches))
-               (metric (if (eq kind :expression) :expression-total :branch-total))
-               (removed (* count (if (eq kind :expression) 1 2))))
+               (count (loop for location in matches
+                            sum (getf location :uncovered-count 1)))
+               (metric (if (eq kind :expression) :expression-total :branch-total)))
           (unless (plusp count)
             (error "Stale coverage exclusion ~A::~A (~A)"
                    (getf exclusion :package) (getf exclusion :symbol) kind))
           (unless (and (integerp (getf adjusted metric))
-                       (>= (getf adjusted metric) removed))
-            (error "Coverage exclusion exceeds measured ~A total: ~S" metric removed))
-          (decf (getf adjusted metric) removed)
+                       (>= (getf adjusted metric) count))
+            (error "Coverage exclusion exceeds measured ~A total: ~S" metric count))
+          (decf (getf adjusted metric) count)
           (push (append (copy-list exclusion) (list :excluded-count count)) applied)))
-      (values adjusted (nreverse applied))))
+      (values adjusted (nreverse applied)))))
 
   (defun coverage-statistics-with-exclusions (statistics exclusions locations)
     (let* ((pathnames
