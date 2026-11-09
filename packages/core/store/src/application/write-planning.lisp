@@ -107,38 +107,51 @@ with the workspace lock held. Returns the new op id."
   (list "environment.io" (princ-to-string condition)))
 
 (aitools.kernel.domain:define-flow
-    (%plan-and-commit/k store argv requests &key undoes tx-id precommit-check
+    (%plan-and-commit/k store argv requests
+                        &key undoes tx-id preflight-check precommit-check
                         on-committed on-rejected)
   "Plan REQUESTS against the disk and commit them; the workspace lock must be
 held. ON-COMMITTED (op-id results) with OP-ID NIL when nothing changed. A
 STORE-COMMITTED-ERROR is not a rejection and propagates to the caller."
   (declare (type function on-committed on-rejected))
-  (aitools.kernel.domain:flow-call
-      (%disk-plan/k store requests)
-    (:on-planned (results)
-      (if (null results)
-          (aitools.kernel.domain:flow-continue :on-committed nil '())
-          (multiple-value-bind (status result)
-              (handler-case
-                  (values :committed
-                          (%commit-results
-                           store argv results
-                           :undoes undoes
-                           :tx-id tx-id
-                           :precommit-check precommit-check))
-                (store-refusal (condition)
-                  (values :rejected
-                          (list (store-refusal-code condition)
-                                (store-refusal-message condition))))
-                ((and store-io-error (not store-committed-error)) (condition)
-                  (values :rejected (%io-rejection condition))))
-            (ecase status
-              (:committed
-               (aitools.kernel.domain:flow-continue
-                :on-committed result results))
-              (:rejected
-               (aitools.kernel.domain:flow-continue
-                :on-rejected (first result) (second result)))))))
-    (:on-rejected (code message)
-      (aitools.kernel.domain:flow-continue :on-rejected code message))))
+  (let ((rejection
+          (when preflight-check
+            (handler-case
+                (progn (funcall preflight-check) nil)
+              (store-refusal (condition)
+                (list (store-refusal-code condition)
+                      (store-refusal-message condition)))
+              ((and store-io-error (not store-committed-error)) (condition)
+                (%io-rejection condition))))))
+    (if rejection
+        (aitools.kernel.domain:flow-continue
+         :on-rejected (first rejection) (second rejection))
+        (aitools.kernel.domain:flow-call
+            (%disk-plan/k store requests)
+          (:on-planned (results)
+            (if (null results)
+                (aitools.kernel.domain:flow-continue :on-committed nil '())
+                (multiple-value-bind (status result)
+                    (handler-case
+                        (values :committed
+                                (%commit-results
+                                 store argv results
+                                 :undoes undoes
+                                 :tx-id tx-id
+                                 :precommit-check precommit-check))
+                      (store-refusal (condition)
+                        (values :rejected
+                                (list (store-refusal-code condition)
+                                      (store-refusal-message condition))))
+                      ((and store-io-error (not store-committed-error)) (condition)
+                        (values :rejected (%io-rejection condition))))
+                  (ecase status
+                    (:committed
+                     (aitools.kernel.domain:flow-continue
+                      :on-committed result results))
+                    (:rejected
+                     (aitools.kernel.domain:flow-continue
+                      :on-rejected (first result) (second result)))))))
+          (:on-rejected (code message)
+            (aitools.kernel.domain:flow-continue :on-rejected code message))))))
 
