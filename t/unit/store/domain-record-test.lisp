@@ -42,6 +42,31 @@ store temp file name."
              (json->entry-state
               (record-json "{\"kind\":\"file\",\"hash\":\"@H\",\"mode\":420,\"mtime\":7}")))
             :to-be 7))
+  (it-each (("a directory with a null mode" nil)
+            ("a directory with an integer mode" 493))
+      "serializes ~A"
+      (label mode)
+    (declare (ignore label))
+    (let* ((state (directory-state mode))
+           (json (json-kit:parse
+                  (json-kit:stringify (entry-state->json state))))
+           (decoded (json->entry-state json)))
+      (expect (aitools.test.support:json-alist-value json "kind")
+              :to-equal "directory")
+      (expect (aitools.test.support:json-alist-value json "mode")
+              :to-equal (or mode json-kit:+json-null+))
+      (expect (length (aitools.test.support:json-alist json)) :to-be 2)
+      (expect (list (entry-state-kind decoded)
+                    (entry-state-hash decoded)
+                    (entry-state-mode decoded)
+                    (entry-state-target decoded)
+                    (entry-state-mtime decoded))
+              :to-equal
+              (list (entry-state-kind state)
+                    (entry-state-hash state)
+                    (entry-state-mode state)
+                    (entry-state-target state)
+                    (entry-state-mtime state)))))
   (it-property "entry-state JSON round-trips generated fields"
       ((hash (gen-string :min-length 64 :max-length 64 :alphabet "0123456789abcdef"))
        (mode-text (gen-string :min-length 1 :max-length 4 :alphabet "01234567"))
