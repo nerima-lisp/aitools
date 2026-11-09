@@ -31,7 +31,15 @@
 (defun %https-test-signed-certificate (directory name ca-certificate ca-key)
   (let ((certificate (merge-pathnames (format nil "~A.crt" name) directory))
         (csr (merge-pathnames (format nil "~A.csr" name) directory))
-        (private-key (merge-pathnames (format nil "~A.key" name) directory)))
+        (private-key (merge-pathnames (format nil "~A.key" name) directory))
+        (extension-file
+         (merge-pathnames (format nil "~A-extensions.cnf" name) directory)))
+    (with-open-file (stream extension-file :direction :output :if-exists :supersede)
+      (write-line "[server_cert]" stream)
+      (write-line "subjectAltName=DNS:other.test" stream)
+      (write-line "basicConstraints=critical,CA:FALSE" stream)
+      (write-line "keyUsage=critical,digitalSignature,keyEncipherment" stream)
+      (write-line "extendedKeyUsage=serverAuth" stream))
     (labels ((run-openssl (arguments)
                (let ((process
                        (sb-ext:run-program "openssl" arguments
@@ -44,11 +52,7 @@
        (list "req" "-new" "-newkey" "rsa:2048" "-nodes"
              "-keyout" (namestring private-key)
              "-out" (namestring csr)
-             "-subj" "/CN=other.test"
-             "-addext" "subjectAltName=DNS:other.test"
-             "-addext" "basicConstraints=critical,CA:FALSE"
-             "-addext" "keyUsage=critical,digitalSignature,keyEncipherment"
-             "-addext" "extendedKeyUsage=serverAuth"))
+             "-subj" "/CN=other.test"))
       (run-openssl
        (list "x509" "-req" "-in" (namestring csr)
              "-CA" (namestring ca-certificate)
@@ -56,7 +60,8 @@
              "-CAcreateserial"
              "-out" (namestring certificate)
              "-days" "1"
-             "-copy_extensions" "copy")))
+             "-extfile" (namestring extension-file)
+             "-extensions" "server_cert")))
     (values certificate private-key)))
 
 (defun %https-test-start-server (certificate private-key)
