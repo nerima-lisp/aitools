@@ -83,6 +83,37 @@
                                       :include-pathnames pathnames)
         for source = (namestring (getf file :pathname))
         append (coverage-uncovered-form-locations-for-file source)))
+(defun report-coverage-gaps (groups context exclusions)
+  (let* ((pathnames (cdr (assoc context groups)))
+         (locations (coverage-uncovered-form-locations-for pathnames))
+         (definitions
+           (loop for pathname in pathnames
+                 append (coverage-source-definitions-for pathname)))
+         (remaining
+           (remove-if
+            (lambda (location)
+              (let ((owner (coverage-owner-for-location location definitions)))
+                (and owner
+                     (some (lambda (exclusion)
+                             (and (eq (getf location :kind) (getf exclusion :kind))
+                                  (string-equal (getf owner :package) (getf exclusion :package))
+                                  (string-equal (getf owner :symbol) (getf exclusion :symbol))))
+                           exclusions))))
+            locations)))
+    (format t "~&~A uncovered coverage forms after exclusions: ~D~%"
+            context (length remaining))
+    (dolist (location remaining)
+      (let* ((owner (coverage-owner-for-location location definitions))
+             (pathname (getf location :pathname))
+             (line (1+ (count #\Newline
+                              (uiop:read-file-string pathname)
+                              :end (getf location :start))))
+             (package (or (getf owner :package) "UNOWNED"))
+             (symbol (or (getf owner :symbol) "UNKNOWN")))
+        (format t "  ~A::~A ~A:~D ~S (~D)~%"
+                package symbol (namestring pathname) line
+                (getf location :kind) (getf location :uncovered-count))))
+    (length remaining)))
 (defun measure-context-coverage (root groups)
   (mapcar (lambda (group)
             (let* ((context (car group))
@@ -91,6 +122,9 @@
               (multiple-value-bind (statistics applied)
                   (coverage-statistics-for
                    pathnames (getf baseline :coverage-exclusions))
+                (when (eq context :env)
+                  (report-coverage-gaps
+                   groups context (getf baseline :coverage-exclusions)))
                 (list context (length pathnames) statistics baseline applied))))
           groups))
 (defun run-coverage (root)
