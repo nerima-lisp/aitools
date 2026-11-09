@@ -1,27 +1,48 @@
 (in-package #:aitools.net.infrastructure)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :sb-introspect))
+
   (defconstant +max-http-body-bytes+ (* 16 1024 1024))
 
   ;; The sender seam keeps redirect policy tests entirely off the network.
   (defvar *http-client-send-function* #'http-kit/client:http-client-send)
 
-#+sbcl
-    (defun %open-inspected-address (address port deadline)
-      ;; The public opener resolves URI hostnames again; this pinned primitive connects the inspected octets.
-      (let* ((family (aitools.net.domain:net-address-family address))
-             (address-type
-               (ecase family
-                 (:inet http-kit/network::+network-ipv4-address-type+)
-                 (:inet6 http-kit/network::+network-ipv6-address-type+))))
-        (http-kit/network::%network-open-address
-         (list address-type (aitools.net.domain:net-address-octets address))
-         port deadline #'%monotonic-time)))
+(defun %http-kit-address-opener ()
+  (let* ((symbol (quote http-kit/network::%network-open-address))
+         (function (and (fboundp symbol)
+                        (symbol-function symbol)))
+         (lambda-list
+           (and function
+                (handler-case
+                    (sb-introspect:function-lambda-list function)
+                  (error () nil)))))
+    (unless
+        (handler-case
+            (and (listp lambda-list)
+                 (= (length lambda-list) 4)
+                 (every (lambda (parameter)
+                          (and (symbolp parameter)
+                               (not (member parameter
+                                            (quote (&optional &rest &key
+                                                    &allow-other-keys &aux))
+                                            :test (function eq)))))
+                        lambda-list))
+          (error () nil))
+      (%raise-net-error "internal.unexpected"
+                        "The pinned HTTP address opener is missing or changed."))
+    function))
 
-#-sbcl
-    (defun %open-inspected-address (address port deadline)
-      (declare (ignore address port deadline))
-      (%raise-net-error "environment.unavailable"
-                        "Direct address connections are unavailable."))
+(defun %open-inspected-address (address port deadline)
+  ;; cl-http-kit 0.5.0 has no public opener for an inspected numeric address.
+  (let* ((family (aitools.net.domain:net-address-family address))
+         (address-type
+           (ecase family
+             (:inet http-kit/network::+network-ipv4-address-type+)
+             (:inet6 http-kit/network::+network-ipv6-address-type+))))
+    (funcall (%http-kit-address-opener)
+             (list address-type (aitools.net.domain:net-address-octets address))
+             port deadline (function %monotonic-time))))
 
 (defun %open-inspected-addresses (addresses uri deadline)
   (let ((port (or (http-kit:http-uri-port uri)
@@ -35,6 +56,7 @@
                               (%open-inspected-address address port deadline))
                (http-kit:http-timeout (condition)
                                       (error condition))
+               (net-error (condition) (error condition))
                (error () nil)))
     (error "No resolved address accepted the connection.")))
 
