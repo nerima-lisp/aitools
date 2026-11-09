@@ -73,3 +73,4 @@
         (expect (length hashes) :to-be 2)
         (expect (member base-hash hashes :test (function string=)) :to-be-truthy)
         (expect (member staged-hash hashes :test (function string=)) :to-be-truthy)))))
+

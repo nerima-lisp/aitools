@@ -24,6 +24,7 @@
                  (:file "write-preparation") (:file "write-planning")
                  (:file "write-protocol") (:file "recovery")
                  (:file "undo") (:file "tx") (:file "tx-stage")
+                 (:file "tx-symlink-recheck")
                  (:file "tx-operations") (:file "tx-commit")))
    (:module "infrastructure"
     :serial t

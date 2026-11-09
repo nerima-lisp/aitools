@@ -16,103 +16,72 @@
     (flet ((content (state)
              (when (eq (entry-state-kind state) :file)
                (read-blob store (entry-state-hash state)))))
-      (make-change-result
-       :path path
-       :action (cond ((eq staged-kind :absent) :deleted)
-                     ((eq staged-kind :symlink) :linked)
-                     ((eq base-kind :absent) :created)
-                     ((and (eq base-kind staged-kind)
-                           (member base-kind '(:file :directory))
-                           (equal (entry-state-hash base) (entry-state-hash staged)))
-                      (if (and (eq staged-kind :file) (entry-state-mtime staged)) :modified :mode-changed))
-                     (t :modified))
-       :before base
-       :after staged
-       :before-content (content base)
-       :after-content (content staged)))))
+      (make-change-result :path
+                          path
+                          :action
+                          (cond
+                            ((eq staged-kind :absent) :deleted)
+                            ((eq staged-kind :symlink) :linked)
+                            ((eq base-kind :absent) :created)
+                            ((and (eq base-kind staged-kind)
+                                  (member base-kind '(:file :directory))
+                                  (equal (entry-state-hash base)
+                                         (entry-state-hash staged)))
+                             (if (and (eq staged-kind :file)
+                                      (entry-state-mtime staged))
+                                 :modified
+                                 :mode-changed))
+                            (t :modified))
+                          :before
+                          base
+                          :after
+                          staged
+                          :before-content
+                          (content base)
+                          :after-content
+                          (content staged)))))
 
 (defun %changed-entries (index)
-  (sort (loop for entry being the hash-values of (tx-index-paths index)
-              when (tx-staged-changed-p entry) collect entry)
-        #'string< :key #'tx-path-path))
+  (sort
+   (loop for entry being the hash-values of (tx-index-paths index)
+         when (tx-staged-changed-p entry)
+           collect entry)
+   #'string<
+   :key
+   #'tx-path-path))
+
 (defun %recheck-tx-symlink-targets (store index)
   (let* ((view (%make-store-view store index))
-         (checker (make-archive-symlink-prefix-checker
-                   view "" nil :deletions-visible t)))
-    (labels ((refuse (path)
-               (error (quote store-refusal)
-                      :code "refusal.outside-workspace"
-                      :message
-                      (format nil
-                              "Symlink ~A has an unsafe target or crosses the workspace boundary"
-                              path)))
-             (enter (cursor component path)
-               (multiple-value-bind (next status)
-                   (funcall checker :enter cursor component)
-                 (if (eq status :clear) next (refuse path))))
-             (parent (cursor path)
-               (multiple-value-bind (next status)
-                   (funcall checker :parent cursor)
-                 (if (eq status :clear) next (refuse path))))
-             (components (path)
-               (loop with start = 0
-                     for end = (position #\/ path :start start)
-                     for component = (subseq path start end)
-                     unless (zerop (length component)) collect component
-                     while end
-                     do (setf start (1+ end))))
-             (unsafe-target-p (target)
-               (or (not (stringp target))
-                   (zerop (length target))
-                   (char= (char target 0) #\/)
-                   (position #\\ target)
-                   (position (code-char 0) target)
-                   (and (> (length target) 1)
-                        (alpha-char-p (char target 0))
-                        (char= (char target 1) #\:)))))
-      (unwind-protect
-           (dolist (entry (sort
-                           (loop for entry being the hash-values of (tx-index-paths index)
-                                 when (eq (entry-state-kind (tx-path-staged entry)) :symlink)
-                                   collect entry)
-                           (function string<)
-                           :key (function tx-path-path)))
-             (let ((state (tx-path-staged entry))
-                   (path (tx-path-path entry)))
-               (when (eq (entry-state-kind state) :symlink)
-                 (let ((target (entry-state-target state)))
-                   (when (unsafe-target-p target) (refuse path))
-                   (let ((cursor (funcall checker :start)))
-                     (unwind-protect
-                          (progn
-                            (dolist (component (components (parent-relative-path path)))
-                              (setf cursor (enter cursor component path)))
-                            (dolist (component (components target))
-                              (setf cursor
-                                    (cond ((string= component ".") cursor)
-                                          ((string= component "..") (parent cursor path))
-                                          (t (enter cursor component path))))))
-                       (funcall checker :finish cursor)))))))
-        (funcall checker :finish)))))
+         (checker
+          (make-archive-symlink-prefix-checker view "" nil :deletions-visible t)))
+    (unwind-protect
+        (dolist (entry (%tx-commit-symlink-entries index))
+          (%recheck-tx-symlink-path checker
+                                    (tx-path-path entry)
+                                    (entry-state-target (tx-path-staged entry))))
+      (funcall checker :finish))))
 
 (aitools.kernel.domain:define-flow
-    (tx-diff/k store tx-id &key on-diff on-not-found)
-  "ON-DIFF (results) with a CHANGE-RESULT from `base` to `staged` for
+ (tx-diff/k store tx-id &key on-diff on-not-found)
+ "ON-DIFF (results) with a CHANGE-RESULT from `base` to `staged` for
 every path the tx changes, sorted by path, carrying both contents for the
 caller's diff. ON-NOT-FOUND ()."
-  (declare (type function on-diff on-not-found))
-  (if (%tx-exists-p store tx-id)
-      (aitools.kernel.domain:flow-continue
-       :on-diff
-       (mapcar (lambda (entry) (%tx-diff-result store entry))
-               (%changed-entries (nth-value 1 (%load-tx store tx-id)))))
-      (aitools.kernel.domain:flow-continue :on-not-found)))
+ (declare (type function on-diff on-not-found))
+ (if (%tx-exists-p store tx-id)
+     (aitools.kernel.domain:flow-continue :on-diff
+                                          (mapcar
+                                           (lambda (entry)
+                                             (%tx-diff-result store entry))
+                                           (%changed-entries
+                                            (nth-value 1 (%load-tx store tx-id)))))
+     (aitools.kernel.domain:flow-continue :on-not-found)))
 
 (defun %tx-commit-requests (store index)
   "Requests reproducing INDEX's staged states on a disk that equals `base`:
 everything but deletions in path order (parents first), then deletions in
 reverse path order (contents before their directory)."
-  (let ((writes '()) (deletions '()))
+  (let ((writes '())
+        (deletions '()))
     (dolist (entry (%changed-entries index))
       (let ((path (tx-path-path entry))
             (base (tx-path-base entry))
@@ -120,27 +89,46 @@ reverse path order (contents before their directory)."
         (ecase (entry-state-kind staged)
           (:absent (push (delete-request path) deletions))
           (:file
-           (push (cond ((not (and (eq (entry-state-kind base) :file)
-                                (string= (entry-state-hash base) (entry-state-hash staged))))
-                        (write-file-request path (read-blob store (entry-state-hash staged))
-                                            :mode (entry-state-mode staged) :mtime (entry-state-mtime staged)))
-                       ((entry-state-mtime staged)
-                        (mtime-request path (entry-state-mtime staged) :mode (entry-state-mode staged)))
-                       (t (chmod-request path (entry-state-mode staged))))
-                 writes))
+           (push
+            (cond
+              ((not
+                (and (eq (entry-state-kind base) :file)
+                     (string= (entry-state-hash base) (entry-state-hash staged))))
+               (write-file-request path
+                                   (read-blob store (entry-state-hash staged))
+                                   :mode
+                                   (entry-state-mode staged)
+                                   :mtime
+                                   (entry-state-mtime staged)))
+              ((entry-state-mtime staged)
+               (mtime-request path
+                              (entry-state-mtime staged)
+                              :mode
+                              (entry-state-mode staged)))
+              (t (chmod-request path (entry-state-mode staged))))
+            writes))
           (:directory
-           (push (if (eq (entry-state-kind base) :directory)
-                     (chmod-request path (entry-state-mode staged))
-                     (mkdir-request path :mode (entry-state-mode staged)))
-                 writes))
-          (:symlink (push (symlink-request path (entry-state-target staged)) writes)))))
+           (push
+            (if (eq (entry-state-kind base) :directory)
+                (chmod-request path (entry-state-mode staged))
+                (mkdir-request path :mode (entry-state-mode staged)))
+            writes))
+          (:symlink
+           (push (symlink-request path (entry-state-target staged)) writes)))))
     (append (nreverse writes) deletions)))
 
 (aitools.kernel.domain:define-flow
-    (tx-commit/k store tx-id argv &key ignore-stale-reads
-                 (lock-timeout-ms +default-lock-timeout-ms+)
-                 on-committed on-rejected on-not-found on-busy)
-  "Commit the tx. Continuations, after the locks are released:
+ (tx-commit/k store
+              tx-id
+              argv
+              &key
+              ignore-stale-reads
+              (lock-timeout-ms +default-lock-timeout-ms+)
+              on-committed
+              on-rejected
+              on-not-found
+              on-busy)
+ "Commit the tx. Continuations, after the locks are released:
   ON-COMMITTED (op-id results)  as for COMMIT-CHANGES/K; all changes in the
                                 tx are recorded as one journal operation with
                                 OP-ID (NIL for an empty tx, which is removed)
@@ -149,48 +137,67 @@ reverse path order (contents before their directory)."
                                 write and read conflicts; nothing written),
                                 or environment.io
   ON-NOT-FOUND () / ON-BUSY ()."
-  (declare (type function on-committed on-rejected on-not-found on-busy))
-  (aitools.kernel.domain:flow-call
-      (%run-under-tx-locks
-       store tx-id lock-timeout-ms
-       (lambda ()
-         (multiple-value-bind (meta index ops reads) (%load-tx store tx-id)
-           (declare (ignore meta ops))
-           (let ((conflicts
-                   (tx-commit-conflicts
-                    index reads (lambda (path) (workspace-state store path))
-                    :ignore-stale-reads ignore-stale-reads)))
-             (if conflicts
-                 (lambda ()
-                   (aitools.kernel.domain:flow-continue
-                    :on-rejected
-                    "refusal.target-changed"
-                    (format nil "~D path~:P changed outside tx ~A"
-                            (length conflicts) tx-id)
-                    :conflicts conflicts))
-                 (let ((requests (%tx-commit-requests store index)))
-                   (if (null requests)
-                       (progn
-                         (%delete-tx-directory store tx-id)
-                         (collect-garbage store)
-                         (lambda ()
-                           (aitools.kernel.domain:flow-continue :on-committed nil '())))
-                         (aitools.kernel.domain:flow-call
-                             (%plan-and-commit/k
-                              store argv requests
-                              :tx-id tx-id
-                              :precommit-check
-                              (lambda ()
-                                (%recheck-tx-symlink-targets store index)))
-                           (:on-committed (op-id results)
-                             (lambda ()
-                               (aitools.kernel.domain:flow-continue
-                                :on-committed op-id results)))
-                           (:on-rejected (code message)
-                             (lambda ()
-                               (aitools.kernel.domain:flow-continue
-                                :on-rejected code message)))))))))))
-    (:on-busy ()
-      (aitools.kernel.domain:flow-continue :on-busy))
-    (:on-not-found ()
-      (aitools.kernel.domain:flow-continue :on-not-found))))
+ (declare (type function on-committed on-rejected on-not-found on-busy))
+ (aitools.kernel.domain:flow-call
+  (%run-under-tx-locks store
+                       tx-id
+                       lock-timeout-ms
+                       (lambda ()
+                         (multiple-value-bind (meta index ops reads)
+                             (%load-tx store tx-id)
+                           (declare (ignore meta ops))
+                           (let ((conflicts
+                                  (tx-commit-conflicts index
+                                                       reads
+                                                       (lambda (path)
+                                                         (workspace-state store
+                                                                          path))
+                                                       :ignore-stale-reads
+                                                       ignore-stale-reads)))
+                             (if conflicts
+                                 (lambda ()
+                                   (aitools.kernel.domain:flow-continue
+                                    :on-rejected
+                                    "refusal.target-changed"
+                                    (format nil
+                                            "~D path~:P changed outside tx ~A"
+                                            (length conflicts)
+                                            tx-id)
+                                    :conflicts
+                                    conflicts))
+                                 (let ((requests
+                                        (%tx-commit-requests store index)))
+                                   (if (null requests)
+                                       (progn
+                                         (%delete-tx-directory store tx-id)
+                                         (collect-garbage store)
+                                         (lambda ()
+                                           (aitools.kernel.domain:flow-continue
+                                            :on-committed
+                                            nil
+                                            '())))
+                                       (aitools.kernel.domain:flow-call
+                                        (%plan-and-commit/k store
+                                                            argv
+                                                            requests
+                                                            :tx-id
+                                                            tx-id
+                                                            :precommit-check
+                                                            (lambda ()
+                                                              (%recheck-tx-symlink-targets
+                                                               store
+                                                               index)))
+                                        (:on-committed (op-id results)
+                                                       (lambda ()
+                                                         (aitools.kernel.domain:flow-continue
+                                                          :on-committed
+                                                          op-id
+                                                          results)))
+                                        (:on-rejected (code message)
+                                                      (lambda ()
+                                                        (aitools.kernel.domain:flow-continue
+                                                         :on-rejected
+                                                         code
+                                                         message)))))))))))
+  (:on-busy () (aitools.kernel.domain:flow-continue :on-busy))
+  (:on-not-found () (aitools.kernel.domain:flow-continue :on-not-found))))
