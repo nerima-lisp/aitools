@@ -129,7 +129,49 @@
                            (funcall replacement-checker :finish))
                          (funcall checker :finish)
                          (funcall checker :finish)
-                         (expect opened :to-be closed))
+                         (expect opened :to-be closed)
+                         (progn
+                            (let ((index (make-tx-index)))
+                              (tx-index-put index "base/link"
+                                            (symlink-state "target")
+                                            (absent-state))
+                              (dolist (deletions-visible (list nil t))
+                                (let* ((deletion-checker
+                                         (make-archive-symlink-prefix-checker
+                                          (aitools.store.application::%make-store-view
+                                           tracked-store index)
+                                          "base" nil
+                                          :deletions-visible deletions-visible))
+                                       (cursor
+                                         (funcall deletion-checker :start)))
+                                  (unwind-protect
+                                       (multiple-value-bind (next result)
+                                           (funcall deletion-checker :enter
+                                                    cursor "link")
+                                         (setf cursor next)
+                                         (expect result :to-be
+                                                 (if deletions-visible
+                                                     :symlink
+                                                     :clear)))
+                                    (funcall deletion-checker :finish cursor)
+                                    (funcall deletion-checker :finish cursor)))))
+                            (let ((root-error nil)
+                                  (file-root-store
+                                    (make-store io (disk-path store "base/file")
+                                                "/tmp")))
+                              (handler-case
+                                  (make-archive-symlink-prefix-checker
+                                   (aitools.store.application::%make-store-view
+                                    file-root-store nil)
+                                   "" nil)
+                                (aitools.store.application:store-io-error
+                                    (condition)
+                                  (setf root-error condition)))
+                              (expect root-error :to-be-truthy)
+                              (expect
+                               (aitools.store.application:store-io-error-operation
+                                root-error)
+                               :to-equal "open"))))
                      (funcall checker :finish))))))
           (it "does not treat lib64 as a prefix of staged lib"
               (call-with-temp-store
