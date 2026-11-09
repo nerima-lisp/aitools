@@ -15,7 +15,8 @@
                                   (:file "codec-crc32") (:file "codec-deflate")
                                   (:file "codec-gzip") (:file "codec-zip")
                                   (:file "codec-zip-write")
-                                  (:file "codec-tar") (:file "archive-data")
+                                  (:file "codec-tar")
+                                  (:file "codec-tar-write") (:file "archive-data")
                                   (:file "archive-format")))
             (:module "application"
                      :components ((:file "package") (:file "source")))

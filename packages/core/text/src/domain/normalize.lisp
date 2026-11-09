@@ -8,3 +8,6 @@
   "STRING in normalization FORM, one of :NFC, :NFD, :NFKC, :NFKD."
   (check-type form (member :nfc :nfd :nfkc :nfkd))
   (sb-unicode:normalize-string string form))
+(defun casefold-text (string)
+  "Return STRING under Unicode full case folding."
+  (sb-unicode:casefold string))

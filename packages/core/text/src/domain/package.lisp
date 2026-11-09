@@ -53,6 +53,7 @@
    #:guess-mime
    ;; normalize.lisp
    #:normalize-text
+   #:casefold-text
    ;; lines.lisp
    #:split-text-lines
    #:decode-text-lines
