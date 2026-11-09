@@ -17,7 +17,7 @@
                                        (if (= length 32)
                                            1
                                          (prog1 id-sequence
-                                           (decf id-sequence))))))
+                                           (decf id-sequence)))))))
              (stdin
               (json-kit:stringify
                (vector (vector "util" "calc" "1+1")
@@ -60,5 +60,5 @@
                (mapcar (lambda (span) (value span "name")) child-spans)
                :to-equal (list "util.calc" "util.calc"))
               (expect (map (quote list) (lambda (result) (value result "meta")) results)
-                      :to-equal (list nil nil)))))))))
+                      :to-equal (list nil nil))))))))
 )
