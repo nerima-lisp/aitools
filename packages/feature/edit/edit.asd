@@ -123,6 +123,7 @@
      (:file "unit/edit/pipeline-edge-test")
      (:file "unit/edit/format-test")
      (:file "unit/edit/format-edge-test")
+     (:file "unit/edit/table-test")
      (:file "unit/edit/archive-path-limits-test")
      (:file "unit/edit/archive-pax-limit-test")
      (:file "unit/edit/archive-symlink-test")

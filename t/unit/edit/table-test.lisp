@@ -12,7 +12,10 @@
 
   (it "refuses a missing row or column"
     (expect (refusal-code (lambda () (table-set-cell (format nil "a~%1~%") #\, 2 "a" "x"))) :to-equal "input.not-found")
-    (expect (refusal-code (lambda () (table-set-cell (format nil "a~%1~%") #\, 1 "b" "x"))) :to-equal "input.not-found")))
+    (expect (refusal-code (lambda () (table-set-cell (format nil "a~%1~%") #\, 1 "b" "x"))) :to-equal "input.not-found"))
+  (it "refuses an empty table"
+    (expect (refusal-code (lambda () (table-set-cell "" #\, 1 "a" "x")))
+            :to-equal "input.not-found")))
 
 (describe "aitools.edit.domain table cell edge cases"
   ;; The tables are FORMAT templates, with | standing for a carriage return.
@@ -20,6 +23,7 @@
             ("a column given by 1-based index" "a,b~%1,2~%" 1 "2" "9" "a,b~%1,9~%" "2")
             ("CRLF records" "a,b|~%1,2|~%3,4|~%" 2 "a" "7" "a,b|~%1,2|~%7,4|~%" "3")
             ("a file without a final newline" "a~%1" 1 "a" "2" "a~%2" "1")
+            ("a multi-column final row without a final newline" "a,b~%1,2" 1 "b" "x" "a,b~%1,x" "2")
             ("an empty field" "a,b~%,2~%" 1 "a" "z" "a,b~%z,2~%" ""))
       "sets a cell with ~A"
       (name text row column value expected previous)
