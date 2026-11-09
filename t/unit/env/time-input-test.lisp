@@ -4,6 +4,14 @@
   (let ((input (parse-time-input text)))
     (list (time-input-kind input) (time-input-format input) (time-input-milliseconds input))))
 
+(defun rejection-reason (text)
+  (handler-case (progn (parse-time-input text) :parsed)
+    (time-syntax-error (condition)
+      (expect (time-syntax-error-text condition) :to-equal text)
+      (expect (princ-to-string condition)
+              :to-equal (format nil "cannot read ~S as a time: ~A" text (time-syntax-error-reason condition)))
+      (time-syntax-error-reason condition))))
+
 (describe "aitools.env.domain time input detection"
   (it "reads epoch seconds and milliseconds by digit count"
     (expect (parsed "1700000000") :to-equal '(:instant "epoch_s" 1700000000000))
@@ -28,8 +36,26 @@
             :to-equal (list :instant "iso8601" 1772951400000)))
 
   (it "reads an offset-less time or a bare date as local wall time"
-    (expect (parsed "2026-03-08T01:30") :to-equal (list :local "iso8601" (- 1772951400000 (* 5 3600000))))
-    (expect (parsed "2026-03-08") :to-equal (list :local "iso8601" (* 20520 86400000))))
+    (expect (parsed "2026-03-08T01:30")
+            :to-equal (list :local "iso8601" (- 1772951400000 (* 5 3600000))))
+    (expect (parsed "2026-03-08")
+            :to-equal (list :local "iso8601" (* 20520 86400000)))
+    (expect (parsed "2026-03-08T01:30:45")
+            :to-equal (list :local "iso8601" (+ 1772933400000 45000)))
+    (expect (parsed "2026-03-08T01:30:45,125")
+            :to-equal (list :local "iso8601" (+ 1772933400000 45125)))
+    (expect (parsed "2026-03-08T01:30z")
+            :to-equal (list :instant "iso8601" 1772933400000))
+    (expect (rejection-reason "2026-03-08T2x:30:00")
+            :to-equal "invalid time of day")
+    (expect (rejection-reason "2026-03-08T01x30:00")
+            :to-equal "expected HH:MM")
+    (expect (rejection-reason "2026-03-08T01:3x:00")
+            :to-equal "invalid time of day")
+    (expect (rejection-reason "2026-03-08T25:30:00")
+            :to-equal "invalid time of day")
+    (expect (rejection-reason "2026-03-08T01:30:60")
+            :to-equal "invalid time of day"))
 
   (it-each (("") ("garbage") ("not-a-time") ("2026-02-30") ("2026-13-01") ("2026-03-08T25:00")
             ("2026-03-08T01:30:00+24:00") ("2026-03-08T01:30:00Zjunk") ("12.3.4")
@@ -40,14 +66,6 @@
   (it "rejects an invalid internal time-input kind"
     (signals type-error
       (aitools.env.domain::make-time-input (gensym) "iso8601" 0))))
-
-(defun rejection-reason (text)
-  (handler-case (progn (parse-time-input text) :parsed)
-    (time-syntax-error (condition)
-      (expect (time-syntax-error-text condition) :to-equal text)
-      (expect (princ-to-string condition)
-              :to-equal (format nil "cannot read ~S as a time: ~A" text (time-syntax-error-reason condition)))
-      (time-syntax-error-reason condition))))
 
 (describe "aitools.env.domain time input offsets and bounds"
   (it-each (("2026-03-08T10:30+09" 1772933400000)

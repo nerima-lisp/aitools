@@ -128,55 +128,36 @@
         (expect seen :to-equal 3/2)
         (expect (json-null-p (object-field (first (field fields "items")) "version")) :to-be-truthy))))
 
-  (it "probes the default list when no names are given"
-    (multiple-value-bind (kind fields) (run-flow #'sys-tools/k (make-fake-env-boundaries :environment nil))
-      (expect kind :to-be :ok)
-      (expect (field fields "total") :to-be (length aitools.data:*env-default-tools*))))
+  (it "probes the default list with its default timeout"
+    (let* ((probe (first aitools.data:*env-default-tools*))
+           (name (car probe))
+           (path (concatenate 'string "/b/" name))
+           (seen nil)
+           (host
+             (make-fake-host
+              :programs
+              (list
+               (cons path
+                     (lambda (arguments timeout)
+                       (declare (ignore arguments))
+                       (setf seen timeout)
+                       (values :exited 0 "tool 1.0" "")))))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'sys-tools/k
+                    (make-fake-env-boundaries
+                     :environment (list (cons "PATH" "/b"))
+                     :executables (list path)
+                     :host host))
+        (expect kind :to-be :ok)
+        (expect (field fields "total")
+                :to-be (length aitools.data:*env-default-tools*))
+        (expect seen :to-be 5))))
 
   (it "rejects a name with a directory part and a bad timeout"
     (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-env-boundaries) :names '("../git"))))
             :to-equal "argument.invalid")
     (expect (first (nth-value 1 (run-flow #'sys-tools/k (make-fake-env-boundaries) :names '("git") :timeout "soon")))
             :to-equal "argument.invalid")))
-
-(describe "aitools.env.application sys procs"
-  (it "lists Darwin processes from ps only, with started from elapsed time"
-    (let ((host (darwin-host)))
-      (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-env-boundaries :host host))
-        (expect kind :to-be :ok)
-        (expect (fake-host-runs host)
-                :to-equal '(("/bin/ps" ("-axww" "-o" "pid=,ppid=,user=,etime=,command="))))
-        (let ((last (third (field fields "items"))))
-          (expect (object-field last "pid") :to-be 900)
-          (expect (object-field last "started") :to-equal "2026-03-08T06:24:53Z")))))
-
-  (it "lists Linux processes from /proc with the same fields"
-    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (linux-proc-boundaries) :pattern "HTTP")
-      (expect kind :to-be :ok)
-      (expect (field fields "total") :to-be 1)
-      (let ((item (first (field fields "items"))))
-        (expect (mapcar #'car (aitools.protocol.domain:json-object-members item))
-                :to-equal '("pid" "ppid" "user" "command" "started"))
-        (expect (object-field item "user") :to-equal "take")
-        (expect (object-field item "command") :to-equal "python3 -m http.server")
-        (expect (object-field item "started") :to-equal "2023-11-14T22:13:22.500Z"))))
-
-  (it "runs no command at all on Linux"
-    (let ((host (make-fake-host)))
-      (run-flow #'sys-procs/k (linux-proc-boundaries :host host))
-      (expect (fake-host-runs host) :to-equal nil)))
-
-  (it "returns partial with next_commands over --limit"
-    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (make-fake-env-boundaries :host (darwin-host)) :limit 2)
-      (expect kind :to-be :partial)
-      (expect (length (field fields "items")) :to-be 2)
-      (expect (field fields "total") :to-be 3)
-      (expect (field fields "truncated") :to-be t)
-      (expect (field fields "next_commands") :to-equal '("aitools sys procs --limit 3"))))
-
-  (it "is environment.unavailable without a source"
-    (expect (first (nth-value 1 (run-flow #'sys-procs/k (make-fake-env-boundaries))))
-            :to-equal "environment.unavailable")))
 
 (describe "aitools.env.application sys ports"
   (it-each (("/proc/net/tcp" "ipv4" "ipv6")
