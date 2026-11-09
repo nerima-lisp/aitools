@@ -139,7 +139,7 @@
                )
                (fields
                 (append
-                 (list (cons "status" status)
+                 (list (cons "http_status" status)
                        (cons "headers" headers)
                        (cons "start_line" first))
                  (when line-offset (list (cons "line_offset" line-offset)))
@@ -156,7 +156,7 @@
   (let ((status (getf response :status)))
     (unless (integerp status)
       (error "invalid HTTP response"))
-    (list (cons "status" status) (cons "headers" (%http-safe-headers (getf response :headers))))))
+    (list (cons "http_status" status) (cons "headers" (%http-safe-headers (getf response :headers))))))
 
 (aitools.kernel.domain:define-flow
  (get/k boundaries url &key (timeout "30s") (max-lines 80) range line-offset on-ok on-partial on-error)

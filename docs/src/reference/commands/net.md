@@ -6,7 +6,7 @@
 
 Fetch an HTTP resource with GET.
 
-Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verification is always required. Follows at most five redirects and refuses HTTPS-to-HTTP downgrade. A refused redirect returns its 3xx response without requesting the target; the exposed response headers omit Location. Public means an address accepted by the net IPv4/IPv6 address filter; loopback, private, link-local, multicast, reserved, and special-use ranges are non-public. An initial URL may target a non-public address. Redirect policy is fixed for the entire chain by the original DNS answers: if all initial answers are non-public, redirects to public or non-public addresses are allowed. If any initial answer is public, the initial request uses only public answers and every redirect hop must resolve entirely to public addresses. Known IPv4-embedded IPv6 forms 64:ff9b::/96, ::ffff:0:0/96, ::/96, 2002::/16, and 2001:0::/32 are classified by their embedded IPv4 address; loopback, private, link-local, and other non-public embedded IPv4 values are non-public for redirect checks. For Teredo addresses in 2001:0::/32, the final 32 bits encode the bitwise complement of the client IPv4 address. Classification uses that client address; the Teredo server IPv4 address is not classified. 64:ff9b:1::/48 is non-public. Public native IPv6 is allowed. Network-specific NAT64 prefixes defined by [RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html) encode IPv4 addresses in IPv6 addresses. This client does not implement Pref64 discovery under [RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html), so it cannot identify network-specific NAT64 prefixes. An IPv6 address synthesized from a non-public IPv4 address under such a prefix may be treated as public by an initial or redirect address check; this remains a residual risk. Response bodies stay in memory with a 16 MiB hard limit. Authentication headers are not accepted. Body text is masked by the shared secret redactor; secret-named response headers and Authorization, Proxy-Authorization, Cookie, and Set-Cookie values are masked. Secret query parameters in continuation URLs are also masked. Partial body output uses read-style line limits and includes continuation commands.
+Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verification is always required. Follows at most five redirects and refuses HTTPS-to-HTTP downgrade. A refused redirect returns its 3xx response without requesting the target; the exposed response headers omit Location. Public means an address accepted by the net IPv4/IPv6 address filter; loopback, private, link-local, multicast, reserved, and special-use ranges are non-public. The exact IPv4 and IPv6 prefixes excluded by this filter are listed in `packages/feature/net/src/infrastructure/http-address-policy.lisp`. An initial URL may target a non-public address. Redirect policy is fixed for the entire chain by the original DNS answers: if all initial answers are non-public, redirects to public or non-public addresses are allowed. If any initial answer is public, the initial request uses only public answers and every redirect hop must resolve entirely to public addresses. Known IPv4-embedded IPv6 forms 64:ff9b::/96, ::ffff:0:0/96, ::/96, 2002::/16, and 2001:0::/32 are classified by their embedded IPv4 address; loopback, private, link-local, and other non-public embedded IPv4 values are non-public for redirect checks. For Teredo addresses in 2001:0::/32, the final 32 bits encode the bitwise complement of the client IPv4 address. Classification uses that client address; the Teredo server IPv4 address is not classified. 64:ff9b:1::/48 is non-public. Public native IPv6 is allowed. Network-specific NAT64 prefixes defined by [RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html) encode IPv4 addresses in IPv6 addresses. This client does not implement Pref64 discovery under [RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html), so it cannot identify network-specific NAT64 prefixes. An IPv6 address synthesized from a non-public IPv4 address under such a prefix may be treated as public by an initial or redirect address check; this remains a residual risk. Response bodies stay in memory with a 16 MiB hard limit. Authentication headers are not accepted. Known secret formats in the response body and response-header values are replaced with [REDACTED_SECRET]. Values of secret-named response headers, including Authorization, Proxy-Authorization, Cookie, and Set-Cookie, are replaced in full. Secret query parameters in continuation URLs are also masked. Partial body output uses read-style line limits and includes continuation commands.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -18,15 +18,15 @@ Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verificati
 
 | Output field | Description |
 |---|---|
-| `status` | HTTP response status code. |
-| `headers` | Response headers with secret values masked. |
+| `http_status` | HTTP response status code; the top-level status field reports the command outcome. |
+| `headers` | Response headers. |
 | `start_line` | Number of the first returned body line. |
 | `line_offset` | 0-based Unicode character offset for the first returned line; present when supplied. |
 | `lines` | Returned response body lines, without line terminators. |
 | `total_lines` | Response body line count. |
 | `truncated` | Whether a line or byte limit cut the displayed body (partial, exit 3). |
 | `encoding_errors` | Invalid UTF-8 sequences replaced in returned lines. |
-| `next_commands` | Commands to continue each clipped line or fetch the next bounded body range, present for partial output. |
+| `next_commands` | Follow-up commands use --range to select lines; clipped-line continuations also use --line-offset to resume within that line, while later-line fetches use --range alone. Present for partial output. |
 
 Errors: `argument.invalid`, `environment.timeout`, `environment.io`, `environment.unavailable`, `refusal.too-large`, `internal.unexpected`.
 
@@ -34,7 +34,7 @@ Errors: `argument.invalid`, `environment.timeout`, `environment.io`, `environmen
 
 Fetch HTTP response headers with HEAD.
 
-Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verification is always required. Follows at most five redirects and refuses HTTPS-to-HTTP downgrade. The net get public-address and redirect policy also applies. A refused redirect returns its 3xx response without requesting the target; the exposed response headers omit Location. Authentication headers are not accepted. Secret-named response headers and Authorization, Proxy-Authorization, Cookie, and Set-Cookie values are masked.
+Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verification is always required. Follows at most five redirects and refuses HTTPS-to-HTTP downgrade. The net get public-address and redirect policy also applies. A refused redirect returns its 3xx response without requesting the target; the exposed response headers omit Location. Authentication headers are not accepted. Known secret formats in response-header values are replaced with [REDACTED_SECRET]. Values of secret-named response headers, including Authorization, Proxy-Authorization, Cookie, and Set-Cookie, are replaced in full.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -43,8 +43,8 @@ Accepts absolute HTTP or HTTPS URLs without userinfo. TLS certificate verificati
 
 | Output field | Description |
 |---|---|
-| `status` | HTTP response status code. |
-| `headers` | Response headers with secret values masked. |
+| `http_status` | HTTP response status code; the top-level status field reports the command outcome. |
+| `headers` | Response headers. |
 
 Errors: `argument.invalid`, `environment.timeout`, `environment.io`, `environment.unavailable`, `internal.unexpected`.
 
