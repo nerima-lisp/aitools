@@ -187,6 +187,14 @@
         (expect code :to-equal "input.syntax-error")
         (expect message :to-equal "malformed archive data: unterminated gzip header string")))))
 
+  (it "refuses ordinary bytes without writing the destination"
+    (call-with-edit-workspace (lambda () (put "plain.txt" "ordinary bytes")
+      (let ((before (snapshot)))
+        (with-error (code) (run "archive.extract" (list "plain.txt") :to "out")
+          (expect code :to-equal "input.unsupported-format"))
+        (expect (kind "out") :to-be :absent)
+        (expect-unchanged before)))))
+
   (it "leaves ignored files out of archive create unless --no-ignore"
     (call-with-edit-workspace (lambda () (sb-posix:mkdir (disk "node_modules") #o755)
       (put "node_modules/x.js" "x")
