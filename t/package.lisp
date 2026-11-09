@@ -81,14 +81,24 @@ the reported path."
 
 (defun %event-field (event key)
   (gethash key event))
+(defun %test-source-path-key (file)
+  (let ((marker (search "/t/" file :from-end t)))
+    (when marker (subseq file (+ marker 3)))))
+
+;; Host events can name the Nix source copy while ASDF lists checkout paths.
 (defun %test-context-from-source-file (file source-files)
   (let* ((source (when (and (stringp file) (probe-file file))
                    (namestring (truename file))))
+         (source-key (when source (%test-source-path-key source)))
          (contexts
            (when source
              (remove-duplicates
               (loop for entry in source-files
-                    when (string= source (cdr entry))
+                    for candidate = (cdr entry)
+                    for candidate-key = (%test-source-path-key candidate)
+                    when (or (string= source candidate)
+                             (and source-key candidate-key
+                                  (string= source-key candidate-key)))
                       collect (car entry))
               :test #'eq))))
     (when (cdr contexts)

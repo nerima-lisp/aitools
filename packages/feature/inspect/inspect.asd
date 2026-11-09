@@ -101,6 +101,7 @@
      (:file "unit/inspect/support")
      (:file "unit/inspect/context-test")
      (:file "unit/inspect/read-test")
+     (:file "unit/inspect/read-missing-path-test")
      (:file "unit/inspect/read-more-test")
      (:module "yaml-toml-read-tests" :pathname "unit/inspect/" :serial t
       :components ((:file "yaml-values-test")

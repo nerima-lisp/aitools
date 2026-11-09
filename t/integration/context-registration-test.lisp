@@ -18,6 +18,33 @@
         when context
           collect context))
 
+(describe "Context test source attribution"
+  (it "matches edit and environment tests loaded from a different root"
+    (let* ((source-files (%context-test-source-files))
+           (paths '("t/unit/edit/domain-test.lisp"
+                    "t/integration/env-sysctl-test.lisp")))
+      (aitools.test.support:call-with-temporary-directory
+       (lambda (directory)
+         (dolist (path paths)
+           (let* ((context (if (search "edit/" path) :edit :env))
+                  (source-file
+                    (cdr (find-if (lambda (entry)
+                                    (and (eq (car entry) context)
+                                         (search path (cdr entry) :from-end t)))
+                                  source-files))))
+             (expect source-file :to-be-truthy)
+             (when source-file
+               (let* ((marker (search "/t/" source-file :from-end t))
+                      (relative (subseq source-file (+ marker 3)))
+                      (alternate (merge-pathnames
+                                  (format nil "nix-store/source/t/~A" relative)
+                                  directory)))
+                 (aitools.test.support:write-text (namestring alternate) "")
+                 (expect (%test-context-from-source-file
+                          (namestring alternate) source-files)
+                         :to-equal context))))))
+       :prefix "aitools-context-source-alias"))))
+
 (describe "Feature command registration"
   (it "registers every feature presentation in CLI dependency order"
     (let ((expected (list :search :inspect :edit :journal :process :org :env :util))
