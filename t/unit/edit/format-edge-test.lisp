@@ -49,13 +49,25 @@ entries WRITE-TAR does not produce."
       (expect (mapcar #'extract-step-path (extract-plan octets :tar-gz)) :to-equal '("out/a.txt"))
       (expect (refusal-code (lambda () (extract-plan octets :tar-gz :max-bytes 600))) :to-equal "refusal.too-large")))
 
-  (it "extracts only the --entry names, ./-prefixed or not, and refuses one the archive lacks"
+  (it "extracts selected --entry names, refuses a missing one, and checks selector limits"
     (let ((octets (aitools.text.domain:write-tar
                    (list (member-file "./a.txt" "A") (member-file "b.txt" "B")
                          (aitools.text.domain:make-archive-member :name "." :kind :directory)))))
       (expect (mapcar #'extract-step-path (extract-plan octets :tar)) :to-equal '("out/a.txt" "out/b.txt"))
-      (expect (mapcar #'extract-step-path (extract-plan octets :tar :selected '("a.txt"))) :to-equal '("out/a.txt"))
-      (expect (refusal-code (lambda () (extract-plan octets :tar :selected '("c.txt")))) :to-equal "input.not-found")))
+      (expect (mapcar #'extract-step-path (extract-plan octets :tar :selected '("a.txt")))
+              :to-equal '("out/a.txt"))
+      (expect (refusal-code (lambda () (extract-plan octets :tar :selected '("c.txt"))))
+              :to-equal "input.not-found")
+      (expect (refusal-code
+               (lambda ()
+                 (extract-plan octets :tar
+                               :selected (list (make-string 4096 :initial-element #\a)))))
+              :to-equal "refusal.too-large")
+      (expect (refusal-code
+               (lambda ()
+                 (extract-plan octets :tar
+                               :selected (list (make-string 256 :initial-element #\a)))))
+              :to-equal "refusal.too-large")))
 
   (it "plans directories, merging into an existing one, and symlinks inside the destination"
     (let* ((octets (aitools.text.domain:write-tar
@@ -168,7 +180,7 @@ entries WRITE-TAR does not produce."
       (expect (aitools.text.domain:gzip-decompress octets) :to-equalp (bytes "payload"))
       (expect (aitools.text.domain:gzip-member-header octets) :to-equal "a.txt"))))
 
-(describe "aitools.edit.domain remaining branches of the value models"
+(describe "aitools.edit.domain remaining value-model and archive-path branches"
   (it "refuses pointers through numbers and strings, and a patch that is a string"
     (let ((value (j "{\"n\": 1, \"s\": \"t\"}")))
       (expect (refusal-code (lambda () (json-add value (parse-json-pointer "/n/b/c") (j "1")))) :to-equal "input.not-found")
@@ -191,4 +203,10 @@ entries WRITE-TAR does not produce."
  octets :gz "out" :archive-path "safe.gz" :max-bytes 10 :max-entries 1
  :lookup-kind (constantly :absent)
  :make-prefix-checker (constantly nil))))
-              :to-equal "out/safe"))))
+              :to-equal "out/safe")))
+
+  (it "checks path depth when the byte budget allows it"
+    (let ((path (format nil "~{~A~^/~}"
+                        (make-list (1+ aitools.text.domain:+archive-max-depth+)
+                                   :initial-element "a"))))
+      (expect (aitools.edit.domain::path-problem path 5000) :to-be :too-deep))))

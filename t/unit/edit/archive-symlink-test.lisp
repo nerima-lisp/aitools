@@ -81,11 +81,18 @@
     (expect (archive-symlink-refusal
              (list (archive-symlink "s" "../escape")))
             :to-equal "refusal.outside-workspace"))
-  (it "rejects empty, absolute, and drive-qualified archive symlink targets"
+  (it "rejects empty, absolute, drive-qualified, and NUL-containing archive symlink targets"
     (dolist (target (list "" "/outside" "C:/outside" "a\\b"))
       (expect (archive-symlink-refusal
                (list (archive-symlink "s" target)))
-              :to-equal "refusal.outside-workspace")))
+              :to-equal "refusal.outside-workspace"))
+    (expect (refusal-code
+             (lambda ()
+               (extract-plan
+                (zip-of
+                 (archive-symlink "s" (format nil "a~Cz" (code-char 0))))
+                :zip)))
+            :to-equal "refusal.outside-workspace"))
 
   (it "matches folded and normalized names when checking archive symlink traversal"
   (let ((decomposed (format nil "e~C" (code-char #x301)))
