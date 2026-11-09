@@ -91,7 +91,7 @@
        (ignore-errors (parse-integer name))))
 
 #+linux
-(defun %host-list-pids ()
+(defun %host-list-pids (&optional (list-directories (function directory)))
   (let ((directory (handler-case (sb-posix:opendir "/proc")
                      (error () nil)))
         (paths nil)
@@ -100,7 +100,8 @@
       (error 'aitools.process.application:process-port-error
              :message "process list unavailable"))
     (unwind-protect
-         (setf paths (handler-case (directory #p"/proc/*/")
+         (setf paths (handler-case
+                         (funcall list-directories #p"/proc/*/")
                        (error () nil)))
       (setf closed (handler-case (progn (sb-posix:closedir directory) t)
                      (error () nil))))
