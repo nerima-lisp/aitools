@@ -85,6 +85,7 @@
                                                            :components
                                                            ((:file "edit")
                                                             (:file "org")
+                                                            (:file "md")
                                                             (:file "search")
                                                             (:file "store")
                                                             (:file "text")))
@@ -124,6 +125,7 @@
                                                            :components
                                                            ((:file "edit")
                                                             (:file "env")
+                                                            (:file "md")
                                                             (:file "inspect")
                                                             (:file "process")
                                                             (:file "store")

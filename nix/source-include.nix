@@ -14,6 +14,7 @@
   ../packages/feature/org/org.asd
   ../packages/feature/net/net.asd
   ../t/integration/fixtures/net-https-server.py
+  ../packages/feature/md/md.asd
   ../packages/feature/process/process.asd
   ../packages/feature/search/search.asd
   ../packages/feature/util/util.asd

@@ -9,6 +9,7 @@ let
     cl-host-kit
     cl-codec-kit
     cl-parser-kit
+    cl-markdown-kit
     cl-json-kit
     cl-boundary-kit
     cl-concurrent-kit
@@ -51,6 +52,16 @@ let
     version = ctx.cl.fromAsdSystem "${cl-parser-kit}/cl-parser-kit.asd";
     src = cl-parser-kit;
     lispSystem = "cl-parser-kit";
+  };
+  markdownKit = ctx.cl.lispDerivation {
+    pname = "cl-markdown-kit";
+    version = ctx.cl.fromAsdSystem "${cl-markdown-kit}/cl-markdown-kit.asd";
+    src = cl-markdown-kit;
+    lispSystem = "cl-markdown-kit";
+    lispDependencies = [
+      parserKit
+      codecKit
+    ];
   };
   jsonKit = ctx.cl.lispDerivation {
     pname = "cl-json-kit";
@@ -230,6 +241,7 @@ in
   yamlKit
   tomlKit
   orgKit
+  markdownKit
   observabilityKit
   (ctx.cl.lispDerivation {
     pname = "cl-cli";

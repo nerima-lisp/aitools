@@ -59,6 +59,7 @@ nav:
           - Net: reference/commands/net.md
           - Org: reference/commands/org.md
           - Environment: reference/commands/env.md
+          - Markdown: reference/commands/md.md
           - Utilities: reference/commands/util.md
       - JSON output: reference/json-schema.md
       - Errors and exit codes: reference/errors.md
