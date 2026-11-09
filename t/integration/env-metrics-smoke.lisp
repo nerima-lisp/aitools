@@ -22,18 +22,20 @@
     (prog1
         (let* ((run-symbol 'process-kit:run)
                (original-run (symbol-function run-symbol))
-               (attempts 0)
-               (completed-starts 0))
+               (attempt-index 0))
           (unwind-protect
                (progn
                  (setf (symbol-function run-symbol)
                        (lambda (&rest arguments)
-                         (let ((dynamic-usage (sb-kernel:dynamic-usage))
-                               (dynamic-space-size (sb-ext:dynamic-space-size)))
-                           (incf attempts)
+                         (let* ((attempt-index (incf attempt-index))
+                                (dynamic-usage (sb-kernel:dynamic-usage))
+                                (dynamic-space-size (sb-ext:dynamic-space-size)))
                            (handler-case
-                               (prog1 (apply original-run arguments)
-                                 (incf completed-starts))
+                               (multiple-value-prog1
+                                   (apply original-run arguments)
+                                 (format *error-output*
+                                         "Metrics smoke launch diagnostic: attempt-index=~D started=yes dynamic-usage=~D dynamic-space-size=~D~%"
+                                         attempt-index dynamic-usage dynamic-space-size))
                              (error (condition)
                                (let* ((cause (and (typep condition 'process-kit:process-launch-error)
                                                   (process-kit:process-launch-error-cause condition)))
@@ -41,16 +43,16 @@
                                       (errno (and syscall-p (sb-posix:syscall-errno cause))))
                                  (setf (symbol-value (intern "*METRICS-SMOKE-DIAGNOSTIC-FAILED*" :cl-user)) t)
                                  (format *error-output*
-                                         "Metrics smoke launch diagnostic: attempts=~D completed-starts=~D current-started=no dynamic-usage=~D dynamic-space-size=~D condition-type=~A cause-type=~A errno-number=~A errno-name=~A~%"
-                                         attempts completed-starts dynamic-usage dynamic-space-size
+                                         "Metrics smoke launch diagnostic: attempt-index=~D started=no dynamic-usage=~D dynamic-space-size=~D condition-type=~A cause-type=~A errno-number=~A errno-name=~A~%"
+                                         attempt-index dynamic-usage dynamic-space-size
                                          (symbol-name (type-of condition))
                                          (if cause (symbol-name (type-of cause)) "unavailable")
                                          (if errno errno "unavailable")
                                          (if (and errno (= errno 12)) "ENOMEM" "unavailable")))
                                (error condition))))))
-                 (aitools/cli:dispatch app registry
-                              (list "aitools" "sys" "metrics" "--limit" "1")
-                              :stdout stdout :stderr stderr))
+                         (aitools/cli:dispatch app registry
+                                              (list "aitools" "sys" "metrics" "--limit" "1")
+                                              :stdout stdout :stderr stderr))
             (setf (symbol-function run-symbol) original-run)))
       (setf elapsed-ms
             (floor (* 1000 (- (get-internal-real-time) started))
