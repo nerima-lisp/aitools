@@ -85,7 +85,7 @@
         (signals archive-limit-exceeded (tar-name over-utf8))
         (signals archive-limit-exceeded (zip-name over-utf8)))))
 
-  (it "accepts the maximum component depth and rejects one more in tar and zip"
+  (it "accepts the maximum-depth path at the byte limit and rejects a path over both limits in tar and zip"
     (flet ((path-with-depth (depth)
              (format nil "~{~A~^/~}" (make-list depth :initial-element "a")))
            (tar-name (name)
