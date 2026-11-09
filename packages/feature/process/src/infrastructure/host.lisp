@@ -22,6 +22,8 @@
                        (directory (merge-pathnames uiop:*wild-file-for-directory* directory)
                                   :resolve-symlinks nil)))))
 
+(defun %read-input-sequence (sequence stream) (read-sequence sequence stream))
+
 (defun %open-input-file (path &key (if-does-not-exist :error))
   (open path :element-type '(unsigned-byte 8) :if-does-not-exist if-does-not-exist))
 
@@ -31,7 +33,7 @@
       (let* ((end (min end (file-length in)))
              (octets (make-array (max 0 (- end start)) :element-type '(unsigned-byte 8))))
         (file-position in start)
-        (read-sequence octets in)
+        (%read-input-sequence octets in)
         octets))))
 
 (defun %file-size (path)
@@ -48,7 +50,7 @@
         (with-open-stream (in stream)
           ;; Keep the same descriptor if the pathname disappears or is replaced.
           (let* ((octets (make-array (file-length in) :element-type '(unsigned-byte 8)))
-                 (count (read-sequence octets in)))
+                 (count (%read-input-sequence octets in)))
             (aitools.process.domain:decode-output-octets
              (if (= count (length octets)) octets (subseq octets 0 count)))))))))
 
@@ -96,7 +98,7 @@ cannot be guessed and pre-created; falls back to pid and clock if unreadable."
   (handler-case
       (with-open-file (in "/dev/urandom" :element-type '(unsigned-byte 8))
         (let ((bytes (make-array 8 :element-type '(unsigned-byte 8))))
-          (read-sequence bytes in)
+          (%read-input-sequence bytes in)
           (with-output-to-string (out)
             (loop for byte across bytes do (format out "~2,'0X" byte)))))
     (error () (format nil "~36R-~36R" (sb-posix:getpid) (get-internal-real-time)))))

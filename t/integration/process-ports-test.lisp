@@ -197,3 +197,50 @@ environment (VALUE NIL unsets NAME), restoring the previous values after."
                 :to-be t)))
     :prefix "aitools-process")))
 
+(describe "aitools process file boundary errors (integration)"
+  (it "turns a directory syscall failure into a process port error"
+    (aitools.test.support:call-with-temporary-directory
+     (lambda (directory)
+       (let* ((missing (merge-pathnames "absent/" directory))
+              (message (boundary-error-message
+                        (lambda ()
+                          (call-capability (production-boundaries)
+                                          :process-list-directory missing)))))
+         (expect (starts-with-p (format nil "listing ~A failed: " missing) message)
+                 :to-be t))))
+    :prefix "aitools-process")
+  (it "returns only bytes supplied by a short read"
+    (aitools.test.support:call-with-temporary-directory
+     (lambda (directory)
+       (let* ((path (write-file (merge-pathnames "changing.log" directory) "before"))
+              (ports (production-boundaries))
+              (reader (quote aitools.process.infrastructure::%read-input-sequence))
+              (read-short nil))
+         (cl-weave:with-mocked-functions
+             (((symbol-function reader)
+               (lambda (sequence stream)
+                 (declare (ignore stream))
+                 (setf (aref sequence 0) 65 read-short t)
+                 1)))
+           (expect (call-capability ports :process-read-file-text path) :to-equal "A")
+           (expect read-short :to-be t)))))
+    :prefix "aitools-process"))
+
+(describe "aitools process stream boundary errors (integration)"
+  (it "turns a stream read failure into a process port error"
+    (aitools.test.support:call-with-temporary-directory
+     (lambda (directory)
+       (let* ((path (write-file (merge-pathnames "broken.log" directory) "data"))
+              (ports (production-boundaries))
+              (reader (quote aitools.process.infrastructure::%read-input-sequence))
+              (message
+                (cl-weave:with-mocked-functions
+                    (((symbol-function reader)
+                      (lambda (sequence stream)
+                        (declare (ignore sequence))
+                        (error (quote stream-error) :stream stream))))
+                  (boundary-error-message
+                   (lambda () (call-capability ports :process-read-file-text path))))))
+         (expect (starts-with-p (format nil "reading ~A failed: " path) message)
+                 :to-be t))))
+    :prefix "aitools-process"))

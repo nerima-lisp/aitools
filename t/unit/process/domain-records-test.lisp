@@ -196,3 +196,49 @@
       (expect (json-alist-value written "bytes") :to-be 9)
       (expect (json-alist-value written "head" :absent) :to-be :absent)
       (expect (json-alist-value unwritten "bytes") :to-be 0))))
+
+(describe "aitools.process.domain process identity and outcomes"
+  (it "requires every captured identity field to match"
+    (let ((expected (aitools.process.domain:make-process-identity
+                     :pid 2101 :uid 501 :ruid 501 :start 100
+                     :command-line "sleep fixture" :ppid 10 :pgid 20)))
+      (expect (aitools.process.domain:same-process-p expected expected) :to-be t)
+      (expect (aitools.process.domain:same-process-p nil expected) :to-be nil)
+      (expect (aitools.process.domain:same-process-p expected nil) :to-be nil)
+      (dolist (mismatch (list (list :pid 2102) (list :uid 502) (list :ruid 502)
+                             (list :start 101) (list :command-line "sleep replacement")
+                             (list :ppid 11) (list :pgid 21)))
+        (destructuring-bind (slot value) mismatch
+          (let ((actual (aitools.process.domain:make-process-identity
+                         :pid (if (eq slot :pid) value 2101)
+                         :uid (if (eq slot :uid) value 501)
+                         :ruid (if (eq slot :ruid) value 501)
+                         :start (if (eq slot :start) value 100)
+                         :command-line (if (eq slot :command-line) value "sleep fixture")
+                         :ppid (if (eq slot :ppid) value 10)
+                         :pgid (if (eq slot :pgid) value 20))))
+            (expect (aitools.process.domain:same-process-p expected actual) :to-be nil))))))
+  (it "accepts legitimate null, zero, and signaled process outcomes"
+    (let ((exit (aitools.process.domain:make-process-outcome
+                 :exit-code 0 :signal nil :timed-out nil :duration-ms 0
+                 :stdout "" :stderr "" :stdout-bytes 0))
+          (signaled (aitools.process.domain:make-process-outcome
+                     :exit-code nil :signal 9 :timed-out t :duration-ms 17
+                     :stdout "out" :stderr "err" :stdout-capped t
+                     :stderr-capped nil :stdout-bytes nil)))
+      (expect (aitools.process.domain:process-outcome-exit-code exit) :to-be 0)
+      (expect (aitools.process.domain:process-outcome-duration-ms exit) :to-be 0)
+      (expect (aitools.process.domain:process-outcome-stdout-bytes exit) :to-be 0)
+      (expect (aitools.process.domain:process-outcome-exit-code signaled) :to-be nil)
+      (expect (aitools.process.domain:process-outcome-signal signaled) :to-be 9)
+      (expect (aitools.process.domain:process-outcome-timed-out signaled) :to-be t)
+      (expect (aitools.process.domain:process-outcome-stdout-capped signaled) :to-be t)
+      (expect (aitools.process.domain:process-outcome-stdout signaled) :to-equal "out"))))
+
+(describe "aitools.process.domain bg-record slot types"
+  (it-each (((:id 1)) ((:name 1)) ((:argv "sleep"))
+            ((:pid 0)) ((:started 1)) ((:stop-signal 0)))
+      "rejects invalid bg-record fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.domain:make-bg-record) arguments))))

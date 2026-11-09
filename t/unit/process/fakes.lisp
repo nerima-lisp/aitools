@@ -176,3 +176,24 @@ keyword."
 
 (defun repair-commands (fields)
   (mapcar (lambda (repair) (getf repair :command)) (getf fields :repairs)))
+
+(progn
+  (defclass fake-binary-input (sb-gray:fundamental-binary-input-stream)
+    ((octets :initarg :octets :reader fake-binary-input-octets)
+     (position :initform 0 :accessor fake-binary-input-position)))
+  (defmethod stream-element-type ((input fake-binary-input))
+    (declare (ignore input))
+    (quote (unsigned-byte 8)))
+  (defmethod sb-gray:stream-listen ((input fake-binary-input))
+    (< (fake-binary-input-position input)
+       (length (fake-binary-input-octets input))))
+  (defmethod sb-gray:stream-read-byte ((input fake-binary-input))
+    (let ((position (fake-binary-input-position input)))
+      (if (< position (length (fake-binary-input-octets input)))
+          (prog1 (aref (fake-binary-input-octets input) position)
+            (incf (fake-binary-input-position input)))
+          :eof)))
+  (defun make-fake-binary-input (octets)
+    (make-instance
+     (find-class (find-symbol "FAKE-BINARY-INPUT" "AITOOLS.PROCESS.TEST"))
+     :octets octets)))
