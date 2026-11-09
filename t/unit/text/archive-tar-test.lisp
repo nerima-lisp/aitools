@@ -106,7 +106,33 @@
               :to-equal '(archive-limit-exceeded "tar pax size"))
       (expect (archive-entry-mtime (first (read-tar-entries exact-mtime))) :to-be max-mtime)
       (expect (tar-entries-reason over-mtime)
-              :to-equal '(archive-limit-exceeded "tar pax mtime")))))
+              :to-equal '(archive-limit-exceeded "tar pax mtime"))))
+
+  (it "uses a valid PAX size to override the header size"
+    (let* ((archive (tar-of (tar-block "PaxHeader" #\x
+                                       :data (aitools.text.domain::%pax-record "size" "3"))
+                            (tar-block "f" #\0 :size 1 :data (string-bytes "xyz"))))
+           (entry (first (read-tar-entries archive))))
+      (expect (archive-entry-size entry) :to-be 3)
+      (expect (archive-entry-data archive entry) :to-equalp (string-bytes "xyz"))))
+
+  (it "uses fractional PAX mtime seconds and rejects malformed fractional digits"
+    (let* ((valid (tar-of (tar-block "PaxHeader" #\x
+                                     :data (aitools.text.domain::%pax-record "mtime" "123.50"))
+                          (tar-block "f" #\0 :mtime 456)))
+           (invalid (tar-of (tar-block "PaxHeader" #\x
+                                       :data (aitools.text.domain::%pax-record "mtime" "123.x"))
+                            (tar-block "f" #\0))))
+      (expect (archive-entry-mtime (first (read-tar-entries valid))) :to-be 123)
+      (expect (tar-entries-reason invalid)
+              :to-equal '(archive-error "pax numeric value is not decimal"))))
+
+  (it "rejects a PAX record length larger than its available payload"
+    (let ((archive (tar-of (tar-block "PaxHeader" #\x
+                                      :data (string-bytes (format nil "999999999999999999999 a=b~%")))
+                           (tar-block "f" #\0))))
+      (expect (tar-entries-reason archive)
+              :to-equal '(archive-error "malformed pax record")))))
 
 (describe "aitools.text.domain tar"
   (it "round-trips names (long and non-ASCII via pax), kinds, modes, links, and bytes"

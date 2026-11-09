@@ -14,10 +14,9 @@
                                   (:file "codec-conditions") (:file "archive-model")
                                   (:file "codec-crc32") (:file "codec-deflate")
                                   (:file "codec-gzip") (:file "codec-zip")
-                                  (:file "codec-zip-write")
-                                  (:file "codec-tar")
-                                  (:file "codec-tar-write") (:file "archive-data")
-                                  (:file "archive-format")))
+                                  (:file "codec-zip-write") (:file "codec-tar-pax")
+                                  (:file "codec-tar") (:file "codec-tar-write")
+                                  (:file "archive-data") (:file "archive-format")))
             (:module "application"
                      :components ((:file "package") (:file "source")))
             (:module "infrastructure"
