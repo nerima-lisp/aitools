@@ -170,6 +170,23 @@
         "type": "github"
       }
     },
+    "cl-markdown-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792527800,
+        "narHash": "sha256-ENp3swjX9e37YjyUjKn5aZjELRqj7kZy06mQuJiLSU4=",
+        "owner": "nerima-lisp",
+        "repo": "cl-markdown-kit",
+        "rev": "fdb19cf8cda2064e7471654fc9b979c2d7a0fc52",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.2.0",
+        "repo": "cl-markdown-kit",
+        "type": "github"
+      }
+    },
     "cl-nix-forge": {
       "inputs": {
         "nixpkgs": [
@@ -412,6 +429,7 @@
         "cl-host-kit": "cl-host-kit",
         "cl-json-kit": "cl-json-kit",
         "cl-log-kit": "cl-log-kit",
+        "cl-markdown-kit": "cl-markdown-kit",
         "cl-nix-forge": "cl-nix-forge",
         "cl-observability-kit": "cl-observability-kit",
         "cl-org-kit": "cl-org-kit",

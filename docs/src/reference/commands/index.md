@@ -207,6 +207,9 @@ groups to the fixed output order.
 | [`time now`](env.md#time-now) | env | Show the current time in a zone, in UTC, and as epoch milliseconds. |
 | [`time convert`](env.md#time-convert) | env | Convert a time value to ISO 8601 or epoch, optionally shifted by durations. |
 | [`time diff`](env.md#time-diff) | env | Compute B minus A. |
+| [`md headings`](md.md#md-headings) | md | List parsed Markdown headings with one-based section ordinals. |
+| [`md read`](md.md#md-read) | md | Read one complete Markdown section by its one-based heading ordinal. |
+| [`md replace`](md.md#md-replace) | md | Replace one Markdown section from standard input. |
 | [`util encode`](util.md#util-encode) | util | Encode the input bytes as base64, URL percent-encoding, or hex. |
 | [`util decode`](util.md#util-decode) | util | Decode base64, URL percent-encoding, or hex; binary results are returned as hex, or written to a file with --to. |
 | [`util redact`](util.md#util-redact) | util | Mask known secret formats in the input text. |

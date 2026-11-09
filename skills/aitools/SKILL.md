@@ -182,6 +182,35 @@ GFM, and ASCII. Use `org agenda` and `org clock report` to summarize scheduled w
 update a matching heading or table. These writes use the journal and can be reverted with
 `aitools undo <op_id>`.
 
+### Markdown files
+
+Use `md headings` to list document headings, `md read` to return a section, and `md replace` to replace a
+complete section from standard input. `SECTION` is the 1-based heading ordinal returned by `md headings`, so
+headings with the same text have separate selectors. A section includes its heading and child sections and ends
+before the next heading at the same or a higher level. The parser uses GFM mode, but selectable headings use
+ATX or setext syntax. A leading front-matter block delimited by `---` and headings inside fenced code are ignored.
+
+```sh
+aitools md headings README.md
+aitools md read README.md 2
+HASH="$(aitools md headings README.md | jq -r '.hash')"
+TX="$(aitools tx begin --name replace-section | jq -r '.tx')"
+cat replacement.md | aitools md replace README.md 2 --stdin --expect-hash "$HASH" --tx "$TX"
+aitools tx commit "$TX"
+```
+
+Markdown commands parse the whole UTF-8 file, up to 16 MiB, and return headings or a section without pagination.
+`md headings` returns `path`, `hash`, and `headings[]` entries with `section`, `heading`, `level`, and `line`.
+`md read` returns `path`, `hash`, `section`, `heading`, `level`, `line`, and `content`. `md replace` requires
+`--expect-hash`, accepts `--tx`, and returns the standard write fields (`changes` and `op_id`, or `tx` and
+`tx_op`) with the selected section fields. It records the write in the journal and preserves every original byte
+outside the selected section. Writes outside the workspace and into `.git/` are refused. Oversized input returns
+`refusal.too-large`; invalid UTF-8 returns `input.not-utf8`. Binary input returns `input.unsupported-format`, and
+parser failures return `input.syntax-error`. Include the selected heading in `md replace` standard input to retain
+it; omitting it removes that heading.
+
+For a direct journaled write, omit `--tx` and skip `tx begin` and `tx commit`.
+
 ### Archives and snapshots
 
 tar/zip/gz without shelling out. Every entry is validated before extraction; entries that

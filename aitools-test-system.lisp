@@ -85,6 +85,7 @@
                                                            :components
                                                            ((:file "edit")
                                                             (:file "org")
+                                                            (:file "md")
                                                             (:file "search")
                                                             (:file "store")))
                                                           (:file "structure-source-scanner-reader" :depends-on ("structure-context-allowances"))
@@ -120,6 +121,7 @@
                                                            :components
                                                            ((:file "edit")
                                                             (:file "env")
+                                                            (:file "md")
                                                             (:file "inspect")
                                                             (:file "process")
                                                             (:file "store")

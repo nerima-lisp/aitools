@@ -43,6 +43,7 @@
    (:file "domain/store/action-names-data")
    (:file "presentation/util/command-schema-data")
    (:file "presentation/env/command-schema-data")
+   (:file "presentation/md/command-schema-data")
    (:file "presentation/edit/command-schema-data")
    (:file "presentation/edit/doc-command-schema-data")))
 
@@ -68,6 +69,7 @@
                "aitools/feature/process"
                "aitools/feature/org"
                "aitools/feature/env"
+               "aitools/feature/md"
                "aitools/feature/util")
   :pathname "."
   :around-compile (lambda (next)
@@ -106,6 +108,7 @@
                "aitools/feature/process/presentation"
                "aitools/feature/org/presentation"
                "aitools/feature/env/presentation"
+               "aitools/feature/md/presentation"
                "aitools/feature/util/presentation")
   :pathname "."
   :components ((:module "src"
