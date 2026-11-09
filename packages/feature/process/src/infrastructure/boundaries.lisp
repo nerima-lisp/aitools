@@ -62,3 +62,13 @@
           (cons :process-workspace-host workspace-host)
           (cons :process-temporary-directory
                 (%temporary-directory-function state-directory-function)))))
+
+(defun make-production-process-boundaries (&rest arguments)
+  "Return a boundary context populated with production process capabilities."
+  (let ((context (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+             (apply #'make-production-process-capabilities arguments))
+      (setf context
+            (cl-boundary-kit:boundary-context-with
+             context (car capability) (cdr capability))))
+    context))

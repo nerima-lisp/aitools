@@ -15,4 +15,5 @@
    ;; bg-launcher.lisp
    #:find-spawn-trampoline
    ;; boundaries.lisp
-   make-production-process-capabilities))
+   #:make-production-process-capabilities
+   #:make-production-process-boundaries))
