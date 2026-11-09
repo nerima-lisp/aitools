@@ -66,7 +66,7 @@
           while end
           collect (sb-ext:octets-to-string bytes :start start :end end :external-format :utf-8) into args
           do (setf start (1+ end))
-          finally (return (%join-argv args)))))
+          finally (return (and args (%join-argv args))))))
 
 #+linux
 (defun %linux-process-info (pid)
