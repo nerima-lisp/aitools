@@ -87,8 +87,9 @@
   (let* ((pathnames (cdr (assoc context groups)))
          (locations (coverage-uncovered-form-locations-for pathnames))
          (definitions
-           (loop for pathname in pathnames
-                 append (coverage-source-definitions-for pathname)))
+           (mapcan (function coverage-source-definitions-for)
+                   (remove-duplicates (mapcar (lambda (location) (getf location :pathname)) locations)
+                                      :test (function equal))))
          (remaining
            (remove-if
             (lambda (location)
@@ -100,8 +101,7 @@
                                   (string-equal (getf owner :symbol) (getf exclusion :symbol))))
                            exclusions))))
             locations)))
-    (format t "~&~A uncovered coverage forms after exclusions: ~D~%"
-            context (length remaining))
+    (format t "~&~A uncovered coverage forms after exclusions: ~D~%" context (length remaining))
     (dolist (location remaining)
       (let* ((owner (coverage-owner-for-location location definitions))
              (pathname (getf location :pathname))
