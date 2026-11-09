@@ -17,18 +17,18 @@
                    "-keyout" (namestring private-key)
                    "-out" (namestring certificate)
                    "-days" "1"
-                   "-subj" "/CN=localhost"
-                   "-addext" "subjectAltName=DNS:localhost,IP:127.0.0.1"
+                   "-subj" (format nil "/CN=~A test CA" name)
                    "-addext" "basicConstraints=critical,CA:TRUE"
-                   "-addext" "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign"
-                   "-addext" "extendedKeyUsage=serverAuth")
+                   "-addext" "keyUsage=critical,keyCertSign,cRLSign"
+                   "-addext" "subjectKeyIdentifier=hash")
              :search t :wait t :output nil :error nil)))
       (unwind-protect
           (unless (eql (sb-ext:process-exit-code process) 0)
             (error "OpenSSL could not create the HTTPS fixture certificate."))
         (sb-ext:process-close process)))
     (values certificate private-key)))
-(defun %https-test-signed-certificate (directory name ca-certificate ca-key)
+(defun %https-test-signed-certificate
+    (directory name ca-certificate ca-key common-name subject-alt-name)
   (let ((certificate (merge-pathnames (format nil "~A.crt" name) directory))
         (csr (merge-pathnames (format nil "~A.csr" name) directory))
         (private-key (merge-pathnames (format nil "~A.key" name) directory))
@@ -36,10 +36,11 @@
          (merge-pathnames (format nil "~A-extensions.cnf" name) directory)))
     (with-open-file (stream extension-file :direction :output :if-exists :supersede)
       (write-line "[server_cert]" stream)
-      (write-line "subjectAltName=DNS:other.test" stream)
+      (write-line (format nil "subjectAltName=~A" subject-alt-name) stream)
       (write-line "basicConstraints=critical,CA:FALSE" stream)
       (write-line "keyUsage=critical,digitalSignature,keyEncipherment" stream)
-      (write-line "extendedKeyUsage=serverAuth" stream))
+      (write-line "extendedKeyUsage=serverAuth" stream)
+      (write-line "authorityKeyIdentifier=keyid,issuer" stream))
     (labels ((run-openssl (arguments)
                (let ((process
                        (sb-ext:run-program "openssl" arguments
@@ -52,7 +53,7 @@
        (list "req" "-new" "-newkey" "rsa:2048" "-nodes"
              "-keyout" (namestring private-key)
              "-out" (namestring csr)
-             "-subj" "/CN=other.test"))
+             "-subj" (format nil "/CN=~A" common-name)))
       (run-openssl
        (list "x509" "-req" "-in" (namestring csr)
              "-CA" (namestring ca-certificate)
@@ -118,84 +119,93 @@
      (lambda (directory)
        (multiple-value-bind (trusted-certificate trusted-key)
            (%https-test-certificate directory "trusted")
-         (multiple-value-bind (mismatch-certificate mismatch-key)
+         (multiple-value-bind (trusted-server-certificate trusted-server-key)
              (%https-test-signed-certificate
-              directory "mismatch" trusted-certificate trusted-key)
-           (multiple-value-bind (untrusted-certificate untrusted-key)
-               (%https-test-certificate directory "untrusted")
-             (let ((trusted-server nil)
-                   (trusted-port nil)
-                   (mismatch-server nil)
-                   (mismatch-port nil)
-                   (untrusted-server nil)
-                   (untrusted-port nil))
-               (unwind-protect
-                    (progn
-                      (multiple-value-setq (trusted-server trusted-port)
-                        (%https-test-start-server trusted-certificate trusted-key))
-                      (multiple-value-setq (mismatch-server mismatch-port)
-                        (%https-test-start-server mismatch-certificate mismatch-key))
-                      (multiple-value-setq (untrusted-server untrusted-port)
-                        (%https-test-start-server untrusted-certificate untrusted-key))
-                      (%https-test-call-with-trust-anchor
-                       trusted-certificate
-                       (lambda ()
-                         (let ((requester (%https-test-requester)))
-                           (multiple-value-bind (kind response)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://localhost:~D/ok" trusted-port)
-                                5d0)
-                             (expect kind :to-be :ok)
-                             (expect (getf response :status) :to-be 200)
-                             (expect (sb-ext:octets-to-string
-                                      (getf response :body) :external-format :utf-8)
-                                     :to-equal (format nil "loopback response~%")))
-                           (multiple-value-bind (kind response)
-                               (%https-test-outcome
-                                requester "HEAD"
-                                (format nil "https://localhost:~D/ok" trusted-port)
-                                5d0)
-                             (expect kind :to-be :ok)
-                             (expect (getf response :status) :to-be 200)
-                             (expect (length (getf response :body)) :to-be 0))
-                           (multiple-value-bind (kind response)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://127.0.0.1:~D/ok" trusted-port)
-                                5d0)
-                             (expect kind :to-be :ok)
-                             (expect (getf response :status) :to-be 200))
-                           (multiple-value-bind (kind code)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://localhost:~D/delay" trusted-port)
-                                0.1d0)
-                             (expect kind :to-be :error)
-                             (expect code :to-equal "environment.timeout"))
-                           (multiple-value-bind (kind code)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://localhost:~D/large" trusted-port)
-                                5d0)
-                             (expect kind :to-be :error)
-                             (expect code :to-equal "refusal.too-large"))
-                           (multiple-value-bind (kind code)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://localhost:~D/ok" mismatch-port)
-                                5d0)
-                             (expect kind :to-be :error)
-                             (expect code :to-equal "environment.io"))
-                           (multiple-value-bind (kind code)
-                               (%https-test-outcome
-                                requester "GET"
-                                (format nil "https://localhost:~D/ok" untrusted-port)
-                                5d0)
-                             (expect kind :to-be :error)
-                             (expect code :to-equal "environment.io"))))))
-                 (%https-test-stop-server trusted-server)
-                 (%https-test-stop-server mismatch-server)
-                 (%https-test-stop-server untrusted-server))))))))
+              directory "trusted-server" trusted-certificate trusted-key
+              "localhost" "DNS:localhost,IP:127.0.0.1")
+           (multiple-value-bind (mismatch-certificate mismatch-key)
+               (%https-test-signed-certificate
+                directory "mismatch" trusted-certificate trusted-key
+                "other.test" "DNS:other.test")
+             (multiple-value-bind (untrusted-ca untrusted-ca-key)
+                 (%https-test-certificate directory "untrusted")
+               (multiple-value-bind (untrusted-certificate untrusted-key)
+                   (%https-test-signed-certificate
+                    directory "untrusted-server" untrusted-ca untrusted-ca-key
+                    "localhost" "DNS:localhost,IP:127.0.0.1")
+                 (let ((trusted-server nil)
+                       (trusted-port nil)
+                       (mismatch-server nil)
+                       (mismatch-port nil)
+                       (untrusted-server nil)
+                       (untrusted-port nil))
+                   (unwind-protect
+                        (progn
+                          (multiple-value-setq (trusted-server trusted-port)
+                            (%https-test-start-server trusted-server-certificate trusted-server-key))
+                          (multiple-value-setq (mismatch-server mismatch-port)
+                            (%https-test-start-server mismatch-certificate mismatch-key))
+                          (multiple-value-setq (untrusted-server untrusted-port)
+                            (%https-test-start-server untrusted-certificate untrusted-key))
+                          (%https-test-call-with-trust-anchor
+                           trusted-certificate
+                           (lambda ()
+                             (let ((requester (%https-test-requester)))
+                               (multiple-value-bind (kind response)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://localhost:~D/ok" trusted-port)
+                                    5d0)
+                                 (expect kind :to-be :ok)
+                                 (expect (getf response :status) :to-be 200)
+                                 (expect (sb-ext:octets-to-string
+                                          (getf response :body) :external-format :utf-8)
+                                         :to-equal (format nil "loopback response~%")))
+                               (multiple-value-bind (kind response)
+                                   (%https-test-outcome
+                                    requester "HEAD"
+                                    (format nil "https://localhost:~D/ok" trusted-port)
+                                    5d0)
+                                 (expect kind :to-be :ok)
+                                 (expect (getf response :status) :to-be 200)
+                                 (expect (length (getf response :body)) :to-be 0))
+                               (multiple-value-bind (kind response)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://127.0.0.1:~D/ok" trusted-port)
+                                    5d0)
+                                 (expect kind :to-be :ok)
+                                 (expect (getf response :status) :to-be 200))
+                               (multiple-value-bind (kind code)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://localhost:~D/delay" trusted-port)
+                                    0.1d0)
+                                 (expect kind :to-be :error)
+                                 (expect code :to-equal "environment.timeout"))
+                               (multiple-value-bind (kind code)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://localhost:~D/large" trusted-port)
+                                    5d0)
+                                 (expect kind :to-be :error)
+                                 (expect code :to-equal "refusal.too-large"))
+                               (multiple-value-bind (kind code)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://localhost:~D/ok" mismatch-port)
+                                    5d0)
+                                 (expect kind :to-be :error)
+                                 (expect code :to-equal "environment.io"))
+                               (multiple-value-bind (kind code)
+                                   (%https-test-outcome
+                                    requester "GET"
+                                    (format nil "https://localhost:~D/ok" untrusted-port)
+                                    5d0)
+                                 (expect kind :to-be :error)
+                                 (expect code :to-equal "environment.io"))))))
+                     (%https-test-stop-server trusted-server)
+                     (%https-test-stop-server mismatch-server)
+                     (%https-test-stop-server untrusted-server))))))))))
     :prefix "aitools-net-http"))
 
