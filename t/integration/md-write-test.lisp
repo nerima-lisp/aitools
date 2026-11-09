@@ -7,7 +7,7 @@
 
 (in-package #:aitools.integration.md-write-test)
 
-(defun %md-write-ports (replacement)
+(defun %md-write-ports (replacement &optional read-stdin)
   (let ((replacement-octets (sb-ext:string-to-octets replacement :external-format :utf-8)))
     (aitools.md.application:make-md-ports :workspace-host
                                           (aitools.workspace.infrastructure:make-host-workspace-boundaries)
@@ -16,10 +16,11 @@
                                           :open-store
                                           #'aitools.store.infrastructure:make-posix-store
                                           :read-stdin-octets
-                                          (lambda (limit)
-                                            (if (> (length replacement-octets) limit)
-                                                (list :too-large)
-                                                (list :octets replacement-octets)))
+                                          (or read-stdin
+                                              (lambda (limit)
+                                                (if (> (length replacement-octets) limit)
+                                                    (list :too-large)
+                                                    (list :octets replacement-octets))))
                                           :parse-markdown
                                           #'aitools.md.infrastructure:parse-md-octets
                                           :splice-section
