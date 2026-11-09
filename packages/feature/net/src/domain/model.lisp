@@ -1,0 +1,11 @@
+(in-package #:aitools.net.domain)
+(define-condition net-error (error)
+  ((code :initarg :code :reader net-error-code)
+   (detail :initarg :detail :reader net-error-detail)))
+(defstruct (net-address
+             (:constructor make-net-address (&key type value family octets))
+             (:copier nil))
+  (type nil :type string :read-only t)
+  (value nil :type string :read-only t)
+  (family nil :type keyword :read-only t)
+  (octets #() :type vector :read-only t))
