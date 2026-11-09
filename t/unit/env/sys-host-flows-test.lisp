@@ -12,7 +12,7 @@
                    (cons "/bin/ps" (exits-with *ps-text*))
                    (cons "/usr/sbin/lsof" (exits-with *lsof-text*)))))
 
-(defun linux-proc-ports (&key (host (make-fake-host)))
+(defun linux-proc-boundaries (&key (host (make-fake-host)))
   (make-fake-env-boundaries
    :identity *linux-identity*
    :environment '(("SHELL" . "/bin/bash"))
@@ -60,7 +60,7 @@
   #+linux
   (it "fills the same fields from Linux /proc"
     (multiple-value-bind (kind fields)
-        (run-flow (function sys-info/k) (linux-proc-ports))
+        (run-flow (function sys-info/k) (linux-proc-boundaries))
       (expect kind :to-be :ok)
       (expect (mapcar (function car) fields) :to-equal *info-fields*)
       (expect (field fields "os") :to-equal "linux")
@@ -70,13 +70,13 @@
               :to-be (* 11240304 1024))))
 
   (it "returns environment.unavailable when uptime is missing or unsupported"
-    (dolist (ports
+    (dolist (boundaries
               (list (make-fake-env-boundaries :identity *linux-identity* :files nil)
                     #+darwin (make-fake-env-boundaries :sysctl-mibs nil)
                     (make-fake-env-boundaries
                      :identity (list "FreeBSD" "14.1" "amd64"))))
       (multiple-value-bind (kind error)
-          (run-flow (function sys-info/k) ports)
+          (run-flow (function sys-info/k) boundaries)
         (expect kind :to-be :error)
         (expect (first error) :to-equal "environment.unavailable")))))
 
@@ -151,7 +151,7 @@
           (expect (object-field last "started") :to-equal "2026-03-08T06:24:53Z")))))
 
   (it "lists Linux processes from /proc with the same fields"
-    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (linux-proc-ports) :pattern "HTTP")
+    (multiple-value-bind (kind fields) (run-flow #'sys-procs/k (linux-proc-boundaries) :pattern "HTTP")
       (expect kind :to-be :ok)
       (expect (field fields "total") :to-be 1)
       (let ((item (first (field fields "items"))))
@@ -163,7 +163,7 @@
 
   (it "runs no command at all on Linux"
     (let ((host (make-fake-host)))
-      (run-flow #'sys-procs/k (linux-proc-ports :host host))
+      (run-flow #'sys-procs/k (linux-proc-boundaries :host host))
       (expect (fake-host-runs host) :to-equal nil)))
 
   (it "returns partial with next_commands over --limit"
@@ -183,8 +183,8 @@
             ("/proc/net/tcp6" "ipv6" "ipv4"))
       "preserves listeners and reports missing family beside ~A" (path available missing)
     (let* ((text (if (string= available "ipv4") *proc-net-tcp-text* *proc-net-tcp6-text*))
-           (ports (make-fake-env-boundaries :identity *linux-identity* :files (list (cons path text)))))
-      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k ports)
+           (boundaries (make-fake-env-boundaries :identity *linux-identity* :files (list (cons path text)))))
+      (multiple-value-bind (kind fields) (run-flow #'sys-ports/k boundaries)
         (expect kind :to-be :partial)
         (expect (field fields "total") :to-be 2)
         (expect (length (field fields "items")) :to-be 2)
@@ -192,7 +192,7 @@
         (expect (object-field (field fields "coverage") missing) :to-equal "source_unavailable")
         (expect (field fields "source_unavailable")
                 :to-equal (list (if (string= missing "ipv4") "/proc/net/tcp" "/proc/net/tcp6"))))
-      (multiple-value-bind (kind fields) (run-flow #'sys-snapshot/k ports :port-limit 1)
+      (multiple-value-bind (kind fields) (run-flow #'sys-snapshot/k boundaries :port-limit 1)
         (let* ((section (object-field (field fields "sections") "ports"))
                (data (object-field section "data")))
           (expect kind :to-be :partial)
@@ -208,7 +208,7 @@
       (expect kind :to-be :partial)
       (expect (field fields "total") :to-be 0)))
   (it "maps Linux listeners to their owning process"
-    (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (linux-proc-ports))
+    (multiple-value-bind (kind fields) (run-flow #'sys-ports/k (linux-proc-boundaries))
       (expect kind :to-be :ok)
       (expect (mapcar (lambda (item)
                         (list (object-field item "port") (object-field item "address")

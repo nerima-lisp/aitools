@@ -1,8 +1,8 @@
 (in-package #:aitools.env.test)
 
-(defun convert (value &rest keys &key (ports (make-fake-env-boundaries)) &allow-other-keys)
-  (let ((keys (loop for (key val) on keys by #'cddr unless (eq key :ports) append (list key val))))
-    (apply #'run-flow #'time-convert/k ports value keys)))
+(defun convert (value &rest keys &key (boundaries (make-fake-env-boundaries)) &allow-other-keys)
+  (let ((keys (loop for (key val) on keys by #'cddr unless (eq key :boundaries) append (list key val))))
+    (apply #'run-flow #'time-convert/k boundaries value keys)))
 
 (defun convert-result (value &rest keys)
   (multiple-value-bind (kind fields) (apply #'convert value keys)
@@ -149,9 +149,9 @@
   (it-each (("../../etc/passwd") ("Asia//Tokyo") ("Asia/Tokyo,x"))
       "refuses the zone name ~S without reading any file"
       (name)
-    (let ((ports (make-fake-env-boundaries :files (list (cons (concatenate 'string "/usr/share/zoneinfo/" name)
+    (let ((boundaries (make-fake-env-boundaries :files (list (cons (concatenate 'string "/usr/share/zoneinfo/" name)
                                                      (latin-1-from-hex *tokyo-tzif-hex*))))))
-      (multiple-value-bind (kind error) (run-flow #'time-now/k ports :tz name)
+      (multiple-value-bind (kind error) (run-flow #'time-now/k boundaries :tz name)
         (expect kind :to-be :error)
         (expect (first error) :to-equal "argument.invalid"))))
 

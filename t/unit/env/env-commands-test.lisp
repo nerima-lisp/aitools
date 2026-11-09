@@ -4,10 +4,10 @@
 ;;;; exit code out.
 (in-package #:aitools.env.test)
 
-(defun dispatch-env (ports &rest argv)
+(defun dispatch-env (boundaries &rest argv)
   "(VALUES EXIT-CODE STDOUT STDERR) for `aitools ARGV...`."
   (let ((registry (aitools.protocol.application:make-command-registry)))
-    (aitools.env.presentation:register-env-commands registry ports)
+    (aitools.env.presentation:register-env-commands registry boundaries)
     (let ((app (cl-cli:make-app :name "aitools" :version "0.0.0" :require-command t
                                 :commands (aitools/cli:finalize-app-commands registry)))
           (stdout (make-string-output-stream))
@@ -143,16 +143,16 @@
       (expect (json-field stdout "total") :to-be 4)))
 
   (it "returns partial ports and snapshot JSON when one Linux family is unavailable"
-    (let ((ports (make-fake-env-boundaries :identity *linux-identity*
+    (let ((boundaries (make-fake-env-boundaries :identity *linux-identity*
                                  :files (list (cons "/proc/net/tcp" *proc-net-tcp-text*)))))
-      (multiple-value-bind (code stdout stderr) (dispatch-env ports "sys" "ports")
+      (multiple-value-bind (code stdout stderr) (dispatch-env boundaries "sys" "ports")
         (expect code :to-be 3)
         (expect stderr :to-equal "")
         (expect (json-field stdout "status") :to-equal "partial")
         (expect (json-field stdout "total") :to-be 2)
         (expect (gethash "ipv6" (json-field stdout "coverage")) :to-equal "source_unavailable")
         (expect (aref (json-field stdout "source_unavailable") 0) :to-equal "/proc/net/tcp6"))
-      (multiple-value-bind (code stdout) (dispatch-env ports "sys" "snapshot")
+      (multiple-value-bind (code stdout) (dispatch-env boundaries "sys" "snapshot")
         (expect code :to-be 3)
         (expect (gethash "status" (gethash "ports" (json-field stdout "sections")))
                 :to-equal "partial"))))
@@ -173,8 +173,8 @@
     (let ((seen nil))
       (cl-weave:with-mocked-functions
           (((symbol-function 'aitools.env.application:time-convert/k)
-            (lambda (ports value &key to add sub tz on-ok on-error)
-              (declare (ignore ports on-error))
+            (lambda (boundaries value &key to add sub tz on-ok on-error)
+              (declare (ignore boundaries on-error))
               (setf seen (list value to add sub tz))
               (funcall
                on-ok
