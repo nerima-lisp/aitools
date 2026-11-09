@@ -74,14 +74,12 @@ invoked. NIL when no command was in scope."
           (format nil "~A.~A" group (command-name command))
           (command-name command)))))
 
-(defun %unknown-command-repairs (registry argv name)
-  (declare (special *application*))
+(defun %unknown-command-repairs (registry argv name app)
   (let* ((group (and (member name (list "json" "yaml" "toml")
                              :test (function string=))
                      name))
          (tokens (when group
-                   (let* ((app (first *application*))
-                          (parser-app
+                   (let* ((parser-app
                             (cl-cli:make-app
                              :name (cl-cli:app-name app)
                              :version (cl-cli:app-version app)

@@ -162,7 +162,7 @@ past its commit point, so its message says recovery will complete it."
         (%write-error name "argument.invalid"
                      (if name (format nil "unknown command ~A" name) "no command given")
                      stderr
-                     :repairs (%unknown-command-repairs registry argv name))))
+                     :repairs (%unknown-command-repairs registry argv name app))))
     (cli-usage-error (condition)
       (let ((name (%usage-error-command-name registry (cli-usage-error-command condition))))
         (%write-error name "argument.invalid" (cli-error-message condition) stderr)))

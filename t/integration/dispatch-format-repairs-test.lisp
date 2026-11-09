@@ -41,3 +41,18 @@
       (expect code :to-be 1)
       (expect (value envelope "error" "code") :to-equal "argument.invalid")
       (expect (repair-commands envelope) :to-equal (list "aitools schema")))))
+
+(describe "dispatch repairs with a supplied app"
+  (it "uses the custom app global options when recognizing retired format names"
+    (multiple-value-bind (app registry) (aitools/cli:build-app)
+      (let ((custom-app
+              (cl-cli:make-app
+               :name (cl-cli:app-name app)
+               :version (cl-cli:app-version app)
+               :global-options (list (cl-cli:make-option :name "root" :kind :flag))
+               :commands (cl-cli:app-commands app))))
+        (multiple-value-bind (code envelope)
+            (dispatch-envelope custom-app registry (list "--root" "json" "get"))
+          (expect code :to-be 1)
+          (expect (value envelope "error" "code") :to-equal "argument.invalid")
+          (expect (repair-commands envelope) :to-equal (list "aitools doc get")))))))
