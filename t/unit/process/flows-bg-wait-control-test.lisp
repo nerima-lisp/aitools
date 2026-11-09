@@ -80,3 +80,11 @@
         (expect (field fields :code) :to-equal code)
         (when (member :bg arguments)
           (expect (field fields :candidates) :to-equal (list "bg-1")))))))
+
+(describe "aitools.process.application wait-request slot types"
+  (it-each (((:file 1)) ((:pattern 1)) ((:port 0)) ((:port 65536))
+            ((:bg 1)) ((:exit 1)) ((:duration 1)) ((:timeout 1)))
+      "rejects invalid wait-request fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.application:make-wait-request) arguments))))

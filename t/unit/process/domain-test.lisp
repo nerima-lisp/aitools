@@ -197,3 +197,40 @@
       "reads no id from the file name ~S"
       (file-name)
     (expect (aitools.process.domain:bg-file-id file-name) :to-be nil)))
+
+(describe "aitools.process.domain wait-condition boundaries"
+  (it "accepts inclusive port endpoints and a zero duration"
+    (dolist (port (list 1 65535))
+      (expect (aitools.process.domain:wait-condition-port
+               (aitools.process.domain:make-wait-condition :port port))
+              :to-be port))
+    (let ((condition (aitools.process.domain:make-wait-condition
+                      :duration-text "0ms" :duration-ms 0)))
+      (expect (aitools.process.domain:wait-condition-kind condition) :to-be :duration)
+      (expect (aitools.process.domain:wait-condition-duration-ms condition) :to-be 0))))
+
+(describe "aitools.process.domain typed slot contracts"
+  (it-each (((:exit-code "0")) ((:signal "TERM")) ((:timed-out 1))
+            ((:duration-ms -1)) ((:stdout 1)) ((:stderr 1))
+            ((:stdout-capped 1)) ((:stderr-capped 1)) ((:stdout-bytes -1)))
+      "rejects invalid process-outcome fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.domain:make-process-outcome) arguments)))
+  (it-each (((:lines 1)) ((:next-offset -1)) ((:truncated 1)) ((:redactions -1)))
+      "rejects invalid log-slice fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.domain::make-log-slice) arguments)))
+  (it-each (((:head 1)) ((:tail 1)) ((:total-lines -1)) ((:truncated 1))
+            ((:matches 1)) ((:total-matches -1)) ((:redactions -1)))
+      "rejects invalid output-report fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.domain::make-output-report) arguments)))
+  (it-each (((:kind :unknown)) ((:path 1)) ((:pattern 1)) ((:port 0))
+            ((:port 65536)) ((:bg-id 1)) ((:duration-text 1)) ((:duration-ms -1)))
+      "rejects invalid wait-condition fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.domain::%make-wait-condition) arguments))))

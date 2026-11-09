@@ -177,3 +177,61 @@ The process-info and signal-process ports remain the production ports."
           (kill-group supervisor)
           (expect (wait-for-group-gone supervisor) :to-be t))))
     :prefix "aitools-process")))
+
+(progn
+  (describe "aitools process guarded host inspection"
+    (it "fails closed when host process inspection signals"
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.process.infrastructure::%host-process-info))
+            (lambda (pid)
+              (declare (ignore pid))
+              (error "inspection failed"))))
+        (expect (aitools.process.infrastructure::%safe-process-info 4242)
+                :to-be nil)))
+    (it "rejects a PID below two before reading platform process state"
+      (expect (aitools.process.infrastructure::%host-process-info 1)
+              :to-be nil)
+      (expect (aitools.process.infrastructure::%host-process-info 0)
+              :to-be nil)))
+
+  #+linux
+  (describe "aitools Linux process list failures"
+    (it "maps an unavailable proc directory to a port error"
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote sb-posix:opendir))
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              nil)))
+        (signals aitools.process.application:process-port-error
+          (aitools.process.infrastructure::%host-list-pids))))
+    (it "maps a failed proc listing to a port error and closes the directory"
+      (let ((original-opendir (symbol-function (quote sb-posix:opendir)))
+            (original-closedir (symbol-function (quote sb-posix:closedir)))
+            (closed nil))
+        (cl-weave:with-mocked-functions
+            (((symbol-function (quote sb-posix:opendir))
+              (lambda (path) (funcall original-opendir path)))
+             ((symbol-function (quote directory))
+              (lambda (&rest arguments)
+                (declare (ignore arguments))
+                (error "listing failed")))
+             ((symbol-function (quote sb-posix:closedir))
+              (lambda (stream)
+                (funcall original-closedir stream)
+                (setf closed t))))
+          (signals aitools.process.application:process-port-error
+            (aitools.process.infrastructure::%host-list-pids)))
+        (expect closed :to-be t))))
+
+  #+darwin
+  (describe "aitools Darwin process argv sysctl failures"
+    (it "returns nil when argv metadata or bytes are unavailable"
+      (expect (aitools.process.infrastructure::%darwin-query-argv-size 2147483647)
+              :to-be nil)
+      (expect (aitools.process.infrastructure::%darwin-query-argv-bytes 2147483647 136)
+              :to-be nil)
+      (expect (aitools.process.infrastructure::%darwin-argv 2147483647)
+              :to-be nil))));
+
+

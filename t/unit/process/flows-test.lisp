@@ -173,3 +173,63 @@
         (expect (repair-commands fields) :to-equal '("aitools bg status")))
       (expect (fake-world-signals world) :to-equal '((1001 . 9)))
       (expect (getf (gethash 1001 (fake-world-processes world)) :alive) :to-be nil))))
+
+(describe "aitools.process.application run-request report policy"
+  (it "keeps zero tail and raw terminal text when stripping is disabled"
+    (let* ((ansi (format nil "~C[31mred~C[0m" (code-char 27) (code-char 27)))
+           (result (multiple-value-list
+                    (run-with (list :exited :exit-code 0 :stdout ansi)
+                              :head 1 :tail 0 :strip-ansi nil)))
+           (fields (second result)))
+      (expect (first result) :to-be :ok)
+      (expect (json-alist-value (field fields "stdout") "head") :to-equal (list ansi))
+      (expect (json-alist-value (field fields "stdout") "tail") :to-equal nil))))
+
+(describe "aitools.process.infrastructure borrowed binary stdin"
+  (it "copies all binary bytes to the child and leaves the caller stream open"
+    (aitools.test.support:call-with-temporary-directory
+     (lambda (directory)
+       (let ((path (merge-pathnames "stdin.bin" directory)))
+         (with-open-file (output path :direction :output
+                                       :element-type (quote (unsigned-byte 8)))
+           (write-sequence (make-array 3 :element-type (quote (unsigned-byte 8))
+                                     :initial-contents (list 65 0 255))
+                           output))
+         (with-open-file (*standard-input* path :direction :input
+                                             :element-type (quote (unsigned-byte 8)))
+           (multiple-value-bind (kind fields)
+               (run-flow (function aitools.process.application:run-command/k)
+                         (aitools.process.composition::make-process-dependencies)
+                         (aitools.process.application:make-run-request
+                          :argv (list "sh" "-c" "od -An -tx1 | tr -d '[:space:]'") :stdin t))
+             (expect kind :to-be :ok)
+             (expect (json-alist-value (field fields "stdout") "head")
+                     :to-equal (list "4100ff")))
+           (expect (open-stream-p *standard-input*) :to-be t)))))))
+
+(describe "aitools.process.application run-request slot types"
+  (it-each (((:argv 3)) ((:timeout 1)) ((:head -1)) ((:tail -1))
+            ((:grep 3)) ((:grep-limit -1)) ((:strip-ansi 1))
+            ((:stdout-to 3)) ((:stdin 1)) ((:stdin-data 3))
+            ((:stdin-file 3)) ((:cwd 3)) ((:env 3)) ((:root 3)))
+      "rejects invalid run-request fields ~S"
+      (arguments)
+    (signals type-error
+      (apply (function aitools.process.application:make-run-request) arguments))))
+
+(describe "aitools process non-fd binary stdin"
+  (it "feeds available octets without waiting for an fd or closing the caller stream"
+    (let* ((input (make-fake-binary-input
+                   (make-array 3 :element-type (quote (unsigned-byte 8))
+                                 :initial-contents (list 65 0 255))))
+           (*standard-input* input))
+      (multiple-value-bind (kind fields)
+          (run-flow (function aitools.process.application:run-command/k)
+                    (aitools.process.composition::make-process-dependencies)
+                    (aitools.process.application:make-run-request
+                     :argv (list "sh" "-c" "od -An -tx1 | tr -d '[:space:]'") :stdin t))
+        (expect kind :to-be :ok)
+        (expect (json-alist-value (field fields "stdout") "head")
+                :to-equal (list "4100ff"))
+        (expect (fake-binary-input-position input) :to-be 3)
+        (expect (open-stream-p input) :to-be t)))))
