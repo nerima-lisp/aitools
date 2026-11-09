@@ -55,7 +55,6 @@ the lexical target, and the real target (NIL when unresolvable)."
              (aitools.kernel.domain:flow-continue
               :on-inside
               (make-workspace-path
-               (coerce lexical 'simple-string)
                (coerce real 'simple-string)
                (coerce (path-relative-to (workspace-root-real root) real)
                        'simple-string))
@@ -63,9 +62,9 @@ the lexical target, and the real target (NIL when unresolvable)."
             (:temporary
              (aitools.kernel.domain:flow-continue
               :on-inside
-              (make-workspace-path (coerce lexical 'simple-string)
-                                   (coerce real 'simple-string)
-                                   (coerce real 'simple-string))
+              (make-workspace-path
+               (coerce real 'simple-string)
+               (coerce real 'simple-string))
               verdict))
             (t
              (aitools.kernel.domain:flow-continue

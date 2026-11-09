@@ -1,21 +1,18 @@
 ;;;;
-;;;; A pure value type for the three path representations `info`
-;;;; reports (absolute, real, relative) plus the string arithmetic the write
-;;;; boundary needs to decide whether one path is inside another. Resolving a real
-;;;; path (following symlinks) and deciding what "the workspace root" is are
-;;;; both I/O; those live in the workspace context's application layer, which
-;;;; calls WORKSPACE-PATH-INSIDE-P and PATH-RELATIVE-TO below with strings it
-;;;; already resolved.
+;;;; A pure value type for resolved and workspace-relative path strings, plus the
+;;;; string arithmetic the write boundary needs to decide whether one path is
+;;;; inside another. Resolving a real path (following symlinks) and deciding
+;;;; what "the workspace root" is are both I/O; those live in the workspace
+;;;; application, which calls WORKSPACE-PATH-INSIDE-P and PATH-RELATIVE-TO below
+;;;; with strings it already resolved.
 (in-package #:aitools.kernel.domain)
 
 (defstruct (workspace-path
-            (:constructor make-workspace-path (absolute real relative))
+            (:constructor make-workspace-path (real relative))
             (:copier nil))
-  "ABSOLUTE and REAL are namestrings without a trailing separator (except the
-filesystem root); REAL has had every symlink component resolved. RELATIVE is
+  "REAL is the namestring with every symlink component resolved. RELATIVE is
 the workspace-root-relative namestring, using `/` regardless of platform,
 without a leading `/` and without a leading `./`."
-  (absolute nil :type simple-string :read-only t)
   (real nil :type simple-string :read-only t)
   (relative nil :type simple-string :read-only t))
 

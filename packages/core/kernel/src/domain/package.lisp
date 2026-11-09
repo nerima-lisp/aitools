@@ -16,7 +16,6 @@
    ;; path.lisp
    #:workspace-path
    #:make-workspace-path
-   #:workspace-path-absolute
    #:workspace-path-real
    #:workspace-path-relative
    #:workspace-path-p

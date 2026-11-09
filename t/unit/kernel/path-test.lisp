@@ -42,22 +42,19 @@
     (expect (path-relative-to "/" "/a/b") :to-equal "a/b")
     (expect (path-relative-to "/" "/") :to-equal ""))
 
-  (it-each (("/ws/a" "/real/ws/a" "a")
-            ("/" "/real" ""))
-      "keeps workspace path forms absolute ~A, resolved ~A, and relative ~A"
-      (absolute real relative)
-    (let ((path (make-workspace-path absolute real relative)))
-      (expect (workspace-path-absolute path) :to-equal absolute)
+  (it-each (("/real/ws/a" "a")
+            ("/real" ""))
+    "keeps resolved ~A and relative ~A"
+    (real relative)
+    (let ((path (make-workspace-path real relative)))
       (expect (workspace-path-real path) :to-equal real)
       (expect (workspace-path-relative path) :to-equal relative)))
-  (it-each ((:absolute)
-            (:real)
+  (it-each ((:real)
             (:relative))
            "rejects a non-string ~S workspace path field"
            (field)
            (let ((value (read-from-string "1")))
              (signals type-error
                       (ecase field
-                        (:absolute (make-workspace-path value "/real" "relative"))
-                        (:real (make-workspace-path "/absolute" value "relative"))
-                        (:relative (make-workspace-path "/absolute" "/real" value)))))))
+                        (:real (make-workspace-path value "relative"))
+                        (:relative (make-workspace-path "/real" value)))))))
