@@ -182,6 +182,13 @@ reverse path order (contents before their directory)."
                                                             requests
                                                             :tx-id
                                                             tx-id
+                                                            ;; Disk planning may reject a swapped parent first;
+                                                            ;; check the archive boundary before planning too.
+                                                            :preflight-check
+                                                            (lambda ()
+                                                              (%recheck-tx-symlink-targets
+                                                               store
+                                                               index))
                                                             :precommit-check
                                                             (lambda ()
                                                               (%recheck-tx-symlink-targets

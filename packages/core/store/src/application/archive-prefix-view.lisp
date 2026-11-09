@@ -81,6 +81,7 @@
            ((eq kind :symlink)
             (setf (%archive-prefix-cursor-disk-live-p cursor) nil)
             (unless (and stage-present-p
+                         (not (eq stage-kind :directory))
                          (or (not deletions-visible)
                              (not (eq stage-kind :absent))))
               (setf (%archive-prefix-cursor-symlink-p cursor) t)))
