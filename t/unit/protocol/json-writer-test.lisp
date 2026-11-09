@@ -35,7 +35,15 @@
                                  nil)
                         (aitools.protocol.infrastructure:envelope-too-large (condition) condition))))
       (expect (aitools.protocol.infrastructure:envelope-too-large-limit condition) :to-be 16777216)
-      (expect (length (get-output-stream-string out)) :to-be 0))))
+      (expect (length (get-output-stream-string out)) :to-be 0)))
+  (it "prints the envelope-too-large condition report"
+    (let ((condition
+            (make-condition
+             (quote aitools.protocol.infrastructure:envelope-too-large)
+             :limit 16777216)))
+      (expect (princ-to-string condition)
+              :to-equal
+              "the output would exceed the 16777216-character JSON output limit"))))
 
 (describe "aitools.protocol.infrastructure write-envelope JSON round trip"
   (it-property "preserves generated strings through JSON encoding and parsing"
