@@ -110,15 +110,37 @@
                  (error condition))
       (http-kit:http-timeout (condition)
                              (declare (ignore condition))
-                             (%raise-net-error "environment.timeout" "The HTTP request timed out."))
+                             (%raise-net-error
+                              "environment.timeout"
+                              "The HTTP request timed out."))
       (http-kit:http-size-limit-exceeded (condition)
                                          (declare (ignore condition))
-                                         (%raise-net-error "refusal.too-large"
-                                                           "The HTTP response exceeded its size limit."))
+                                         (%raise-net-error
+                                          "refusal.too-large"
+                                          "The HTTP response exceeded its size limit."))
       (http-kit:http-unsupported-feature (condition)
                                          (declare (ignore condition))
-                                         (%raise-net-error "environment.unavailable"
-                                                           "The HTTP transport feature is unavailable."))
+                                         (%raise-net-error
+                                          "environment.unavailable"
+                                          "The HTTP transport feature is unavailable."))
+      (http-kit/client:http-proxy-error (condition)
+                                        (let ((cause
+                                                (getf
+                                                 (http-kit/client:http-client-error-detail
+                                                  condition)
+                                                 :cause)))
+                                          (if (and (typep cause 'net-error)
+                                                   (string=
+                                                    (aitools.net.domain:net-error-code
+                                                     cause)
+                                                    "internal.unexpected"))
+                                              (error cause)
+                                            (%raise-net-error
+                                             "environment.io"
+                                             "The HTTP request failed."))))
       (error (condition)
              (declare (ignore condition))
-             (%raise-net-error "environment.io" "The HTTP request failed.")))))
+             (%raise-net-error
+              "environment.io"
+              "The HTTP request failed.")))))
+

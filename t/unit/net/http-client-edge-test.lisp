@@ -174,4 +174,19 @@
             (http-test-error
              (lambda ()
                (funcall requester "GET" "http://origin.test/" 3d0)))))
-    (expect (first failure) :to-equal "environment.io"))))
+    (expect (first failure) :to-equal "environment.io")))
+  (cl-weave:it "preserves internal opener failures wrapped by cl-http-kit"
+    (let ((requester
+            (make-http-requester
+             (http-test-resolver (http-test-loopback-address))))
+          (failure nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote http-kit/network::%network-open-address))
+            (lambda (address-entry port deadline)
+              (declare (ignore address-entry port deadline))
+              :stream)))
+        (setf failure
+              (http-test-error
+               (lambda ()
+                 (funcall requester "GET" "http://origin.test/" 3d0)))))
+      (expect (first failure) :to-equal "internal.unexpected"))))
