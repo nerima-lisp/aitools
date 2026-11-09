@@ -2,39 +2,38 @@
 
 ;;; ------------------------------------------------------------- bg stop
 
-(defun %wait-for-exit (ports alive-p budget-ms)
-  (let ((start (funcall (process-ports-monotonic-ms ports))))
+(defun %wait-for-exit (boundaries alive-p budget-ms)
+  (let ((start (process-boundary-call boundaries :process-monotonic-ms)))
     (loop
       (unless (funcall alive-p)
         (return t))
-      (let ((elapsed (- (funcall (process-ports-monotonic-ms ports)) start)))
+      (let ((elapsed (- (process-boundary-call boundaries :process-monotonic-ms) start)))
         (when (>= elapsed budget-ms)
           (return nil))
-        (funcall (process-ports-sleep-ms ports) (min +stop-poll-ms+ (- budget-ms elapsed)))))))
+        (process-boundary-call boundaries :process-sleep-ms (min +stop-poll-ms+ (- budget-ms elapsed)))))))
 
-(defun %wait-for-group-exit (ports pid budget-ms)
-  (%wait-for-exit ports (lambda () (funcall (process-ports-group-alive-p ports) pid)) budget-ms))
+(defun %wait-for-group-exit (boundaries pid budget-ms)
+  (%wait-for-exit boundaries (lambda () (process-boundary-call boundaries :process-group-alive-p pid)) budget-ms))
 
-(defun %terminate-with-grace (ports alive-p send grace-ms)
+(defun %terminate-with-grace (boundaries alive-p send grace-ms)
   "Return the last signal sent. SEND handles its own safety checks."
   (funcall send +sigterm+)
-  (if (%wait-for-exit ports alive-p grace-ms)
+  (if (%wait-for-exit boundaries alive-p grace-ms)
       +sigterm+
       (progn (funcall send +sigkill+) +sigkill+)))
 
-(defun %send-stop-signal (ports directory record signal)
+(defun %send-stop-signal (boundaries directory record signal)
   "Record SIGNAL, then send it. Recording comes first because the
 supervisor dies with its group and can never report the signal itself."
   (let ((updated (aitools.process.domain:copy-bg-record-with-stop-signal record signal)))
-    (funcall (process-ports-replace-file ports)
-             (%bg-path directory (aitools.process.domain:bg-record-file-name
+    (process-boundary-call boundaries :process-replace-file (%bg-path directory (aitools.process.domain:bg-record-file-name
                                   (aitools.process.domain:bg-record-id record)))
              (aitools.process.domain:serialize-bg-record updated))
-    (funcall (process-ports-signal-group ports) (aitools.process.domain:bg-record-pid record) signal)
+    (process-boundary-call boundaries :process-signal-group (aitools.process.domain:bg-record-pid record) signal)
     updated))
 
-(defun %stop-fields (ports directory record stopped)
-  (multiple-value-bind (running exit-code signal) (%bg-state ports directory record)
+(defun %stop-fields (boundaries directory record stopped)
+  (multiple-value-bind (running exit-code signal) (%bg-state boundaries directory record)
     (declare (ignore running))
     (list (cons "id" (aitools.process.domain:bg-record-id record))
           (cons "stopped" (aitools.protocol.domain:json-boolean stopped))
@@ -42,34 +41,34 @@ supervisor dies with its group and can never report the signal itself."
           (cons "signal" (aitools.process.domain:json-or-null signal)))))
 
 (aitools.kernel.domain:define-flow
-    (bg-stop/k ports id &key (grace "5s") on-ok on-partial on-error)
+    (bg-stop/k boundaries id &key (grace "5s") on-ok on-partial on-error)
   "SIGTERM to ID's process group, then SIGKILL if it is still there
 after GRACE. `stopped` is false when the process had already ended."
   (declare (ignore on-partial))
   (aitools.kernel.domain:flow-call
    (%call-with-duration-ms grace "--grace" "bg.stop")
    (:on-value (grace-ms)
-     (%reporting-port-errors "bg.stop"
+     (%reporting-boundary-errors "bg.stop"
        (aitools.kernel.domain:flow-call
-        (%call-with-bg-directory ports "bg.stop")
+        (%call-with-bg-directory boundaries "bg.stop")
         (:on-directory (directory)
           (aitools.kernel.domain:flow-call
-           (%call-with-bg-record ports directory id)
+           (%call-with-bg-record boundaries directory id)
            (:on-record (record)
              (let ((pid (aitools.process.domain:bg-record-pid record)))
-               (if (not (nth-value 0 (%bg-state ports directory record)))
+               (if (not (nth-value 0 (%bg-state boundaries directory record)))
                    (aitools.kernel.domain:flow-continue
-                    :on-ok (%stop-fields ports directory record nil))
+                    :on-ok (%stop-fields boundaries directory record nil))
                    (let ((record record))
                      (%terminate-with-grace
-                      ports
-                      (lambda () (funcall (process-ports-group-alive-p ports) pid))
+                      boundaries
+                      (lambda () (process-boundary-call boundaries :process-group-alive-p pid))
                       (lambda (signal)
-                        (setf record (%send-stop-signal ports directory record signal)))
+                        (setf record (%send-stop-signal boundaries directory record signal)))
                       grace-ms)
-                     (if (%wait-for-group-exit ports pid +kill-wait-ms+)
+                     (if (%wait-for-group-exit boundaries pid +kill-wait-ms+)
                          (aitools.kernel.domain:flow-continue
-                          :on-ok (%stop-fields ports directory record t))
+                          :on-ok (%stop-fields boundaries directory record t))
                          (aitools.kernel.domain:flow-continue
                           :on-error
                           "environment.io"

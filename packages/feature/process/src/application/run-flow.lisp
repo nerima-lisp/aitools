@@ -53,9 +53,9 @@ relative `--stdout-to` means."
   (aitools.workspace.application:user-path-absolute host target))
 
 (aitools.kernel.domain:define-flow
-    (%call-with-stdout-target ports root target &key on-error on-resolved)
+    (%call-with-stdout-target boundaries root target &key on-error on-resolved)
   "Check TARGET against the workspace boundary and call ON-RESOLVED with the real and reported paths, or report refusal through ON-ERROR."
-  (let ((host (process-ports-workspace-host ports)))
+  (let ((host (cl-boundary-kit:boundary-context-require boundaries :process-workspace-host)))
     (if (null host)
         (aitools.kernel.domain:flow-continue
          :on-error
@@ -82,7 +82,7 @@ relative `--stdout-to` means."
             host
             resolved-root
             (%absolute-target host target)
-            :temporary-root (funcall (process-ports-temporary-directory ports))
+            :temporary-root (process-boundary-call boundaries :process-temporary-directory)
             :on-inside
             (lambda (path verdict)
               (declare (ignore verdict))
@@ -104,7 +104,7 @@ relative `--stdout-to` means."
                              "aitools mktemp"))))))))))
 
 (aitools.kernel.domain:define-flow
-    (%run-program ports request pattern timeout-ms stdout-real stdout-reported
+    (%run-program boundaries request pattern timeout-ms stdout-real stdout-reported
                   &key on-ok on-partial on-error)
   (labels ((report (outcome)
              (aitools.kernel.domain:flow-call
@@ -113,10 +113,9 @@ relative `--stdout-to` means."
                  (aitools.kernel.domain:flow-continue :on-ok fields))
                (:on-partial (fields)
                  (aitools.kernel.domain:flow-continue :on-partial fields)))))
-    (%reporting-port-errors "run"
+    (%reporting-boundary-errors "run"
       (multiple-value-bind (status value program)
-          (funcall (process-ports-run-program ports)
-                   (run-request-argv request) timeout-ms
+          (process-boundary-call boundaries :process-run-program (run-request-argv request) timeout-ms
                    :stdout-path stdout-real
                    :stdin (run-request-stdin request)
                    :stdin-data (run-request-stdin-data request)
@@ -160,11 +159,11 @@ relative `--stdout-to` means."
      "--cwd needs a nonempty directory path without NUL characters")))
 
 (aitools.kernel.domain:define-flow
-    (run-command/k ports request &key on-ok on-partial on-error)
-  "Run REQUEST's argv through PORTS' RUN-PROGRAM and report the run fields. Calls exactly one of ON-OK, ON-PARTIAL, or ON-ERROR."
+    (run-command/k boundaries request &key on-ok on-partial on-error)
+  "Run REQUEST's argv through the process boundary context and report the run fields. Calls exactly one of ON-OK, ON-PARTIAL, or ON-ERROR."
   (flet ((execute (timeout-ms pattern stdout-real stdout-reported)
            (aitools.kernel.domain:flow-call
-               (%run-program ports request pattern timeout-ms stdout-real stdout-reported)
+               (%run-program boundaries request pattern timeout-ms stdout-real stdout-reported)
              (:on-ok (fields)
                (aitools.kernel.domain:flow-continue :on-ok fields))
              (:on-partial (fields)
@@ -197,7 +196,7 @@ relative `--stdout-to` means."
                    (if target
                        (aitools.kernel.domain:flow-call
                            (%call-with-stdout-target
-                            ports (run-request-root request) target)
+                            boundaries (run-request-root request) target)
                          (:on-resolved (stdout-real stdout-reported)
                            (execute timeout-ms pattern stdout-real stdout-reported))
                          (:on-error (code message &key repairs)

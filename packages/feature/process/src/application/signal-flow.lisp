@@ -5,9 +5,8 @@
   (aitools.kernel.domain:flow-continue
    :on-error code message :repairs (list (%schema-repair "signal"))))
 
-(defun %signal-alive-p (ports target)
-  (let ((current (funcall (process-ports-process-info ports)
-                          (aitools.process.domain:process-identity-pid target))))
+(defun %signal-alive-p (boundaries target)
+  (let ((current (process-boundary-call boundaries :process-process-info (aitools.process.domain:process-identity-pid target))))
     (and current
          (let ((expected-command-line
                  (aitools.process.domain:process-identity-command-line target))
@@ -17,30 +16,30 @@
                 (stringp current-command-line)
                 (aitools.process.domain:same-process-p target current))))))
 
-(defun %deliver-process-signal (ports target number)
-  (unless (funcall (process-ports-signal-process ports) target number)
+(defun %deliver-process-signal (boundaries target number)
+  (unless (process-boundary-call boundaries :process-signal-process target number)
     (error 'process-target-changed
            :message (format nil "process ~D disappeared before signalling"
                             (aitools.process.domain:process-identity-pid target)))))
 
-(defun %signal-target-signal (ports target number grace-ms)
+(defun %signal-target-signal (boundaries target number grace-ms)
   (if grace-ms
       (%terminate-with-grace
-       ports
-       (lambda () (%signal-alive-p ports target))
-       (lambda (value) (%deliver-process-signal ports target value))
+       boundaries
+       (lambda () (%signal-alive-p boundaries target))
+       (lambda (value) (%deliver-process-signal boundaries target value))
        grace-ms)
       (progn
-        (%deliver-process-signal ports target number)
+        (%deliver-process-signal boundaries target number)
         number)))
 
-(defun %signal-targets (ports pid pattern)
+(defun %signal-targets (boundaries pid pattern)
   (if pid
-      (let ((info (funcall (process-ports-process-info ports) pid)))
+      (let ((info (process-boundary-call boundaries :process-process-info pid)))
         (and info (list info)))
       (let ((compiled (aitools.process.domain:compile-line-pattern pattern)))
-        (loop for candidate in (funcall (process-ports-list-pids ports))
-              for info = (funcall (process-ports-process-info ports) candidate)
+        (loop for candidate in (process-boundary-call boundaries :process-list-pids)
+              for info = (process-boundary-call boundaries :process-process-info candidate)
               when (and info
                         (let ((command-line
                                 (aitools.process.domain:process-identity-command-line info)))
@@ -48,12 +47,12 @@
                             (error 'process-target-changed
                                    :message (format nil "cannot read argv for process ~D during pattern selection"
                                                     candidate)))
-                          (and (funcall (process-ports-safe-target-p ports) info)
+                          (and (process-boundary-call boundaries :process-safe-target-p info)
                                (aitools.process.domain:line-pattern-matches-p compiled command-line))))
                 collect info))))
 (defun %signal-target-result
-    (ports pid pattern expect-command expect-start expect-count signal grace-ms)
-  (let ((targets (%signal-targets ports pid pattern)))
+    (boundaries pid pattern expect-command expect-start expect-count signal grace-ms)
+  (let ((targets (%signal-targets boundaries pid pattern)))
     (cond
       ((and pattern (/= (length targets) expect-count))
        (list :error
@@ -84,7 +83,7 @@
              "PID identity guard does not match"))
       (t
        (if (some (lambda (target)
-                   (not (funcall (process-ports-safe-target-p ports) target)))
+                   (not (process-boundary-call boundaries :process-safe-target-p target)))
                  targets)
            (list :error
                  "refusal.target-changed"
@@ -96,7 +95,7 @@
                    (dolist (target targets)
                      (let ((last-signal
                              (%signal-target-signal
-                              ports target number grace-ms)))
+                              boundaries target number grace-ms)))
                        (push
                         (aitools.protocol.domain:json-object
                          "pid"
@@ -120,8 +119,38 @@
                                  (cons "total" (length targets))))
                      (error condition))))))))))
 
+(defun %signal-selector-error (pid pattern)
+  (cond
+    ((not (if pid (null pattern) (and pattern (plusp (length pattern)))))
+     (list "argument.invalid" "specify exactly one of --pid or --pattern"))
+    ((and pid (< pid 2))
+     (list "refusal.target-changed" "PID below 2 is unsafe"))))
+
+(defun %signal-identity-error (pid pattern expect-command expect-start expect-count)
+  (cond
+    ((and pid (not (or (and expect-command (plusp (length expect-command))) expect-start)))
+     (list "argument.invalid" "--pid needs --expect-command or --expect-start"))
+    ((and pattern (null expect-count))
+     (list "argument.invalid" "--pattern needs --expect-count"))
+    ((and pattern (or expect-command expect-start))
+     (list "argument.invalid" "PID identity guards require --pid"))
+    ((and pid expect-count)
+     (list "argument.invalid" "--expect-count requires --pattern"))))
+
+(defun %signal-option-error (signal grace)
+  (cond
+    ((null (aitools.process.domain:signal-number signal))
+     (list "argument.invalid" "unknown signal name"))
+    ((and grace (not (string-equal signal "TERM")))
+     (list "argument.invalid" "--grace requires TERM"))))
+
+(defun %signal-request-error (pid pattern expect-command expect-start expect-count signal grace)
+  (or (%signal-selector-error pid pattern)
+      (%signal-identity-error pid pattern expect-command expect-start expect-count)
+      (%signal-option-error signal grace)))
+
 (aitools.kernel.domain:define-flow
-    (signal-command/k ports &key pid pattern expect-command expect-start expect-count
+    (signal-command/k boundaries &key pid pattern expect-command expect-start expect-count
                              (signal "TERM") grace on-ok on-partial on-error)
   (declare (type function on-ok on-partial on-error))
   (labels ((report-error (code message)
@@ -132,10 +161,10 @@
                  :on-error error-code error-message
                  :repairs repairs))))
            (run (grace-ms)
-             (%reporting-port-errors "signal"
+             (%reporting-boundary-errors "signal"
                (let ((result
                        (%signal-target-result
-                        ports pid pattern expect-command expect-start expect-count signal
+                        boundaries pid pattern expect-command expect-start expect-count signal
                         grace-ms)))
                  (ecase (first result)
                    (:error
@@ -146,30 +175,19 @@
                    (:partial
                     (aitools.kernel.domain:flow-continue
                      :on-partial (second result))))))))
-    (cond
-      ((not (if pid (null pattern) (and pattern (plusp (length pattern)))))
-       (report-error "argument.invalid" "specify exactly one of --pid or --pattern"))
-      ((and pid (< pid 2))
-       (report-error "refusal.target-changed" "PID below 2 is unsafe"))
-      ((and pid (not (or (and expect-command (plusp (length expect-command))) expect-start)))
-       (report-error "argument.invalid" "--pid needs --expect-command or --expect-start"))
-      ((and pattern (null expect-count))
-       (report-error "argument.invalid" "--pattern needs --expect-count"))
-      ((and pattern (or expect-command expect-start))
-       (report-error "argument.invalid" "PID identity guards require --pid"))
-      ((and pid expect-count)
-       (report-error "argument.invalid" "--expect-count requires --pattern"))
-      ((null (aitools.process.domain:signal-number signal))
-       (report-error "argument.invalid" "unknown signal name"))
-      ((and grace (not (string-equal signal "TERM")))
-       (report-error "argument.invalid" "--grace requires TERM"))
-      (t
-       (if grace
-           (aitools.kernel.domain:flow-call
-            (%call-with-duration-ms grace "--grace" "signal")
-            (:on-value (grace-ms)
-              (run grace-ms))
-            (:on-error (code message &key repairs)
-              (aitools.kernel.domain:flow-continue
-               :on-error code message :repairs repairs)))
-           (run nil))))))
+    (let ((input-error
+            (%signal-request-error
+             pid pattern expect-command expect-start expect-count signal grace)))
+      (cond
+        (input-error
+         (report-error (first input-error) (second input-error)))
+        (t
+         (if grace
+             (aitools.kernel.domain:flow-call
+              (%call-with-duration-ms grace "--grace" "signal")
+              (:on-value (grace-ms)
+                (run grace-ms))
+              (:on-error (code message &key repairs)
+                (aitools.kernel.domain:flow-continue
+                 :on-error code message :repairs repairs)))
+             (run nil)))))))

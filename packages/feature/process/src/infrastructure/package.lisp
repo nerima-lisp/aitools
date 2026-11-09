@@ -1,5 +1,5 @@
 ;;;;
-;;;; Production adapters for AITOOLS.PROCESS.APPLICATION:PROCESS-PORTS:
+;;;; Production adapters installed in AITOOLS.PROCESS.APPLICATION boundary contexts:
 ;;;; process-kit for `run` and `bg start`, sb-posix for process-group
 ;;;; signals, sb-bsd-sockets for `wait --port`, and plain CL file I/O for the
 ;;;; `bg/` directory.
@@ -14,5 +14,5 @@
   (:export
    ;; bg-launcher.lisp
    #:find-spawn-trampoline
-   ;; ports.lisp
-   #:make-production-process-ports))
+   ;; boundaries.lisp
+   make-production-process-capabilities))

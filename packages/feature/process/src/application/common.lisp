@@ -46,7 +46,7 @@ duration."
         (:no-error (pattern)
           (aitools.kernel.domain:flow-continue :on-pattern pattern)))))
 
-(defmacro %reporting-port-errors (command-name &body body)
+(defmacro %reporting-boundary-errors (command-name &body body)
   "Run BODY, reporting a PROCESS-PORT-ERROR or a pattern that fails while
 matching through ON-ERROR instead of letting it escape the flow."
   (let ((condition (gensym "CONDITION")))

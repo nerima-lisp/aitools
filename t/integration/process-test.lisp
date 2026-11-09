@@ -15,8 +15,7 @@ whichever stream the command wrote."
   (let ((registry (aitools.protocol.application:make-command-registry)))
     (aitools.process.presentation:register-process-commands
      registry
-     (aitools.process.infrastructure:make-production-process-ports
-      :state-directory-function (and state-directory (lambda () state-directory))
+     (aitools.process.composition::make-process-dependencies :state-directory-function (and state-directory (lambda () state-directory))
       :workspace-host (and cwd (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (lambda () (string-right-trim "/" (namestring cwd)))))))
     (let* ((app (cl-cli:make-app :name "aitools" :commands (aitools/cli:finalize-app-commands registry)))
            (stdout (make-string-output-stream))
@@ -119,8 +118,7 @@ argv[0] preserves the command name for multi-call executables."
              (result (aitools.protocol.application:call-with-command-result/k
                       (lambda (&rest continuations)
                         (apply #'aitools.process.application:run-command/k
-                               (aitools.process.infrastructure:make-production-process-ports
-                                :state-directory-function (lambda () state)
+                               (aitools.process.composition::make-process-dependencies :state-directory-function (lambda () state)
                                 :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory
                                                  (lambda () (string-right-trim "/" (namestring root)))))
                                (aitools.process.application:make-run-request

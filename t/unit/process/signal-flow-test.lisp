@@ -13,16 +13,15 @@
                     :command-line (unless (eql pid nil-command-line)
                                     (format nil "sleep fixture-~D" pid)))))
     (values
-     (aitools.process.application:make-process-ports
-      :list-pids (lambda ()
+     (make-test-process-boundaries :process-list-pids (lambda ()
                    (sort (loop for pid being the hash-keys of table collect pid) #'<))
-      :process-info (lambda (pid) (unless (eql pid missing-info) (gethash pid table)))
-      :safe-target-p (lambda (target)
+      :process-process-info (lambda (pid) (unless (eql pid missing-info) (gethash pid table)))
+      :process-safe-target-p (lambda (target)
                        (and (stringp (aitools.process.domain:process-identity-command-line target))
                             (not (eql (aitools.process.domain:process-identity-pid target) unsafe))
                             (aitools.process.domain:same-process-p
                              target (gethash (aitools.process.domain:process-identity-pid target) table))))
-      :signal-process (lambda (target number)
+      :process-signal-process (lambda (target number)
                         (let ((pid (aitools.process.domain:process-identity-pid target)))
                           (when change-on-send
                             (setf (gethash pid table)
@@ -41,8 +40,8 @@
                             (unless (and ignore-term (= number 15))
                               (remhash pid table))
                             t)))
-      :monotonic-ms (lambda () clock)
-      :sleep-ms (lambda (milliseconds) (incf clock milliseconds)))
+      :process-monotonic-ms (lambda () clock)
+      :process-sleep-ms (lambda (milliseconds) (incf clock milliseconds)))
      (lambda () (reverse sent))
      (lambda () clock))))
 
@@ -63,8 +62,8 @@
       (funcall function))))
 
 (defun call-signal-port (target)
-  (let ((ports (aitools.process.infrastructure:make-production-process-ports)))
-    (funcall (aitools.process.application::process-ports-signal-process ports)
+  (let ((ports (aitools.process.composition::make-process-dependencies)))
+    (funcall (cl-boundary-kit:boundary-context-require ports :process-signal-process)
              target 15)))
 
 (describe "aitools signal flow guards"

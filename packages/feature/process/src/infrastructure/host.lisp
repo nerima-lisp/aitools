@@ -1,9 +1,9 @@
 ;;;;
-;;;; File, signal, socket, and clock adapters for PROCESS-PORTS. Every I/O
-;;;; failure leaves as AITOOLS.PROCESS.APPLICATION:PROCESS-PORT-ERROR.
+;;;; File, signal, socket, and clock adapters installed in the process boundary
+;;;; context. Every I/O failure leaves as AITOOLS.PROCESS.APPLICATION:PROCESS-PORT-ERROR.
 (in-package #:aitools.process.infrastructure)
 
-(defmacro %port-io ((description &rest arguments) &body body)
+(defmacro %process-boundary-io ((description &rest arguments) &body body)
   (let ((condition (gensym "CONDITION")))
     `(handler-case (progn ,@body)
        ((or file-error stream-error sb-posix:syscall-error) (,condition)
@@ -13,7 +13,7 @@
 ;;; ---------------------------------------------------------------- files
 
 (defun %list-directory (directory)
-  (%port-io ("listing ~A" directory)
+  (%process-boundary-io ("listing ~A" directory)
     ;; DIRECTORY returns NIL for a directory it cannot read, which would make
     ;; `bg status` report no processes; opening it first surfaces the error.
     (sb-posix:closedir (sb-posix:opendir (uiop:native-namestring directory)))
@@ -26,7 +26,7 @@
   (open path :element-type '(unsigned-byte 8) :if-does-not-exist if-does-not-exist))
 
 (defun %read-octets (path start end)
-  (%port-io ("reading ~A" path)
+  (%process-boundary-io ("reading ~A" path)
     (with-open-stream (in (%open-input-file path))
       (let* ((end (min end (file-length in)))
              (octets (make-array (max 0 (- end start)) :element-type '(unsigned-byte 8))))
@@ -35,14 +35,14 @@
         octets))))
 
 (defun %file-size (path)
-  (%port-io ("inspecting ~A" path)
+  (%process-boundary-io ("inspecting ~A" path)
     (let ((stream (%open-input-file path :if-does-not-exist nil)))
       (when stream
         (with-open-stream (in stream)
           (file-length in))))))
 
 (defun %read-file-text (path)
-  (%port-io ("reading ~A" path)
+  (%process-boundary-io ("reading ~A" path)
     (let ((stream (%open-input-file path :if-does-not-exist nil)))
       (when stream
         (with-open-stream (in stream)
@@ -106,7 +106,7 @@ cannot be guessed and pre-created; falls back to pid and clock if unreadable."
 concurrent reader sees the old record or the new one, never a partial one. The
 temp is created O_CREAT|O_EXCL|O_NOFOLLOW 0600 under an unpredictable name, so a
 symlink or a guessed name planted at the temp path is refused, not written."
-  (%port-io ("writing ~A" path)
+  (%process-boundary-io ("writing ~A" path)
     (loop for attempt from 1
           for temporary = (make-pathname :name (format nil ".~A.tmp-~A" (pathname-name path)
                                                        (%random-temp-suffix))
@@ -123,7 +123,7 @@ symlink or a guessed name planted at the temp path is refused, not written."
                (return))))
 
 (defun %remove-file (path)
-  (%port-io ("removing ~A" path)
+  (%process-boundary-io ("removing ~A" path)
     (when (probe-file path)
       (delete-file path))))
 

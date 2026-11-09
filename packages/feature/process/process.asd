@@ -2,10 +2,7 @@
 
 (defsystem "aitools/feature/process"
   :description "Foreground and background process features."
-  :depends-on ("aitools/data"
-               "aitools/core/protocol" "aitools/core/text"
-               "cl-json-kit" "cl-host-kit" "cl-process-kit"
-               "cl-concurrent-kit")
+  :depends-on ("aitools/data" "aitools/core/protocol" "aitools/core/text" "cl-boundary-kit" "cl-json-kit" "cl-host-kit" "cl-process-kit" "cl-concurrent-kit")
   :pathname "src/"
   :components
   ((:module "domain"
@@ -16,7 +13,7 @@
                  (:file "signal-target")))
    (:module "application" :serial t
     :components ((:file "package")
-                 (:file "ports")
+                 (:file "boundaries")
                  (:file "common")
                  (:file "run-flow")
                  (:file "bg-flow")
@@ -27,10 +24,10 @@
    (:module "infrastructure" :serial t
     :components ((:file "package") (:file "host")
                  (:file "signal-host-helpers") (:file "signal-host")
-                 (:file "runner") (:file "bg-launcher") (:file "ports")))))
+                 (:file "runner") (:file "bg-launcher") (:file "boundaries")))))
 (defsystem "aitools/feature/process/presentation"
   :description "Process CLI commands."
-  :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-cli")
+  :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-cli" "cl-boundary-kit")
   :pathname "src/"
   :components
   ((:module "presentation" :serial t :components ((:file "package") (:file "commands"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
@@ -52,8 +49,7 @@
      (:file "unit/process/flows-bg-error-test")
      (:file "unit/process/signal-flow-test")
      (:file "unit/process/host-clock-test")
-     (:module "integration" :pathname "integration/" :serial t
-      :components ((:file "process-test")
+     (:module "integration" :pathname "integration/" :serial t :components ((:file "process-test")
                    (:file "process-run-test")
                    (:file "process-bg-test")
                    (:file "process-bg-ended-test")
@@ -61,6 +57,6 @@
                    (:file "process-ports-test")
                    (:file "process-ports-state-test")
                    (:file "process-ports-launch-test")
-                   (:file "process-ports-launch-trace-test")))
+                   (:file "process-ports-launch-trace-test") (:file "process-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "process-env-cases")))))))
