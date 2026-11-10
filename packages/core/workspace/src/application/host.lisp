@@ -49,9 +49,10 @@
  host-list-directory
  :workspace-list-directory
  (path)
- "Return (VALUES entries readable-p): PATH children as WORKSPACE-ENTRY
+ "Return (VALUES entries readable-p complete-p): PATH children as WORKSPACE-ENTRY
 values using lstat semantics, in any order, and omit the . and .. entries.
-READABLE-P is NIL when PATH is missing, not a directory, or unreadable.")
+READABLE-P is NIL when PATH is missing, not a directory, or unreadable.
+COMPLETE-P is NIL when any child could not be inspected.")
 
 (define-workspace-operation
  host-stat

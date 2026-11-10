@@ -43,25 +43,26 @@ the lexical target, and the real target (NIL when unresolvable)."
                            (find-git-repositories host real-root))))
          ;; TEMPORARY-ROOT bypasses ROOT, so check it against every discovered common dir.
          (common-root-metadata
-           (some (lambda (candidate)
-                   (let* ((common-path (git-repository-common-dir candidate))
-                          (common-directory
-                            (and common-path (resolve-real-path host common-path))))
-                     (or (null common-directory)
-                         (aitools.workspace.domain:git-common-root-metadata-path-p
-                          common-path (workspace-root-path root))
-                         (aitools.workspace.domain:git-common-root-metadata-path-p
-                          common-directory real-root)
-                         (and temporary-real
-                              real
-                              (path-inside-p temporary-real real)
-                              (or (aitools.workspace.domain:git-common-root-metadata-path-p
-                                   common-path (normalize-path temporary-root))
-                                  (aitools.workspace.domain:git-common-root-metadata-path-p
-                                   common-directory temporary-real)
-                                  (aitools.workspace.domain:git-metadata-path-inside-p
-                                   common-directory temporary-real))))))
-                 repositories))
+           (some
+            (lambda (candidate)
+              (let* ((common-path (git-repository-common-dir candidate))
+                     (common-directory
+                       (and common-path
+                            (resolve-real-path host common-path))))
+                (or (null common-directory)
+                    (%git-common-root-metadata-path-p common-path (workspace-root-path root))
+                    (%git-common-root-metadata-path-p common-directory real-root)
+                    (or (%git-common-root-identity-hazard-p host common-directory (workspace-root-path root))
+                        (%git-common-root-identity-hazard-p host common-directory real-root))
+                    (and temporary-real
+                         real
+                         (path-inside-p temporary-real real)
+                         (or (%git-common-root-metadata-path-p common-path (normalize-path temporary-root))
+                             (%git-common-root-metadata-path-p common-directory temporary-real)
+                             (or (%git-common-root-identity-hazard-p host common-directory (normalize-path temporary-root))
+                                 (%git-common-root-identity-hazard-p host common-directory temporary-real))
+                             (%git-metadata-path-inside-p common-directory temporary-real))))))
+            repositories))
          (git-real
            (remove nil
                    (loop for candidate in repositories
@@ -72,16 +73,12 @@ the lexical target, and the real target (NIL when unresolvable)."
                            (and common-path (resolve-real-path host common-path))
                          for common-is-parent =
                            (and common-directory
-                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                 common-directory real-root)
-                                (not (aitools.workspace.domain:git-metadata-path-inside-p
-                                      real-root common-directory)))
+                                (%git-metadata-path-inside-p common-directory real-root)
+                                (not (%git-metadata-path-inside-p real-root common-directory)))
                          for common-is-child =
                            (and common-directory
-                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                 real-root common-directory)
-                                (not (aitools.workspace.domain:git-metadata-path-inside-p
-                                      common-directory real-root)))
+                                (%git-metadata-path-inside-p real-root common-directory)
+                                (not (%git-metadata-path-inside-p common-directory real-root)))
                          append
                            (append
                             ;; Only an equal bare git/common ancestor needs omission; the root-entry rule guards it.
@@ -89,77 +86,38 @@ the lexical target, and the real target (NIL when unresolvable)."
                                 (and common-is-parent
                                      git-directory
                                      common-directory
-                                     (aitools.workspace.domain:git-metadata-path-inside-p
-                                      common-directory git-directory)
-                                     (aitools.workspace.domain:git-metadata-path-inside-p
-                                      git-directory common-directory)
+                                     (%git-metadata-path-inside-p common-directory git-directory)
+                                     (%git-metadata-path-inside-p git-directory common-directory)
                                      (some
                                       (lambda (worktree)
-                                        (let* ((worktree-top
-                                                 (resolve-real-path
-                                                  host
-                                                  (git-repository-top worktree)))
+                                        (let* ((worktree-top (resolve-real-path host (git-repository-top worktree)))
                                                (worktree-git-directory
-                                                 (resolve-real-path
-                                                  host
-                                                  (git-repository-git-dir worktree)))
-                                               (common-path
-                                                 (git-repository-common-dir worktree))
+                                                (resolve-real-path host (git-repository-git-dir worktree)))
+                                               (common-path (git-repository-common-dir worktree))
                                                (worktree-common-directory
-                                                 (and common-path
-                                                      (resolve-real-path
-                                                       host common-path)))
-                                               (worktree-root-parent
-                                                 (and worktree-top
-                                                      (path-parent worktree-top)))
+                                                (and common-path (resolve-real-path host common-path)))
                                                (worktree-git-parent
-                                                 (and worktree-git-directory
-                                                      (path-parent worktree-git-directory))))
+                                                (and worktree-git-directory (path-parent worktree-git-directory))))
                                           (and worktree-top
                                                worktree-git-directory
                                                worktree-common-directory
-                                               worktree-root-parent
                                                worktree-git-parent
-                                               (not
-                                                (and
-                                                 (aitools.workspace.domain:git-metadata-path-inside-p
-                                                  worktree-common-directory
-                                                  worktree-git-directory)
-                                                 (aitools.workspace.domain:git-metadata-path-inside-p
-                                                  worktree-git-directory
-                                                  worktree-common-directory)))
-                                               (and
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 real-root worktree-top)
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 worktree-top real-root))
-                                               (and
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 (join-path worktree-common-directory
-                                                            ".worktrees")
-                                                 worktree-root-parent)
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 worktree-root-parent
-                                                 (join-path worktree-common-directory
-                                                            ".worktrees")))
-                                               (and
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 (join-path worktree-common-directory
-                                                            "worktrees")
-                                                 worktree-git-parent)
-                                                (aitools.workspace.domain:git-metadata-path-inside-p
-                                                 worktree-git-parent
-                                                 (join-path worktree-common-directory
-                                                            "worktrees")))
-                                               (string-equal
-                                                (path-basename worktree-top)
-                                                (path-basename
-                                                 worktree-git-directory)))))
+                                               (and (%git-metadata-path-inside-p common-directory worktree-common-directory)
+                                                    (%git-metadata-path-inside-p worktree-common-directory common-directory))
+                                               (not (and (%git-metadata-path-inside-p worktree-common-directory worktree-git-directory)
+                                                         (%git-metadata-path-inside-p worktree-git-directory worktree-common-directory)))
+                                               (and (%git-metadata-path-inside-p real-root worktree-top)
+                                                    (%git-metadata-path-inside-p worktree-top real-root))
+                                               (and (%git-metadata-path-inside-p (join-path worktree-common-directory "worktrees") worktree-git-parent)
+                                                    (%git-metadata-path-inside-p worktree-git-parent (join-path worktree-common-directory "worktrees")))
+                                               (%registered-linked-worktree-p host worktree-top worktree-git-directory))))
                                       repositories))
                               (when git-directory (list git-directory)))
                             (when common-is-child (list common-directory)))))))
     (cond
-      (common-root-metadata
+      ((or (%git-path-has-dot-git-component-p (workspace-root-path root))
+       (%git-path-has-dot-git-component-p real-root)
+       common-root-metadata)
        (aitools.kernel.domain:flow-continue
         :on-outside :git-directory lexical real))
       ((null real)
@@ -174,14 +132,13 @@ the lexical target, and the real target (NIL when unresolvable)."
        (aitools.kernel.domain:flow-continue
         :on-outside :git-directory lexical real))
       (t
-       (let ((verdict (write-target-verdict
-                       :root (workspace-root-path root)
+       (let ((verdict (write-target-verdict :root (workspace-root-path root)
                        :real-root real-root
                        :target lexical
                        :real-target real
                        :temporary-root temporary-real
                        :real-state-root state-real
-                       :real-git-directories git-real)))
+                       :real-git-directories git-real :name-fold-function (function %git-name-fold))))
          (case verdict
            (:inside
             (aitools.kernel.domain:flow-continue

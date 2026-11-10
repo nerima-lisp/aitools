@@ -48,7 +48,7 @@
      "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason)
     (:skip
      "case-sensitive filesystem: property cannot be observed on a case-sensitive filesystem; fake-host name-check specs cover the folding rule on every platform"
-     "the case-sensitive filesystem has no stat alias for the Unicode-folded path"
+     "case-sensitive filesystem: property cannot be observed on a case-sensitive filesystem; fake-host name-check specs cover the folding rule on every platform"
      nil nil :exact-reason)))
 
 (defvar *progress-lock* (sb-thread:make-mutex :name "aitools test progress"))

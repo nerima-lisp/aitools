@@ -71,9 +71,9 @@
                   (repository (workspace-root-repository root)))
              (expect (workspace-root-real root) :to-equal nfd-root)
              (expect (git-repository-common-dir repository) :to-equal nfc-root)
-             (expect (git-metadata-path-inside-p nfc-root nfd-root)
+             (expect (git-metadata-path-inside-p nfc-root nfd-root :name-fold-function (function aitools.workspace.application::%git-name-fold))
                      :to-be-truthy)
-             (expect (git-metadata-path-inside-p nfd-root nfc-root)
+             (expect (git-metadata-path-inside-p nfd-root nfc-root :name-fold-function (function aitools.workspace.application::%git-name-fold))
                      :to-be-truthy)
              (expect (boundary-verdict host root "src/new.txt")
                      :to-be
@@ -137,12 +137,10 @@
                 (expect (boundary-verdict host root "src/new.txt")
                         :to-be
                         :git-directory)
-                (expect (git-metadata-path-inside-p nfc-common checkout)
+                (expect (git-metadata-path-inside-p nfc-common checkout :name-fold-function (function aitools.workspace.application::%git-name-fold))
                         :to-be-truthy)
                 (expect
-                 (git-metadata-path-inside-p
-                  (concatenate (quote string) nfc-common "/objects")
-                  checkout)
+                 (git-metadata-path-inside-p (concatenate (quote string) nfc-common "/objects") checkout :name-fold-function (function aitools.workspace.application::%git-name-fold))
                  :to-be-truthy)))
           (it "refuses temporary targets inside Git metadata"
               (expect

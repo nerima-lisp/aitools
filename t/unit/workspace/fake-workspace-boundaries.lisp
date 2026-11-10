@@ -10,9 +10,12 @@
     (cond ((null slash) nil) ((zerop slash) (if (string= path "/") nil "/")) (t (subseq path 0 slash)))))
 
 (defun make-fake-workspace-boundaries
-    (&key files directories symlinks environment (home "/home/user") (cwd "/"))
-  "Build an in-memory boundary context. FILES, DIRECTORIES, and SYMLINKS describe its filesystem."
-  (let ((nodes (make-hash-table :test (function equal))))
+    (&key files directories symlinks environment file-identities stat-failures
+          (home "/home/user") (cwd "/"))
+  "Build an in-memory boundary context with optional file identities and stat failures."
+  (let ((nodes (make-hash-table :test (function equal)))
+        (identities (make-hash-table :test (function equal)))
+        (next-inode 0))
     (labels ((ensure-directory (path)
                (when (and path (not (gethash path nodes)))
                  (setf (gethash path nodes) (list :directory))
@@ -26,21 +29,30 @@
       (loop for (path . target) in symlinks
             do (ensure-directory (%fake-parent path))
                (setf (gethash path nodes) (list :symlink target))))
-    (labels ((entry (path)
+    (labels ((file-identity (path)
+               (or (cdr (assoc path file-identities :test (function equal)))
+                   (or (gethash path identities)
+                       (setf (gethash path identities)
+                             (cons 1 (incf next-inode))))))
+             (entry (path)
                (let ((node (gethash path nodes)))
-                 (when node
-                   (make-workspace-entry
-                    :name (let ((slash (position #\/ path :from-end t)))
-                            (if slash (subseq path (1+ slash)) path))
-                    :kind (first node)
-                    :size (if (eq (first node) :file) (length (second node)) 0)
-                    :mtime 1000
-                    :mode #o644))))
+                 (when (and node
+                            (not (member path stat-failures :test (function equal))))
+                   (let ((identity (file-identity path)))
+                     (make-workspace-entry
+                      :name (let ((slash (position (code-char 47) path :from-end t)))
+                              (if slash (subseq path (1+ slash)) path))
+                      :kind (first node)
+                      :size (if (eq (first node) :file) (length (second node)) 0)
+                      :mtime 1000
+                      :mode #o644
+                      :device (car identity)
+                      :inode (cdr identity))))))
              (follow (path depth)
                (let ((node (gethash path nodes)))
                  (if (and node (eq (first node) :symlink) (< depth 40))
                      (let ((target (second node)))
-                       (follow (if (char= (char target 0) #\/)
+                       (follow (if (char= (char target 0) (code-char 47))
                                    target
                                    (normalize-path (join-path (%fake-parent path) target)))
                                (1+ depth)))
@@ -49,13 +61,22 @@
        (make-workspace-boundaries
         :list-directory
         (lambda (path)
-          (let ((node (gethash path nodes)))
+          (let ((node (gethash path nodes))
+                (complete-p t))
             (if (and node (eq (first node) :directory))
-                (values (loop for key being the hash-keys of nodes
-                              when (and (string/= key "/") (equal (%fake-parent key) path))
-                                collect (entry key))
-                        t)
-                (values nil nil))))
+                (let ((entries (quote ())))
+                  (maphash
+                   (lambda (key child-node)
+                     (declare (ignore child-node))
+                     (when (and (string/= key "/")
+                                (equal (%fake-parent key) path))
+                       (let ((child (entry key)))
+                         (if child
+                             (push child entries)
+                           (setf complete-p nil)))))
+                   nodes)
+                  (values entries t complete-p))
+              (values nil nil nil))))
         :stat (function entry)
         :read-link
         (lambda (path)
@@ -70,6 +91,7 @@
         (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd))
         :home-directory (lambda () home))
        nodes))))
+
 
 (defun scan-paths (host root &rest options)
   "The root-relative paths a scan emits, in emission order, and the ignore

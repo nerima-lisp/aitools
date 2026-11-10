@@ -160,10 +160,12 @@
         (write-file file "p")
         (expect (aitools.workspace.application:host-read-link host file) :to-be nil)
         (expect (aitools.workspace.application:host-read-octets host missing) :to-be nil)
-        (expect (multiple-value-list (aitools.workspace.application:host-list-directory host missing))
-                :to-equal '(nil nil))
-        (expect (multiple-value-list (aitools.workspace.application:host-list-directory host file))
-                :to-equal '(nil nil))))))
+        (expect (multiple-value-list
+                 (aitools.workspace.application:host-list-directory host missing))
+                :to-equal '(nil nil nil))
+        (expect (multiple-value-list
+                 (aitools.workspace.application:host-list-directory host file))
+                :to-equal '(nil nil nil))))))
 
   (it "reports a FIFO as :other and reads a file larger than one buffer whole"
     (call-with-scratch-directory (lambda (scratch)

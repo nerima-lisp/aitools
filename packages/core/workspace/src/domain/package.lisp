@@ -29,6 +29,8 @@
    #:workspace-entry-size
    #:workspace-entry-mtime
    #:workspace-entry-mode
+   #:workspace-entry-device
+   #:workspace-entry-inode
    #:entry-order-key
    #:sort-entries
    ;; wildmatch.lisp
@@ -86,4 +88,5 @@
    #:write-target-verdict
    #:git-metadata-path-inside-p
    #:git-common-root-entry-name-p
+   #:git-path-has-dot-git-component-p
    #:git-common-root-metadata-path-p))

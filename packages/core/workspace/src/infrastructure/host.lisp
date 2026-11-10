@@ -15,7 +15,9 @@
                  (t :other))
      :size (max 0 (sb-posix:stat-size stat))
      :mtime (sb-posix:stat-mtime stat)
-     :mode (logand mode #o7777))))
+     :mode (logand mode #o7777)
+     :device (sb-posix:stat-dev stat)
+     :inode (sb-posix:stat-ino stat))))
 
 (defun %basename (path)
   (let ((slash (position #\/ path :from-end t)))
@@ -27,17 +29,30 @@
 
 (defun %list-directory (path)
   (let ((stream (handler-case (sb-posix:opendir path)
-                  (error () (return-from %list-directory (values nil nil))))))
+                  (error () (return-from %list-directory (values nil nil nil))))))
     (unwind-protect
-         (let ((entries '()))
+         (let ((entries (quote ()))
+               (complete-p t))
            (loop
              (let ((dirent (sb-posix:readdir stream)))
-               (when (or (null dirent) (sb-alien:null-alien dirent)) (return))
-               (let ((name (handler-case (sb-posix:dirent-name dirent) (error () nil))))
-                 (when (and name (string/= name ".") (string/= name ".."))
-                   (let ((entry (%lstat-entry (concatenate 'string (string-right-trim "/" path) "/" name))))
-                     (when entry (push entry entries)))))))
-           (values entries t))
+               (when (or (null dirent) (sb-alien:null-alien dirent))
+                 (return))
+               (let ((name (handler-case (sb-posix:dirent-name dirent)
+                             (error () nil))))
+                 (if (null name)
+                     (setf complete-p nil)
+                     (unless (or (string= name ".") (string= name ".."))
+                       (let ((entry
+                               (%lstat-entry
+                                (concatenate
+                                 (quote string)
+                                 (string-right-trim "/" path)
+                                 "/"
+                                 name))))
+                         (if entry
+                             (push entry entries)
+                             (setf complete-p nil))))))))
+           (values entries t complete-p))
       (sb-posix:closedir stream))))
 (defun %read-link (path)
   (handler-case (sb-posix:readlink path)

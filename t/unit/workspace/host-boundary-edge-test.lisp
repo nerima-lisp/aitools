@@ -58,7 +58,7 @@
            (expect
             (multiple-value-list
              (aitools.workspace.infrastructure::%list-directory path))
-            :to-equal (quote (nil nil)))))))
+            :to-equal (quote (nil nil nil)))))))
   (it "omits a directory entry when lstat fails"
       (aitools.test.support:call-with-temporary-directory
        (lambda (directory)
@@ -74,7 +74,7 @@
             (expect
              (multiple-value-list
               (aitools.workspace.infrastructure::%list-directory (namestring directory)))
-             :to-equal (quote (nil t))))))))
+             :to-equal (quote (nil t nil))))))))
   (it "returns NIL when fstat fails after opening a file"
     (aitools.test.support:call-with-temporary-directory
      (lambda (directory)

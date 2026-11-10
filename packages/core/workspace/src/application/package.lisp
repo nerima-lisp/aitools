@@ -19,6 +19,8 @@
    #:workspace-entry-size
    #:workspace-entry-mtime
    #:workspace-entry-mode
+   #:workspace-entry-device
+   #:workspace-entry-inode
    #:workspace-root
    #:workspace-root-p
    #:workspace-root-path

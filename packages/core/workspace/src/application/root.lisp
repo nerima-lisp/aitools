@@ -61,6 +61,73 @@ or NIL. START is absolute and normalized."
         while directory
         do (let ((repository (%repository-at host directory)))
              (when repository (return repository)))))
+(defun %workspace-entry-same-identity-p (left right)
+  (and left right
+       (workspace-entry-device left)
+       (workspace-entry-device right)
+       (workspace-entry-inode left)
+       (workspace-entry-inode right)
+       (= (workspace-entry-device left) (workspace-entry-device right))
+       (= (workspace-entry-inode left) (workspace-entry-inode right))))
+(defun %same-file-identity-p (host left right)
+  (let ((left-real (resolve-real-path host left))
+        (right-real (resolve-real-path host right)))
+    (and left-real
+         right-real
+         (%workspace-entry-same-identity-p
+          (host-stat host left-real)
+          (host-stat host right-real)))))
+(defun %registered-linked-worktree-p (host worktree-top git-directory)
+  (let* ((text (%read-text host (join-path git-directory "gitdir")))
+         (back-pointer
+           (and text
+                (normalize-path
+                 (string-trim (list (code-char 32) (code-char 9)
+                                    (code-char 10) (code-char 13))
+                              text))))
+         (expected (join-path worktree-top ".git")))
+    (and back-pointer
+         (absolute-path-p back-pointer)
+         (%same-file-identity-p host back-pointer expected))))
+(defun %git-name-fold (name)
+  (sb-unicode:casefold (sb-unicode:normalize-string name :nfd)))
+(defun %git-path-has-dot-git-component-p (path)
+  (aitools.workspace.domain:git-path-has-dot-git-component-p
+   path :name-fold-function (function %git-name-fold)))
+(defun %git-common-root-entry-name-p (name)
+  (aitools.workspace.domain:git-common-root-entry-name-p
+   name :name-fold-function (function %git-name-fold)))
+(defun %git-common-root-metadata-path-p (directory root)
+  (aitools.workspace.domain:git-common-root-metadata-path-p
+   directory root :name-fold-function (function %git-name-fold)))
+(defun %git-metadata-path-inside-p (directory candidate)
+  (aitools.workspace.domain:git-metadata-path-inside-p
+   directory candidate :name-fold-function (function %git-name-fold)))
+(defun %git-common-root-identity-hazard-p (host common-directory root)
+  (multiple-value-bind (entries readable-p complete-p)
+      (host-list-directory host common-directory)
+    (unless (and readable-p complete-p)
+      (return-from %git-common-root-identity-hazard-p :stat-failed))
+    (let* ((root-real (resolve-real-path host root))
+           (root-entry (and root-real (host-stat host root-real))))
+      (unless (and root-entry
+                   (workspace-entry-device root-entry)
+                   (workspace-entry-inode root-entry))
+        (return-from %git-common-root-identity-hazard-p :stat-failed))
+      (dolist (entry entries)
+        (when (%git-common-root-entry-name-p (workspace-entry-name entry))
+          (let* ((entry-path
+                   (join-path common-directory (workspace-entry-name entry)))
+                 (entry-real (resolve-real-path host entry-path))
+                 (entry-target (and entry-real (host-stat host entry-real))))
+            (unless (and entry-target
+                         (workspace-entry-device entry-target)
+                         (workspace-entry-inode entry-target))
+              (return-from %git-common-root-identity-hazard-p :stat-failed))
+            (when (or (%workspace-entry-same-identity-p root-entry entry-target)
+                      (%git-metadata-path-inside-p entry-real root-real))
+              (return-from %git-common-root-identity-hazard-p :identity-match)))))
+      nil)))
 
 (aitools.kernel.domain:define-flow
     (call-with-resolved-root/k host &key root on-resolved on-error)

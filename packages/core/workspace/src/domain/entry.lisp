@@ -6,12 +6,15 @@
 
 (defstruct (workspace-entry (:copier nil))
   "KIND is :FILE, :DIRECTORY, :SYMLINK, or :OTHER. MTIME is whole seconds
-since the Unix epoch. MODE holds the permission bits only."
+since the Unix epoch. MODE holds the permission bits only. DEVICE and INODE
+identify the filesystem object, or NIL when the host cannot report them."
   (name "" :type simple-string :read-only t)
   (kind :file :type (member :file :directory :symlink :other) :read-only t)
   (size 0 :type (integer 0) :read-only t)
   (mtime 0 :type integer :read-only t)
-  (mode 0 :type (integer 0 #o7777) :read-only t))
+  (mode 0 :type (integer 0 #o7777) :read-only t)
+  (device nil :type (or null (integer 0)) :read-only t)
+  (inode nil :type (or null (integer 0)) :read-only t))
 
 (defun entry-order-key (entry)
   "A directory sorts as NAME/: every path below it starts with that prefix,

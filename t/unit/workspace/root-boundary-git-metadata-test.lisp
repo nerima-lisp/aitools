@@ -158,23 +158,23 @@
                         :to-be
                         :git-directory)))
           (it "allows a sibling with case-variant Git paths"
-              (let* ((checkout "/bare/.worktrees/wt")
+              (let* ((checkout "/BARE/.WORKTREES/wt")
                      (host
                       (make-fake-workspace-boundaries :files
                                                       (list
-                                                       (cons "/bare/HEAD"
+                                                       (cons "/BARE/HEAD"
                                                              "ref: refs/heads/main")
                                                        (cons
-                                                        "/BARE/worktrees/wt/HEAD"
+                                                        "/BARE/WORKTREES/wt/HEAD"
                                                         "0123")
                                                        (cons
-                                                        "/BARE/worktrees/wt/commondir"
+                                                        "/BARE/WORKTREES/wt/commondir"
                                                         "../..")
                                                        (cons
                                                         (format nil
                                                                 "~A/.git"
                                                                 checkout)
-                                                        "gitdir: /BARE/worktrees/wt"))
+                                                        "gitdir: /BARE/WORKTREES/wt"))
                                                       :directories
                                                       (list
                                                        (format nil
@@ -186,7 +186,7 @@
                      (repository (workspace-root-repository root)))
                 (expect (git-repository-git-dir repository)
                         :to-equal
-                        "/BARE/worktrees/wt")
+                        "/BARE/WORKTREES/wt")
                 (expect (git-repository-common-dir repository)
                         :to-equal
                         "/BARE")
@@ -235,9 +235,9 @@
                   (repository (workspace-root-repository root)))
              (expect (workspace-root-real root) :to-equal nfd-root)
              (expect (git-repository-common-dir repository) :to-equal nfc-root)
-             (expect (git-metadata-path-inside-p nfc-root nfd-root)
+             (expect (git-metadata-path-inside-p nfc-root nfd-root :name-fold-function (function aitools.workspace.application::%git-name-fold))
                      :to-be-truthy)
-             (expect (git-metadata-path-inside-p nfd-root nfc-root)
+             (expect (git-metadata-path-inside-p nfd-root nfc-root :name-fold-function (function aitools.workspace.application::%git-name-fold))
                      :to-be-truthy)
              (expect (boundary-verdict host root "src/new.txt")
                      :to-be
