@@ -137,7 +137,11 @@
       (expect (funcall utf16 (octets 65 0) 0 2) :to-be nil)
       (expect (funcall utf16 (octets 0 65 0 66) 0 4) :to-be :utf-16be)
       (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 5) :to-be :utf-16le)
-      (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 4) :to-be :unknown))))
+      (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 4) :to-be :unknown)
+      (let ((sparse (make-array 22 :element-type (quote (unsigned-byte 8)) :initial-element 65)))
+        (setf (aref sparse 1) 0)
+        (expect (funcall utf16 sparse 0 (length sparse)) :to-be nil)
+        (expect (funcall guess sparse) :to-be :unknown)))))
 (describe "aitools.text.domain runtime encoding guess"
   (it "calls the UTF-16 and encoding guess entry points dynamically"
     (let* ((domain (find-package "AITOOLS.TEXT.DOMAIN"))

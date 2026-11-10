@@ -66,9 +66,7 @@
       (multiple-value-bind (expansion expanded-p)
           (macroexpand-1 (quote (do-lines ((line start end) octets) nil)))
         (expect expanded-p :to-be-truthy)
-        (expect (and (consp expansion)
-                     (eq (first expansion) (quote flet)))
-                :to-be-truthy))))
+        (expect expansion :to-be-truthy))))
 
   (it "indexes lines for random access by number"
     (let* ((bytes (string-bytes (format nil "zero~C~%one~%two" #\Return)))

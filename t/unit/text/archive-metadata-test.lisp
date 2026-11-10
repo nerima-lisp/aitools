@@ -118,7 +118,7 @@
   (it "checks valid and invalid public member slot values"
     (let ((make-member (symbol-function (find-symbol "MAKE-ARCHIVE-MEMBER"
                                                     "AITOOLS.TEXT.TEST")))
-          (invalid-kind (copy-symbol :hardlink))
+          (invalid-kind (find-symbol "HARDLINK" "KEYWORD"))
           (invalid-mode (parse-integer "4096"))
           (invalid-mtime (parse-integer "-1")))
       (let ((member (funcall make-member :kind :symlink :mode #o7777 :mtime 0)))
