@@ -132,6 +132,7 @@
             ("2026-03-08T01:3." "invalid time of day")
             ("2026-03-08T01" "expected HH:MM")
             ("20260308T01" "invalid time of day")
+            ("20260308T" "invalid time of day")
             ("2026-3-08" "invalid date")
             ("not-a-time" "invalid date"))
       "rejects ~S: ~A"

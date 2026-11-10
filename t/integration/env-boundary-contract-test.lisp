@@ -10,6 +10,12 @@
                      #+darwin :env-cpu-counters #+darwin :env-sysctl-mib))
         (expect (cl-boundary-kit:boundary-context-require boundaries key)
                 :to-be-truthy))))
+  (it "reads wall-clock milliseconds from the production env clock"
+    (let* ((boundaries (aitools.env.infrastructure:make-production-env-boundaries))
+           (clock (cl-boundary-kit:boundary-context-require boundaries :env-clock))
+           (milliseconds (cl-boundary-kit:clock-now clock)))
+      (expect (integerp milliseconds) :to-be t)
+      (expect (plusp milliseconds) :to-be t)))
   (it "contains no old env ports symbols in production"
     (let ((sources
             (directory
