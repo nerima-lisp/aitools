@@ -172,7 +172,13 @@
   (it "uses find's default sorting, output, and limit"
     (let ((files
             (loop for index from 1 to 51
-                  collect (list (format nil "/w/file~2,'0D.txt" index) "x"))))
+                  for name = (if (< index 10)
+                                 (format nil "0~D" index)
+                                 (princ-to-string index))
+                  collect
+                  (list (format nil "/w/file~A.txt" name)
+                        (make-string index :initial-element #\x)
+                        :mtime index))))
       (multiple-value-bind (kind fields)
           (run-flow #'find/k (make-fake-search-boundaries :files files))
         (let ((items (field fields "items")))
@@ -211,7 +217,7 @@
             (loop for index from 1 to 16
                   collect
                   (list (format nil "/w/file~D.txt" index)
-                        (format nil "one~%two~%hit~%four~%five~%")))))
+                        (format nil "zero~%one~%two~%hit~%four~%five~%six~%")))))
       (multiple-value-bind (kind fields)
           (run-flow (function search/k) (make-fake-search-boundaries :files files)
                     :patterns (quote ("hit")))
@@ -220,8 +226,8 @@
         (let ((blocks (field fields "blocks")))
           (expect (length blocks) :to-be 15)
           (let ((block (first blocks)))
-            (expect (jfield block "start_line") :to-be 1)
+            (expect (jfield block "start_line") :to-be 2)
             (expect (jfield block "lines")
                     :to-equal (quote ("one" "two" "hit" "four" "five")))
-            (expect (jfield block "match_lines") :to-equal (quote (3)))))))))
+            (expect (jfield block "match_lines") :to-equal (quote (4)))))))))
 
