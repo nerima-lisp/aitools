@@ -1,11 +1,11 @@
 (:schema-version 1
  :context :md
- :linux-specs 27
- :darwin-specs 27
- :minimum-executed-specs 27
+ :linux-specs 28
+ :darwin-specs 28
+ :minimum-executed-specs 28
  :source :successful-linux-and-darwin-ci-runs
- :run-id "42770494297"
- :linux-job-id 129676894259
- :darwin-job-id 129676893975
- :revision "6dfa32e1d8922ccc5d5ffea69b1502eb89b5b6b5"
- :reason "CI executed 27 MD specs on both Linux and Darwin; this floor keeps all current MD specs required.")
+ :run-id "42804402134"
+ :linux-job-id 129789762432
+ :darwin-job-id 129789762067
+ :revision "3ba3052a5aa2b5fd0786bbdf1b8090ada8ce0947"
+ :reason "CI executed 28 MD specs on both Linux and Darwin; this floor keeps all current MD specs required.")
