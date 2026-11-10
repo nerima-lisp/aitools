@@ -4,6 +4,10 @@
 (in-package #:aitools.journal.test)
 
 (defun %file (text) (aitools.store.domain:file-state (aitools.kernel.domain:content-hash (bytes text)) #o644))
+(defun %context-option-rejects-non-string-p (keyword value)
+  (handler-case
+      (progn (apply #'make-journal-context (list keyword value)) nil)
+    (type-error () t)))
 
 (describe "aitools.journal invocation context"
   (it "leaves options absent when omitted"
@@ -16,12 +20,11 @@
       (expect (list (aitools.journal.application::journal-context-root context)
                     (aitools.journal.application::journal-context-lock-timeout context))
               :to-equal (list "repo" "10ms"))))
-  (it "rejects non-string invocation options"
-    (dolist (keyword (list :root :lock-timeout))
-      (expect (handler-case
-                  (progn (apply #'make-journal-context (list keyword 1)) nil)
-                (type-error () t))
-              :to-be t))))
+  (it-each ((:root 1) (:lock-timeout 1))
+      "rejects non-string invocation option for ~S"
+      (keyword value)
+    (expect (%context-option-rejects-non-string-p keyword value)
+            :to-be t)))
 
 (describe "aitools.journal argv command lines"
   (it "renders a recorded argv as the aitools line that ran it"
