@@ -197,3 +197,25 @@ keyword."
     (make-instance
      (find-class (find-symbol "FAKE-BINARY-INPUT" "AITOOLS.PROCESS.TEST"))
      :octets octets)))
+
+(defun call-signal-port (target)
+  #+darwin
+  (let ((boundaries (aitools.process.composition::make-process-dependencies)))
+    (funcall (cl-boundary-kit:boundary-context-require
+              boundaries :process-signal-process)
+             target 15))
+  #+linux
+  (let ((fd (sb-posix:open "/dev/null" sb-posix:o-rdonly)))
+    (unwind-protect
+         (let* ((boundaries
+                  (make-test-process-boundaries
+                   :process-pidfd-open (lambda (pid)
+                                         (declare (ignore pid))
+                                         (values fd nil))
+                   :process-pidfd-send-signal (lambda (opened-fd signal)
+                                                (declare (ignore opened-fd signal))
+                                                (values t nil))))
+                (signal-process
+                  (aitools.process.infrastructure::%make-signal-process-boundary boundaries)))
+           (funcall signal-process target 15))
+      (ignore-errors (sb-posix:close fd)))))

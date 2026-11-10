@@ -61,11 +61,6 @@
                     :start 0 :command-line "parent"))))))
       (funcall function))))
 
-(defun call-signal-port (target)
-  (let ((ports (aitools.process.composition::make-process-dependencies)))
-    (funcall (cl-boundary-kit:boundary-context-require ports :process-signal-process)
-             target 15)))
-
 (describe "aitools signal flow guards"
   (it "refuses PID without a guard and unsafe PID before sending"
     (multiple-value-bind (ports sent) (signal-fixture)
