@@ -173,3 +173,35 @@
       (let ((decoded (gzip-decompress both :max-output 1200)))
         (expect (typep decoded (quote (simple-array (unsigned-byte 8) (*)))) :to-equal t)
         (expect decoded :to-equalp (join-octets first second))))))
+(describe "aitools.text.domain empty gzip"
+  (it "returns an empty octet vector for an empty member"
+    (let* ((gzip (gzip-compress (octets)))
+           (decoded (gzip-decompress gzip)))
+      (expect (typep decoded (quote (simple-array (unsigned-byte 8) (*))))
+              :to-be t)
+      (expect decoded :to-equalp (octets))))
+  (it "reuses a simple member returned by the decoder"
+    (let* ((member (octets))
+           (gzip (octets #x1F #x8B 8 0 0 0 0 0 0 3)))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote deflate-kit:gzip-decode-prefix))
+            (lambda (octets &key (start 0) end max-output)
+              (declare (ignore octets end max-output))
+              (values member nil (+ start 10)))))
+        (expect (eq (gzip-decompress gzip) member) :to-be t))))
+  (it "maps a generic header decoder error to archive-error"
+    (cl-weave:with-mocked-functions
+        (((symbol-function (quote deflate-kit:gzip-member-header-at))
+          (lambda (&rest arguments)
+            (declare (ignore arguments))
+            (error (quote deflate-kit:deflate-error) :message "header failure"))))
+      (signals archive-error
+        (gzip-member-header (octets #x1F #x8B 8 0 0 0 0 0 0 3)))))
+  (it "maps a generic member decoder error to archive-error"
+    (cl-weave:with-mocked-functions
+        (((symbol-function (quote deflate-kit:gzip-decode-prefix))
+          (lambda (&rest arguments)
+            (declare (ignore arguments))
+            (error (quote deflate-kit:deflate-error) :message "member failure"))))
+      (signals archive-error
+        (gzip-decompress (gzip-compress (octets 1)))))))

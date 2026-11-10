@@ -136,3 +136,11 @@
                       :on-decoded (lambda (string replacements)
                                     (list string replacements)))
      :to-equal (list "" 0))))
+(describe "aitools.text.domain UTF-16 decoder slice"
+  (it "decodes only the requested UTF-16 range"
+    (let ((decode-octets (symbol-function (quote decode-octets/k))))
+      (expect (funcall decode-octets (octets #xFF 65 0 66 0 #xFF) :utf-16le
+                      :start 1 :end 5
+                      :on-decoded (lambda (string replacements) (list string replacements))
+                      :on-invalid (lambda (position) (list :invalid position)))
+              :to-equal '("AB" 0)))))

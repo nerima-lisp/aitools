@@ -114,3 +114,13 @@
            "rejects tar metadata overflow before retaining the crossing entry"
            (let ((archive (archive-metadata-test-tar-overrun)))
              (signals archive-limit-exceeded (read-tar-entries archive)))))
+(describe "aitools.text.domain archive member constructor"
+  (it "rejects invalid public member slot values"
+    (let ((make-member (symbol-function (find-symbol "MAKE-ARCHIVE-MEMBER"
+                                                    "AITOOLS.TEXT.TEST")))
+          (invalid-kind (copy-symbol :hardlink))
+          (invalid-mode (parse-integer "4096"))
+          (invalid-mtime (parse-integer "-1")))
+      (signals type-error (funcall make-member :kind invalid-kind))
+      (signals type-error (funcall make-member :mode invalid-mode))
+      (signals type-error (funcall make-member :mtime invalid-mtime)))))

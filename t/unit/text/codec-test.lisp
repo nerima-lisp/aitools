@@ -105,4 +105,17 @@
     (declare (ignore description))
     (let ((input (pseudo-random-octets size 42)))
       (expect (equalp (inflate (deflate input)) input) :to-be t))))
+(describe "aitools.text.domain codec error boundaries"
+  (it "maps an unexpected raw codec error to archive-error"
+    (cl-weave:with-mocked-functions
+        (((symbol-function (quote deflate-kit:inflate))
+          (lambda (&rest arguments)
+            (declare (ignore arguments))
+            (error (quote deflate-kit:deflate-error) :message "codec failure"))))
+      (signals archive-error (inflate (octets 0)))))
+  (it "checks CRC over an input slice"
+    (let ((bytes (join-octets (octets 0)
+                             (string-bytes "123456789")
+                             (octets 0))))
+      (expect (crc32 bytes :start 1 :end 10) :to-be #xCBF43926))))
 

@@ -130,3 +130,11 @@
     (let ((aitools.text.domain::*encoding-guess-sample* 5))
       (expect (guess-encoding (octets #x82 #xA0 #x82 #xA2 #x82 #xA4)) :to-be :shift_jis)
       (expect (guess-encoding (octets #xE3 #x81 #x82 #xE3 #x81 #x82)) :to-be :utf-8))))
+(describe "aitools.text.domain UTF-16 guess boundaries"
+  (it "requires two byte pairs and recognizes an offset slice without a BOM"
+    (let ((guess (symbol-function (quote guess-encoding)))
+          (utf16 (symbol-function (quote aitools.text.domain::%utf16-without-bom))))
+      (expect (funcall utf16 (octets 65 0) 0 2) :to-be nil)
+      (expect (funcall utf16 (octets 0 65 0 66) 0 4) :to-be :utf-16be)
+      (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 5) :to-be :utf-16le)
+      (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 4) :to-be :unknown))))

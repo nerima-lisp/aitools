@@ -112,3 +112,22 @@
   (it "counts an incomplete U+FFFD encoding at the end as an error, a complete one as genuine"
     (expect (multiple-value-list (decode-utf8 (octets #x41 #xEF))) :to-equal (list (format nil "A~C" (code-char #xFFFD)) 1))
     (expect (nth-value 1 (decode-utf8 (octets #xEF #xBF #xBD #xEF #xBF))) :to-be 1)))
+(describe "aitools.text.domain layout dynamic calls"
+  (it "keeps line-ending and final-newline facts within the requested range"
+    (let ((style (symbol-function (quote line-ending-style)))
+          (final-newline (symbol-function (quote final-newline-p))))
+      (expect (funcall style (octets 0 13 10 10) :start 1 :end 3) :to-be :crlf)
+      (expect (funcall style (octets 65 10 66 13 10) :end 5) :to-be :mixed)
+      (expect (funcall final-newline (octets 65 10 66) :start 0 :end 2) :to-be t)
+      (expect (funcall final-newline (octets 65 10) :start 2) :to-be nil))))
+(describe "aitools.text.domain binary sniff range"
+  (it "checks NUL only within the first 8 KiB of the requested range"
+    (let* ((binary-p (symbol-function (quote binary-octets-p)))
+           (prefix (make-array 8191 :element-type (quote (unsigned-byte 8))
+                               :initial-element 65))
+           (inside (join-octets prefix (octets 0 65)))
+           (outside (join-octets prefix (octets 65 0))))
+      (expect (funcall binary-p inside) :to-be t)
+      (expect (funcall binary-p inside :end 8191) :to-be nil)
+      (expect (funcall binary-p outside) :to-be nil)
+      (expect (funcall binary-p outside :start 8192 :end 8193) :to-be t))))
