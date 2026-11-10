@@ -113,11 +113,7 @@
                                                                          (:on-replacement (replacement)
                                                                                           (let ((outcome nil))
                                                                                             (aitools.edit.application:run-write-command/k
-                                                                                             (aitools.edit.application:make-write-edit-ports
-                                                                                              :workspace-host
-                                                                                              (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host)
-                                                                                              :open-store
-                                                                                              (cl-boundary-kit:boundary-context-require boundaries :md-open-store))
+                                                                                             (aitools.edit.application:make-edit-write-boundaries (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host) (cl-boundary-kit:boundary-context-require boundaries :md-open-store))
                                                                                              (%md-write-plan boundaries
                                                                                                              path
                                                                                                              number

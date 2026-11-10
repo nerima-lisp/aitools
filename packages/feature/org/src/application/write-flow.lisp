@@ -95,9 +95,7 @@
     (t
      (let ((outcome nil))
        (aitools.edit.application:run-write-command/k
-        (aitools.edit.application:make-write-edit-ports
-         :workspace-host (org-ports-workspace-host ports)
-         :open-store (org-ports-open-store ports))
+        (aitools.edit.application:make-edit-write-boundaries (org-ports-workspace-host ports) (org-ports-open-store ports))
         (%org-write-plan ports path command operation options)
         :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx
         :display-argv display-argv

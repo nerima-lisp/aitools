@@ -7,10 +7,19 @@
    :open-store #'open-store))
 
 (defun run-org-flow (flow ports &rest arguments)
-  (let ((result
-          (aitools.protocol.application:call-with-command-result/k
-           (lambda (&rest continuations)
-             (apply flow (append (list ports) arguments continuations))))))
+  (let* ((original (symbol-function (quote aitools.edit.application:run-write-command/k)))
+         (result
+           (cl-weave:with-mocked-functions
+               (((symbol-function (quote aitools.edit.application:run-write-command/k))
+                 (lambda (boundaries plan &rest write-arguments)
+                   (expect (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
+                           :to-be-truthy)
+                   (expect (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
+                           :to-be-truthy)
+                   (apply original boundaries plan write-arguments))))
+             (aitools.protocol.application:call-with-command-result/k
+              (lambda (&rest continuations)
+                (apply flow (append (list ports) arguments continuations)))))))
     (values (aitools.protocol.application:command-result-kind result)
             (aitools.protocol.application:command-result-fields result))))
 

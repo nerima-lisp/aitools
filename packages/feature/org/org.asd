@@ -48,6 +48,7 @@
   ((:module "t" :pathname "t/" :serial t
     :components
     ((:file "unit/edit/package")
+     (:file "unit/edit/boundaries")
      (:file "unit/org/package")
      (:file "unit/org/parser-property-test")
      (:module "integration" :pathname "integration/" :serial t

@@ -115,7 +115,6 @@
           (expect (aitools.test.support:envelope-value envelope "error" "code") :to-equal "refusal.exists")
           (expect (plusp (length (aitools.test.support:envelope-value envelope "error" "repairs"))) :to-be t))
         (expect (coerce (aitools.test.support:read-bytes out) (quote list)) :to-equal (coerce (sb-ext:string-to-octets "keep") 'list)))))
-
   (it "allows util decode --to to write below mktemp"
     (aitools.test.support:with-workspace (root workspace-state)
       (declare (ignore workspace-state))
@@ -231,3 +230,21 @@
           (expect octets :to-equalp contents))
         (expect (reader-outcome reader file 65536) :to-equal (list :too-large))))
     :prefix "aitools-process")))
+(describe "aitools util edit boundary handoff"
+  (it "passes the workspace and store boundaries to the shared write flow"
+  (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
+         (store (function identity))
+         (ports (aitools.util.application:make-util-ports :workspace-host host :open-store store))
+         (seen nil))
+    (cl-weave:with-mocked-functions
+        (((symbol-function (quote aitools.edit.application:run-write-command/k))
+          (lambda (boundaries plan &rest arguments)
+            (declare (ignore plan))
+            (setf seen (list (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
+                             (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)))
+            (funcall (getf arguments :on-ok) nil))))
+      (aitools.util.application::%write-decoded
+       ports "hex" "6869" #(104 105) "/out"
+       :on-ok (function identity)
+       :on-error (lambda (&rest arguments) (declare (ignore arguments)))))
+    (expect seen :to-equal (list host store)))))

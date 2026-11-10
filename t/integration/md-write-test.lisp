@@ -27,9 +27,18 @@
                                           #'aitools.md.infrastructure::splice-section-bytes)))
 
 (defun %md-flow-result (flow &rest arguments)
-  (aitools.protocol.application:call-with-command-result/k
-   (lambda (&rest continuations)
-     (apply flow (append arguments continuations)))))
+  (let ((edit-write (symbol-function 'aitools.edit.application:run-write-command/k)))
+    (cl-weave:with-mocked-functions
+        (((symbol-function 'aitools.edit.application:run-write-command/k)
+          (lambda (boundaries plan &rest write-arguments)
+            (expect (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
+                    :to-be-truthy)
+            (expect (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
+                    :to-be-truthy)
+            (apply edit-write boundaries plan write-arguments))))
+      (aitools.protocol.application:call-with-command-result/k
+       (lambda (&rest continuations)
+         (apply flow (append arguments continuations)))))))
 (defun %make-md-test-boundaries (&key workspace-host text-context open-store
                                             read-stdin-octets parse-markdown splice-section)
   (let ((boundaries (cl-boundary-kit:make-boundary-context)))

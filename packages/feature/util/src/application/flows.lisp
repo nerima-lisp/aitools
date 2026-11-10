@@ -36,9 +36,7 @@
   "Write DECODED to TO as a new file; reject existing targets with the `refusal.exists` error."
   (let ((outcome nil))
     (aitools.edit.application:run-write-command/k
-     (aitools.edit.application:make-write-edit-ports
-      :workspace-host (util-ports-workspace-host ports)
-      :open-store (util-ports-open-store ports))
+     (aitools.edit.application:make-edit-write-boundaries (util-ports-workspace-host ports) (util-ports-open-store ports))
      (aitools.edit.application:make-write-plan
       :command "util.decode"
       :targets (list (aitools.edit.application:make-write-target to))
