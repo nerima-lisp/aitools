@@ -45,7 +45,11 @@
      "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip. A wholesale e2e skip still trips *minimum-executed-specs*.")
     (:skip "trace specs require a binary with --trace"
      "trace-positive e2e cases are skipped during no-trace byte captures"
-     "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason)))
+     "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason)
+    (:skip
+     "case-sensitive filesystem: property cannot be observed on a case-sensitive filesystem; fake-host name-check specs cover the folding rule on every platform"
+     "the case-sensitive filesystem has no stat alias for the Unicode-folded path"
+     nil nil :exact-reason)))
 
 (defvar *progress-lock* (sb-thread:make-mutex :name "aitools test progress"))
 (defvar *current-spec-id* nil)
