@@ -25,7 +25,21 @@
   (aitools.protocol.application:call-with-command-result/k
    (lambda (&rest continuations)
      (apply flow (append arguments continuations)))))
-(defun %md-read-ports (root &key (outcome :text) parser)
+(defun %make-md-test-boundaries (&key workspace-host text-source open-store
+                                            read-stdin-octets parse-markdown splice-section)
+  (let ((boundaries (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+             (list (cons :md-workspace-host workspace-host)
+                   (cons :md-text-source text-source)
+                   (cons :md-open-store open-store)
+                   (cons :md-read-stdin-octets read-stdin-octets)
+                   (cons :md-parse-markdown parse-markdown)
+                   (cons :md-splice-section splice-section)))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries (car capability) (cdr capability))))
+    boundaries))
+(defun %md-read-boundaries (root &key (outcome :text) parser)
   (let* ((text (format nil "# One~%body~%## Two~%nested~%"))
          (bytes (if (eq outcome :binary)
                     (make-array 1 :element-type '(unsigned-byte 8) :initial-element 0)
@@ -33,8 +47,7 @@
     (flet ((unused (&rest arguments)
              (declare (ignore arguments))
              nil))
-      (aitools.md.application:make-md-ports
-       :workspace-host
+      (%make-md-test-boundaries :workspace-host
        (aitools.workspace.infrastructure:make-host-workspace-boundaries
         :current-directory (lambda () root))
        :text-source
@@ -112,28 +125,23 @@
   (it "maps headings, selected sections, and ordinal inputs"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
-      (let* ((ports (%md-read-ports root))
-             (listed (%md-flow-result #'aitools.md.application:md-headings/k ports "guide.md" :root root))
+      (let* ((boundaries (%md-read-boundaries root))
+             (listed (%md-flow-result #'aitools.md.application:md-headings/k boundaries "guide.md" :root root))
              (headings (cdr (assoc "headings" (aitools.protocol.application:command-result-fields listed)
                                   :test #'string=))))
         (expect (aitools.protocol.application:command-result-kind listed) :to-be :ok)
-        (let ((ports (aitools.md.application:make-md-ports)))
+        (let ((boundaries (%make-md-test-boundaries)))
           (flet ((error-code (path section hash stdin)
                    (getf (aitools.protocol.application:command-result-fields
                           (%md-flow-result (function aitools.md.application:md-replace/k)
-                                           ports path section :expect-hash hash :stdin stdin))
+                                           boundaries path section :expect-hash hash :stdin stdin))
                          :code)))
             (expect (error-code nil 1 "hash" t) :to-equal "argument.invalid")
             (expect (error-code "guide.md" 1 "hash" nil) :to-equal "argument.invalid")
             (expect (error-code "guide.md" 0 "hash" t) :to-equal "argument.invalid")
             (expect (error-code "guide.md" 1 "" t) :to-equal "argument.invalid")
             (expect (error-code "guide.md" 1 nil t) :to-equal "argument.invalid")
-            (expect (error-code "guide.md" 1 "hash" t) :to-equal "internal.unexpected")
-            (dolist (slot (list :open-store :read-stdin-octets :parse-markdown :splice-section))
-              (expect (handler-case
-                          (progn (apply (function aitools.md.application:make-md-ports) (list slot t)) nil)
-                        (type-error () t))
-                      :to-be t))))
+            (expect (error-code "guide.md" 1 "hash" t) :to-equal "internal.unexpected")))
         (expect (mapcar (lambda (heading)
                           (mapcar (lambda (key)
                                     (cdr (assoc key
@@ -145,7 +153,7 @@
         (expect (stringp (cdr (assoc "hash" (aitools.protocol.application:command-result-fields listed)
                                     :test #'string=)))
                 :to-be t)
-        (let* ((read (%md-flow-result #'aitools.md.application:md-read/k ports "guide.md" "2" :root root))
+        (let* ((read (%md-flow-result #'aitools.md.application:md-read/k boundaries "guide.md" "2" :root root))
                (fields (aitools.protocol.application:command-result-fields read)))
           (expect (mapcar (lambda (key) (cdr (assoc key fields :test #'string=)))
                           '("section" "heading" "level" "line" "content"))
@@ -153,33 +161,33 @@
         (dolist (case '((1 1) ("2" 2) (0 nil) (-1 nil) ("" nil) ("x" nil) ("３" nil) (nil nil)))
           (expect (aitools.md.application::%md-section-number (first case)) :to-be (second case)))
         (expect (getf (aitools.protocol.application:command-result-fields
-                       (%md-flow-result #'aitools.md.application:md-read/k ports "guide.md" "zero" :root root))
+                       (%md-flow-result #'aitools.md.application:md-read/k boundaries "guide.md" "zero" :root root))
                       :code)
                 :to-equal "argument.invalid")
         (expect (getf (aitools.protocol.application:command-result-fields
-                       (%md-flow-result #'aitools.md.application:md-read/k ports "guide.md" 99 :root root))
+                       (%md-flow-result #'aitools.md.application:md-read/k boundaries "guide.md" 99 :root root))
                       :code)
                 :to-equal "selection.no-match")
         (expect (getf (aitools.protocol.application:command-result-fields
                        (%md-flow-result #'aitools.md.application:md-read/k
-                                         (%md-read-ports root :outcome :missing) "guide.md" 1 :root root))
+                                         (%md-read-boundaries root :outcome :missing) "guide.md" 1 :root root))
                       :code)
                 :to-equal "input.not-found"))))
   (it "preserves document errors for paths, ports, roots, sources, and parser offsets"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
-      (let* ((ports (%md-read-ports root))
-             (source (aitools.md.application:md-ports-text-source ports))
-             (host (aitools.md.application:md-ports-workspace-host ports))
-             (parser (aitools.md.application:md-ports-parse-markdown ports)))
+      (let* ((boundaries (%md-read-boundaries root))
+             (source (cl-boundary-kit:boundary-context-require boundaries :md-text-source))
+             (host (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host))
+             (parser (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown)))
         (dolist (path (list nil ""))
           (expect (getf (aitools.protocol.application:command-result-fields
-                         (%md-flow-result #'aitools.md.application:md-headings/k ports path :root root))
+                         (%md-flow-result #'aitools.md.application:md-headings/k boundaries path :root root))
                         :code)
                   :to-equal "argument.invalid"))
-        (dolist (incomplete (list (aitools.md.application:make-md-ports :text-source source :parse-markdown parser)
-                                  (aitools.md.application:make-md-ports :workspace-host host :parse-markdown parser)
-                                  (aitools.md.application:make-md-ports :workspace-host host :text-source source)))
+        (dolist (incomplete (list (%make-md-test-boundaries :text-source source :parse-markdown parser)
+                                  (%make-md-test-boundaries :workspace-host host :parse-markdown parser)
+                                  (%make-md-test-boundaries :workspace-host host :text-source source)))
           (expect (getf (aitools.protocol.application:command-result-fields
                          (%md-flow-result #'aitools.md.application:md-headings/k incomplete "guide.md" :root root))
                         :code)
@@ -188,18 +196,18 @@
                         (:unreadable "environment.io") (:too-large "refusal.too-large")))
           (expect (getf (aitools.protocol.application:command-result-fields
                          (%md-flow-result #'aitools.md.application:md-headings/k
-                                           (%md-read-ports root :outcome (first case)) "guide.md" :root root))
+                                           (%md-read-boundaries root :outcome (first case)) "guide.md" :root root))
                         :code)
                   :to-equal (second case)))
         (expect (getf (aitools.protocol.application:command-result-fields
-                       (%md-flow-result #'aitools.md.application:md-headings/k ports "guide.md"
+                       (%md-flow-result #'aitools.md.application:md-headings/k boundaries "guide.md"
                                          :root (format nil "~A/missing" root)))
                       :code)
                 :to-equal "input.not-found")
         (let ((not-directory (format nil "~A/not-directory" root)))
           (aitools.test.support:write-text not-directory "file")
           (expect (getf (aitools.protocol.application:command-result-fields
-                         (%md-flow-result #'aitools.md.application:md-headings/k ports "guide.md"
+                         (%md-flow-result #'aitools.md.application:md-headings/k boundaries "guide.md"
                                            :root not-directory))
                         :code)
                   :to-equal "argument.invalid"))
@@ -208,7 +216,7 @@
                                (declare (ignore octets))
                                (values nil "input.unparsable" "invalid Markdown" offset)))
                  (result (%md-flow-result #'aitools.md.application:md-headings/k
-                                          (%md-read-ports root :parser bad-parser) "guide.md" :root root))
+                                          (%md-read-boundaries root :parser bad-parser) "guide.md" :root root))
                  (fields (aitools.protocol.application:command-result-fields result)))
             (expect (getf fields :code) :to-equal "input.unparsable")
             (expect (not (null (getf fields :diagnostics))) :to-be (not (null offset))))))))

@@ -22,9 +22,9 @@
                "line"
                (aitools.md.domain:md-heading-line heading)))
 
-(aitools.kernel.domain:define-flow (md-headings/k ports path &key root on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow (md-headings/k boundaries path &key root on-ok on-partial on-error)
                                    (declare (type function on-ok on-partial on-error))
-                                   (aitools.kernel.domain:flow-call (%md-read-document/k ports path root "md headings")
+                                   (aitools.kernel.domain:flow-call (%md-read-document/k boundaries path root "md headings")
                                                                     (:on-document (document)
                                                                                   (aitools.kernel.domain:flow-continue
                                                                                    :on-ok
@@ -48,7 +48,7 @@
                                                                                 :repairs
                                                                                 repairs))))
 
-(aitools.kernel.domain:define-flow (md-read/k ports path section &key root on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow (md-read/k boundaries path section &key root on-ok on-partial on-error)
                                    (declare (type function on-ok on-partial on-error))
                                    (let ((number (%md-section-number section)))
                                      (if (null number)
@@ -59,7 +59,7 @@
                                                                               (%md-schema-repair "md read"
                                                                                                  "Pass a positive section ordinal."))
                                          (aitools.kernel.domain:flow-call
-                                          (%md-read-document/k ports path root "md read")
+                                          (%md-read-document/k boundaries path root "md read")
                                           (:on-document (document)
                                                         (let ((heading
                                                                (aitools.md.domain:md-document-heading document number)))

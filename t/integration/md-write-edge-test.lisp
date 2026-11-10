@@ -1,9 +1,8 @@
 (in-package #:aitools.integration.md-write-test)
 (describe "Markdown replacement edge routes"
   (it "handles input failures, missing write ports, and plan race outcomes"
-    (labels ((ready-ports (&key workspace-host open-store)
-               (aitools.md.application:make-md-ports
-                :workspace-host workspace-host
+    (labels ((ready-boundaries (&key workspace-host open-store)
+               (%make-md-test-boundaries :workspace-host workspace-host
                 :open-store open-store
                 :read-stdin-octets
                 (lambda (limit)
@@ -11,30 +10,30 @@
                   (list :octets (sb-ext:string-to-octets "")))
                 :parse-markdown
                 (function aitools.md.infrastructure:parse-md-octets))))
-      (dolist (ports
-               (list (ready-ports
+      (dolist (boundaries
+               (list (ready-boundaries
                       :open-store
                       (function aitools.store.infrastructure:make-posix-store))
-                     (ready-ports
+                     (ready-boundaries
                       :workspace-host
                       (aitools.workspace.infrastructure:make-host-workspace-boundaries))))
-        (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k ports "notes.md" 1 :expect-hash "test" :stdin t)) :code)
-                :to-equal "internal.unexpected")) (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-ports "" (lambda (limit)
+        (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k boundaries "notes.md" 1 :expect-hash "test" :stdin t)) :code)
+                :to-equal "internal.unexpected")) (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-boundaries "" (lambda (limit)
                    (declare (ignore limit))
                    (list :failure "closed"))) "notes.md" 1 :expect-hash "test" :stdin t)) :code)
-              :to-equal "environment.io") (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-ports "") nil 1 :expect-hash "test" :stdin t)) :code)
+              :to-equal "environment.io") (expect (getf (aitools.protocol.application:command-result-fields (%md-flow-result #'aitools.md.application:md-replace/k (%md-write-boundaries "") nil 1 :expect-hash "test" :stdin t)) :code)
               :to-equal "argument.invalid") (aitools.test.support:with-workspace (root state :chdir t)
         (declare (ignore state))
-        (let* ((ports (%md-write-ports "# R~%new~%"))
+        (let* ((boundaries (%md-write-boundaries "# R~%new~%"))
                (view
                  (aitools.store.application:disk-view
-                  (funcall (aitools.md.application:md-ports-open-store ports) root)))
+                  (funcall (cl-boundary-kit:boundary-context-require boundaries :md-open-store) root)))
                (code-for
                  (lambda (path)
                    (nth 2
                         (multiple-value-list
                          (aitools.md.application::%md-prepare-write
-                          ports
+                          boundaries
                           (aitools.edit.application::make-write-context
                            :view view :paths (list path))
                           1 #()))))))
@@ -63,10 +62,10 @@
                (lambda (limit)
                  (declare (ignore limit))
                  result))
-             (read-outcome (ports)
+             (read-outcome (boundaries)
                (let ((outcome nil))
                  (aitools.md.application::%md-read-replacement/k
-                  ports "md replace"
+                  boundaries "md replace"
                   :on-replacement
                   (lambda (octets) (setf outcome (list :replacement octets)))
                   :on-error
@@ -74,27 +73,24 @@
                     (declare (ignore message repairs))
                     (setf outcome (list :error code diagnostics))))
                  outcome))
-             (ports (result &optional (parser #'aitools.md.infrastructure:parse-md-octets))
-               (aitools.md.application:make-md-ports
-                :read-stdin-octets (reader result)
+             (boundaries (result &optional (parser #'aitools.md.infrastructure:parse-md-octets))
+               (%make-md-test-boundaries :read-stdin-octets (reader result)
                 :parse-markdown parser)))
       (let* ((valid (sb-ext:string-to-octets "# A~%new~%" :external-format :utf-8))
              (invalid (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255))
-             (replacement (read-outcome (ports (list :octets valid))))
-             (decode-error (read-outcome (ports (list :octets invalid))))
+             (replacement (read-outcome (boundaries (list :octets valid))))
+             (decode-error (read-outcome (boundaries (list :octets invalid))))
              (syntax-error (read-outcome
-                            (ports (list :octets valid)
+                            (boundaries (list :octets valid)
                                    (lambda (octets)
                                      (declare (ignore octets))
                                      (values nil "input.syntax-error" "invalid markdown" nil))))))
-        (expect (second (read-outcome (aitools.md.application:make-md-ports
-                                       :parse-markdown #'aitools.md.infrastructure:parse-md-octets)))
+        (expect (second (read-outcome (%make-md-test-boundaries :parse-markdown #'aitools.md.infrastructure:parse-md-octets)))
                 :to-equal "internal.unexpected")
-        (expect (second (read-outcome (aitools.md.application:make-md-ports
-                                       :read-stdin-octets (reader (list :octets valid)))))
+        (expect (second (read-outcome (%make-md-test-boundaries :read-stdin-octets (reader (list :octets valid)))))
                 :to-equal "internal.unexpected")
-        (expect (second (read-outcome (ports '(:failure "closed")))) :to-equal "environment.io")
-        (expect (second (read-outcome (ports '(:too-large)))) :to-equal "refusal.too-large")
+        (expect (second (read-outcome (boundaries '(:failure "closed")))) :to-equal "environment.io")
+        (expect (second (read-outcome (boundaries '(:too-large)))) :to-equal "refusal.too-large")
         (expect (first replacement) :to-be :replacement)
         (expect (second replacement) :to-equalp valid)
         (expect (second decode-error) :to-equal "input.not-utf8")
@@ -112,25 +108,25 @@
                (path (concatenate 'string root "/notes.md")))
           (aitools.test.support:write-bytes path bytes)
           (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
-                                         (%md-write-ports source) "notes.md" 1
+                                         (%md-write-boundaries source) "notes.md" 1
                                          :root root :expect-hash hash :stdin t)))
             (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
             (expect (aitools.test.support:read-bytes path) :to-equalp bytes))
           (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
-                                         (%md-write-ports "# A revised~%new~%") "notes.md" 1
+                                         (%md-write-boundaries "# A revised~%new~%") "notes.md" 1
                                          :root root :expect-hash hash :stdin t :dry-run t)))
             (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
             (expect (%field (aitools.protocol.application:command-result-fields result) "dry_run")
                     :to-be t)
             (expect (aitools.test.support:read-bytes path) :to-equalp bytes))
           (expect (error-code (%md-flow-result #'aitools.md.application:md-replace/k
-                                               (%md-write-ports "# A revised~%new~%") "notes.md" 1
+                                               (%md-write-boundaries "# A revised~%new~%") "notes.md" 1
                                                :root root :expect-hash "stale" :stdin t))
                   :to-equal "refusal.target-changed")
           (expect (aitools.test.support:read-bytes path) :to-equalp bytes)
           (progn
             (expect (error-code (%md-flow-result #'aitools.md.application:md-replace/k
-                                                 (%md-write-ports ""
+                                                 (%md-write-boundaries ""
                                                                   (lambda (limit)
                                                                     (declare (ignore limit))
                                                                     (list :octets
@@ -139,21 +135,21 @@
                                                  "notes.md" 1 :root root :expect-hash hash :stdin t))
                     :to-equal "input.not-utf8")
             (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
-                                           (%md-write-ports "# A~%body~%") "notes.md" 2
+                                           (%md-write-boundaries "# A~%body~%") "notes.md" 2
                                            :root root :expect-hash hash :stdin t)))
               (expect (error-code result) :to-equal "selection.no-match")
               (expect (aitools.test.support:read-bytes path) :to-equalp bytes)))))))
   (it "maps prepare-write read failures, parser errors, and section plans"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
-      (let* ((ports (%md-write-ports "# A~%new~%"))
+      (let* ((boundaries (%md-write-boundaries "# A~%new~%"))
              (view (aitools.store.application:disk-view
-                    (funcall (aitools.md.application:md-ports-open-store ports) root)))
+                    (funcall (cl-boundary-kit:boundary-context-require boundaries :md-open-store) root)))
              (replacement (sb-ext:string-to-octets "# A~%new~%" :external-format :utf-8)))
-        (labels ((prepare (ports path section)
+        (labels ((prepare (boundaries path section)
                    (multiple-value-list
                     (aitools.md.application::%md-prepare-write
-                     ports
+                     boundaries
                      (aitools.edit.application::make-write-context
                       :view view :paths (list path))
                      section replacement)))
@@ -165,35 +161,34 @@
                 (lambda (&rest arguments)
                   (declare (ignore arguments))
                   nil)))
-            (expect (code (prepare ports "notes.md" 1)) :to-equal "input.not-found"))
+            (expect (code (prepare boundaries "notes.md" 1)) :to-equal "input.not-found"))
           (cl-weave:with-mocked-functions
               (((symbol-function (find-symbol "VIEW-READ-FILE" "AITOOLS.STORE.APPLICATION"))
                 (lambda (&rest arguments)
                   (declare (ignore arguments))
                   (error 'aitools.store.application:store-io-error
                          :operation "read" :path "notes.md"))))
-            (expect (code (prepare ports "notes.md" 1)) :to-equal "environment.io"))
+            (expect (code (prepare boundaries "notes.md" 1)) :to-equal "environment.io"))
           (aitools.test.support:write-bytes
            (concatenate 'string root "/notes.md")
            (make-array 1 :element-type '(unsigned-byte 8) :initial-element 255))
-          (let ((outcome (prepare ports "notes.md" 1)))
+          (let ((outcome (prepare boundaries "notes.md" 1)))
             (expect (code outcome) :to-equal "input.not-utf8")
             (expect (length (fifth outcome)) :to-be 1))
           (aitools.test.support:write-text (concatenate 'string root "/notes.md")
                                            (format nil "# A~%body~%"))
-          (let ((outcome (prepare ports "notes.md" 2)))
+          (let ((outcome (prepare boundaries "notes.md" 2)))
             (expect (code outcome) :to-equal "selection.no-match"))
-          (let ((outcome (prepare ports "notes.md" 1)))
+          (let ((outcome (prepare boundaries "notes.md" 1)))
             (expect (code outcome) :to-be nil)
             (expect (length (first outcome)) :to-be 1)
             (expect (cdr (assoc "section" (second outcome) :test #'string=)) :to-be 1))
-          (let* ((syntax-ports
-                   (aitools.md.application:make-md-ports
-                    :parse-markdown
+          (let* ((syntax-boundaries
+                   (%make-md-test-boundaries :parse-markdown
                     (lambda (octets)
                       (declare (ignore octets))
                       (values nil "input.syntax-error" "invalid markdown" 3))))
-                 (outcome (prepare syntax-ports "notes.md" 1)))
+                 (outcome (prepare syntax-boundaries "notes.md" 1)))
             (expect (code outcome) :to-equal "input.syntax-error")
             (expect (length (fifth outcome)) :to-be 1))))))
   (it "bounds descriptor stdin at the limit and reports descriptor read failures"

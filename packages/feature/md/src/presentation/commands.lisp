@@ -40,7 +40,7 @@
 (defun %value-option (name value-name description &rest options)
   (apply #'make-option :name name :kind :value :value-name value-name :description description options))
 
-(defun %headings-command (ports)
+(defun %headings-command (boundaries)
   (make-command :name
                 "headings"
                 :description
@@ -50,12 +50,12 @@
                 :handler
                 (lambda (invocation)
                   (%run-flow #'aitools.md.application:md-headings/k
-                             ports
+                             boundaries
                              (positional-value invocation :path)
                              :root
                              (option-value invocation :root)))))
 
-(defun %read-command (ports)
+(defun %read-command (boundaries)
   (make-command :name
                 "read"
                 :description
@@ -65,13 +65,13 @@
                 :handler
                 (lambda (invocation)
                   (%run-flow #'aitools.md.application:md-read/k
-                             ports
+                             boundaries
                              (positional-value invocation :path)
                              (positional-value invocation :section)
                              :root
                              (option-value invocation :root)))))
 
-(defun %replace-command (ports)
+(defun %replace-command (boundaries)
   (make-command :name
                 "replace"
                 :description
@@ -86,7 +86,7 @@
                 :handler
                 (lambda (invocation)
                   (%run-flow #'aitools.md.application:md-replace/k
-                             ports
+                             boundaries
                              (positional-value invocation :path)
                              (positional-value invocation :section)
                              :expect-hash

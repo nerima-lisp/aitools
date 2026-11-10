@@ -25,18 +25,3 @@
     (error (condition)
       (list :failure (princ-to-string condition)))))
 
-(defun make-production-md-ports (&key workspace-host text-source open-store &allow-other-keys)
-  (aitools.md.application:make-md-ports :workspace-host
-                                        workspace-host
-                                        :text-source
-                                        text-source
-                                        :open-store
-                                        open-store
-                                        :read-stdin-octets
-                                        #'read-stdin-octets
-                                        :parse-markdown
-                                        #'parse-md-octets
-                                        :splice-section
-                                        #'splice-section-bytes))
-
-(in-package #:aitools.md.infrastructure)

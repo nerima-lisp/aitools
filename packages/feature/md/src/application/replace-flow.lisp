@@ -1,9 +1,9 @@
 (in-package #:aitools.md.application)
 
-(aitools.kernel.domain:define-flow (%md-read-replacement/k ports command &key on-replacement on-error)
+(aitools.kernel.domain:define-flow (%md-read-replacement/k boundaries command &key on-replacement on-error)
                                    (declare (type function on-replacement on-error))
-                                   (let ((reader (md-ports-read-stdin-octets ports))
-                                         (parser (md-ports-parse-markdown ports)))
+                                   (let ((reader (cl-boundary-kit:boundary-context-require boundaries :md-read-stdin-octets))
+                                         (parser (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown)))
                                      (cond
                                        ((or (null reader) (null parser))
                                         (aitools.kernel.domain:flow-continue :on-error
@@ -42,7 +42,7 @@
                                                                                   :repairs
                                                                                   (%md-schema-repair command "Check standard input.")))))))))
 
-(defun %md-write-plan (ports path section replacement expect-hash)
+(defun %md-write-plan (boundaries path section replacement expect-hash)
   (aitools.edit.application:make-write-plan :command
                                             "md.replace"
                                             :targets
@@ -67,7 +67,7 @@
                                             :plan
                                             (lambda (context &key on-committed on-rejected)
                                               (aitools.kernel.domain:flow-call
-                                               (%md-plan-write/k ports context section replacement)
+                                               (%md-plan-write/k boundaries context section replacement)
                                                (:on-committed (requests fields)
                                                               (funcall on-committed requests fields))
                                                (:on-rejected (code message &key path diagnostics repairs)
@@ -76,7 +76,7 @@
                                                                       :diagnostics diagnostics
                                                                       :repairs repairs))))))
 
-(aitools.kernel.domain:define-flow (md-replace/k ports path section &key root lock-timeout dry-run tx display-argv expect-hash stdin on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow (md-replace/k boundaries path section &key root lock-timeout dry-run tx display-argv expect-hash stdin on-ok on-partial on-error)
                                    (declare (type function on-ok on-partial on-error))
                                    (let ((number (%md-section-number section)))
                                      (cond
@@ -102,23 +102,23 @@
                                                                              :repairs
                                                                              (%md-schema-repair "md replace"
                                                                                                 "Pass a positive section ordinal and --expect-hash HASH.")))
-                                       ((or (null (md-ports-workspace-host ports)) (null (md-ports-open-store ports)))
+                                       ((or (null (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host)) (null (cl-boundary-kit:boundary-context-require boundaries :md-open-store)))
                                         (aitools.kernel.domain:flow-continue :on-error
                                                                              "internal.unexpected"
-                                                                             "the md write ports are unavailable"
+                                                                             "the md write context is missing required capabilities"
                                                                              :repairs
                                                                              (%md-schema-repair "md replace" "Show this command's requirements.")))
                                        (t
-                                        (aitools.kernel.domain:flow-call (%md-read-replacement/k ports "md replace")
+                                        (aitools.kernel.domain:flow-call (%md-read-replacement/k boundaries "md replace")
                                                                          (:on-replacement (replacement)
                                                                                           (let ((outcome nil))
                                                                                             (aitools.edit.application:run-write-command/k
                                                                                              (aitools.edit.application:make-write-edit-ports
                                                                                               :workspace-host
-                                                                                              (md-ports-workspace-host ports)
+                                                                                              (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host)
                                                                                               :open-store
-                                                                                              (md-ports-open-store ports))
-                                                                                             (%md-write-plan ports
+                                                                                              (cl-boundary-kit:boundary-context-require boundaries :md-open-store))
+                                                                                             (%md-write-plan boundaries
                                                                                                              path
                                                                                                              number
                                                                                                              replacement
