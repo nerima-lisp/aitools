@@ -135,9 +135,9 @@
   (handler-case
       (let* ((pid (aitools.process.domain:process-identity-pid expected))
              (actual (and (integerp pid) (>= pid 2) (%safe-process-info pid))))
-        ;; This check narrows the interval between observation and kill(2), but
-        ;; cannot make the two syscalls atomic. A pidfd/process handle would be
-        ;; needed to close PID reuse races completely on supported kernels.
+        ;; Linux repeats this check while holding a pidfd before delivery.
+        ;; Darwin has no process handle, so the final recheck still leaves
+        ;; a PID-reuse window before kill(2).
         (and actual
              (stringp (aitools.process.domain:process-identity-command-line expected))
              (stringp (aitools.process.domain:process-identity-command-line actual))
@@ -150,16 +150,54 @@
              (not (%ancestor-p pid))))
     (sb-posix:syscall-error () nil)))
 
-(defun %signal-process (expected signal)
+(defun %signal-process (expected signal &optional pidfd-open-function pidfd-send-signal-function)
   (let ((pid (aitools.process.domain:process-identity-pid expected)))
-    ;; Recheck here, including for SIGKILL after grace. This is still not an
-    ;; atomic identity-to-signal operation on platforms without process handles.
-    (unless (%safe-target-p expected)
-      (error 'aitools.process.application::process-target-changed
-             :message (format nil "process ~D changed or is unsafe to signal" pid)))
-    (handler-case (progn (sb-posix:kill pid signal) t)
-      (sb-posix:syscall-error (condition)
-        (if (= (sb-posix:syscall-errno condition) sb-posix:esrch)
-            nil
-            (error 'aitools.process.application:process-port-error
-                   :message (format nil "signalling process ~D failed: ~A" pid condition)))))))
+    #+linux
+    (labels ((signal-error (operation errno)
+               (cond ((= errno sb-posix:esrch) nil)
+                     ((= errno sb-posix:enosys)
+                      (error (quote aitools.process.application::process-target-changed)
+                             :message (format nil "~A unavailable; refusing to signal process ~D"
+                                              operation pid)))
+                     (t
+                      (error (quote aitools.process.application:process-port-error)
+                             :message (format nil "~A for process ~D failed: ~A"
+                                              operation pid (sb-int:strerror errno)))))))
+      (unless (typep pid (quote (integer 2 *)))
+        (error (quote aitools.process.application::process-target-changed)
+               :message "process PID is invalid"))
+      (multiple-value-bind (fd open-errno)
+          (funcall (or pidfd-open-function (function %linux-pidfd-open)) pid)
+        (unless fd
+          (return-from %signal-process
+            (signal-error "pidfd_open" open-errno)))
+        (unwind-protect
+             (progn
+               (unless (%safe-target-p expected)
+                 (error (quote aitools.process.application::process-target-changed)
+                        :message (format nil "process ~D changed or is unsafe to signal" pid)))
+               (multiple-value-bind (sent send-errno)
+                   (funcall (or pidfd-send-signal-function (function %linux-pidfd-send-signal))
+                            fd signal)
+                 (if sent t (signal-error "pidfd_send_signal" send-errno))))
+          (%process-boundary-io ("closing pidfd for process ~D" pid)
+            (sb-posix:close fd)))))
+    #+darwin
+    (progn
+      ;; On Darwin, process inspection and kill remain separate syscalls. A process may exit and its PID may be reused between them, so a same-user process could receive this signal.
+      (unless (%safe-target-p expected)
+        (error (quote aitools.process.application::process-target-changed)
+               :message (format nil "process ~D changed or is unsafe to signal" pid)))
+      (handler-case (progn (sb-posix:kill pid signal) t)
+        (sb-posix:syscall-error (condition)
+          (if (= (sb-posix:syscall-errno condition) sb-posix:esrch)
+              nil
+              (error (quote aitools.process.application:process-port-error)
+                     :message (format nil "signalling process ~D failed: ~A" pid condition))))))))
+
+(defun %make-signal-process-boundary (boundaries)
+  (lambda (expected signal)
+    (%signal-process
+     expected signal
+     (cl-boundary-kit:boundary-context-require boundaries :process-pidfd-open)
+     (cl-boundary-kit:boundary-context-require boundaries :process-pidfd-send-signal))))

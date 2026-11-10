@@ -23,8 +23,11 @@
                  (:file "signal-flow")))
    (:module "infrastructure" :serial t
     :components ((:file "package") (:file "host")
-                 (:file "signal-host-helpers") (:file "signal-host")
+                 (:file "signal-host-helpers")
+                 #+linux (:file "pidfd-syscall")
+                 (:file "signal-host")
                  (:file "runner") (:file "bg-launcher") (:file "boundaries")))))
+
 (defsystem "aitools/feature/process/presentation"
   :description "Process CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/process" "cl-boundary-kit" "cl-cli")
@@ -54,6 +57,7 @@
      (:file "unit/process/host-clock-test")
      (:file "unit/process/host-boundary-test")
      (:file "unit/process/host-safety-test")
+     #+(and linux (or x86-64 arm64)) (:file "unit/process/pidfd-test")
      (:file "unit/process/infrastructure-coverage-test")
      (:file "unit/process/runner-coverage-test")
      (:module "integration" :pathname "integration/" :serial t :components ((:file "process-test")
@@ -62,6 +66,7 @@
                    (:file "process-bg-test")
                    (:file "process-bg-ended-test")
                    (:file "process-signal-test")
+                   #+(and linux (or x86-64 arm64)) (:file "process-pidfd-test")
                    (:file "process-ports-test")
                    (:file "process-ports-state-test")
                    (:file "process-ports-launch-test")
