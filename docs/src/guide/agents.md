@@ -56,9 +56,10 @@ passes through an archive symlink. For example, if the archive contains
 `D -> .`, the target `D/..` is refused because the planner checks `D` before
 applying `..`.
 
-The planner checks disk entries without following symlinks and combines them
-with the transaction's staged entries and symlinks in the current and earlier
-archive operations. A target cannot cross an existing destination symlink,
+The planner checks disk entries without following symlinks. For
+`archive extract --tx`, it also checks entries already staged in that
+transaction, including entries from earlier `archive extract` calls, against
+the incoming archive. A target cannot cross an existing destination symlink,
 including at its final component. An archive entry also cannot have a parent
 that is an archive or destination symlink, even when that symlink resolves
 inside the extraction root. Staged and archive symlink components use Unicode
@@ -69,8 +70,9 @@ Without `--tx`, `archive extract` writes after planning against the resolved
 extraction root. With `--tx`, it stages the entries after the same planning
 check. Before `tx commit` writes, the store checks every symlink in the final
 staged view against the workspace root, including links that did not come from
-an archive. An unsafe target or prefix rejects the commit with
-`refusal.outside-workspace` and leaves the transaction open. Remove or replace
+an archive. The commit returns `refusal.outside-workspace` if a staged symlink
+target resolves outside the workspace, including through an intermediate
+symlink path component, and leaves the transaction open. Remove or replace
 the offending staged link and retry `tx commit`, or run `tx abort`.
 
 Archive member names containing `..` are refused. Relative symlink targets may
@@ -98,12 +100,14 @@ central-directory entries. The readers also cap retained path metadata at
 raw name bytes and uncompressed symlink target sizes; tar charges emitted
 UTF-8 name and link-target bytes. Archive input is capped at 64 MiB. The reader
 checks the open file's size with `fstat` and refuses larger files before
-reading. If a file grows during the read, it stops at the first byte beyond
-the cap and returns `refusal.too-large`. Gzip streams may contain at most
-1,024 concatenated members, each with at most 256 MiB of decompressed output.
-Without a caller-supplied cumulative cap, the decoder allows at most 1 GiB of
-total output. `--max-bytes` limits cumulative extracted output. Exceeding any
-archive limit returns `refusal.too-large`.
+reading. If a file grows during the read, it reads at most 64 MiB plus one
+byte; that extra byte triggers `refusal.too-large`. Gzip streams may contain
+at most 1,024 concatenated members, each with at most 256 MiB of decompressed
+output. With no explicit output limit, gzip decoding allows at most 1 GiB of
+total decompressed data. `archive extract` supplies the decoder with
+`--max-bytes`, defaulting to 256 MiB when the option is omitted. This cap also
+limits cumulative extracted file data.
+Exceeding any archive limit returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. Aitools' state directory
 lives outside the root, so writes there are refused too. The one

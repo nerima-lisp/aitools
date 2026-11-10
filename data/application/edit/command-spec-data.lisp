@@ -193,7 +193,7 @@
      :positionals ((:key :path :name "path"))
      :options ((:key :to :name "to" :kind :value :description "Destination directory (required).")
                (:key :entry :name "entry" :kind :multi :description "Entry to extract; repeat (default: all).")
-               (:key :max-bytes :name "max-bytes" :kind :value :default "1GiB" :description "Largest total extracted size.")
+               (:key :max-bytes :name "max-bytes" :kind :value :default "256MiB" :description "Largest total extracted size.")
                (:key :max-entries :name "max-entries" :kind :value :default "100000" :description "Most entries extracted."))
      :include (:write)
      :output-fields ((:name "total" :description "Changes in the operation; changes lists the first 200.")))
