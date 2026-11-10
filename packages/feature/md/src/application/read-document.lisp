@@ -2,6 +2,22 @@
 
 (defconstant +md-max-input-bytes+
   (* 16 1024 1024))
+(defun %md-parse-octets (parser octets)
+  (when (> (length octets) +md-max-input-bytes+)
+    (return-from %md-parse-octets (values nil "refusal.too-large" nil nil)))
+  (let ((source nil)
+        (invalid-position nil))
+    (aitools.text.domain:decode-utf8-strict/k
+     octets
+     :on-decoded (lambda (decoded) (setf source decoded))
+     :on-invalid (lambda (position) (setf invalid-position position)))
+    (when invalid-position
+      (return-from %md-parse-octets
+        (values nil
+                "input.not-utf8"
+                (format nil "Markdown input is not UTF-8 at byte ~D" invalid-position)
+                invalid-position)))
+    (funcall parser source octets)))
 
 (defun %md-schema-repair (command detail)
   (list (repair "inspect-schema" detail (format nil "aitools schema ~A" command))))
@@ -108,9 +124,7 @@
                                                                                                                               code
                                                                                                                               message
                                                                                                                               offset)
-                                                                                                            (funcall
-                                                                                                             parser
-                                                                                                             (second
+                                                                                                            (%md-parse-octets parser (second
                                                                                                               outcome))
                                                                                                           (if document
                                                                                                               (aitools.kernel.domain:flow-continue

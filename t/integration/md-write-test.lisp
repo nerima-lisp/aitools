@@ -22,7 +22,7 @@
                                                     (list :too-large)
                                                     (list :octets replacement-octets))))
                                           :parse-markdown
-                                          #'aitools.md.infrastructure:parse-md-octets
+                                          #'aitools.md.infrastructure:parse-md-source
                                           :splice-section
                                           #'aitools.md.infrastructure::splice-section-bytes)))
 

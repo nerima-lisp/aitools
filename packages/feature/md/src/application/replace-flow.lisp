@@ -15,7 +15,7 @@
                                         (let ((result (funcall reader +md-max-input-bytes+)))
                                           (case (first result)
                                             (:octets
-                                             (multiple-value-bind (document code message offset) (funcall parser (second result))
+                                             (multiple-value-bind (document code message offset) (%md-parse-octets parser (second result))
                                                (if document
                                                    (aitools.kernel.domain:flow-continue :on-replacement (second result))
                                                    (aitools.kernel.domain:flow-continue :on-error

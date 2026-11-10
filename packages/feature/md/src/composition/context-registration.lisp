@@ -9,7 +9,7 @@
                    (cons :md-read-stdin-octets
                          (function aitools.md.infrastructure:read-stdin-octets))
                    (cons :md-parse-markdown
-                         (function aitools.md.infrastructure:parse-md-octets))
+                         (function aitools.md.infrastructure:parse-md-source))
                    (cons :md-splice-section
                          (function aitools.md.infrastructure::splice-section-bytes))))
       (setf boundaries

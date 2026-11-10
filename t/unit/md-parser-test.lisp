@@ -6,7 +6,7 @@
                      (format nil
                              "---~%title: demo~%---~%# Same~%body~%~~~~~~lisp~%# hidden~%~~~~~~~~~%## Child~%nested~%~%Same~%===~%tail~%")))
                 (multiple-value-bind (document code message offset)
-                    (aitools.md.infrastructure:parse-md-octets (sb-ext:string-to-octets source :external-format :utf-8))
+                    (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) (sb-ext:string-to-octets source :external-format :utf-8))
                   (declare (ignore message offset))
                   (expect code :to-be nil)
                   (let ((headings (aitools.md.domain:md-document-headings document)))
@@ -33,7 +33,7 @@
                      (original (sb-ext:string-to-octets source :external-format :utf-8))
                      (replacement
                       (sb-ext:string-to-octets (format nil "# A revised~%replacement 漢字~%") :external-format :utf-8)))
-                (multiple-value-bind (document code message offset) (aitools.md.infrastructure:parse-md-octets original)
+                (multiple-value-bind (document code message offset) (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) original)
                   (declare (ignore message offset))
                   (expect code :to-be nil)
                   (let* ((heading (aitools.md.domain:md-document-heading document 1))
@@ -57,7 +57,7 @@
                     (expect updated :to-equalp expected)))))
           (it "reports invalid UTF-8 with the catalog error code"
               (multiple-value-bind (document code message offset)
-                  (aitools.md.infrastructure:parse-md-octets (make-array 4 :element-type (quote (unsigned-byte 8)) :initial-contents (quote (35 32 255 10))))
+                  (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) (make-array 4 :element-type (quote (unsigned-byte 8)) :initial-contents (quote (35 32 255 10))))
                 (declare (ignore document message))
                 (expect code :to-equal "input.not-utf8")
                 (expect offset :to-be 2)))
@@ -71,7 +71,7 @@
                      (octets
                        (sb-ext:string-to-octets source :external-format :utf-8)))
                 (multiple-value-bind (document code message offset)
-                    (aitools.md.infrastructure:parse-md-octets octets)
+                    (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) octets)
                   (declare (ignore document))
                   (expect code :to-equal "refusal.too-large")
                   (expect message :to-equal "maximum block nesting depth exceeded")
@@ -86,7 +86,7 @@
                       (aref octets 1) 254)
                 (replace octets encoded :start1 2)
                 (multiple-value-bind (document code message offset)
-                    (aitools.md.infrastructure:parse-md-octets octets)
+                    (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) octets)
                   (declare (ignore document message offset))
                   (expect code :to-equal "input.not-utf8"))))
           (it "rejects octets beyond the application input limit"
@@ -95,7 +95,7 @@
                                   :element-type '(unsigned-byte 8)
                                   :initial-element 32)))
                 (multiple-value-bind (document code message offset)
-                    (aitools.md.infrastructure:parse-md-octets octets)
+                    (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) octets)
                   (declare (ignore document))
                   (expect code :to-equal "refusal.too-large")
                   (expect message :to-be nil)

@@ -67,7 +67,7 @@
                     (prefix (subseq bytes 0 (min count (length bytes))))
                     (continue (funcall continue-p prefix size)))
                (values (if continue bytes prefix) size))))))
-       :parse-markdown (or parser #'aitools.md.infrastructure:parse-md-octets)))))
+       :parse-markdown (or parser #'aitools.md.infrastructure:parse-md-source)))))
 
 (describe "Markdown commands through the loaded dispatcher"
           (it "lists duplicate headings and reads each selected section completely"
@@ -212,9 +212,7 @@
                         :code)
                   :to-equal "argument.invalid"))
         (dolist (offset (list 4 nil))
-          (let* ((bad-parser (lambda (octets)
-                               (declare (ignore octets))
-                               (values nil "input.unparsable" "invalid Markdown" offset)))
+          (let* ((bad-parser (lambda (source octets) (declare (ignore source octets)) (values nil "input.unparsable" "invalid Markdown" offset)))
                  (result (%md-flow-result #'aitools.md.application:md-headings/k
                                           (%md-read-boundaries root :parser bad-parser) "guide.md" :root root))
                  (fields (aitools.protocol.application:command-result-fields result)))

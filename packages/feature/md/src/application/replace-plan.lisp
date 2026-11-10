@@ -4,7 +4,7 @@
   (if (null octets)
       (values nil nil "input.not-found" "Markdown file does not exist" nil "Pass an existing Markdown file.")
       (multiple-value-bind (document code message offset)
-          (funcall (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown) octets)
+          (%md-parse-octets (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown) octets)
         (cond
           ((null document)
            (values nil nil code message

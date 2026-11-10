@@ -9,7 +9,7 @@
                   (declare (ignore limit))
                   (list :octets (sb-ext:string-to-octets "")))
                 :parse-markdown
-                (function aitools.md.infrastructure:parse-md-octets))))
+                (function aitools.md.infrastructure:parse-md-source))))
       (dolist (boundaries
                (list (ready-boundaries
                       :open-store
@@ -73,7 +73,7 @@
                     (declare (ignore message repairs))
                     (setf outcome (list :error code diagnostics))))
                  outcome))
-             (boundaries (result &optional (parser #'aitools.md.infrastructure:parse-md-octets))
+             (boundaries (result &optional (parser #'aitools.md.infrastructure:parse-md-source))
                (%make-md-test-boundaries :read-stdin-octets (reader result)
                 :parse-markdown parser)))
       (let* ((valid (sb-ext:string-to-octets "# A~%new~%" :external-format :utf-8))
@@ -82,10 +82,8 @@
              (decode-error (read-outcome (boundaries (list :octets invalid))))
              (syntax-error (read-outcome
                             (boundaries (list :octets valid)
-                                   (lambda (octets)
-                                     (declare (ignore octets))
-                                     (values nil "input.syntax-error" "invalid markdown" nil))))))
-        (expect (second (read-outcome (%make-md-test-boundaries :parse-markdown #'aitools.md.infrastructure:parse-md-octets)))
+                                   (lambda (source octets) (declare (ignore source octets)) (values nil "input.syntax-error" "invalid markdown" nil))))))
+        (expect (second (read-outcome (%make-md-test-boundaries :parse-markdown #'aitools.md.infrastructure:parse-md-source)))
                 :to-equal "internal.unexpected")
         (expect (second (read-outcome (%make-md-test-boundaries :read-stdin-octets (reader (list :octets valid)))))
                 :to-equal "internal.unexpected")
@@ -209,9 +207,7 @@
             (expect (cdr (assoc "section" (second outcome) :test #'string=)) :to-be 1))
           (let* ((syntax-boundaries
                    (%make-md-test-boundaries :parse-markdown
-                    (lambda (octets)
-                      (declare (ignore octets))
-                      (values nil "input.syntax-error" "invalid markdown" 3))))
+                    (lambda (source octets) (declare (ignore source octets)) (values nil "input.syntax-error" "invalid markdown" 3))))
                  (outcome (prepare syntax-boundaries "notes.md" 1)))
             (expect (code outcome) :to-equal "input.syntax-error")
             (expect (length (fifth outcome)) :to-be 1))))))

@@ -6,7 +6,7 @@
              (format nil "---~%title: \"bad\\q\"~%---~%# Heading~%")
              :external-format :utf-8)))
       (multiple-value-bind (document code message offset)
-          (aitools.md.infrastructure:parse-md-octets octets)
+          (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) octets)
         (declare (ignore message offset))
         (expect code :to-be nil)
         (expect (aitools.md.domain:md-heading-heading
@@ -23,7 +23,7 @@
                 (find-symbol "MARKDOWN-KIT-ERROR" "CL-MARKDOWN-KIT")
                 :message "invalid front matter")))))
         (multiple-value-bind (document code message offset)
-            (aitools.md.infrastructure:parse-md-octets octets)
+            (aitools.md.application::%md-parse-octets (function aitools.md.infrastructure:parse-md-source) octets)
           (declare (ignore document))
           (expect code :to-equal "input.syntax-error")
           (expect message :to-equal "invalid front matter")

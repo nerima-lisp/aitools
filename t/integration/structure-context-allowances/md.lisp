@@ -14,7 +14,6 @@
          ("md" (:infrastructure) "CL-PARSER-KIT" "SPAN-END" "slice bytes at section end")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "PARSE-STRING" "parse decoded UTF-8 Markdown text")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "DOCUMENT-SOURCE" "preserve parser source text")
-         ("md" (:infrastructure) "AITools.TEXT.DOMAIN" "DECODE-UTF8-STRICT/K" "decode Markdown input as strict UTF-8")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-RESOURCE-LIMIT-ERROR" "map parser resource limits")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-KIT-ERROR-MESSAGE" "preserve parser error detail")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-KIT-ERROR" "map Markdown parser errors")
