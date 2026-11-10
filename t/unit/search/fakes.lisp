@@ -1,7 +1,7 @@
 ;;;;
-;;;; An in-memory filesystem behind both ports the search flows read
-;;;; through: the workspace context's WORKSPACE-HOST (listing, lstat, the
-;;;; ordered mapper) and the text context's TEXT-SOURCE (file bytes). Nodes
+;;;; An in-memory filesystem behind the search workspace and text boundary
+;;;; contexts. The workspace context handles listing, lstat, and ordered
+;;;; mapping; the text context reads file bytes. Nodes
 ;;;; are keyed by absolute path; parents are created implicitly. Listing and
 ;;;; stat report symlinks without following them (lstat); reads follow them.
 (in-package #:aitools.search.test)
@@ -13,8 +13,8 @@
 (defun %bytes (content)
   (coerce (if (stringp content) (string-bytes content) content) '(simple-array (unsigned-byte 8) (*))))
 
-(defun make-fake-ports (&key files directories symlinks (cwd "/w") (now 100000) stdin
-                          unreadable failing unlistable split-chunks (stdin-port :fake) (open-store nil))
+(defun make-fake-search-boundaries (&key files directories symlinks (cwd "/w") (now 100000) stdin
+                          unreadable failing unlistable split-chunks (stdin-reader :fake) (open-store nil))
   "FILES: list of (path content &key mtime mode), CONTENT a string or
 octets; DIRECTORIES: list of paths; SYMLINKS: alist of (path . target).
 STDIN: the octets or string standard input yields. Faults: a path in
@@ -22,7 +22,7 @@ UNREADABLE is listed but its content read finds nothing (a file removed
 mid-scan), a path in FAILING signals FILE-ERROR when read, and a directory
 in UNLISTABLE cannot be listed. SPLIT-CHUNKS reads files in the requested
 chunk size, as the host source does; otherwise a file is one chunk, which
-keeps the allocation specs free of the copying. STDIN-PORT replaces the standard-input
+keeps the allocation specs free of the copying. STDIN-READER replaces the standard-input
 reader (NIL for none); OPEN-STORE is passed through."
   (let ((nodes (make-hash-table :test 'equal)))
     (labels ((ensure-directory (path)
@@ -60,23 +60,33 @@ reader (NIL for none); OPEN-STORE is passed through."
              (file-octets (path)
                (let ((node (gethash (follow path 0) nodes)))
                  (and node (eq (first node) :file) (second node)))))
-      (aitools.search.application:make-search-ports
-       :workspace-host
-       (aitools.workspace.application:make-workspace-boundaries :list-directory (lambda (path)
-                          (let ((node (gethash path nodes)))
-                            (if (and node (eq (first node) :directory) (not (member path unlistable :test #'string=)))
-                                (values (loop for key being the hash-keys of nodes
-                                              when (and (string/= key "/") (equal (%fake-parent key) path))
-                                                collect (entry key))
-                                        t)
-                                (values nil nil))))
+      (cl-boundary-kit:make-boundary-context
+       :search-workspace-host
+       (aitools.workspace.application:make-workspace-boundaries
+        :list-directory
+        (lambda (path)
+          (let ((node (gethash path nodes)))
+            (if (and node
+                     (eq (first node) :directory)
+                     (not (member path unlistable :test #'string=)))
+                (values
+                 (loop for key being the hash-keys of nodes
+                       when (and (string/= key "/")
+                                 (equal (%fake-parent key) path))
+                         collect (entry key))
+                 t)
+                (values nil nil))))
         :stat #'entry
-        :read-link (lambda (path) (let ((node (gethash path nodes))) (and node (eq (first node) :symlink) (second node))))
+        :read-link
+        (lambda (path)
+          (let ((node (gethash path nodes)))
+            (and node (eq (first node) :symlink) (second node))))
         :read-octets #'file-octets
         :environment (cl-boundary-kit:make-test-environment)
         :home-directory (constantly "/home/user")
-        :working-directory (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd)))
-       :text-source
+        :working-directory (cl-boundary-kit:make-working-directory
+                            :get-fn (lambda () cwd)))
+       :search-text-context
        (cl-boundary-kit:make-boundary-context
         :text-call-with-chunks
         (lambda (path size function)
@@ -88,20 +98,24 @@ reader (NIL for none); OPEN-STORE is passed through."
                  (loop with step = (if split-chunks size (max 1 (length octets)))
                        for start from 0 below (length octets) by step
                        until (eq (funcall function
-                                         (if (and (zerop start) (>= step (length octets)))
-                                             octets
-                                             (subseq octets start (min (length octets) (+ start step)))))
+                                          (if (and (zerop start)
+                                                   (>= step (length octets)))
+                                              octets
+                                              (subseq octets start
+                                                      (min (length octets)
+                                                           (+ start step)))))
                                  :stop)
                        finally (return t))))))
-       :open-store open-store
-       :unix-now (constantly now)
-       :read-stdin-octets (if (eq stdin-port :fake)
-                              (lambda (limit)
-                                (let ((octets (%bytes (or stdin ""))))
-                                  (if (> (length octets) limit)
-                                      (list :too-large)
-                                      (list :octets octets))))
-                              stdin-port)))))
+       :search-open-store open-store
+       :search-unix-now (constantly now)
+       :search-read-stdin-octets
+       (if (eq stdin-reader :fake)
+           (lambda (limit)
+             (let ((octets (%bytes (or stdin ""))))
+               (if (> (length octets) limit)
+                   (list :too-large)
+                   (list :octets octets))))
+           stdin-reader)))))
 
 (defun run-flow (flow &rest arguments)
   "(VALUES KIND FIELDS) of the COMMAND-RESULT FLOW produces."

@@ -10,17 +10,9 @@
   (:use #:cl #:aitools.search.domain)
   (:import-from #:aitools.protocol.domain
                 #:json-object-from-alist #:json-boolean #:repair)
-  (:export
-   ;; ports.lisp
-   #:search-ports
-   #:make-search-ports
-   ;; search-flow.lisp
-   #:search/k
-   ;; find-flow.lisp
-   #:find/k
-   ;; code-flow.lisp
-   #:code-outline/k
-   #:code-defs/k
-   #:code-refs/k
-   ;; overview-flow.lisp
-   #:overview/k))
+  (:export #:search/k
+           #:find/k
+           #:code-outline/k
+           #:code-defs/k
+           #:code-refs/k
+           #:overview/k))

@@ -15,14 +15,14 @@
                  (:file "code-extent-common") (:file "code-extents") (:file "code")
                  (:file "overview")))
    (:module "application" :serial t
-    :components ((:file "package") (:file "ports") (:file "session") (:file "session-open")
+    :components ((:file "package") (:file "session") (:file "session-open")
                  (:file "session-file-read")
                  (:file "search-command-line") (:file "search-worker")
                  (:file "search-run") (:file "search-flow")
                  (:file "find-flow") (:file "code-flow")
                  (:file "overview-flow")))
    (:module "infrastructure" :serial t
-    :components ((:file "package") (:file "ports")))))
+    :components ((:file "package") (:file "boundaries")))))
 (defsystem "aitools/feature/search/presentation"
   :description "Search and find CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/search" "cl-cli")
@@ -54,6 +54,7 @@
       :components ((:file "search-allocation-cache")
                    (:file "search-allocation-test")))
      (:module "integration" :pathname "integration/" :serial t
-      :components ((:file "search-host-test")))
+      :components ((:file "search-host-test")
+                   (:file "search-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "search-find-cases")))))))

@@ -4,13 +4,13 @@
 
 (aitools.kernel.domain:define-flow (%unavailable command &key on-error)
   (aitools.kernel.domain:flow-continue :on-error "internal.unexpected"
-   "the search context was built without its workspace host or text source"
+   "the search context is missing a required capability"
    :repairs (list (repair "inspect-schema" "Show this command's arguments and rules."
                           (format nil "aitools schema ~A" command)))))
 
 (aitools.kernel.domain:define-flow
-    (%open-tx/k ports workspace-root tx command &key on-session on-error)
-  (let ((open-store (search-ports-open-store ports)))
+    (%open-tx/k boundaries workspace-root tx command &key on-session on-error)
+  (let ((open-store (cl-boundary-kit:boundary-context-require boundaries :search-open-store)))
     (if (null open-store)
         (aitools.kernel.domain:flow-call (%unavailable command)
           (:on-error (code message &key repairs)
@@ -23,7 +23,7 @@
                     :repairs (list (repair "list-tx" "List the open transactions." "aitools tx status"))))
                  (with-view (view)
                    (aitools.kernel.domain:flow-continue :on-session
-                    (%make-session ports workspace-root (%make-overlay view staged (%now ports))
+                    (%make-session boundaries workspace-root (%make-overlay view staged (%now boundaries))
                                    view staged))))
             (aitools.kernel.domain:flow-call
              (aitools.store.application:tx-status/k
@@ -47,12 +47,12 @@
                   (funcall #'missing))))))))))
 
 (aitools.kernel.domain:define-flow
-    (call-with-session/k ports command &key root tx on-session on-error)
+    (call-with-session/k boundaries command &key root tx on-session on-error)
   "Resolve the workspace root by --root, git top, then working directory. Open
 TX's read-through view when given and continue with the session or an error.
 COMMAND names the command used to build repairs."
-  (let ((host (search-ports-workspace-host ports)))
-    (if (not (and host (search-ports-text-source ports)))
+  (let ((host (cl-boundary-kit:boundary-context-require boundaries :search-workspace-host)))
+    (if (not (and host (cl-boundary-kit:boundary-context-require boundaries :search-text-context)))
         (aitools.kernel.domain:flow-call (%unavailable command)
           (:on-error (code message &key repairs)
             (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))
@@ -69,11 +69,11 @@ COMMAND names the command used to build repairs."
          :on-resolved (lambda (workspace-root)
                         (if tx
                             (aitools.kernel.domain:flow-call
-                                (%open-tx/k ports workspace-root tx command)
+                                (%open-tx/k boundaries workspace-root tx command)
                               (:on-session (session)
                                 (aitools.kernel.domain:flow-continue :on-session session))
                               (:on-error (code message &key repairs)
                                 (aitools.kernel.domain:flow-continue
                                  :on-error code message :repairs repairs)))
                             (aitools.kernel.domain:flow-continue
-                             :on-session (%make-session ports workspace-root nil nil nil))))))))
+                             :on-session (%make-session boundaries workspace-root nil nil nil))))))))

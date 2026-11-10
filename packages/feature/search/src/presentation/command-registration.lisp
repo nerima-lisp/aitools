@@ -1,9 +1,9 @@
 (in-package #:aitools.search.presentation)
 
-(defun register-search-commands (registry ports)
+(defun register-search-commands (registry boundaries)
   "Register `search`, `find`, `overview`, and `code outline|defs|refs` on
-REGISTRY. PORTS is the AITOOLS.SEARCH.APPLICATION:SEARCH-PORTS the
-composition root built."
+REGISTRY. BOUNDARIES is the search boundary context from the
+composition root."
   (aitools.protocol.application:register-command-declarations
    registry
    (list
@@ -34,5 +34,5 @@ composition root built."
      (:group "code"
       :command-builder #'%refs-command
       :schema (%schema "code.refs"))))
-   ports)
+   boundaries)
   registry)

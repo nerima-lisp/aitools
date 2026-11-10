@@ -4,10 +4,10 @@
 ;;;; one JSON envelope and an exit code out.
 (in-package #:aitools.search.test)
 
-(defun dispatch-search (ports &rest argv)
+(defun dispatch-search (boundaries &rest argv)
   "(VALUES EXIT-CODE STDOUT STDERR) for `aitools ARGV...`."
   (let ((registry (aitools.protocol.application:make-command-registry)))
-    (aitools.search.presentation:register-search-commands registry ports)
+    (aitools.search.presentation:register-search-commands registry boundaries)
     (let ((app (cl-cli:make-app :name "aitools" :version "0.0.0" :require-command t
                                 :global-options (list (cl-cli:make-option :name "root" :kind :value))
                                 :commands (aitools/cli:finalize-app-commands registry)))
@@ -29,14 +29,14 @@
 (describe "aitools.search.presentation commands"
   (it "registers search, find, overview, and the code group with schemas"
     (let ((registry (aitools.protocol.application:make-command-registry)))
-      (aitools.search.presentation:register-search-commands registry (make-fake-ports))
+      (aitools.search.presentation:register-search-commands registry (make-fake-search-boundaries))
       (expect (mapcar #'aitools.protocol.domain:command-schema-name
                       (aitools.protocol.application:all-command-schemas registry))
               :to-equal '("search" "find" "overview" "code.outline" "code.defs" "code.refs"))))
 
   (it "treats the first positional as a path once --pattern supplies the pattern"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files*) "search" "--pattern" "hit" "src" "--output" "files")
+        (dispatch-search (make-fake-search-boundaries :files *command-files*) "search" "--pattern" "hit" "src" "--output" "files")
       (expect code :to-be 0)
       (expect (json-get stdout "mode") :to-equal "files")
       (expect (coerce (json-get stdout "paths") 'list) :to-equal '("src/a.lisp"))))
@@ -44,7 +44,7 @@
   (it "accepts options after several paths and returns a version 2 envelope"
     (multiple-value-bind (code stdout)
         (dispatch-search
-         (make-fake-ports :files *command-files*)
+         (make-fake-search-boundaries :files *command-files*)
          "search" "hit" "src" "b.txt" "--output" "count")
       (expect code :to-be 0)
       (expect (json-kit:parse stdout)
@@ -56,13 +56,13 @@
 
   (it "exits 3 with status partial when --limit cuts the result"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files*) "search" "hit" "--limit" "1" "--context" "0")
+        (dispatch-search (make-fake-search-boundaries :files *command-files*) "search" "hit" "--limit" "1" "--context" "0")
       (expect code :to-be 3)
       (expect (json-get stdout "status") :to-equal "partial")
       (expect (json-get stdout "total_matches") :to-be 3)))
 
   (it "exits 1 with input.syntax-error on stderr for an invalid regex"
-    (multiple-value-bind (code stdout stderr) (dispatch-search (make-fake-ports :files *command-files*) "search" "a(")
+    (multiple-value-bind (code stdout stderr) (dispatch-search (make-fake-search-boundaries :files *command-files*) "search" "a(")
       (expect code :to-be 1)
       (expect stdout :to-equal "")
       (expect (json-get stderr "error" "code") :to-equal "input.syntax-error")
@@ -70,28 +70,28 @@
 
   (it "maps find's --type dir and --output tree"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files*) "find" "--type" "dir" "--output" "tree")
+        (dispatch-search (make-fake-search-boundaries :files *command-files*) "find" "--type" "dir" "--output" "tree")
       (expect code :to-be 0)
       (expect (json-get stdout "mode") :to-equal "tree")
       (expect (json-get stdout "tree" "children" 0 "name") :to-equal "src")))
 
   (it "runs the code subcommands and overview"
-    (let ((ports (make-fake-ports :files *command-files*)))
-      (expect (json-get (nth-value 1 (dispatch-search ports "code" "outline" "src/a.lisp")) "symbols" 0 "name")
+    (let ((boundaries (make-fake-search-boundaries :files *command-files*)))
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "code" "outline" "src/a.lisp")) "symbols" 0 "name")
               :to-equal "hit")
-      (expect (json-get (nth-value 1 (dispatch-search ports "code" "defs" "hit")) "defs" 0 "path") :to-equal "src/a.lisp")
-      (expect (json-get (nth-value 1 (dispatch-search ports "code" "refs" "hit")) "total") :to-be 2)
-      (expect (json-get (nth-value 1 (dispatch-search ports "overview")) "languages" 0 "lang") :to-equal "common-lisp")))
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "code" "defs" "hit")) "defs" 0 "path") :to-equal "src/a.lisp")
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "code" "refs" "hit")) "total") :to-be 2)
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "overview")) "languages" 0 "lang") :to-equal "common-lisp")))
 
   (it "resolves the workspace from the global --root"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files* :cwd "/") "--root" "/w" "find" "b.txt")
+        (dispatch-search (make-fake-search-boundaries :files *command-files* :cwd "/") "--root" "/w" "find" "b.txt")
       (expect code :to-be 0)
       (expect (json-get stdout "items" 0 "path") :to-equal "b.txt")))
 
   (it "reports a missing --root directory as input.not-found"
     (multiple-value-bind (code stdout stderr)
-        (dispatch-search (make-fake-ports :files *command-files*) "--root" "/nope" "overview")
+        (dispatch-search (make-fake-search-boundaries :files *command-files*) "--root" "/nope" "overview")
       (declare (ignore stdout))
       (expect code :to-be 1)
       (expect (json-get stderr "error" "code") :to-equal "input.not-found"))))
@@ -99,7 +99,7 @@
 (describe "aitools.search.presentation commands pass their flags to the flows"
   (it "maps search's boolean flags, as the partial result's next command shows"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files (list (list "/w/a.txt" (format nil "a~%b~%c~%"))))
+        (dispatch-search (make-fake-search-boundaries :files (list (list "/w/a.txt" (format nil "a~%b~%c~%"))))
                          "search" "--pattern" "x" "--fixed" "--ignore-case" "--word" "--line-regexp" "--invert"
                          "--multiline" "--no-ignore" "--limit" "1" "--context" "0")
       (expect code :to-be 3)
@@ -109,19 +109,19 @@
 
   (it "reads the search pattern from standard input with --stdin"
     (multiple-value-bind (code stdout)
-        (dispatch-search (make-fake-ports :files *command-files* :stdin (format nil "hit~%")) "search" "--stdin" "--output" "count")
+        (dispatch-search (make-fake-search-boundaries :files *command-files* :stdin (format nil "hit~%")) "search" "--stdin" "--output" "count")
       (expect code :to-be 0)
       (expect (json-get stdout "total_matches") :to-be 3)))
 
   (it "maps find's --executable, --empty, and --sizes"
-    (let ((ports (make-fake-ports :files '(("/w/run.sh" "#!" :mode #o755) ("/w/b.txt" "b")) :directories '("/w/empty"))))
-      (expect (json-get (nth-value 1 (dispatch-search ports "find" "--executable")) "items" 0 "path") :to-equal "run.sh")
-      (multiple-value-bind (code stdout) (dispatch-search ports "find" "--empty" "--sizes" "--type" "dir")
+    (let ((boundaries (make-fake-search-boundaries :files '(("/w/run.sh" "#!" :mode #o755) ("/w/b.txt" "b")) :directories '("/w/empty"))))
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "find" "--executable")) "items" 0 "path") :to-equal "run.sh")
+      (multiple-value-bind (code stdout) (dispatch-search boundaries "find" "--empty" "--sizes" "--type" "dir")
         (expect code :to-be 0)
         (expect (json-get stdout "items" 0 "path") :to-equal "empty")
         (expect (json-get stdout "items" 0 "size") :to-be 0))))
 
   (it "maps code defs --prefix and overview --no-ignore"
-    (let ((ports (make-fake-ports :files *command-files*)))
-      (expect (json-get (nth-value 1 (dispatch-search ports "code" "defs" "hi" "--prefix")) "defs" 0 "name") :to-equal "hit")
-      (expect (json-get (nth-value 1 (dispatch-search ports "overview" "--no-ignore")) "ignore_source") :to-equal "none"))))
+    (let ((boundaries (make-fake-search-boundaries :files *command-files*)))
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "code" "defs" "hi" "--prefix")) "defs" 0 "name") :to-equal "hit")
+      (expect (json-get (nth-value 1 (dispatch-search boundaries "overview" "--no-ignore")) "ignore_source") :to-equal "none"))))

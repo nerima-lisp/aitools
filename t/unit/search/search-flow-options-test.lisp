@@ -17,7 +17,7 @@
   (it "drops one trailing CR LF from a --stdin pattern, and nothing more"
     (flet ((matches (stdin)
              (field (nth-value 1 (run-flow (function search/k)
-                                           (make-fake-ports :files (list (list "/w/a.txt" (format nil "ab~%ab ~%")))
+                                           (make-fake-search-boundaries :files (list (list "/w/a.txt" (format nil "ab~%ab ~%")))
                                                             :stdin stdin)
                                            :stdin t :fixed t :output :matches))
                     "total_matches")))
@@ -26,7 +26,7 @@
       (expect (matches (format nil "ab~C" (code-char 13))) :to-be 0))
     ;; A lone newline leaves the empty pattern, which selects every line.
     (expect (field (nth-value 1 (run-flow (function search/k)
-                                          (make-fake-ports :files (list (list "/w/a.txt" (format nil "x~%y~%")))
+                                          (make-fake-search-boundaries :files (list (list "/w/a.txt" (format nil "x~%y~%")))
                                                            :stdin (format nil "~%"))
                                           :stdin t :output :count))
                    "total_matches")
@@ -35,33 +35,33 @@
   (it-each ((:invalid-utf8 "argument.invalid" "not UTF-8 (byte 1)")
             (:too-large "argument.invalid" "exceeds 1 MiB")
             (:failure "environment.io" "stdin closed")
-            (:no-port "internal.unexpected" "without its workspace host or text source"))
+            (:no-reader "internal.unexpected" "missing a required capability"))
       "maps a --stdin ~A to ~A"
       (case code message)
-    (flet ((verify (ports)
+    (flet ((verify (boundaries)
                    (multiple-value-bind (kind fields)
-                       (run-flow (function search/k) ports :stdin t)
+                       (run-flow (function search/k) boundaries :stdin t)
                      (expect kind :to-be :error)
                      (expect (error-code fields) :to-equal code)
                      (expect (error-message fields) :to-contain message))))
       (ecase case
         (:invalid-utf8
-         (verify (make-fake-ports
+         (verify (make-fake-search-boundaries
                   :stdin (coerce #(97 255) (quote (vector (unsigned-byte 8)))))))
         (:too-large
-         (verify (make-fake-ports
+         (verify (make-fake-search-boundaries
                   :stdin (make-array (1+ (* 1024 1024))
                                      :element-type (quote (unsigned-byte 8))
                                      :initial-element 97))))
         (:failure
-         (cl-weave:with-mocked-functions
-          (((symbol-function (quote aitools.search.infrastructure::read-stdin-octets))
-            (lambda (limit)
-              (declare (ignore limit))
-              (list :failure "stdin closed"))))
-          (verify (aitools.search.infrastructure:make-production-search-ports))))
-        (:no-port
-         (verify (make-fake-ports :stdin-port nil))))))
+         (verify
+          (make-fake-search-boundaries
+           :stdin-reader
+           (lambda (limit)
+             (declare (ignore limit))
+             (list :failure "stdin closed")))))
+        (:no-reader
+         (verify (make-fake-search-boundaries :stdin-reader nil))))))
 
   (it "ends a search whose pattern can match empty on a file without a final newline"
     (destructuring-bind (kind fields)
@@ -77,7 +77,7 @@
   (it "forwards a partial result when the pattern comes from standard input"
     (multiple-value-bind (kind fields)
         (run-flow (function search/k)
-                  (make-fake-ports :files (list (list "/w/a.txt" (format nil "hit~%hit~%")))
+                  (make-fake-search-boundaries :files (list (list "/w/a.txt" (format nil "hit~%hit~%")))
                                    :stdin "hit")
                   :stdin t :context 0 :limit 1)
       (expect kind :to-be :partial)
@@ -85,7 +85,7 @@
 
   (it "forwards a regex error after reading the pattern from standard input"
     (multiple-value-bind (kind fields)
-        (run-flow (function search/k) (make-fake-ports :stdin "a(") :stdin t)
+        (run-flow (function search/k) (make-fake-search-boundaries :stdin "a(") :stdin t)
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.syntax-error")
       (expect (getf (first (getf fields :repairs)) :command) :to-contain "--fixed"))))
@@ -129,7 +129,7 @@
 (describe "aitools.search.application search/k reads, skips, and scan options"
   (it "skips a listed file that is gone or fails to read, and a directory it cannot list, as unreadable"
     (multiple-value-bind (kind fields)
-        (run-flow #'search/k (make-fake-ports :files (list (list "/w/gone.txt" "hit") (list "/w/bad.txt" "hit")
+        (run-flow #'search/k (make-fake-search-boundaries :files (list (list "/w/gone.txt" "hit") (list "/w/bad.txt" "hit")
                                                            (list "/w/locked/x.txt" "hit") (list "/w/ok.txt" "hit"))
                                               :unreadable '("/w/gone.txt") :failing '("/w/bad.txt")
                                               :unlistable '("/w/locked"))
@@ -146,7 +146,7 @@
   (it "joins a file read in several chunks, and judges binary-ness by the first chunk alone"
     (let ((text (concatenate 'string (make-string 70000 :initial-element #\a) (string #\Nul) "hit")))
       (multiple-value-bind (kind fields)
-          (run-flow #'search/k (make-fake-ports :files (list (list "/w/big.txt" text)) :split-chunks t)
+          (run-flow #'search/k (make-fake-search-boundaries :files (list (list "/w/big.txt" text)) :split-chunks t)
                     :patterns '("hit") :output :matches)
         (expect kind :to-be :ok)
         (expect (field fields "skipped") :to-equal '())
@@ -219,7 +219,7 @@
       (expect (error-message fields) :to-equal "workspace root /w/a.txt is not a directory")))
 
   (it "reports internal.unexpected when built without a workspace host, or asked for --tx without a store"
-    (multiple-value-bind (kind fields) (run-flow #'search/k (make-search-ports) :patterns '("x"))
+    (multiple-value-bind (kind fields) (run-flow #'search/k (cl-boundary-kit:make-boundary-context :search-workspace-host nil :search-text-context nil :search-open-store nil :search-unix-now nil :search-read-stdin-octets nil) :patterns '("x"))
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "internal.unexpected")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools schema search"))

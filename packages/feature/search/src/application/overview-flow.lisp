@@ -5,10 +5,10 @@
 (in-package #:aitools.search.application)
 
 (aitools.kernel.domain:define-flow
-    (overview/k ports &key path (limit 30) root tx no-ignore on-ok on-partial on-error)
+    (overview/k boundaries &key path (limit 30) root tx no-ignore on-ok on-partial on-error)
   "`overview`: a summary of the workspace below PATH (default: the root)."
   (aitools.kernel.domain:flow-call
-      (call-with-session/k ports "overview" :root root :tx tx)
+      (call-with-session/k boundaries "overview" :root root :tx tx)
     (:on-error (code message &key repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message :repairs repairs))

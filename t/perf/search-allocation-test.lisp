@@ -162,8 +162,12 @@ widen the threshold."
 
 
 (defun %flow-allocation (line-count &rest arguments)
-  (let ((ports (make-fake-ports :files (list (list "/w/a.txt" (%non-matching-file line-count))))))
-    (%bytes-consed (lambda () (apply #'run-flow #'search/k ports arguments)))))
+  (let ((boundaries
+          (make-fake-search-boundaries
+           :files (list (list "/w/a.txt" (%non-matching-file line-count))))))
+    (%bytes-consed
+     (lambda ()
+       (apply (function run-flow) (function search/k) boundaries arguments)))))
 (defun %search-allocation-measurements ()
   (list
    (list "flow-needle"

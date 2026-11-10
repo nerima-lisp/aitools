@@ -3,7 +3,7 @@
 (describe "aitools.search.application overview/k scanning"
   (it "is partial past --limit with a next command carrying the path, and skips a file that fails to read"
     (multiple-value-bind (kind fields)
-        (run-flow #'overview/k (make-fake-ports :files '(("/w/src/a.lisp" "x") ("/w/src/b.py" "y") ("/w/src/c.py" "z"))
+        (run-flow #'overview/k (make-fake-search-boundaries :files '(("/w/src/a.lisp" "x") ("/w/src/b.py" "y") ("/w/src/c.py" "z"))
                                                 :failing '("/w/src/c.py"))
                   :path "src" :limit 1)
       (expect kind :to-be :partial)
@@ -14,7 +14,7 @@
       (expect (field fields "next_commands") :to-equal '("aitools overview src --limit 2"))))
 
   (it "reports a path that does not exist as input.not-found"
-    (expect (getf (nth-value 1 (run-flow #'overview/k (make-fake-ports :directories '("/w")) :path "nope")) :code) :to-equal "input.not-found")))
+    (expect (getf (nth-value 1 (run-flow #'overview/k (make-fake-search-boundaries :directories '("/w")) :path "nope")) :code) :to-equal "input.not-found")))
 
 (describe "aitools.search.domain overview parts"
   (it "orders tally rows by lines, then bytes, then name"

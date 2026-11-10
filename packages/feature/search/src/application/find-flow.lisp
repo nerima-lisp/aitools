@@ -142,7 +142,7 @@ start-kind): ENTRIES are the scan entries in path order."
              :on-ok (%result-fields fields)))))))
 
 (aitools.kernel.domain:define-flow
-    (find/k ports &rest request
+    (find/k boundaries &rest request
             &key pattern path type depth (sort :path) min-size max-size empty executable
               (output :flat) sizes (limit 50) root tx glob lang no-ignore skip-larger-than newer
               on-ok on-partial on-error)
@@ -158,7 +158,7 @@ or :SIZE; OUTPUT :FLAT or :TREE; MIN-SIZE and MAX-SIZE are size strings."
             (%parse-size-option/k max-size "--max-size")
           (:on-value (max-bytes)
             (aitools.kernel.domain:flow-call
-                (call-with-session/k ports "find" :root root :tx tx)
+                (call-with-session/k boundaries "find" :root root :tx tx)
               (:on-session (session)
                 (aitools.kernel.domain:flow-call
                     (scan-options/k session "find" :glob glob :lang lang :no-ignore no-ignore

@@ -12,7 +12,7 @@
 
 (defun find-in (&rest arguments)
   (apply #'run-flow #'find/k
-         (make-fake-ports :files *find-files* :directories '("/w/empty")
+         (make-fake-search-boundaries :files *find-files* :directories '("/w/empty")
                           :symlinks '(("/w/link" . "src/main.lisp")))
          arguments))
 
@@ -105,7 +105,7 @@
 
   (it "reproduces --executable and --type symlink"
     (multiple-value-bind (kind fields)
-        (run-flow #'find/k (make-fake-ports :files '(("/w/a" "x" :mode #o755) ("/w/b" "y" :mode #o755)))
+        (run-flow #'find/k (make-fake-search-boundaries :files '(("/w/a" "x" :mode #o755) ("/w/b" "y" :mode #o755)))
                   :executable t :limit 1)
       (expect kind :to-be :partial)
       (expect (field fields "next_commands") :to-equal '("aitools find --executable --limit 2")))
@@ -131,7 +131,7 @@
               :to-equal '("README.md" "file"))))
 
   (it "counts an omitted entry whose directories are not in the tree toward the root"
-    (let ((tree (field (nth-value 1 (run-flow #'find/k (make-fake-ports :files '(("/w/README.md" "x") ("/w/src/deep/a.lisp" "y")))
+    (let ((tree (field (nth-value 1 (run-flow #'find/k (make-fake-search-boundaries :files '(("/w/README.md" "x") ("/w/src/deep/a.lisp" "y")))
                                                :type :file :output :tree :limit 1))
                        "tree")))
       (expect (mapcar (lambda (node) (jfield node "name")) (jfield tree "children")) :to-equal '("README.md"))

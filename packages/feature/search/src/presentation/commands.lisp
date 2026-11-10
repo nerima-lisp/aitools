@@ -68,7 +68,7 @@ continuations, returning the resulting COMMAND-RESULT."
 (defun %path-values (invocation)
   (positional-value invocation :paths))
 
-(defun %search-command (ports)
+(defun %search-command (boundaries)
   (make-command
    :name "search" :description (%summary "search")
    ;; One :REST-P positional for the paths. cl-cli interleaves options with
@@ -100,7 +100,7 @@ continuations, returning the resulting COMMAND-RESULT."
             (stdin (and (option-value invocation :stdin) t))
             ;; With --pattern or --stdin every positional is a path.
             (patterns-elsewhere (or option-patterns stdin)))
-       (apply #'%run-flow #'aitools.search.application:search/k ports
+       (apply #'%run-flow #'aitools.search.application:search/k boundaries
               :patterns (if patterns-elsewhere option-patterns (and positional (list positional)))
               :paths (if (and patterns-elsewhere positional) (cons positional rest) rest)
               :stdin stdin
@@ -119,7 +119,7 @@ continuations, returning the resulting COMMAND-RESULT."
 
 ;;; Find
 
-(defun %find-command (ports)
+(defun %find-command (boundaries)
   (make-command
    :name "find" :description (%summary "find")
    :positionals (list (make-positional :key :pattern :name "pattern" :required-p nil)
@@ -139,7 +139,7 @@ continuations, returning the resulting COMMAND-RESULT."
    :handler
    (lambda (invocation)
      (let ((type (option-value invocation :type)))
-       (apply #'%run-flow #'aitools.search.application:find/k ports
+       (apply #'%run-flow #'aitools.search.application:find/k boundaries
               :pattern (positional-value invocation :pattern)
               :path (positional-value invocation :path)
               :type (%keyword type)
@@ -156,19 +156,19 @@ continuations, returning the resulting COMMAND-RESULT."
 
 ;;; Code and overview
 
-(defun %outline-command (ports)
+(defun %outline-command (boundaries)
   (make-command
    :name "outline" :description (%summary "code.outline")
    :positionals (list (make-positional :key :path :name "path" :required-p t))
    :options (list (%limit-option 200) (%tx-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.search.application:code-outline/k ports
+              (%run-flow #'aitools.search.application:code-outline/k boundaries
                          :path (positional-value invocation :path)
                          :limit (option-value invocation :limit)
                          :tx (option-value invocation :tx)
                          :root (option-value invocation :root)))))
 
-(defun %defs-command (ports)
+(defun %defs-command (boundaries)
   (make-command
    :name "defs" :description (%summary "code.defs")
    :positionals (list (make-positional :key :name :name "name" :required-p t)
@@ -177,7 +177,7 @@ continuations, returning the resulting COMMAND-RESULT."
                   (%value "kind" "Only definitions of this kind." :value-name "KIND")
                   (%limit-option 50) (%tx-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.search.application:code-defs/k ports
+              (%run-flow #'aitools.search.application:code-defs/k boundaries
                          :name (positional-value invocation :name)
                          :path (positional-value invocation :path)
                          :prefix (and (option-value invocation :prefix) t)
@@ -186,21 +186,21 @@ continuations, returning the resulting COMMAND-RESULT."
                          :tx (option-value invocation :tx)
                          :root (option-value invocation :root)))))
 
-(defun %refs-command (ports)
+(defun %refs-command (boundaries)
   (make-command
    :name "refs" :description (%summary "code.refs")
    :positionals (list (make-positional :key :name :name "name" :required-p t)
                       (make-positional :key :path :name "path" :required-p nil))
    :options (list (%limit-option 50) (%tx-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.search.application:code-refs/k ports
+              (%run-flow #'aitools.search.application:code-refs/k boundaries
                          :name (positional-value invocation :name)
                          :path (positional-value invocation :path)
                          :limit (option-value invocation :limit)
                          :tx (option-value invocation :tx)
                          :root (option-value invocation :root)))))
 
-(defun %overview-command (ports)
+(defun %overview-command (boundaries)
   (make-command
    :name "overview" :description (%summary "overview")
    :positionals (list (make-positional :key :path :name "path" :required-p nil))
@@ -208,7 +208,7 @@ continuations, returning the resulting COMMAND-RESULT."
                   (%flag "no-ignore" "Include ignored files.")
                   (%tx-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.search.application:overview/k ports
+              (%run-flow #'aitools.search.application:overview/k boundaries
                          :path (positional-value invocation :path)
                          :limit (option-value invocation :limit)
                          :no-ignore (and (option-value invocation :no-ignore) t)

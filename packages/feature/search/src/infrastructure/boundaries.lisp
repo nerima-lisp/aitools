@@ -1,8 +1,7 @@
 ;;;;
-;;;; The production SEARCH-PORTS. The workspace host, text source, and store
-;;;; opener belong to other contexts' infrastructure, which this layer may
-;;;; not name (docs/src/reference/architecture.md), so the composition root builds them and
-;;;; passes them in; only standard input and the clock are adapted here.
+;;;; Clock and standard-input capabilities installed in the search composition
+;;;; boundary context.
+
 (in-package #:aitools.search.infrastructure)
 
 (defun %unix-now ()
@@ -36,12 +35,6 @@ Return (:OCTETS octets), (:TOO-LARGE), or (:FAILURE message)."
         (%read-bounded stream limit))
     (error (condition) (list :failure (princ-to-string condition)))))
 
-(defun make-production-search-ports (&key workspace-host text-source open-store &allow-other-keys)
-  "The production SEARCH-PORTS from the composition root's WORKSPACE-HOST,
-TEXT-SOURCE, and OPEN-STORE (real-root -> STORE). Performs no I/O."
-  (aitools.search.application:make-search-ports
-   :workspace-host workspace-host
-   :text-source text-source
-   :open-store open-store
-   :unix-now #'%unix-now
-   :read-stdin-octets #'read-stdin-octets))
+(defun make-production-search-capabilities ()
+  (list (cons :search-unix-now (function %unix-now))
+        (cons :search-read-stdin-octets (function read-stdin-octets))))

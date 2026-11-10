@@ -6,8 +6,8 @@
 ;;;; options, and file reads with the binary check.
 (in-package #:aitools.search.application)
 
-(defstruct (session (:constructor %make-session (ports root overlay view staged)) (:copier nil) (:predicate nil))
-  (ports nil :type search-ports :read-only t)
+(defstruct (session (:constructor %make-session (boundaries root overlay view staged)) (:copier nil) (:predicate nil))
+  (boundaries nil :read-only t)
   (root nil :read-only t)
   (overlay nil :read-only t)
   ;; The tx's STORE-VIEW and its staged states (relative path ->
@@ -20,7 +20,7 @@
                    (list (cons "next_commands" next-commands)))))
 
 (defun %host (session)
-  (search-ports-workspace-host (session-ports session)))
+  (cl-boundary-kit:boundary-context-require (session-boundaries session) :search-workspace-host))
 
 (defun %root-path (session)
   (aitools.workspace.application:workspace-root-path (session-root session)))
@@ -96,8 +96,8 @@ below them."
 
 ;;; Session setup
 
-(defun %now (ports)
-  (let ((clock (search-ports-unix-now ports)))
+(defun %now (boundaries)
+  (let ((clock (cl-boundary-kit:boundary-context-require boundaries :search-unix-now)))
     (if clock (funcall clock) 0)))
 
 ;;; Paths
@@ -139,7 +139,7 @@ ON-ERROR. SKIP-LARGER-THAN is a size string; NEWER is a path or duration."
   (aitools.workspace.application:call-with-scan-options/k
    (%host session)
    :path-absolute (lambda (path) (%absolute session path))
-   :current-time (lambda () (%now (session-ports session)))
+   :current-time (lambda () (%now (session-boundaries session)))
    :language-predicate #'aitools.text.domain:language-path-predicate
    :language-names (aitools.text.domain:language-names)
    :glob glob :lang lang :no-ignore no-ignore

@@ -21,10 +21,10 @@
                       (command-line (list "aitools" "read" path))))))
 
 (aitools.kernel.domain:define-flow
-    (code-outline/k ports &key path (limit 200) root tx on-ok on-partial on-error)
+    (code-outline/k boundaries &key path (limit 200) root tx on-ok on-partial on-error)
   "`code outline`: the definitions of the file PATH, in line order."
   (declare (type function on-ok on-partial on-error))
-  (aitools.kernel.domain:flow-call (call-with-session/k ports "code outline" :root root :tx tx)
+  (aitools.kernel.domain:flow-call (call-with-session/k boundaries "code outline" :root root :tx tx)
     (:on-session (session)
       (let* ((absolute (%absolute session path)) (relative (%relative session absolute))
              (index (language-index-for-path absolute)))
@@ -117,12 +117,12 @@ on the pool, EMIT receiving (relative-path result) in path order."
   (coerce (aitools.text.domain:encode-utf8 name) 'octets))
 
 (aitools.kernel.domain:define-flow
-    (code-defs/k ports &key name prefix kind path (limit 50) root tx on-ok on-partial on-error)
+    (code-defs/k boundaries &key name prefix kind path (limit 50) root tx on-ok on-partial on-error)
   "`code defs`: definitions named NAME (starting with NAME under PREFIX), of
 KIND when given, in the supported-language files below PATH."
   (declare (type function on-ok on-partial on-error))
   (let ((needle (%name-octets name)) (items '()) (total 0))
-    (aitools.kernel.domain:flow-call (call-with-session/k ports "code defs" :root root :tx tx)
+    (aitools.kernel.domain:flow-call (call-with-session/k boundaries "code defs" :root root :tx tx)
       (:on-session (session)
         (aitools.kernel.domain:flow-call
             (%code-scan/k session "code defs" path
@@ -168,14 +168,14 @@ KIND when given, in the supported-language files below PATH."
          :on-error code message :repairs repairs)))))
 
 (aitools.kernel.domain:define-flow
-    (code-refs/k ports &key name path (limit 50) root tx
+    (code-refs/k boundaries &key name path (limit 50) root tx
                  on-ok on-partial on-error)
   "`code refs`: the lines holding NAME as a whole word in the supported-language
 files below PATH; `kind` is `def` on a line that defines NAME."
   (declare (type function on-ok on-partial on-error))
   (let ((needle (%name-octets name)) (items '()) (total 0) (characters 0))
     (aitools.kernel.domain:flow-call
-        (call-with-session/k ports "code refs" :root root :tx tx)
+        (call-with-session/k boundaries "code refs" :root root :tx tx)
       (:on-session (session)
         (aitools.kernel.domain:flow-call
             (%code-scan/k

@@ -3,7 +3,7 @@
 (defconstant +read-chunk-size+ 65536)
 
 (aitools.kernel.domain:define-flow
-    (%read-disk-file/k source absolute &key on-text on-binary on-missing)
+    (%read-disk-file/k text-boundaries absolute &key on-text on-binary on-missing)
   "Read ABSOLUTE in chunks, checking the first chunk for binary content. Join
 all text chunks into one octet vector."
   (let ((chunks '()) (total 0) (binary nil))
@@ -13,7 +13,7 @@ all text chunks into one octet vector."
                  (progn (push chunk chunks) (incf total (length chunk)) nil))))
       (declare (dynamic-extent #'take))
       (cond
-        ((null (funcall (cl-boundary-kit:boundary-context-require source :text-call-with-chunks) absolute +read-chunk-size+ #'take))
+        ((null (funcall (cl-boundary-kit:boundary-context-require text-boundaries :text-call-with-chunks) absolute +read-chunk-size+ #'take))
          (aitools.kernel.domain:flow-continue :on-missing))
         (binary (aitools.kernel.domain:flow-continue :on-binary))
         ((null chunks)
@@ -40,7 +40,7 @@ result."
                    (aitools.kernel.domain:flow-continue :on-binary))
                   (t (aitools.kernel.domain:flow-continue :on-text octets))))
           (aitools.kernel.domain:flow-call
-              (%read-disk-file/k (search-ports-text-source (session-ports session)) absolute)
+              (%read-disk-file/k (cl-boundary-kit:boundary-context-require (session-boundaries session) :search-text-context) absolute)
             (:on-text (octets) (aitools.kernel.domain:flow-continue :on-text octets))
             (:on-binary () (aitools.kernel.domain:flow-continue :on-binary))
             (:on-missing () (aitools.kernel.domain:flow-continue :on-missing)))))))

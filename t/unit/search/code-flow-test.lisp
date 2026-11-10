@@ -44,7 +44,7 @@
 
 (defun outline-of (path content)
   (multiple-value-bind (kind fields)
-      (run-flow #'code-outline/k (make-fake-ports :files (list (list path content))) :path path)
+      (run-flow #'code-outline/k (make-fake-search-boundaries :files (list (list path content))) :path path)
     (expect kind :to-be :ok)
     (mapcar (lambda (symbol)
               (list (jfield symbol "line") (jfield symbol "end_line") (jfield symbol "kind") (jfield symbol "name")))
@@ -66,13 +66,13 @@
 
   (it "rejects a file in no supported language"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-outline/k (make-fake-ports :files '(("/w/a.txt" "x"))) :path "/w/a.txt")
+        (run-flow #'code-outline/k (make-fake-search-boundaries :files '(("/w/a.txt" "x"))) :path "/w/a.txt")
       (expect kind :to-be :error)
       (expect (getf fields :code) :to-equal "input.unsupported-language")))
 
   (it "is partial past --limit"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-outline/k (make-fake-ports :files (list (list "/w/a.el" (lines "(defvar a 1)" "(defvar b 2)"))))
+        (run-flow #'code-outline/k (make-fake-search-boundaries :files (list (list "/w/a.el" (lines "(defvar a 1)" "(defvar b 2)"))))
                   :path "a.el" :limit 1)
       (expect kind :to-be :partial)
       (expect (field fields "total") :to-be 2))))
@@ -86,14 +86,14 @@
   (it "finds definitions by exact name, by --prefix, and by --kind"
     (flet ((defs (&rest arguments)
              (mapcar (lambda (def) (list (jfield def "path") (jfield def "line") (jfield def "name")))
-                     (field (nth-value 1 (apply #'run-flow #'code-defs/k (make-fake-ports :files *code-files*) arguments))
+                     (field (nth-value 1 (apply #'run-flow #'code-defs/k (make-fake-search-boundaries :files *code-files*) arguments))
                             "defs"))))
       (expect (defs :name "parse") :to-equal '(("src/core.lisp" 1 "parse")))
       (expect (defs :name "parse" :prefix t) :to-equal '(("src/core.lisp" 1 "parse") ("src/core.lisp" 3 "parse-inner")))
       (expect (defs :name "parse" :kind "macro") :to-equal '())))
 
   (it "returns whole-identifier references only, marking the defining line def"
-    (multiple-value-bind (kind fields) (run-flow #'code-refs/k (make-fake-ports :files *code-files*) :name "parse")
+    (multiple-value-bind (kind fields) (run-flow #'code-refs/k (make-fake-search-boundaries :files *code-files*) :name "parse")
       (expect kind :to-be :ok)
       (expect (mapcar (lambda (ref) (list (jfield ref "path") (jfield ref "line") (jfield ref "kind")))
                       (field fields "refs"))
@@ -102,13 +102,13 @@
 
 (describe "aitools.search.application overview/k"
   (it "summarizes languages, build files, and entries"
-    (let ((ports (make-fake-ports
+    (let ((boundaries (make-fake-search-boundaries
                   :files (list (list "/w/flake.nix" (lines "{" "}"))
                                (list "/w/demo.asd" (lines "(defsystem \"demo\")"))
                                (list "/w/src/a.lisp" (lines "(defun a ())" "(defun b ())" ""))
                                (list "/w/src/b.py" (lines "x = 1"))
                                (list "/w/logo.png" (coerce #(137 80 78 71 0 0) '(vector (unsigned-byte 8))))))))
-      (multiple-value-bind (kind fields) (run-flow #'overview/k ports)
+      (multiple-value-bind (kind fields) (run-flow #'overview/k boundaries)
         (expect kind :to-be :ok)
         (expect (field fields "root") :to-equal "/w")
         (expect (field fields "ignore_source") :to-equal "builtin")
@@ -121,20 +121,20 @@
 
   (it "cuts the language list at --limit"
     (multiple-value-bind (kind fields)
-        (run-flow #'overview/k (make-fake-ports :files '(("/w/a.lisp" "x") ("/w/b.py" "y"))) :limit 1)
+        (run-flow #'overview/k (make-fake-search-boundaries :files '(("/w/a.lisp" "x") ("/w/b.py" "y"))) :limit 1)
       (expect kind :to-be :partial)
       (expect (field fields "languages_total") :to-be 2))))
 
 (describe "aitools.search.application code-outline/k errors"
   (it "reports a missing file of a supported language as input.not-found with a find repair"
-    (multiple-value-bind (kind fields) (run-flow #'code-outline/k (make-fake-ports :directories '("/w/src")) :path "src/nope.lisp")
+    (multiple-value-bind (kind fields) (run-flow #'code-outline/k (make-fake-search-boundaries :directories '("/w/src")) :path "src/nope.lisp")
       (expect kind :to-be :error)
       (expect (getf fields :code) :to-equal "input.not-found")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools find nope.lisp")))
 
   (it "reports a binary file as input.unsupported-format with an info repair"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-outline/k (make-fake-ports :files (list (list "/w/bin.lisp" (coerce #(40 0 41) '(vector (unsigned-byte 8))))))
+        (run-flow #'code-outline/k (make-fake-search-boundaries :files (list (list "/w/bin.lisp" (coerce #(40 0 41) '(vector (unsigned-byte 8))))))
                   :path "bin.lisp")
       (expect kind :to-be :error)
       (expect (getf fields :code) :to-equal "input.unsupported-format")
@@ -142,34 +142,34 @@
 
   (it "names a file outside the workspace by its absolute path"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-outline/k (make-fake-ports :files (list (list "/other/a.lisp" (lines "(defun o ())"))) :directories '("/w"))
+        (run-flow #'code-outline/k (make-fake-search-boundaries :files (list (list "/other/a.lisp" (lines "(defun o ())"))) :directories '("/w"))
                   :path "/other/a.lisp")
       (expect kind :to-be :ok)
       (expect (field fields "path") :to-equal "/other/a.lisp"))))
 
 (describe "aitools.search.application code-defs/k and code-refs/k scanning"
-  (flet ((defs (ports &rest arguments)
-           (multiple-value-bind (kind fields) (apply #'run-flow #'code-defs/k ports arguments)
+  (flet ((defs (boundaries &rest arguments)
+           (multiple-value-bind (kind fields) (apply #'run-flow #'code-defs/k boundaries arguments)
              (values kind fields (mapcar (lambda (def) (list (jfield def "path") (jfield def "name")))
                                          (field fields "defs"))))))
     (it "keeps only names that start with a --prefix NAME, ignoring shorter ones"
-      (expect (nth-value 2 (defs (make-fake-ports :files *code-files*) :name "parse-inner" :prefix t))
+      (expect (nth-value 2 (defs (make-fake-search-boundaries :files *code-files*) :name "parse-inner" :prefix t))
               :to-equal '(("src/core.lisp" "parse-inner"))))
 
     (it "scans below --path only, skipping files without the name and files that fail to read"
-      (let ((ports (make-fake-ports :files (append *code-files*
+      (let ((boundaries (make-fake-search-boundaries :files (append *code-files*
                                                    (list (list "/w/src/other.lisp" (lines "(defun other ())"))
                                                          (list "/w/src/bad.lisp" (lines "(defun parse ())"))
                                                          (list "/w/lib/parse.lisp" (lines "(defun parse ())"))))
                                     :failing '("/w/src/bad.lisp"))))
-        (multiple-value-bind (kind fields names) (defs ports :name "parse" :path "src")
+        (multiple-value-bind (kind fields names) (defs boundaries :name "parse" :path "src")
           (expect kind :to-be :ok)
           (expect names :to-equal '(("src/core.lisp" "parse")))
           (expect (field fields "total") :to-be 1))))
 
     (it "is partial past --limit with a next command carrying --path, --prefix, and --kind"
       (multiple-value-bind (kind fields names)
-          (defs (make-fake-ports :files *code-files*) :name "parse" :prefix t :kind "function" :path "src" :limit 1)
+          (defs (make-fake-search-boundaries :files *code-files*) :name "parse" :prefix t :kind "function" :path "src" :limit 1)
         (expect kind :to-be :partial)
         (expect names :to-equal '(("src/core.lisp" "parse")))
         (expect (field fields "total") :to-be 2)
@@ -178,14 +178,14 @@
 
     (it "reports a --path that does not exist as input.not-found"
       (multiple-value-bind (kind fields)
-          (run-flow #'code-defs/k (make-fake-ports :files *code-files*) :name "parse" :path "nope")
+          (run-flow #'code-defs/k (make-fake-search-boundaries :files *code-files*) :name "parse" :path "nope")
         (expect kind :to-be :error)
         (expect (getf fields :code) :to-equal "input.not-found")
         (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools find nope"))))
 
   (it "is partial past --limit for refs, with a next command carrying --path"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-refs/k (make-fake-ports :files *code-files*) :name "parse" :path "src" :limit 1)
+        (run-flow #'code-refs/k (make-fake-search-boundaries :files *code-files*) :name "parse" :path "src" :limit 1)
       (expect kind :to-be :partial)
       (expect (length (field fields "refs")) :to-be 1)
       (expect (field fields "total") :to-be 3)
@@ -193,7 +193,7 @@
 
   (it "bounds a reference at the file start and end, and by a non-ASCII identifier character"
     (multiple-value-bind (kind fields)
-        (run-flow #'code-refs/k (make-fake-ports :files (list (list "/w/a.lisp" (format nil "parse~%(éparse 1)~%(x parse"))))
+        (run-flow #'code-refs/k (make-fake-search-boundaries :files (list (list "/w/a.lisp" (format nil "parse~%(éparse 1)~%(x parse"))))
                   :name "parse")
       (expect kind :to-be :ok)
       (expect (mapcar (lambda (ref) (list (jfield ref "line") (jfield ref "text"))) (field fields "refs"))

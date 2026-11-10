@@ -1,6 +1,6 @@
 ;;;;
 ;;;; The search context over the real filesystem: the production workspace
-;;;; host (a CPU-sized worker pool) and text source, a real store for
+;;;; host (a CPU-sized worker pool) and text boundary context, a real store for
 ;;;; `--tx`, and the rule that scanning never
 ;;;; starts a git process.
 (in-package #:aitools.search.test)
@@ -15,14 +15,15 @@
   (string-right-trim "/" (namestring (truename (sb-ext:parse-native-namestring
                                                 (concatenate 'string directory "/"))))))
 
-(defun %host-ports (root &key open-store)
-  (make-search-ports
-   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :getenv (constantly nil)
-                    :home-directory (constantly "/nonexistent-home")
-                    :current-directory (constantly root))
+(defun %host-boundaries (root &key open-store)
+  (aitools.search.composition::make-search-dependencies
+   :workspace-host
+   (aitools.workspace.infrastructure:make-host-workspace-boundaries
+    :getenv (constantly nil)
+    :home-directory (constantly "/nonexistent-home")
+    :current-directory (constantly root))
    :text-source (aitools.text.infrastructure:make-host-text-source)
-   :open-store open-store
-   :unix-now (constantly 0)))
+   :open-store open-store))
 
 (defmacro %with-temp-workspace ((root) &body body)
   `(let ((,root (%real-root (sb-posix:mkdtemp (format nil "~A/aitools-search-XXXXXX"
@@ -46,16 +47,16 @@
                           (push path expected)))
         (%write-file (format nil "~A/top.txt" root) "hit")
         (push "top.txt" expected)
-        (let ((ports (%host-ports root)))
-          (multiple-value-bind (kind fields) (run-flow #'search/k ports :patterns '("hit") :limit 100)
+        (let ((boundaries (%host-boundaries root)))
+          (multiple-value-bind (kind fields) (run-flow #'search/k boundaries :patterns '("hit") :limit 100)
             (expect kind :to-be :ok)
             (expect (%block-paths fields) :to-equal (sort (copy-list expected) #'string<))
-            (expect (multiple-value-call #'rendered (run-flow #'search/k ports :patterns '("hit") :limit 100))
+            (expect (multiple-value-call #'rendered (run-flow #'search/k boundaries :patterns '("hit") :limit 100))
                     :to-equal (rendered kind fields)))))))
 
   (it "reads through a tx: staged edits, additions, deletions, and the tx's .gitignore"
     (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
-             (ports (%host-ports root :open-store (constantly store))))
+             (boundaries (%host-boundaries root :open-store (constantly store))))
         (%write-file (format nil "~A/.git/HEAD" root) (format nil "ref: refs/heads/main~%"))
         (%write-file (format nil "~A/a.txt" root) "old hit")
         (%write-file (format nil "~A/gone.txt" root) "hit")
@@ -76,18 +77,18 @@
            :on-rejected (lambda (code &rest rest) (fail (format nil "stage rejected ~A ~S" code rest)))
            :on-not-found (lambda () (fail "tx not found"))
            :on-busy (lambda () (fail "tx busy")))
-          (multiple-value-bind (kind fields) (run-flow #'search/k ports :patterns '("hit") :context 0 :tx tx)
+          (multiple-value-bind (kind fields) (run-flow #'search/k boundaries :patterns '("hit") :context 0 :tx tx)
             (expect kind :to-be :ok)
             (expect (%block-paths fields) :to-equal '("a.txt" "new/added.txt"))
             (expect (jfield (first (field fields "blocks")) "lines") :to-equal '("new hit")))
-          (multiple-value-bind (kind fields) (run-flow #'search/k ports :patterns '("hit") :context 0)
+          (multiple-value-bind (kind fields) (run-flow #'search/k boundaries :patterns '("hit") :context 0)
             (expect kind :to-be :ok)
             (expect (%block-paths fields) :to-equal '("a.txt" "gone.txt" "secret.txt")))
-          (multiple-value-bind (kind fields) (run-flow #'find/k ports :type :file :tx tx)
+          (multiple-value-bind (kind fields) (run-flow #'find/k boundaries :type :file :tx tx)
             (expect kind :to-be :ok)
             (expect (mapcar (lambda (item) (jfield item "path")) (field fields "items"))
                     :to-equal '(".gitignore" "a.txt" "new/added.txt")))
-          (multiple-value-bind (kind fields) (run-flow #'find/k ports :type :file :tx "tx-missing")
+          (multiple-value-bind (kind fields) (run-flow #'find/k boundaries :type :file :tx "tx-missing")
             (declare (ignore kind))
             (expect (getf fields :code) :to-equal "input.not-found"))
           (expect (probe-file (sb-ext:parse-native-namestring (format nil "~A/new/added.txt" root))) :to-be nil)))) :io nil))
@@ -103,7 +104,7 @@
             (expect (search needle text :test #'char-equal) :to-be nil))))))
   (it "reads from disk when a tx has no staged paths"
     (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
-             (ports (%host-ports root :open-store (constantly store))))
+             (boundaries (%host-boundaries root :open-store (constantly store))))
         (%write-file (format nil "~A/a.txt" root) "disk hit")
         (let ((tx (aitools.store.application:tx-begin/k
                    store
@@ -112,7 +113,7 @@
                                id)
                    :on-busy (lambda () (fail "tx begin busy")))))
           (multiple-value-bind (kind fields)
-              (run-flow #'search/k ports :patterns '("hit") :tx tx)
+              (run-flow #'search/k boundaries :patterns '("hit") :tx tx)
             (expect kind :to-be :ok)
             (expect (%block-paths fields) :to-equal '("a.txt"))
             (expect (jfield (first (field fields "blocks")) "lines")
@@ -138,7 +139,7 @@
 (describe "aitools.search read-through of a tx on the real filesystem"
   (it "carries --tx into every flow's next command and reads staged, deleted, and binary paths from the tx"
     (aitools.store.test-support:call-with-temp-store (lambda (store) (let* ((root (%real-root (aitools.store.application:store-root store)))
-             (ports (%host-ports root :open-store (constantly store))))
+             (boundaries (%host-boundaries root :open-store (constantly store))))
         (%write-file (format nil "~A/.git/HEAD" root) (format nil "ref: refs/heads/main~%"))
         (%write-file (format nil "~A/a.lisp" root) "(defun old ())")
         ;; Read from disk through the overlay: the tx does not stage it.
@@ -157,7 +158,7 @@
                           (aitools.store.domain:delete-request "gone.lisp"))))
                (suffix (format nil "--tx ~A" tx)))
           (flet ((next (flow &rest arguments)
-                   (multiple-value-bind (kind fields) (apply #'run-flow flow ports :tx tx arguments)
+                   (multiple-value-bind (kind fields) (apply #'run-flow flow boundaries :tx tx arguments)
                      (expect kind :to-be :partial)
                      (first (field fields "next_commands")))))
             (expect (next #'search/k :patterns '("parse") :limit 1)
@@ -168,24 +169,25 @@
                     :to-equal (format nil "aitools code refs parse --limit 4 ~A" suffix))
             (expect (next #'overview/k :limit 1) :to-equal (format nil "aitools overview --limit 2 ~A" suffix))
             (expect (next #'find/k :type :file :limit 1) :to-equal (format nil "aitools find --type file --limit 6 ~A" suffix)))
-          (multiple-value-bind (kind fields) (run-flow #'search/k ports :patterns '("parse") :context 0 :tx tx :limit 50)
+          (multiple-value-bind (kind fields) (run-flow #'search/k boundaries :patterns '("parse") :context 0 :tx tx :limit 50)
             (expect kind :to-be :ok)
             ;; sub/x.lisp shows because the tx deletes the .gitignore that hid it.
             (expect (%block-paths fields) :to-equal '("a.lisp" "fresh/c.py" "sub/b.lisp" "sub/x.lisp"))
             (expect (mapcar (lambda (entry) (json-alist-value entry "reason")) (field fields "skipped")) :to-equal '("binary")))
-          (multiple-value-bind (kind fields) (run-flow #'code-outline/k ports :path "gone.lisp" :tx tx)
+          (multiple-value-bind (kind fields) (run-flow #'code-outline/k boundaries :path "gone.lisp" :tx tx)
             (expect kind :to-be :error)
             (expect (getf fields :code) :to-equal "input.not-found"))
-          (multiple-value-bind (kind fields) (run-flow #'find/k ports :path "fresh" :tx tx)
+          (multiple-value-bind (kind fields) (run-flow #'find/k boundaries :path "fresh" :tx tx)
             (expect kind :to-be :ok)
             (expect (mapcar (lambda (item) (jfield item "path")) (field fields "items")) :to-equal '("fresh/c.py")))))) :io nil)))
 
 (defun %production-stdin (limit)
-  "The outcome of the production search READ-STDIN-OCTETS port with LIMIT."
-  (let ((outcome
-         (funcall (aitools.search.application::search-ports-read-stdin-octets
-                   (aitools.search.infrastructure:make-production-search-ports))
-                  limit)))
+  "The outcome of the production :SEARCH-READ-STDIN-OCTETS reader with LIMIT."
+  (let* ((boundaries (aitools.search.composition::make-search-dependencies))
+         (reader
+           (cl-boundary-kit:boundary-context-require
+            boundaries :search-read-stdin-octets))
+         (outcome (funcall reader limit)))
     (ecase (first outcome)
       (:octets
        (let ((octets (second outcome)))
@@ -195,7 +197,7 @@
       (:too-large (list :too-large))
       (:failure (list :failure (stringp (second outcome)))))))
 
-(describe "aitools.search production ports"
+(describe "aitools.search production boundaries"
   (it "reads standard input as raw octets up to the limit, over several reads"
     (%with-temp-workspace (root)
       (let ((path (format nil "~A/in" root)))
@@ -210,7 +212,13 @@
       (aitools.test.support:with-stdin-from (root) (expect (%production-stdin 10) :to-equal '(:failure t)))))
 
   (it "tells the Unix time in seconds"
-    (let ((now (funcall (aitools.search.application::search-ports-unix-now
-                         (aitools.search.infrastructure:make-production-search-ports))))
-          (expected (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time))))
+    (let* ((boundaries
+             (aitools.search.composition::make-search-dependencies))
+           (now
+             (funcall
+              (cl-boundary-kit:boundary-context-require
+               boundaries :search-unix-now)))
+           (expected
+             (aitools.kernel.domain:universal-time-to-unix-seconds
+              (get-universal-time))))
       (expect (<= (abs (- now expected)) 2) :to-be t))))

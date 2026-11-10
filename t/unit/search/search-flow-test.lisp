@@ -12,7 +12,7 @@
           do (format out "~A ~D~:[~; hit~]~%" prefix n (and (plusp match-every) (zerop (mod n match-every)))))))
 
 (defun search-in (files &rest arguments)
-  (apply #'run-flow #'search/k (make-fake-ports :files files) arguments))
+  (apply #'run-flow #'search/k (make-fake-search-boundaries :files files) arguments))
 
 (describe "aitools.search.application search/k blocks"
   (it "merges matches whose context touches into one block and keeps separate ones apart"
@@ -134,7 +134,7 @@
 
   (it "reads the pattern from standard input only with --stdin, dropping one trailing newline"
     (multiple-value-bind (kind fields)
-        (run-flow #'search/k (make-fake-ports :files (list (list "/w/a.txt" (format nil "x $1 \\ y~%")))
+        (run-flow #'search/k (make-fake-search-boundaries :files (list (list "/w/a.txt" (format nil "x $1 \\ y~%")))
                                               :stdin (format nil "$1 \\~%"))
                   :stdin t :fixed t)
       (expect kind :to-be :ok)
@@ -216,19 +216,19 @@
 (describe "aitools.search.application benchmark"
   (it "records advisory timings for a correct in-memory search flow"
     (let* ((files (list (list "/w/a.txt" (numbered-lines 128 :match-every 4))))
-           (ports (make-fake-ports :files files))
+           (boundaries (make-fake-search-boundaries :files files))
            (runs 0)
            (outputs nil))
       (multiple-value-bind (kind fields)
-          (run-flow (function search/k) ports :patterns (quote ("hit")) :context 0 :limit 50)
+          (run-flow (function search/k) boundaries :patterns (quote ("hit")) :context 0 :limit 50)
         (expect kind :to-be :ok)
         (expect (field fields "total_matches") :to-be 32))
       (let* ((expected (multiple-value-call (function rendered)
-                         (run-flow (function search/k) ports :patterns (quote ("hit")) :context 0 :limit 50)))
+                         (run-flow (function search/k) boundaries :patterns (quote ("hit")) :context 0 :limit 50)))
              (result (cl-weave:benchmark (:warmup 2 :samples 5 :iterations 5)
                         (incf runs)
                         (push (multiple-value-call (function rendered)
-                                (run-flow (function search/k) ports :patterns (quote ("hit")) :context 0 :limit 50))
+                                (run-flow (function search/k) boundaries :patterns (quote ("hit")) :context 0 :limit 50))
                               outputs))))
         (expect runs :to-be 27)
         (expect (length outputs) :to-be 27)

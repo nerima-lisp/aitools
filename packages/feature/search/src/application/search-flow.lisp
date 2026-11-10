@@ -13,10 +13,10 @@
 (in-package #:aitools.search.application)
 
 (aitools.kernel.domain:define-flow
-    (%read-stdin-pattern/k ports &key on-pattern on-error)
+    (%read-stdin-pattern/k boundaries &key on-pattern on-error)
   "Read the raw UTF-8 pattern for search --stdin. One trailing newline
 (LF or CR LF), as echo adds, is dropped; nothing else is changed."
-  (let ((reader (search-ports-read-stdin-octets ports)))
+  (let ((reader (cl-boundary-kit:boundary-context-require boundaries :search-read-stdin-octets)))
     (if (null reader)
         (aitools.kernel.domain:flow-call
             (%unavailable "search")
@@ -80,7 +80,7 @@
 
 
 (aitools.kernel.domain:define-flow
-    (%search-patterns ports request limit &key on-ok on-partial on-error)
+    (%search-patterns boundaries request limit &key on-ok on-partial on-error)
   (let ((patterns (getf request :patterns))
         (output (getf request :output)))
     (cond
@@ -125,7 +125,7 @@
          (:on-built (matcher)
            (aitools.kernel.domain:flow-call
                (call-with-session/k
-                ports
+                boundaries
                 "search"
                 :root (getf request :root)
                 :tx (getf request :tx))
@@ -158,7 +158,7 @@
                         :on-error code message :repairs repairs)))))))))))))
 
 (aitools.kernel.domain:define-flow
-    (search/k ports &rest request
+    (search/k boundaries &rest request
               &key patterns stdin fixed ignore-case word line-regexp invert multiline
                 (context 2) before after (output :blocks) (limit 15) paths root tx
                 glob lang no-ignore skip-larger-than newer
@@ -176,11 +176,11 @@ OUTPUT is :BLOCKS, :MATCHES, :COUNT, :FILES, or :FILES-WITHOUT-MATCH."
                         request)))
     (if stdin
         (aitools.kernel.domain:flow-call
-            (%read-stdin-pattern/k ports)
+            (%read-stdin-pattern/k boundaries)
           (:on-pattern (pattern)
             (aitools.kernel.domain:flow-call
                 (%search-patterns
-                 ports (list* :patterns (list pattern) request) limit)
+                 boundaries (list* :patterns (list pattern) request) limit)
               (:on-ok (fields)
                 (aitools.kernel.domain:flow-continue :on-ok fields))
               (:on-partial (fields)
@@ -193,7 +193,7 @@ OUTPUT is :BLOCKS, :MATCHES, :COUNT, :FILES, or :FILES-WITHOUT-MATCH."
              :on-error code message :repairs repairs)))
         (aitools.kernel.domain:flow-call
             (%search-patterns
-             ports (list* :patterns patterns request) limit)
+             boundaries (list* :patterns patterns request) limit)
           (:on-ok (fields)
             (aitools.kernel.domain:flow-continue :on-ok fields))
           (:on-partial (fields)
