@@ -83,4 +83,77 @@
               (format nil "~A=00" (disk "tmp/other")))
              targets paths :inside host root temporary-root)
           (expect path :to-equal "other")
-          (expect area :to-be :temporary)))))))
+          (expect area :to-be :temporary))))))
+  (it "keeps write-plan defaults and dry-run operands stable"
+    (let* ((target (aitools.edit.application:make-write-target "a.md"))
+           (root-target
+             (aitools.edit.application:make-write-target
+              "a.md" :follow nil :base :root))
+           (plan
+             (aitools.edit.application:make-write-plan
+              :command "edit"
+              :plan (lambda (&rest arguments)
+                      (declare (ignore arguments)))))
+           (context (aitools.edit.application::make-write-context)))
+      (expect (aitools.edit.application::write-target-follow target) :to-be t)
+      (expect (aitools.edit.application::write-target-base target) :to-be :cwd)
+      (expect (aitools.edit.application::write-target-follow root-target) :to-be nil)
+      (expect (aitools.edit.application::write-target-base root-target) :to-be :root)
+      (expect (aitools.edit.application::write-plan-targets plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-plan-inputs plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-plan-guard-requirements plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-plan-expect-hashes plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-plan-record-options plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-context-paths context) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-context-hash-paths context) :to-equal (quote ()))
+      (expect
+       (aitools.edit.application::dry-run-command-line
+        (quote ("edit" "--expect-count" "3" "a.md")))
+       :to-equal "aitools edit a.md --dry-run")
+      (expect
+       (aitools.edit.application::dry-run-command-line
+        (quote ("edit" "replace" "a.md" "--" "--expect-count" "literal")))
+       :to-equal "aitools edit replace a.md --dry-run -- --expect-count literal")))
+  (it "resolves discovered paths inside the workspace and rejects temporary or outside paths"
+    (call-with-edit-workspace
+     (lambda ()
+       (sb-posix:mkdir (disk "tmp") #o700)
+       (let* ((host
+                (aitools.workspace.infrastructure:make-host-workspace-boundaries))
+              (root
+                (aitools.workspace.domain:make-workspace-root
+                 :path *root* :real *root* :source :cwd))
+              (temporary-root (disk "tmp"))
+              (context
+                (aitools.edit.application::make-write-context
+                 :host host :root root :temporary-root temporary-root))
+              (outside (aitools.workspace.domain:path-parent *root*))
+              (result nil))
+         (aitools.kernel.domain:flow-call
+          (aitools.edit.application::resolve-extra-path/k
+           context "inside.md" :base :root)
+          (:on-inside (relative)
+            (setf result (list :inside relative)))
+          (:on-outside (message)
+            (setf result (list :outside message))))
+         (expect result :to-equal (list :inside "inside.md"))
+         (setf result nil)
+         (aitools.kernel.domain:flow-call
+          (aitools.edit.application::resolve-extra-path/k
+           context "tmp/child.md" :base :root)
+          (:on-inside (relative)
+            (setf result (list :inside relative)))
+          (:on-outside (message)
+            (setf result (list :outside message))))
+         (expect result :to-equal
+                 (list :outside
+                       "tmp/child.md is in the mktemp area, not the workspace"))
+         (setf result nil)
+         (aitools.kernel.domain:flow-call
+          (aitools.edit.application::resolve-extra-path/k context outside :base :cwd)
+          (:on-inside (relative)
+            (setf result (list :inside relative)))
+          (:on-outside (message)
+            (setf result (list :outside message))))
+         (expect (first result) :to-be :outside)
+         (expect (search "outside the root" (second result)) :to-be-truthy))))))
