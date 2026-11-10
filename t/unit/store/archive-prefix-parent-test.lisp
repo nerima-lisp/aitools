@@ -31,7 +31,9 @@
                           (when fd
                             (incf closed)
                             (funcall (store-io-close-search-directory io) fd))
-                          (setf fd nil))))
+                          (setf fd nil))
+                         (:identity-mismatch
+                          (setf identity nil))))
                      (values kind fd identity)))
                  :close-search-directory
                  (lambda (fd)
@@ -43,7 +45,7 @@
                  (aitools.store.application::%make-store-view tracked-store nil)
                  "" nil)))
          (unwind-protect
-              (dolist (fault (list :not-directory :no-descriptor))
+              (dolist (fault (list :not-directory :no-descriptor :identity-mismatch))
                 (let ((cursor (funcall checker :start)))
                   (unwind-protect
                        (progn
@@ -60,4 +62,12 @@
                     (funcall checker :finish cursor))))
            (funcall checker :finish))
          (expect opened :to-be closed)))
-     :io nil)))
+     :io nil))
+
+  (it "checks archive cursor descriptor slot types"
+    (let ((invalid-fd (read-from-string "bad"))
+          (invalid-identity (read-from-string "1")))
+      (signals type-error
+        (aitools.store.application::make-%archive-prefix-cursor :current-fd invalid-fd))
+      (signals type-error
+        (aitools.store.application::make-%archive-prefix-cursor :current-identity invalid-identity)))))
