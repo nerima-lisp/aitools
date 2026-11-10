@@ -76,6 +76,19 @@
                   (expect code :to-equal "refusal.too-large")
                   (expect message :to-equal "maximum block nesting depth exceeded")
                   (expect offset :to-be nil))))
+          (it "rejects valid UTF-16 Markdown before converting source spans"
+              (let* ((source (format nil "# UTF-16~%body~%"))
+                     (encoded (sb-ext:string-to-octets source :external-format :utf-16le))
+                     (element-type (array-element-type encoded))
+                     (octets (make-array (+ 2 (length encoded))
+                                         :element-type element-type)))
+                (setf (aref octets 0) 255
+                      (aref octets 1) 254)
+                (replace octets encoded :start1 2)
+                (multiple-value-bind (document code message offset)
+                    (aitools.md.infrastructure:parse-md-octets octets)
+                  (declare (ignore document message offset))
+                  (expect code :to-equal "input.not-utf8"))))
           (it "rejects octets beyond the application input limit"
               (let ((octets
                       (make-array (1+ aitools.md.application:+md-max-input-bytes+)

@@ -15,7 +15,7 @@
   (it "maps a Markdown kit parser error to the syntax error code"
     (let ((octets (sb-ext:string-to-octets "# Heading" :external-format :utf-8)))
       (cl-weave:with-mocked-functions
-          (((symbol-function (find-symbol "PARSE-OCTETS" "CL-MARKDOWN-KIT"))
+          (((symbol-function (find-symbol "PARSE-STRING" "CL-MARKDOWN-KIT"))
             (lambda (&rest arguments)
               (declare (ignore arguments))
               (error

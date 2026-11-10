@@ -7,8 +7,7 @@
                                      "aitools/core/store"
                                      "aitools/feature/edit"
                                      "cl-markdown-kit"
-                                     "cl-parser-kit"
-                                     "cl-codec-kit")
+                                     "cl-parser-kit")
   :pathname "src/"
   :components ((:module "domain" :serial t :components ((:file "package") (:file "document")))
                (:module "application"

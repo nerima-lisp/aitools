@@ -49,21 +49,29 @@
                                                            (cl-parser-kit:span-end span)))))))
 
 (defun parse-md-octets (octets)
-  (handler-case (let* ((engine-document
-                        (cl-markdown-kit:parse-octets octets
-                                                      :front-matter
-                                                      t
-                                                      :gfm
-                                                      t
-                                                      :max-input-size
-                                                      aitools.md.application:+md-max-input-bytes+))
-                       (source (cl-markdown-kit:document-source engine-document))
-                       (headings (%parsed-headings engine-document)))
-                  (values (aitools.md.domain:make-md-document source octets headings) nil nil nil))
-    (cl-codec-kit:decode-error (condition)
-      (let ((position (cl-codec-kit:decode-error-position condition)))
-        (values nil "input.not-utf8" (format nil "Markdown input is not UTF-8 at byte ~D" position) position)))
-    (cl-markdown-kit:markdown-resource-limit-error (condition)
-      (values nil "refusal.too-large" (cl-markdown-kit:markdown-kit-error-message condition) nil))
-    (cl-markdown-kit:markdown-kit-error (condition)
-      (values nil "input.syntax-error" (cl-markdown-kit:markdown-kit-error-message condition) nil))))
+  (when (> (length octets) aitools.md.application:+md-max-input-bytes+)
+    (return-from parse-md-octets (values nil "refusal.too-large" nil nil)))
+  (let ((source nil)
+        (invalid-position nil))
+    (aitools.text.domain:decode-utf8-strict/k
+     octets
+     :on-decoded (lambda (decoded) (setf source decoded))
+     :on-invalid (lambda (position) (setf invalid-position position)))
+    (when invalid-position
+      (return-from parse-md-octets
+        (values nil
+                "input.not-utf8"
+                (format nil "Markdown input is not UTF-8 at byte ~D" invalid-position)
+                invalid-position)))
+    (handler-case
+        (let* ((engine-document
+                 (cl-markdown-kit:parse-string source
+                                               :front-matter t
+                                               :gfm t
+                                               :max-input-size aitools.md.application:+md-max-input-bytes+))
+               (headings (%parsed-headings engine-document)))
+          (values (aitools.md.domain:make-md-document source octets headings) nil nil nil))
+      (cl-markdown-kit:markdown-resource-limit-error (condition)
+        (values nil "refusal.too-large" (cl-markdown-kit:markdown-kit-error-message condition) nil))
+      (cl-markdown-kit:markdown-kit-error (condition)
+        (values nil "input.syntax-error" (cl-markdown-kit:markdown-kit-error-message condition) nil)))))

@@ -125,17 +125,41 @@
                   :to-equal "refusal.target-changed")
           (expect (aitools.test.support:read-bytes path) :to-equalp bytes)
           (progn
-            (expect (error-code (%md-flow-result #'aitools.md.application:md-replace/k
+            (expect (error-code (%md-flow-result (function aitools.md.application:md-replace/k)
                                                  (%md-write-boundaries ""
-                                                                  (lambda (limit)
-                                                                    (declare (ignore limit))
-                                                                    (list :octets
-                                                                          (make-array 1 :element-type '(unsigned-byte 8)
-                                                                                      :initial-element 255))))
+                                                                      (lambda (limit)
+                                                                        (declare (ignore limit))
+                                                                        (list :octets
+                                                                              (make-array 1 :element-type (array-element-type bytes)
+                                                                                          :initial-element 255))))
                                                  "notes.md" 1 :root root :expect-hash hash :stdin t))
                     :to-equal "input.not-utf8")
-            (let ((result (%md-flow-result #'aitools.md.application:md-replace/k
-                                           (%md-write-boundaries "# A~%body~%") "notes.md" 2
+            (let* ((encoded (sb-ext:string-to-octets "# A revised~%new~%"
+                                                     :external-format :utf-16le))
+                   (utf16-octets (make-array (+ 2 (length encoded))
+                                             :element-type (array-element-type encoded))))
+              (setf (aref utf16-octets 0) 255
+                    (aref utf16-octets 1) 254)
+              (replace utf16-octets encoded :start1 2)
+              (expect (error-code (%md-flow-result (function aitools.md.application:md-replace/k)
+                                                   (%md-write-boundaries ""
+                                                                        (lambda (limit)
+                                                                          (declare (ignore limit))
+                                                                          (list :octets utf16-octets)))
+                                                   "notes.md" 1 :root root :expect-hash hash :stdin t))
+                      :to-equal "input.not-utf8")
+              (expect (aitools.test.support:read-bytes path) :to-equalp bytes)
+              (aitools.test.support:write-bytes path utf16-octets)
+              (let ((target-hash (aitools.kernel.domain:content-hash utf16-octets)))
+                (expect (error-code (%md-flow-result (function aitools.md.application:md-replace/k)
+                                                     (%md-write-boundaries (format nil "# A revised~%new~%"))
+                                                     "notes.md" 1 :root root :expect-hash target-hash :stdin t))
+                        :to-equal "input.not-utf8")
+                (expect (aitools.test.support:read-bytes path) :to-equalp utf16-octets))
+              (aitools.test.support:write-bytes path bytes)
+              (expect (aitools.test.support:read-bytes path) :to-equalp bytes))
+            (let ((result (%md-flow-result (function aitools.md.application:md-replace/k)
+                                           (%md-write-boundaries (format nil "# A~%body~%")) "notes.md" 2
                                            :root root :expect-hash hash :stdin t)))
               (expect (error-code result) :to-equal "selection.no-match")
               (expect (aitools.test.support:read-bytes path) :to-equalp bytes)))))))
