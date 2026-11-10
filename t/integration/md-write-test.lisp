@@ -112,4 +112,52 @@
                                                           "ok")
                                                          (expect (aitools.test.support:read-bytes path)
                                                                  :to-equalp
-                                                                 original)))))))
+                                                                 original))))))
+          (it "preserves byte boundaries with front matter, fences, setext, and duplicate headings"
+  (aitools.test.support:with-workspace (root state :chdir t)
+    (declare (ignore state))
+    (let* ((first-source (format nil "# First~%keep first~%# Last~%keep last~%"))
+           (first-replacement (format nil "# Revised first~%changed first~%"))
+           (first-end (search "# Last" first-source))
+           (first-expected
+             (sb-ext:string-to-octets
+              (concatenate (quote string) first-replacement
+                           (subseq first-source first-end))
+              :external-format :utf-8))
+           (first-path (concatenate (quote string) root "/first.md"))
+           (first-ports (%md-write-ports first-replacement)))
+      (aitools.test.support:write-text first-path first-source)
+      (let* ((original (aitools.test.support:read-bytes first-path))
+             (hash (aitools.kernel.domain:content-hash original))
+             (result
+               (%md-flow-result
+                (function aitools.md.application:md-replace/k) first-ports "first.md" 1
+                :root root :expect-hash hash :stdin t)))
+        (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
+        (expect (aitools.test.support:read-bytes first-path) :to-equalp first-expected)))
+    (let* ((rich-source
+             (concatenate
+              (quote string) (string (code-char #xFEFF))
+              (format nil
+                      "---~%title: demo~%# Hidden metadata heading~%---~%# Before~%keep before~%~~~~~~lisp~%# Hidden fence~%~~~~~~~~~%Setext~%===~%keep setext~%# Same~%first duplicate~%# Same~%old ending~%")))
+           (rich-replacement (format nil "# Same~%new ending ✓~%"))
+           (rich-start (search "# Same" rich-source :from-end t))
+           (rich-expected
+             (sb-ext:string-to-octets
+              (concatenate (quote string) (subseq rich-source 0 rich-start)
+                           rich-replacement)
+              :external-format :utf-8))
+           (rich-path (concatenate (quote string) root "/rich.md"))
+           (rich-ports (%md-write-ports rich-replacement)))
+      (aitools.test.support:write-text rich-path rich-source)
+      (let* ((original (aitools.test.support:read-bytes rich-path))
+             (hash (aitools.kernel.domain:content-hash original))
+             (result
+               (%md-flow-result
+                (function aitools.md.application:md-replace/k) rich-ports "rich.md" 4
+                :root root :expect-hash hash :stdin t))
+             (fields (aitools.protocol.application:command-result-fields result)))
+        (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
+        (expect (%field fields "section") :to-be 4)
+        (expect (%field fields "heading") :to-equal "Same")
+        (expect (aitools.test.support:read-bytes rich-path) :to-equalp rich-expected))))))
