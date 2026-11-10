@@ -149,6 +149,9 @@
                  (sb-posix:getpgid 0))
              (not (%ancestor-p pid))))
     (sb-posix:syscall-error () nil)))
+(defun %close-pidfd (pid fd)
+  (%process-boundary-io ("closing pidfd for process ~D" pid)
+    (sb-posix:close fd)))
 
 (defun %signal-process (expected signal &optional pidfd-open-function pidfd-send-signal-function)
   (let ((pid (aitools.process.domain:process-identity-pid expected)))
@@ -180,8 +183,7 @@
                    (funcall (or pidfd-send-signal-function (function %linux-pidfd-send-signal))
                             fd signal)
                  (if sent t (signal-error "pidfd_send_signal" send-errno))))
-          (%process-boundary-io ("closing pidfd for process ~D" pid)
-            (sb-posix:close fd)))))
+          (%close-pidfd pid fd))))
     #+darwin
     (progn
       ;; On Darwin, process inspection and kill remain separate syscalls. A process may exit and its PID may be reused between them, so a same-user process could receive this signal.

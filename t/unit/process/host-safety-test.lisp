@@ -42,6 +42,22 @@
         (expect (process-test-safe-target group group) :to-be nil)
         (expect (process-test-safe-target identity identity :ancestor t)
                 :to-be nil)))
+    (it "short-circuits invalid PIDs without process inspection"
+      (let ((calls 0))
+        (cl-weave:with-mocked-functions
+            (((symbol-function
+               (quote aitools.process.infrastructure::%safe-process-info))
+              (lambda (pid)
+                (declare (ignore pid))
+                (incf calls)
+                nil)))
+          (expect (aitools.process.infrastructure::%safe-target-p
+                   (aitools.process.domain:make-process-identity :pid 1))
+                  :to-be nil)
+          (expect (aitools.process.infrastructure::%safe-target-p
+                   (aitools.process.domain:make-process-identity :pid nil))
+                  :to-be nil)
+          (expect calls :to-be 0))))
     (it "fails closed when the observed identity differs"
       (let* ((uid (sb-posix:getuid))
              (pgid (1+ (sb-posix:getpgid 0)))
