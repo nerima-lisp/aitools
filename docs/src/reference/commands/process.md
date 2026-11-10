@@ -68,7 +68,7 @@ Errors: `argument.invalid`, `input.syntax-error`, `input.not-found`, `environmen
 
 Signal same-UID processes selected by PID or command-line pattern.
 
-PID targets require an expected command-line substring or start identity. Pattern targets require an exact expected count. All selected targets are checked before sending; identity and safety are rechecked immediately before each signal. A process can still change between check and kill(2).
+PID targets require an expected command-line substring or start identity. Pattern targets require an exact expected count. All selected targets are checked before sending; identity and safety are rechecked immediately before each signal. On Linux, aitools verifies the target while holding a pidfd and sends through that handle, so PID reuse cannot redirect the signal. Darwin has no equivalent handle: the recheck and kill(2) remain separate, leaving a small interval in which the target can exit and its PID can be reused.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
