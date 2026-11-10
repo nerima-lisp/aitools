@@ -115,6 +115,18 @@
        (aitools.edit.application::dry-run-command-line
         (quote ("edit" "replace" "a.md" "--" "--expect-count" "literal")))
        :to-equal "aitools edit replace a.md --dry-run -- --expect-count literal")))
+  (it "retains a precommit-check function on a write plan"
+    (let* ((check (lambda () :checked))
+           (plan
+             (aitools.edit.application:make-write-plan
+              :command "archive"
+              :plan (lambda (&rest arguments)
+                      (declare (ignore arguments)))
+              :precommit-check check)))
+      (expect (eq (aitools.edit.application::write-plan-precommit-check plan) check) :to-be t)
+      (expect
+       (funcall (aitools.edit.application::write-plan-precommit-check plan))
+       :to-be :checked)))
   (it "resolves discovered paths inside the workspace and rejects temporary or outside paths"
     (call-with-edit-workspace
      (lambda ()
