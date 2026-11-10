@@ -4,15 +4,6 @@
 ;;;; UTF-8 and read as UTF-8 when valid, else bytewise.
 (in-package #:aitools.text.domain)
 
-(defun %u16le (octets offset)
-  (when (> (+ offset 2) (length octets)) (%archive-fail "field is truncated"))
-  (logior (aref octets offset) (ash (aref octets (1+ offset)) 8)))
-
-(defun %u32le (octets offset)
-  (when (> (+ offset 4) (length octets)) (%archive-fail "field is truncated"))
-  (logior (aref octets offset) (ash (aref octets (+ offset 1)) 8)
-          (ash (aref octets (+ offset 2)) 16) (ash (aref octets (+ offset 3)) 24)))
-
 (defun %name-from-octets (octets start end)
   "Archive member names: UTF-8 when valid, else one character per byte."
   (flet ((bytewise (position)

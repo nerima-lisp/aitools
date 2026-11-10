@@ -22,8 +22,28 @@
    (:file "domain/protocol/selector-options-data")
    (:file "domain/process/process-tables-data")
    (:file "domain/workspace/builtin-excludes-data")
-   (:file "domain/text/cp932-data")
-   (:file "domain/text/euc-jp-data")
+   (:file "domain/text/cp932-data-part-001")
+   (:file "domain/text/cp932-data-part-002")
+   (:file "domain/text/cp932-data-part-003")
+   (:file "domain/text/cp932-data-part-004")
+   (:file "domain/text/cp932-data"
+    :depends-on
+    ("domain/text/cp932-data-part-001"
+     "domain/text/cp932-data-part-002"
+     "domain/text/cp932-data-part-003"
+     "domain/text/cp932-data-part-004"))
+   (:file "domain/text/euc-jp-data-part-001")
+   (:file "domain/text/euc-jp-data-part-002")
+   (:file "domain/text/euc-jp-data-part-003")
+   (:file "domain/text/euc-jp-data-part-004")
+   (:file "domain/text/euc-jp-data-part-005")
+   (:file "domain/text/euc-jp-data"
+    :depends-on
+    ("domain/text/euc-jp-data-part-001"
+     "domain/text/euc-jp-data-part-002"
+     "domain/text/euc-jp-data-part-003"
+     "domain/text/euc-jp-data-part-004"
+     "domain/text/euc-jp-data-part-005"))
    (:file "domain/text/encoding-aliases-data")
    (:file "domain/text/mime-data")
    (:file "domain/text/language-data")

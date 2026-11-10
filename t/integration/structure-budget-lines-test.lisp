@@ -40,15 +40,7 @@
       (setf (gethash (first entry) table) (second entry)))))
 
 (defun %line-budget-exemptions-valid-p ()
-  (let ((paths (sort (mapcar #'first *line-budget-generated-exemptions*) #'string<)))
-    (and (= (length paths) 2)
-         (equal paths
-                '("data/domain/text/cp932-data.lisp"
-                  "data/domain/text/euc-jp-data.lisp"))
-         (every
-          (lambda (entry)
-            (search "generate-charmap-data.pl" (second entry) :test #'char-equal))
-          *line-budget-generated-exemptions*))))
+  (null *line-budget-generated-exemptions*))
 
 (defun line-budget-violations (root)
   (let ((ratchet (%line-budget-baseline-table))
@@ -57,7 +49,7 @@
         (violations '()))
     (unless (%line-budget-exemptions-valid-p)
       (push
-       "line budget: generated exemptions must name only the two charmap data files with generator reasons"
+       "line budget: text context must not define generated exemptions"
        violations))
     (dolist
         (pathname
