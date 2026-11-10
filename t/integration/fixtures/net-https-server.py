@@ -1,3 +1,4 @@
+import gzip
 import http.server
 import ssl
 import sys
@@ -8,13 +9,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def _respond(self, include_body):
-        body = (
-            b"x" * (16 * 1024 * 1024 + 1)
-            if self.path == "/large"
-            else b"loopback response\n"
-        )
+        content_encoding = None
+        if self.path == "/large":
+            body = b"x" * (16 * 1024 * 1024 + 1)
+        elif self.path == "/compressed-large":
+            body = gzip.compress(b"x" * (16 * 1024 * 1024 + 1))
+            content_encoding = "gzip"
+        else:
+            body = b"loopback response\n"
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        if content_encoding:
+            self.send_header("Content-Encoding", content_encoding)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if include_body:
