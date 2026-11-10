@@ -2,7 +2,7 @@
 
 (defsystem "aitools/core/workspace"
   :description "Workspace discovery and ignore handling."
-  :depends-on ("aitools/core/kernel" "cl-codec-kit" "cl-host-kit"
+  :depends-on ("aitools/core/kernel" "aitools/core/text" "cl-codec-kit" "cl-host-kit"
                "cl-boundary-kit" "cl-concurrent-kit")
   :pathname "src/"
   :components

@@ -90,7 +90,8 @@ or NIL. START is absolute and normalized."
          (absolute-path-p back-pointer)
          (%same-file-identity-p host back-pointer expected))))
 (defun %git-name-fold (name)
-  (sb-unicode:casefold (sb-unicode:normalize-string name :nfd)))
+  (aitools.text.domain:casefold-text
+   (aitools.text.domain:normalize-text name :nfd)))
 (defun %git-path-has-dot-git-component-p (path)
   (aitools.workspace.domain:git-path-has-dot-git-component-p
    path :name-fold-function (function %git-name-fold)))

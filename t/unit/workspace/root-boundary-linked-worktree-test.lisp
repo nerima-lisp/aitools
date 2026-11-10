@@ -178,3 +178,70 @@
         (expect (workspace-root-real alias-root) :to-equal root-path)
         (expect (boundary-verdict alias-host alias-root "src/new.txt")
                 :to-be :git-directory)))))
+(describe "aitools.workspace.application metadata-root verdicts"
+          (it "classifies metadata names, identities, and registered worktrees"
+              (let* ((safe-host (make-fake-workspace-boundaries :directories (list "/bare/src" "/checkout")))
+                     (aliased-host
+                      (make-fake-workspace-boundaries
+                       :directories (list "/bare/hooks" "/checkout")
+                       :file-identities
+                       (list (cons "/bare/hooks" (cons 1 2))
+                             (cons "/checkout" (cons 1 2)))))
+                     (incomplete-host (make-fake-workspace-boundaries :directories (list "/bare/hooks" "/checkout") :stat-failures (list "/bare/hooks")))
+                     (loop-host
+                      (make-fake-workspace-boundaries
+                       :symlinks (list (cons "/loop" "/loop"))))
+                     (worktree-root "/bare/.worktrees/wt")
+                     (worktree
+                      (aitools.workspace.domain:make-git-repository
+                       :top worktree-root
+                       :git-dir "/bare/worktrees/wt"
+                       :common-dir "/bare"))
+                     (bare
+                      (aitools.workspace.domain:make-git-repository
+                       :top "/bare" :git-dir "/bare" :common-dir "/bare"))
+                     (repositories (list bare worktree))
+                     (linked-host
+                      (make-fake-workspace-boundaries
+                       :files
+                       (list (cons "/bare/worktrees/wt/gitdir"
+                                   (concatenate 'string worktree-root "/.git"))
+                             (cons (concatenate 'string worktree-root "/.git")
+                                   "gitdir: /bare/worktrees/wt")))))
+                (expect (aitools.workspace.application::%common-root-name-verdict
+                         "/bare" "/bare" "/bare/hooks" "/bare/hooks" nil nil nil)
+                        :to-be :git-directory)
+                (expect (aitools.workspace.application::%common-root-name-verdict
+                         "/bare" "/bare" "/checkout" "/checkout" nil nil nil)
+                        :to-be-falsy)
+                (expect (aitools.workspace.application::%common-root-name-verdict
+                         "/bare" "/bare" "/checkout" "/checkout"
+                         "/bare/tmp" "/bare/tmp" "/bare/tmp/file")
+                        :to-be :git-directory)
+                (expect (aitools.workspace.application::%common-root-identity-verdict
+                         safe-host "/bare" "/checkout" "/checkout" nil nil nil)
+                        :to-be-falsy)
+                (expect (aitools.workspace.application::%common-root-identity-verdict
+                         aliased-host "/bare" "/checkout" "/checkout" nil nil nil)
+                        :to-be :git-directory)
+                (expect (aitools.workspace.application::%common-root-identity-verdict
+                         incomplete-host "/bare" "/checkout" "/checkout" nil nil nil)
+                        :to-be :git-directory)
+                (expect (aitools.workspace.application::%registered-linked-worktree-candidate-verdict
+                         linked-host "/bare" worktree-root worktree)
+                        :to-be :registered-linked-worktree)
+                (expect (aitools.workspace.application::%registered-linked-worktree-candidate-verdict
+                         linked-host "/bare" "/bare/other" worktree)
+                        :to-be :unregistered-linked-worktree)
+                (expect (aitools.workspace.application::%linked-worktree-exception-verdict
+                         linked-host "/bare" worktree-root "/bare" repositories)
+                        :to-be :omit-common-directory)
+                (expect (aitools.workspace.application::%linked-worktree-exception-verdict
+                         linked-host "/bare" "/bare/other" "/bare" repositories)
+                        :to-be :retain-common-directory)
+                (let ((unresolved
+                       (aitools.workspace.domain:make-git-repository
+                        :top "/checkout" :git-dir "/meta/wt" :common-dir "/loop")))
+                  (expect (aitools.workspace.application::%common-root-metadata-verdict
+                           loop-host unresolved "/checkout" "/checkout" nil nil nil)
+                          :to-be :git-directory)))))

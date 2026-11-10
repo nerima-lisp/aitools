@@ -27,32 +27,56 @@
   (handler-case (%entry-from-stat (%basename path) (sb-posix:lstat path))
     (error () nil)))
 
+(defun %open-directory (path)
+  (handler-case (sb-posix:opendir path)
+    (error () nil)))
+
+(defun %next-directory-name (stream)
+  (let ((dirent (sb-posix:readdir stream)))
+    (if (or (null dirent) (sb-alien:null-alien dirent))
+        (values nil :end)
+      (let ((name (handler-case (sb-posix:dirent-name dirent)
+                    (error () nil))))
+        (if name
+            (values name :entry)
+          (values nil :invalid))))))
+
+(defun %directory-child-entry (path name)
+  (if (member name '("." "..") :test (function string=))
+      (values nil t)
+    (let ((entry
+           (%lstat-entry
+            (concatenate (quote string)
+                         (string-right-trim "/" path)
+                         "/"
+                         name))))
+      (values entry (not (null entry))))))
+
+(defun %record-directory-child (path name entries complete-p)
+  (multiple-value-bind (entry child-complete-p)
+      (%directory-child-entry path name)
+    (when entry (push entry entries))
+    (values entries (and complete-p child-complete-p))))
+
+(defun %list-directory-entries (stream path)
+  (let ((entries nil)
+        (complete-p t))
+    (loop
+     (multiple-value-bind (name status) (%next-directory-name stream)
+       (case status
+         (:end (return))
+         (:invalid (setf complete-p nil))
+         (:entry
+          (multiple-value-setq (entries complete-p)
+                               (%record-directory-child path name entries complete-p))))))
+    (values entries t complete-p)))
+
 (defun %list-directory (path)
-  (let ((stream (handler-case (sb-posix:opendir path)
-                  (error () (return-from %list-directory (values nil nil nil))))))
+  (let ((stream (%open-directory path)))
+    (unless stream
+      (return-from %list-directory (values nil nil nil)))
     (unwind-protect
-         (let ((entries (quote ()))
-               (complete-p t))
-           (loop
-             (let ((dirent (sb-posix:readdir stream)))
-               (when (or (null dirent) (sb-alien:null-alien dirent))
-                 (return))
-               (let ((name (handler-case (sb-posix:dirent-name dirent)
-                             (error () nil))))
-                 (if (null name)
-                     (setf complete-p nil)
-                     (unless (or (string= name ".") (string= name ".."))
-                       (let ((entry
-                               (%lstat-entry
-                                (concatenate
-                                 (quote string)
-                                 (string-right-trim "/" path)
-                                 "/"
-                                 name))))
-                         (if entry
-                             (push entry entries)
-                             (setf complete-p nil))))))))
-           (values entries t complete-p))
+        (%list-directory-entries stream path)
       (sb-posix:closedir stream))))
 (defun %read-link (path)
   (handler-case (sb-posix:readlink path)
