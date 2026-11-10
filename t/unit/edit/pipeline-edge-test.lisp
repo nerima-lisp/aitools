@@ -103,6 +103,7 @@
       (expect (aitools.edit.application::write-plan-inputs plan) :to-equal (quote ()))
       (expect (aitools.edit.application::write-plan-guard-requirements plan) :to-equal (quote ()))
       (expect (aitools.edit.application::write-plan-expect-hashes plan) :to-equal (quote ()))
+      (expect (aitools.edit.application::write-plan-max-target-bytes plan) :to-be nil)
       (expect (aitools.edit.application::write-plan-record-options plan) :to-equal (quote ()))
       (expect (aitools.edit.application::write-context-paths context) :to-equal (quote ()))
       (expect (aitools.edit.application::write-context-hash-paths context) :to-equal (quote ()))
@@ -130,8 +131,7 @@
               (outside (aitools.workspace.domain:path-parent *root*))
               (result nil))
          (aitools.kernel.domain:flow-call
-          (aitools.edit.application::resolve-extra-path/k
-           context "inside.md" :base :root)
+          (aitools.edit.application::resolve-extra-path/k context "inside.md")
           (:on-inside (relative)
             (setf result (list :inside relative)))
           (:on-outside (message)
