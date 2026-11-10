@@ -29,7 +29,7 @@ whether it went to :STDOUT or :STDERR."
   "Call FUNCTION with (ROOT STORE): a fresh workspace and the store the
 production CLI opens for it, with XDG_STATE_HOME redirected meanwhile."
   (call-with-temp-store (lambda (scratch) (let* ((root (aitools.store.application:store-root scratch))
-           (xdg (concatenate 'string root "/../xdg"))
+           (xdg (concatenate 'string (subseq root 0 (position #\/ root :from-end t)) "/xdg"))
            (previous (sb-posix:getenv "XDG_STATE_HOME")))
       (sb-posix:mkdir xdg #o700)
       (unwind-protect

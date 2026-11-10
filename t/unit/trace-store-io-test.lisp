@@ -1,6 +1,10 @@
 (in-package #:aitools/test)
-(defun %trace-test-store-io (operation &key retry random)
+(defun %trace-test-store-io (operation &key retry random
+                                       (clock (cl-boundary-kit:make-clock))
+                                       (sleeper (cl-boundary-kit:make-sleeper)))
   (cl-boundary-kit:make-boundary-context
+   :clock clock
+   :sleeper sleeper
    :lstat operation
    :read-file operation
    :create-file operation
@@ -102,22 +106,36 @@
         (expect (gethash span-id (aitools/cli::%trace-session-outcomes session))
                 :to-be outcome))))
 
-  (it "retains retry and random functions without tracing them"
+  (it "retains clock and sleeper objects plus retry and random functions without tracing them"
     (let* ((operation (lambda (&rest arguments)
                         (declare (ignore arguments))
                         (values :retained :secondary)))
+           (clock (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0))
+           (sleeper (cl-boundary-kit:make-recording-sleeper))
            (retry operation)
            (random operation)
-           (io (%trace-test-store-io operation :retry retry :random random))
+           (io (%trace-test-store-io operation :retry retry :random random
+                                     :clock clock :sleeper sleeper))
            (session (aitools/cli::%make-trace-session))
            (wrapped nil))
       (let ((aitools/cli::*trace-session* session))
         (setf wrapped (aitools/cli::%trace-store-io io))
+        (expect (eq (cl-boundary-kit:boundary-context-require wrapped :clock) clock)
+                :to-be t)
+        (expect (eq (cl-boundary-kit:boundary-context-require wrapped :sleeper) sleeper)
+                :to-be t)
         (expect (eq (cl-boundary-kit:boundary-context-require wrapped :call-with-retry) retry)
                 :to-be t)
         (expect (eq (cl-boundary-kit:boundary-context-require wrapped :random-hex) random)
                 :to-be t)
+        (cl-boundary-kit:clock-now (cl-boundary-kit:boundary-context-require wrapped :clock))
+        (cl-boundary-kit:clock-monotonic
+         (cl-boundary-kit:boundary-context-require wrapped :clock))
+        (cl-boundary-kit:sleeper-sleep
+         (cl-boundary-kit:boundary-context-require wrapped :sleeper) 0.01d0)
         (funcall (cl-boundary-kit:boundary-context-require wrapped :call-with-retry)
                  nil operation nil nil)
         (funcall (cl-boundary-kit:boundary-context-require wrapped :random-hex) 4))
+      (expect (cl-boundary-kit:recording-sleeper-calls sleeper)
+              :to-equal (list 0.01d0))
       (expect (aitools/cli::%trace-session-records session) :to-be nil))))

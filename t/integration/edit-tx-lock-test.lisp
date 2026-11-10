@@ -14,6 +14,7 @@
           (unwind-protect
               (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b" :tx tx)
                                 :root *root* :lock-timeout "20ms"
+                                :on-partial #'identity
                                 :on-ok (lambda (fields) (setf result fields))
                                 :on-error (lambda (code message &rest keys)
                                             (declare (ignore message keys))
@@ -62,6 +63,7 @@
                  (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b")
                                    :root *root* :lock-timeout "20ms"
                                    :display-argv (list "edit" "a.txt" "--old" "a" "--new" "b")
+                                   :on-partial #'identity
                                    :on-ok (lambda (fields) (setf result fields))
                                    :on-error (lambda (code message &key repairs &allow-other-keys)
                                                (declare (ignore message))

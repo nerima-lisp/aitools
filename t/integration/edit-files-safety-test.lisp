@@ -28,6 +28,7 @@
     (with-edit-workspace () (put "a.txt" "a")
       (let ((result nil))
         (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
+                          :on-partial #'identity
                           :on-ok (lambda (fields) (setf result fields))
                           :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
         (expect (first result) :to-equal "argument.invalid")
