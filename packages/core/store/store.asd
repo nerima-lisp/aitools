@@ -37,30 +37,37 @@
            :serial t
            :components ((:file "unit/store/package")
                         (:file "unit/store/domain-test")
+                        (:file "unit/store/domain-coverage-test")
                         (:file "unit/store/serialization-test")
                         (:file "unit/store/domain-record-test")
                         (:file "unit/store/record-codec-test")
                         (:file "unit/store/tx-model-test")
+                        (:file "unit/store/store-port-coverage-test")
                         (:file "unit/store/archive-prefix-test")
                         (:module "archive-prefix-tests"
- :pathname "unit/store/"
- :serial t
- :components ((:file "archive-prefix-parent-test")
-              (:file "archive-prefix-added-branches-test")
-              (:file "archive-prefix-platform-branches-test")))
+                         :pathname "unit/store/"
+                         :serial t
+                         :components ((:file "archive-prefix-parent-test")
+                                      (:file "archive-prefix-added-branches-test")
+                                      (:file "archive-prefix-platform-branches-test")))
+                        (:file "unit/store/posix-syscall-coverage-test")
                         (:module "tx-commit-tests"
- :pathname "unit/store/"
- :serial t
- :components ((:file "tx-commit-test")
-              (:file "tx-archive-branch-coverage-test")))
+                         :pathname "unit/store/"
+                         :serial t
+                         :components ((:file "tx-commit-test")
+                                      (:file "tx-archive-branch-coverage-test")))
                         (:file "integration/store-write-protocol-test")
+                        (:file "integration/store-write-coverage-test")
+                        (:file "integration/store-write-completion-coverage-test")
                         (:file "integration/store-case-collision-test")
                         (:file "integration/store-journal-undo-test")
+                        (:file "integration/store-undo-coverage-test")
                         (:file "integration/store-recovery-test")
                         (:file "integration/store-recovery-process-test")
                         (:file "integration/store-lock-test")
                         (:file "integration/store-retry-plan-edge-test")
                         (:file "integration/store-tx-test")
+                        (:file "integration/store-tx-coverage-test")
                         (:file "integration/store-view-hash-test")
                         (:file "integration/store-tx-operations-test")
                         (:file "integration/store-tx-command-test")
@@ -69,4 +76,8 @@
                         (:file "integration/store-security-write-test")
                         (:file "integration/store-security-gc-test")
                         (:file "integration/store-security-concurrency-test")
-                        (:module "e2e" :pathname "e2e/" :serial t :components ((:file "store-trace-cases")))))
+                        (:file "integration/store-posix-io-coverage-test")
+                        (:module "e2e"
+                         :pathname "e2e/"
+                         :serial t
+                         :components ((:file "store-trace-cases")))))

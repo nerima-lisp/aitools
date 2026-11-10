@@ -84,7 +84,11 @@
              (:branch "aitools.store.domain" "tx-index")
              (:branch "aitools.store.domain" "tx-meta")
              (:branch "aitools.store.domain" "tx-op-record")
-             (:branch "aitools.store.domain" "plan-changes/k"))))
+             (:branch "aitools.store.domain" "plan-changes/k")
+             (:expression "AITOOLS.STORE.APPLICATION" "%ARCHIVE-PREFIX-START")
+             (:expression "aitools.store.domain" "plan-changes/k")
+             (:expression "AITOOLS.STORE.APPLICATION"
+                          "%DIRECTORY-FINALIZATION-STEPS"))))
     (labels ((source-name (designator)
                (cond ((symbolp designator) (string-downcase (symbol-name designator)))
                      ((stringp designator) (string-downcase designator))))
@@ -133,12 +137,28 @@
                       (function-matches (source-matches functions package symbol))
                       (flow-matches (source-matches flows package symbol)))
                  (and (= (length exclusion) 8)
-                      (eq (getf exclusion :kind) :branch)
+                      (or (eq (getf exclusion :kind) :branch)
+                          (eq (getf exclusion :kind) :expression))
                       (stringp package)
                       (stringp symbol)
                       (stringp reason)
                       (plusp (length reason))
                       (cond
+                        ((equal key '(:expression "AITOOLS.STORE.APPLICATION"
+                                      "%ARCHIVE-PREFIX-START"))
+                         (and (= (length function-matches) 1)
+                              (null structure-matches)
+                              (null flow-matches)))
+                        ((equal key '(:expression "aitools.store.domain"
+                                      "plan-changes/k"))
+                         (and (null structure-matches)
+                              (= (length flow-matches) 1)
+                              (null function-matches)))
+                        ((equal key '(:expression "AITOOLS.STORE.APPLICATION"
+                                      "%DIRECTORY-FINALIZATION-STEPS"))
+                         (and (= (length function-matches) 1)
+                              (null structure-matches)
+                              (null flow-matches)))
                         ((equal key '(:branch "AITOOLS.STORE.INFRASTRUCTURE"
                                       "%OPEN-SEARCH-ROOT"))
                          (and (= (length function-matches) 1)
@@ -149,12 +169,13 @@
                               (= (length flow-matches) 1)
                               (null function-matches)))
                         (t
-                         (and (= (length structure-matches) 1)
+                         (and (eq (getf exclusion :kind) :branch)
+                              (= (length structure-matches) 1)
                               (third (first structure-matches))
                               (null flow-matches)
                               (null function-matches)))))))
              (valid-exclusions-p (candidates)
-               (and (= (length candidates) 12)
+               (and (= (length candidates) 15)
                     (equal (mapcar #'exclusion-key candidates) expected-keys)
                     (= (length candidates)
                        (length (remove-duplicates (mapcar #'exclusion-key candidates)
@@ -177,10 +198,15 @@
       (expect (getf baseline :uncovered-in-package-expressions) :to-equal nil)
       (expect exclusions :to-be-truthy)
       (expect (valid-exclusions-p exclusions) :to-be-truthy)
-      (expect (valid-exclusion-p
-               '(:kind :branch :package "aitools.store.domain"
-                 :symbol "stale-key" :reason "no current definition"))
-              :to-equal nil)
+      (progn
+        (expect (valid-exclusion-p
+                 '(:kind :branch :package "aitools.store.domain"
+                   :symbol "stale-key" :reason "no current definition"))
+                :to-equal nil)
+        (expect (valid-exclusion-p
+                 '(:kind :expression :package "aitools.store.domain"
+                   :symbol "stale-expression" :reason "no current definition"))
+                :to-equal nil))
       (let ((empty-reason (copy-list (first exclusions))))
         (setf (getf empty-reason :reason) "")
         (expect (valid-exclusion-p empty-reason) :to-equal nil))))))

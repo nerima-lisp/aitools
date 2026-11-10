@@ -1,0 +1,41 @@
+(in-package #:aitools.store.test)
+(progn
+  (describe "aitools.store undo continuation coverage"
+    (it "returns changed-path conflicts through the rejection continuation"
+      (call-with-temp-store
+       (lambda (store)
+         (put-file store "a.txt" "before")
+         (multiple-value-bind (status op-id results)
+             (commit store (list (write-file-request "a.txt" (bytes "after"))))
+           (declare (ignore results))
+           (expect status :to-be :committed)
+           (put-file store "a.txt" "external")
+           (multiple-value-bind (undo-status code message keys)
+               (undo-op/k store op-id (list "undo" op-id)
+                          :on-committed (lambda (&rest arguments)
+                                          (declare (ignore arguments))
+                                          :committed)
+                          :on-rejected (lambda (rejection-code rejection-message &rest rejection-keys)
+                                         (values :rejected rejection-code rejection-message rejection-keys))
+                          :on-busy (lambda () :busy))
+             (declare (ignore message))
+             (expect undo-status :to-be :rejected)
+             (expect code :to-equal "refusal.target-changed")
+             (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("a.txt"))
+             (expect (disk-text store "a.txt") :to-equal "external"))))
+       :io nil))
+
+    (it "reports a missing journal operation as input.not-found"
+      (call-with-temp-store
+       (lambda (store)
+         (expect (undo-op/k store (format-op-id 3964000000 "00000000") '("undo")
+                            :on-committed (lambda (&rest arguments)
+                                            (declare (ignore arguments))
+                                            :committed)
+                            :on-rejected (lambda (code message &rest keys)
+                                           (declare (ignore message keys))
+                                           (list :rejected code))
+                            :on-busy (lambda () :busy))
+                 :to-equal '(:rejected "input.not-found")))
+       :io nil)))
+)

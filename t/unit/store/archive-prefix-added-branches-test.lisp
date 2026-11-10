@@ -73,6 +73,41 @@
       (expect (gethash :symlink symlink-root) :to-be t)
       (expect (nth-value 1 (gethash "." staged-root)) :to-be nil)
       (expect (gethash :kind staged-root) :to-be :file)))
+  (it "closes the parent descriptor when returning to it fails"
+    (call-with-temp-store
+     (lambda (store)
+       (let* ((io (store-boundaries store))
+              (open-entry (store-operation io :open-search-entry))
+              (close-directory (store-operation io :close-search-directory))
+              (failed-fd nil)
+              (parent-fd nil)
+              (parent-closed nil)
+              (fail-close nil)
+              (boundaries (cl-boundary-kit:boundary-context-with io
+                 :open-search-entry (lambda (dirfd name path)
+                   (multiple-value-bind (kind fd identity)
+                       (funcall open-entry dirfd name path)
+                     (when (string= name "..") (setf parent-fd fd))
+                     (values kind fd identity)))
+                 :close-search-directory (lambda (fd)
+                   (when (and fail-close (eql fd failed-fd))
+                     (setf fail-close nil)
+                     (error "injected close failure"))
+                   (when (eql fd parent-fd) (setf parent-closed t))
+                   (funcall close-directory fd))))
+              (tracked-store (make-store boundaries (store-root store) "/tmp"))
+              (checker (aitools.store.application:make-archive-symlink-prefix-checker
+                       (aitools.store.application::%make-store-view tracked-store nil) "" nil))
+              (cursor (funcall checker :start)))
+         (sb-posix:mkdir (disk-path store "child") #o755)
+         (unwind-protect
+              (progn
+                (funcall checker :enter cursor "child")
+                (setf failed-fd (aitools.store.application::%archive-prefix-cursor-current-fd cursor) fail-close t)
+                (signals error (funcall checker :parent cursor))
+                (expect parent-closed :to-be t))
+           (setf fail-close nil) (funcall checker :finish cursor))))
+     :io nil))
 
   (it "keeps a disk symlink unsafe when a directory is staged"
     (call-with-temp-store
