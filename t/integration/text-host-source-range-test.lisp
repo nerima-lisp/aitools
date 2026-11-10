@@ -59,3 +59,44 @@
                  (aitools.text.infrastructure::%read-sniffed path 8192 (constantly t) :max-bytes 4))
                 :to-equal '(nil :too-large))))))
 ))
+
+(describe "aitools text bounded source limits"
+  (it "bounds the public octet reader before allocation"
+    (call-with-scratch-directory (lambda (scratch)
+      (let ((path (concatenate 'string scratch "/bounded"))
+            (source (aitools.text.infrastructure:make-host-text-source)))
+        (write-file path (make-array 5 :element-type '(unsigned-byte 8) :initial-element 65))
+        (expect (multiple-value-list
+                 (aitools.text.application:source-read-octets source path :max-bytes 4))
+                :to-equal '(nil :too-large))))))
+  (it "stops after the first byte beyond a matching fstat size"
+    (call-with-scratch-directory (lambda (scratch)
+      (let* ((path (concatenate 'string scratch "/grown"))
+             (bytes (make-array 151 :element-type '(unsigned-byte 8) :initial-element 65))
+             (fd nil))
+        (write-file path bytes)
+        (setf fd (sb-posix:open path sb-posix:o-rdonly))
+        (unwind-protect
+             (multiple-value-bind (octets problem)
+                 (aitools.text.infrastructure::%read-all fd 150 nil :max-bytes 150)
+               (expect octets :to-be-falsy)
+               (expect problem :to-be :too-large)
+               (expect (sb-posix:lseek fd 0 sb-posix:seek-cur) :to-be 151))
+          (sb-posix:close fd))))))
+  (it "does not read after the first excess byte in the grown helper"
+    (call-with-scratch-directory (lambda (scratch)
+      (let* ((path (concatenate 'string scratch "/grown"))
+             (bytes (make-array 200 :element-type '(unsigned-byte 8) :initial-element 65))
+             (fd nil))
+        (write-file path bytes)
+        (setf fd (sb-posix:open path sb-posix:o-rdonly))
+        (unwind-protect
+             (progn
+               (expect (sb-posix:lseek fd 151 sb-posix:seek-set) :to-be 151)
+               (multiple-value-bind (octets problem)
+                   (aitools.text.infrastructure::%read-grown
+                    (subseq bytes 0 150) fd (aref bytes 150) 150)
+                 (expect octets :to-be-falsy)
+                 (expect problem :to-be :too-large)
+                 (expect (sb-posix:lseek fd 0 sb-posix:seek-cur) :to-be 151)))
+          (sb-posix:close fd)))))))
