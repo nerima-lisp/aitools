@@ -182,30 +182,46 @@
           (expect (length items) :to-be 50)
           (expect (jfield (first items) "path") :to-equal "file01.txt")
           (expect (jfield (car (last items)) "path") :to-equal "file50.txt")))))
-  (it "uses the default path and limit for an empty overview"
+  (it "returns all supported languages under the overview default limit"
     (multiple-value-bind (kind fields)
-        (run-flow #'overview/k
-                  (make-fake-search-boundaries :directories '("/w")))
+        (run-flow
+         (function overview/k)
+         (make-fake-search-boundaries
+          :files
+          (quote
+           (("/w/common.lisp" "x")
+            ("/w/emacs.el" "x")
+            ("/w/scheme.scm" "x")
+            ("/w/clojure.clj" "x")
+            ("/w/rust.rs" "x")
+            ("/w/go.go" "x")
+            ("/w/python.py" "x")
+            ("/w/javascript.js" "x")
+            ("/w/typescript.ts" "x")
+            ("/w/nix.nix" "x")
+            ("/w/shell.sh" "x")
+            ("/w/markdown.md" "x")))))
       (expect kind :to-be :ok)
       (expect (field fields "root") :to-equal "/w")
       (expect (field fields "path") :to-equal "")
-      (expect (field fields "languages_total") :to-be 0)
-      (expect (field fields "languages") :to-equal '())
-      (expect (field fields "entries") :to-equal '())))
-  (it "uses search's default two lines of context"
-    (multiple-value-bind (kind fields)
-        (run-flow #'search/k
-                  (make-fake-search-boundaries
-                   :files
-                   (list
-                    (list "/w/a.txt"
-                          (format nil "one~%two~%hit~%four~%five~%"))))
-                  :patterns '("hit"))
-      (expect kind :to-be :ok)
-      (expect (field fields "total_matches") :to-be 1)
-      (let ((block (first (field fields "blocks"))))
-        (expect (jfield block "start_line") :to-be 1)
-        (expect (jfield block "lines")
-                :to-equal '("one" "two" "hit" "four" "five"))
-        (expect (jfield block "match_lines") :to-equal '(3))))))
+      (expect (field fields "languages_total") :to-be 12)
+      (expect (length (field fields "languages")) :to-be 12)))
+  (it "uses the default search context and fifteen-line limit"
+    (let ((files
+            (loop for index from 1 to 16
+                  collect
+                  (list (format nil "/w/file~D.txt" index)
+                        (format nil "one~%two~%hit~%four~%five~%")))))
+      (multiple-value-bind (kind fields)
+          (run-flow (function search/k) (make-fake-search-boundaries :files files)
+                    :patterns (quote ("hit")))
+        (expect kind :to-be :partial)
+        (expect (field fields "total_matches") :to-be 16)
+        (let ((blocks (field fields "blocks")))
+          (expect (length blocks) :to-be 15)
+          (let ((block (first blocks)))
+            (expect (jfield block "start_line") :to-be 1)
+            (expect (jfield block "lines")
+                    :to-equal (quote ("one" "two" "hit" "four" "five")))
+            (expect (jfield block "match_lines") :to-equal (quote (3)))))))))
 

@@ -11,7 +11,8 @@
       (expect (octets-find (%bytes "abc") (%bytes "aBC") 0 :fold t) :to-be 0)
       (expect (funcall (symbol-function 'aitools.search.domain::line-content-end) octets 0) :to-be 2)
       (expect (funcall (symbol-function 'aitools.search.domain::line-content-end) octets 3) :to-be 7)
-      (expect (funcall (symbol-function 'aitools.search.domain::line-content-end) octets 9) :to-be 13)))
+      (expect (funcall (symbol-function 'aitools.search.domain::line-content-end) octets 9) :to-be 13)
+      (expect (funcall (symbol-function 'aitools.search.domain::line-content-end) octets 8) :to-be 8)))
 
   (it "builds a language index and reports an invalid definition pattern"
     (let* ((language (aitools.text.domain:find-language "common-lisp"))
@@ -87,7 +88,8 @@
       (expect (funcall (symbol-function 'aitools.search.domain::hit-end) first) :to-be 4)
       (expect (funcall (symbol-function 'aitools.search.domain::hit-start) second) :to-be 5)
       (expect (funcall (symbol-function 'aitools.search.domain::hit-end) second) :to-be 7)
-      (expect (aitools.search.domain::%next-match program octets 7 nil) :to-be nil))
+      (expect (aitools.search.domain::%next-match program octets 7 nil) :to-be nil)
+      (expect (aitools.search.domain::%next-match program octets 8 nil) :to-be nil))
     (let* ((octets (%bytes "x"))
            (program (svref (matcher-programs (matcher '("."))) 0))
            (hit (aitools.search.domain::%next-match program octets 0 nil)))
@@ -180,5 +182,12 @@
       (expect (found-entry-path file) :to-equal "src/main.lisp")
       (expect (jfield (found-entry-json directory) "size") :to-be json-kit:+json-null+)
       (expect (jfield (found-entry-json empty-file) "size") :to-be 0)
-      (expect (jfield (found-entry-json file) "size") :to-be 42))))
+      (expect (jfield (found-entry-json file) "size") :to-be 42)))
+  (it "rejects invalid domain constructor slot values"
+    (signals type-error
+      (make-found-entry "src/file" :file 1 (read-from-string "-1") 0))
+    (signals type-error
+      (aitools.search.domain::%make-program nil (read-from-string "\"literal\"") nil #() 0))
+    (signals type-error
+      (aitools.search.domain::%make-file-outcome (read-from-string "\"octets\"") '() 0 0 '()))))
 

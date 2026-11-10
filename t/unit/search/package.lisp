@@ -4,5 +4,5 @@
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave
                 #:it #:it-each #:it-property #:gen-integer
-                #:expect #:fail)
+                #:expect #:fail #:signals)
   (:import-from #:aitools.test.support #:json-alist-value #:string-bytes))
