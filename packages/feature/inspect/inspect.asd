@@ -135,6 +135,15 @@
                    (:file "inspect-cli-commands-test")
                    (:file "inspect-yaml-toml-read-test")
                    (:file "inspect-cli-store-test")))
+     (:module "inspect-coverage-edge-tests" :pathname "unit/inspect/" :serial t
+      :components ((:file "application-read-edge-test")
+                   (:file "archive-flow-edge-test")
+                   (:file "document-snapshot-flow-edge-test")
+                   (:file "json-domain-edge-test")
+                   (:file "lisp-source-edge-test")
+                   (:file "diff-domain-coverage-test")
+                   (:file "line-domain-edge-test")
+                   (:file "read-render-edge-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "read-search-cases")
                    (:file "format-cases")
