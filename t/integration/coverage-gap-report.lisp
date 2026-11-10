@@ -1,7 +1,5 @@
 (in-package #:cl-user)
 
-(defparameter +coverage-gap-report-limit+ 200)
-
 (defun coverage-gap-relative-path (root pathname)
   (let* ((root-name (namestring (uiop:ensure-directory-pathname (truename root))))
          (source-name (namestring (truename pathname))))
@@ -51,19 +49,10 @@
                          location (gethash (getf location :pathname) sources))))))
 
 (defun report-coverage-gap-records (context records &optional (stream *standard-output*))
-  (let ((reported 0)
-        (omitted 0))
-    (dolist (record records)
-      (if (< reported +coverage-gap-report-limit+)
-          (progn
-            (format stream "coverage gap ~A ~A ~A ~A:~D~%"
-                    context (getf record :kind) (getf record :owner)
-                    (getf record :path) (getf record :line))
-            (incf reported))
-          (incf omitted)))
-    (when (plusp omitted)
-      (format stream "coverage gap ~A: ~D additional uncovered site~:P omitted~%"
-              context omitted))))
+  (dolist (record records)
+    (format stream "coverage gap ~A ~A ~A ~A:~D~%"
+            context (getf record :kind) (getf record :owner)
+            (getf record :path) (getf record :line))))
 
 (defun report-coverage-gaps (root groups measured)
   (dolist (measurement measured)
