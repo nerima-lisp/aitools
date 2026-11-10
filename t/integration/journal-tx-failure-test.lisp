@@ -20,7 +20,7 @@ condition a failing rename or fsync raises, at the first POINT."
       (assert fired () "the fault point ~S was never reached" point))))
 
 (defun run-with (boundaries context flow &rest arguments)
-  "Like RUN, with explicit PORTS and CONTEXT."
+  "Like RUN, with explicit BOUNDARIES and CONTEXT."
   (let ((result (aitools.protocol.application:call-with-command-result/k
                  (lambda (&rest continuations)
                    (apply flow boundaries context (append arguments continuations))))))
