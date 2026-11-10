@@ -11,39 +11,19 @@
       (expect (run "write" '("a.txt") :content '("new") :overwrite t :expect-hash (list (hash "a.txt"))) :to-be :ok)
       (expect (text "a.txt") :to-equal "new"))))
   (it "keeps an ordinary hash-guarded edit uncapped by default"
-  (call-with-edit-workspace
-   (lambda ()
-     (put "a.txt" "old")
-     (let* ((plan
-              (aitools.edit.application:make-write-plan
-               :command "edit"
-               :targets
-               (list (aitools.edit.application:make-write-target "a.txt"))
-               :expect-hashes (list (hash "a.txt"))
-               :record-positionals (lambda (paths) (list (first paths)))
-               :plan
-               (lambda (context &key on-committed on-rejected)
-                 (declare (ignore on-rejected))
-                 (funcall on-committed
-                          (list
-                           (aitools.store.domain:write-file-request
-                            (aitools.edit.application:context-path context)
-                            (bytes "new")))))))
-            (result nil))
-       (expect
-        (aitools.edit.application::write-plan-max-target-bytes plan)
-        :to-be nil)
-       (aitools.edit.application:run-write-command/k
-        *ports* plan
-        :root *root*
-        :on-ok (lambda (fields)
-                 (declare (ignore fields))
-                 (setf result :ok))
-        :on-error (lambda (code message &rest keys)
-                    (declare (ignore message keys))
-                    (setf result (list :error code))))
-       (expect result :to-be :ok)
-       (expect (text "a.txt") :to-equal "new")))))
+    (call-with-edit-workspace
+      (lambda ()
+        (let ((original
+                (format nil "~A marker~%"
+                        (make-string (* 1024 1024) :initial-element (code-char 97)))))
+          (put "a.txt" original)
+          (expect
+            (run "edit" (list "a.txt")
+                 :old "marker" :new "changed"
+                 :expect-hash (list (hash "a.txt")))
+            :to-be :ok)
+          (expect (search "changed" (text "a.txt")) :to-be-truthy)
+          (expect (search "marker" (text "a.txt")) :to-be nil)))))
 
   (it "splits by lines and refuses missing inputs or existing pieces"
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "1~%2~%3~%"))

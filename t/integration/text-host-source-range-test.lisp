@@ -74,21 +74,27 @@
          (write-file path (make-array 5 :element-type '(unsigned-byte 8) :initial-element 65))
          (expect (multiple-value-list (funcall read-sniffed path 8192 (constantly t) :max-bytes 4))
         :to-equal '(nil :too-large))))))
-  (it "stops after the first byte beyond the fstat size"
+  (it "detects a whole-file growth after fstat"
     (call-with-scratch-directory
-     (lambda (scratch)
-       (let* ((path (concatenate 'string scratch "/grown"))
-              (bytes (make-array 151 :element-type '(unsigned-byte 8) :initial-element 65))
-              (fd nil))
-         (write-file path bytes)
-         (setf fd (sb-posix:open path sb-posix:o-rdonly))
-         (unwind-protect
-              (multiple-value-bind (octets problem)
-                  (aitools.text.infrastructure::%read-all fd 150 nil :max-bytes 150)
-                (expect octets :to-be-falsy)
-                (expect problem :to-be :too-large)
-                (expect (sb-posix:lseek fd 0 sb-posix:seek-cur) :to-be 151))
-           (sb-posix:close fd))))))
+      (lambda (scratch)
+        (let* ((path (concatenate (quote string) scratch "/grown"))
+               (bytes (make-array 150 :element-type (quote (unsigned-byte 8)) :initial-element 65)))
+          (write-file path bytes)
+          (expect
+            (multiple-value-list
+              (aitools.text.infrastructure::%call-with-regular-file
+                path
+                (lambda (fd size)
+                  (with-open-file (out (sb-ext:parse-native-namestring path)
+                                       :direction :output
+                                       :element-type (quote (unsigned-byte 8))
+                                       :if-exists :append)
+                    (write-byte 66 out))
+                  (multiple-value-bind (octets problem)
+                      (aitools.text.infrastructure::%read-all fd size nil :max-bytes size)
+                    (values octets problem size (sb-posix:lseek fd 0 sb-posix:seek-cur))))))
+            :to-equal (list nil :too-large 150 151))
+          (expect (sb-posix:stat-size (sb-posix:stat path)) :to-be 151)))))
   (it "does not read after the first excess byte in the grown helper"
     (call-with-scratch-directory
      (lambda (scratch)
