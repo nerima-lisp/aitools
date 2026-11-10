@@ -31,7 +31,7 @@ jobs:
       - uses: ./.github/actions/nix-setup
         with:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
-          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
 
       - name: Check generated command reference
         run: >-
@@ -80,7 +80,7 @@ jobs:
       - uses: ./.github/actions/nix-setup
         with:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
-          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
 
       - name: Check generated command reference
         run: >-
