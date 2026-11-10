@@ -105,6 +105,7 @@ handles, not as an SBCL stream condition."
         (error (condition)
           (sb-posix:close fd)
           (error condition)))))
+  #+linux
   (defun %open-entry-linux (dirfd name path)
     (handler-case
         (let ((fd (%openat dirfd name (logior +o-path+ sb-posix:o-nofollow +o-cloexec+) path)))
@@ -121,6 +122,7 @@ handles, not as an SBCL stream condition."
                     (list sb-posix:enoent sb-posix:enotdir))
             (values :absent nil nil)
             (error condition)))))
+  #+darwin
   (defun %open-entry-darwin-metadata (dirfd name path)
     (handler-case
         (let ((fd (%openat dirfd name
@@ -139,6 +141,7 @@ handles, not as an SBCL stream condition."
                     (list sb-posix:enoent sb-posix:enotdir))
             (values :absent nil nil)
             (error condition)))))
+  #+darwin
   (defun %open-entry-darwin (dirfd name path)
     (handler-case
         (let ((fd (%openat dirfd name (logior +o-search+ sb-posix:o-nofollow +o-cloexec+) path)))
