@@ -74,7 +74,7 @@
              :repairs repairs))))))
 
 (aitools.kernel.domain:define-flow
- (%read-with-selector ports
+ (%read-with-selector boundaries
                       path
                       selector
                       mode
@@ -93,7 +93,7 @@
                       on-error)
  (declare (type function on-ok on-partial on-error))
  (aitools.kernel.domain:flow-call
-  (call-with-inspect-file/k ports path
+  (call-with-inspect-file/k boundaries path
                             :root root
                             :tx tx
                             :lock-timeout lock-timeout

@@ -116,7 +116,7 @@
            (table-rows table)))))))
 
 (aitools.kernel.domain:define-flow
- (%call-with-table/k ports path options
+ (%call-with-table/k boundaries path options
                      &key root tx lock-timeout on-table on-error)
  "Validate OPTIONS, read and parse PATH, filter by --where, and call
 ON-TABLE (context target table rows)."
@@ -129,7 +129,7 @@ ON-TABLE (context target table rows)."
    (:on-valid ()
      (aitools.kernel.domain:flow-call
          (call-with-inspect-file/k
-          ports path
+          boundaries path
           :root root
           :tx tx
           :lock-timeout lock-timeout

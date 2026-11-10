@@ -13,8 +13,7 @@
   (join-path
    (or
     (let ((function
-           (inspect-ports-state-directory-function
-            (inspect-context-ports context))))
+           (cl-boundary-kit:boundary-context-require (inspect-context-boundaries context) :inspect-state-directory)))
       (and function (funcall function)))
     (store-state-directory (context-store context)))
    "snapshots"))
@@ -103,7 +102,7 @@ ordered mapper."
   (let ((files '())
         (source nil)
         (lang (getf options :lang))
-        (text-source (context-source context)))
+        (text-context (context-text-context context)))
     (call-with-workspace-scan/k (context-host context)
                                 (inspect-context-root context)
                                 :glob
@@ -121,7 +120,7 @@ ordered mapper."
                                      (lambda (entry)
                                        (and (eq (scan-entry-kind entry) :file)
                                             (let ((octets
-                                                   (funcall (cl-boundary-kit:boundary-context-require text-source :text-read-octets) (scan-entry-absolute entry))))
+                                                   (funcall (cl-boundary-kit:boundary-context-require text-context :text-read-octets) (scan-entry-absolute entry))))
                                               (and octets (content-hash octets))))))
                                 :emit
                                 (lambda (entry result)
@@ -150,7 +149,7 @@ ordered mapper."
       (string-downcase (symbol-name source))))
 
 (aitools.kernel.domain:define-flow
- (snapshot-create-flow ports
+ (snapshot-create-flow boundaries
                        &key
                        root
                        lock-timeout
@@ -165,7 +164,7 @@ ordered mapper."
  "`snapshot create`. Calls ON-OK (fields) or ON-ERROR."
  (declare (ignore on-partial))
  (aitools.kernel.domain:flow-call
-  (inspect-context-flow ports :root root :lock-timeout lock-timeout)
+  (inspect-context-flow boundaries :root root :lock-timeout lock-timeout)
   (:on-ready (context)
              (aitools.kernel.domain:flow-call
               (%scan-options/k context

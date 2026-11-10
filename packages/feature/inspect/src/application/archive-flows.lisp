@@ -113,7 +113,7 @@ the matching error through ON-ERROR."
                                   path))))))))))
 
 (aitools.kernel.domain:define-flow
- (archive-list-flow ports
+ (archive-list-flow boundaries
                     path
                     &key
                     root
@@ -126,7 +126,7 @@ the matching error through ON-ERROR."
  "Archive list command. Calls ON-OK, ON-PARTIAL (fields), or ON-ERROR."
  (declare (type function on-ok on-partial on-error))
  (aitools.kernel.domain:flow-call
-  (call-with-inspect-file/k ports path
+  (call-with-inspect-file/k boundaries path
                             :root root
                             :tx tx
                             :lock-timeout lock-timeout)

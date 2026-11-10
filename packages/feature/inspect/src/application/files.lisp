@@ -67,7 +67,7 @@ file exists but was denied (EACCES), NIL for a genuinely missing file, so a
 caller can answer environment.io versus input.not-found (contract-F1)."
   (if (%through-view-p context target)
       (values (view-read-file (inspect-context-view context) (file-target-relative target)) nil)
-      (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (file-target-real target))))
+      (funcall (cl-boundary-kit:boundary-context-require (context-text-context context) :text-read-octets) (file-target-real target))))
 
 (defun read-target-range (context target start end)
   "(VALUES octets size): the bytes [START, END) of the :FILE target TARGET
@@ -81,7 +81,7 @@ as READ-TARGET-OCTETS."
                    (start (min start end)))
               (values (subseq octets start end) (length octets)))
             (values nil nil)))
-      (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-range) (file-target-real target) start end)))
+      (funcall (cl-boundary-kit:boundary-context-require (context-text-context context) :text-read-range) (file-target-real target) start end)))
 
 (defconstant +target-chunk-size+ 65536)
 
@@ -95,7 +95,7 @@ so a whole-file walk holds one chunk at a time. Returns the byte size, or
         (if octets
             (progn (funcall function octets) (length octets))
             (values nil nil)))
-      (let ((source (context-source context))
+      (let ((source (context-text-context context))
             (path (file-target-real target))
             (size 0))
         (multiple-value-bind (known problem) (funcall (cl-boundary-kit:boundary-context-require source :text-file-size) path)

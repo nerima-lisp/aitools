@@ -2,11 +2,11 @@
 ;;;; Structured document read commands.
 (in-package #:aitools.inspect.presentation)
 
-(defun %run-doc-flow (ports invocation action paths arguments flow-options)
+(defun %run-doc-flow (boundaries invocation action paths arguments flow-options)
   (apply (function run-flow)
          (append
            (list (function aitools.inspect.application:doc-inspect-flow)
-                 ports action paths arguments
+                 boundaries action paths arguments
                  (option-value invocation :format)
                  flow-options)
            (context-arguments invocation))))
@@ -16,7 +16,7 @@
 
 (defmacro %define-doc-command (name action &key positionals options handler)
   (let ((summary-key (concatenate 'string "doc." action)))
-    `(defun ,name (ports)
+    `(defun ,name (boundaries)
        (make-command
         :name ,action
         :description (command-summary ,summary-key
@@ -37,7 +37,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation "get"
+               boundaries invocation "get"
                (list (positional-value invocation :path))
                (list (positional-value invocation :path)
                      (positional-value invocation :pointer))
@@ -61,7 +61,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation "select"
+               boundaries invocation "select"
                (list (positional-value invocation :path))
                (list (positional-value invocation :path)
                      (positional-value invocation :pointer))
@@ -81,7 +81,7 @@
                   (tx-option))
    :handler (lambda (invocation)
               (%run-doc-flow
-               ports invocation "diff"
+               boundaries invocation "diff"
                (list (positional-value invocation :a)
                      (positional-value invocation :b))
                (list (positional-value invocation :a)

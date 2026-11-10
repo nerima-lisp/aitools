@@ -26,7 +26,7 @@ target's bytes after probing it; EXTRA-ARGUMENTS follow the path.")
       (label)
     (destructuring-bind (flow extra) (rest (assoc label *single-file-flows* :test #'string=))
       (multiple-value-bind (kind fields)
-          (apply #'run-flow flow (make-test-ports :unreadable `(("/work/f.json" . ,(%archive-octets)))) "f.json" extra)
+          (apply #'run-flow flow (make-test-boundaries :unreadable `(("/work/f.json" . ,(%archive-octets)))) "f.json" extra)
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal "environment.io")
         (expect (getf fields :message) :to-equal "file f.json cannot be read: permission denied")
@@ -37,32 +37,30 @@ target's bytes after probing it; EXTRA-ARGUMENTS follow the path.")
       "~A reports input.not-found for a file that vanished after it was probed"
       (label)
     (destructuring-bind (flow extra) (rest (assoc label *single-file-flows* :test #'string=))
-      ;; The host still lists the file; the text source no longer has it.
+      ;; The host still lists the file; the text boundary no longer has its bytes.
       (let* ((present (make-fake-filesystem :files `(("/work/f.json" . ,(%archive-octets))) :directories '("/work")))
              (gone (make-fake-filesystem :directories '("/work")))
-             (ports (make-inspect-ports :workspace-host (make-fake-host present) :text-source (make-fake-source gone)
-                                        :open-store (lambda (root) (fail (format nil "open-store ~A" root)))
-                                        :state-directory-function (constantly nil))))
-        (multiple-value-bind (kind fields) (apply #'run-flow flow ports "f.json" extra)
+             (boundaries (make-test-boundaries :workspace-host (make-fake-host present) :text-context (make-fake-text-context gone) :open-store (lambda (root) (fail (format nil "open-store ~A" root))) :state-directory nil)))
+        (multiple-value-bind (kind fields) (apply #'run-flow flow boundaries "f.json" extra)
           (expect kind :to-be :error)
           (expect (error-code fields) :to-equal "input.not-found")
           (expect (getf fields :message) :to-equal "file f.json does not exist")
           (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "f.json"))))))
 
 (describe "an existing but unreadable file reports environment.io (contract-F1)"
-  (flet ((ports () (make-test-ports :unreadable '(("/work/secret.txt" . "hidden")
+  (flet ((boundaries () (make-test-boundaries :unreadable '(("/work/secret.txt" . "hidden")
                                                   ("/work/other.txt" . "hidden too"))
                                     :files '(("/work/readable.txt" . "1
 2")))))
     (it "info reports environment.io, not input.not-found"
-      (expect (error-code (nth-value 1 (run-flow #'info-flow (ports) "secret.txt"))) :to-equal "environment.io"))
+      (expect (error-code (nth-value 1 (run-flow #'info-flow (boundaries) "secret.txt"))) :to-equal "environment.io"))
     (it "check reports environment.io"
-      (expect (error-code (nth-value 1 (run-flow #'check-flow (ports) "secret.txt" :format "json")))
+      (expect (error-code (nth-value 1 (run-flow #'check-flow (boundaries) "secret.txt" :format "json")))
               :to-equal "environment.io"))
     (it "diff reports environment.io when either side is unreadable"
-      (expect (error-code (nth-value 1 (run-flow #'diff-flow (ports) :a "secret.txt" :b "other.txt")))
+      (expect (error-code (nth-value 1 (run-flow #'diff-flow (boundaries) :a "secret.txt" :b "other.txt")))
               :to-equal "environment.io")
-      (expect (error-code (nth-value 1 (run-flow #'diff-flow (ports) :a "readable.txt" :b "other.txt")))
+      (expect (error-code (nth-value 1 (run-flow #'diff-flow (boundaries) :a "readable.txt" :b "other.txt")))
               :to-equal "environment.io"))
     (it "a genuinely missing path is still input.not-found"
-      (expect (error-code (nth-value 1 (run-flow #'info-flow (ports) "nope.txt"))) :to-equal "input.not-found"))))
+      (expect (error-code (nth-value 1 (run-flow #'info-flow (boundaries) "nope.txt"))) :to-equal "input.not-found"))))

@@ -100,13 +100,13 @@ rule, so the value is the one --expect-hash compares), else nothing."
       (list (cons "hash" hash)))))
 
 (aitools.kernel.domain:define-flow
-    (info-flow ports path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
+    (info-flow boundaries path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
   "`info`. Calls ON-OK (fields) or ON-ERROR."
   (declare (ignore on-partial) (type function on-ok on-error))
   (labels ((report-ok (fields)
              (aitools.kernel.domain:flow-continue :on-ok fields)))
     (aitools.kernel.domain:flow-call
-     (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+     (inspect-context-flow boundaries :root root :tx tx :lock-timeout lock-timeout)
      (:on-ready (context)
        (let* ((target (probe-target context path))
                       (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))

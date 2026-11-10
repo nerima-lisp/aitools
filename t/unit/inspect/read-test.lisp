@@ -1,11 +1,11 @@
 ;;;;
-;;;; `read` through fake ports.
+;;;; `read` through fake boundary contexts.
 (in-package #:aitools.inspect.test)
 (defun numbered-lines (count)
   (format nil "~{line ~D~%~}" (loop for n from 1 to count collect n)))
 
 (defun read-file (files path &rest options)
-  (apply #'run-flow #'read-flow (make-test-ports :files files) path options))
+  (apply #'run-flow #'read-flow (make-test-boundaries :files files) path options))
 
 (describe "read text mode"
   (it "returns start_line, lines, total_lines, hash, and no next command at the end"
@@ -170,18 +170,18 @@ B
   (it "reports an out-of-root target (a symlink leaving the workspace) as its absolute real path"
     (multiple-value-bind (kind fields)
         (run-flow #'read-flow
-                  (make-test-ports :files '(("/outside/secret.txt" . "s"))
+                  (make-test-boundaries :files '(("/outside/secret.txt" . "s"))
                                    :symlinks '(("/work/link" . "/outside/secret.txt")))
                   "link")
       (expect kind :to-be :ok)
       (expect (field fields "path") :to-equal "/outside/secret.txt"))))
 
 (describe "read of an unreadable file (contract-F1)"
-  (flet ((ports () (make-test-ports :unreadable '(("/work/secret.txt" . "hidden")))))
+  (flet ((boundaries () (make-test-boundaries :unreadable '(("/work/secret.txt" . "hidden")))))
     (it-each (("text") ("hex") ("strings"))
         "reports environment.io in --as ~A mode, not input.not-found"
         (as)
-      (expect (error-code (nth-value 1 (run-flow #'read-flow (ports) "secret.txt" :as as))) :to-equal "environment.io"))))
+      (expect (error-code (nth-value 1 (run-flow #'read-flow (boundaries) "secret.txt" :as as))) :to-equal "environment.io"))))
 
 (describe "read --match that exhausts the regex step budget"
   (it "answers input.syntax-error rather than internal.unexpected"
@@ -193,7 +193,7 @@ B
   (it "shows a secret token's bytes as the mask byte, not verbatim"
     (let* ((octets (string-bytes (format nil "GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789~%"))))
       (multiple-value-bind (kind fields)
-          (run-flow #'read-flow (make-test-ports :files `(("/work/env" . ,octets))) "env"
+          (run-flow #'read-flow (make-test-boundaries :files `(("/work/env" . ,octets))) "env"
                     :as "hex" :bytes (format nil "0:~D" (length octets)))
         (expect kind :to-be :ok)
         (let ((hex (format nil "~{~A~^ ~}" (mapcar (lambda (row) (json-object-get row "hex")) (field fields "rows")))))

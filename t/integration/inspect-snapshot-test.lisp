@@ -21,8 +21,8 @@
 (defun %set-mtime (path seconds)
   (sb-posix:utimes path seconds seconds))
 
-(defun %real-ports (state &key current-directory)
-  (make-inspect-ports :workspace-host (if current-directory
+(defun %real-boundaries (state &key current-directory)
+  (aitools.inspect.composition::make-inspect-dependencies :workspace-host (if current-directory
                                          (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory current-directory)
                                          (aitools.workspace.infrastructure:make-host-workspace-boundaries))
                       :text-source (aitools.text.infrastructure:make-host-text-source)
@@ -33,7 +33,7 @@
   (it "reports added, removed, and content-modified files, not touched ones"
     (let* ((root (%temporary-directory))
            (state (concatenate 'string (%temporary-directory) "/state"))
-           (ports (%real-ports state)))
+           (boundaries (%real-boundaries state)))
       (unwind-protect
            (progn
              (%write-text (format nil "~A/keep.txt" root) "same")
@@ -41,7 +41,7 @@
              (%write-text (format nil "~A/drop.txt" root) "bye")
              (%set-mtime (format nil "~A/edit.txt" root) 1000000000)
              (%set-mtime (format nil "~A/keep.txt" root) 1000000000)
-             (multiple-value-bind (kind fields) (run-flow #'snapshot-create-flow ports :root root)
+             (multiple-value-bind (kind fields) (run-flow #'snapshot-create-flow boundaries :root root)
                (expect kind :to-be :ok)
                (expect (field fields "files") :to-be 3)
                (let ((id (field fields "snapshot_id")))
@@ -49,7 +49,7 @@
                  (%write-text (format nil "~A/keep.txt" root) "same")
                  (delete-file (format nil "~A/drop.txt" root))
                  (%write-text (format nil "~A/new.txt" root) "hi")
-                 (multiple-value-bind (diff-kind diff) (run-flow #'snapshot-diff-flow ports id :root root)
+                 (multiple-value-bind (diff-kind diff) (run-flow #'snapshot-diff-flow boundaries id :root root)
                    (expect diff-kind :to-be :ok)
                    (expect (field diff "added") :to-equal '("new.txt"))
                    (expect (field diff "removed") :to-equal '("drop.txt"))
@@ -60,47 +60,47 @@
 
   (it "fails with input.not-found for an unknown or path-like id"
     (let* ((root (%temporary-directory))
-           (ports (%real-ports (concatenate 'string root "/.state"))))
+           (boundaries (%real-boundaries (concatenate 'string root "/.state"))))
       (unwind-protect
            (progn
-             (expect (error-code (nth-value 1 (run-flow #'snapshot-diff-flow ports "snap-20231114T221320Z-0a1b2c3d"
+             (expect (error-code (nth-value 1 (run-flow #'snapshot-diff-flow boundaries "snap-20231114T221320Z-0a1b2c3d"
                                                         :root root)))
                      :to-equal "input.not-found")
-             (expect (error-code (nth-value 1 (run-flow #'snapshot-diff-flow ports "../x" :root root)))
+             (expect (error-code (nth-value 1 (run-flow #'snapshot-diff-flow boundaries "../x" :root root)))
                      :to-equal "input.not-found"))
         (uiop:delete-directory-tree (uiop:ensure-directory-pathname root) :validate t)))))
 
 (defun %call-with-snapshot-workspace (function)
   "Call FUNCTION with a fresh workspace root, its state directory, and real
-ports writing snapshots there; remove both after."
+boundary contexts writing snapshots there; remove both after."
   (let* ((root (%temporary-directory))
          (state-parent (%temporary-directory))
          (state (concatenate 'string state-parent "/state")))
-    (unwind-protect (funcall function root state (%real-ports state))
+    (unwind-protect (funcall function root state (%real-boundaries state))
       (uiop:delete-directory-tree (uiop:ensure-directory-pathname root) :validate t)
       (uiop:delete-directory-tree (uiop:ensure-directory-pathname state-parent) :validate t))))
 
-(defun %create-snapshot-id (ports root &rest options)
-  (multiple-value-bind (kind fields) (apply #'run-flow #'snapshot-create-flow ports :root root options)
+(defun %create-snapshot-id (boundaries root &rest options)
+  (multiple-value-bind (kind fields) (apply #'run-flow #'snapshot-create-flow boundaries :root root options)
     (unless (eq kind :ok) (fail (format nil "snapshot create: ~S" fields)))
     (field fields "snapshot_id")))
 
 (describe "snapshot scan options on disk"
   (it "applies --lang and --skip-larger-than at create and again at diff"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (declare (ignore state))
        (%write-text (format nil "~A/a.md" root) "# a")
        (%write-text (format nil "~A/b.txt" root) "b")
        (%write-text (format nil "~A/big.md" root) (make-string 2048 :initial-element #\x))
        (multiple-value-bind (kind fields)
-           (run-flow #'snapshot-create-flow ports :root root :lang "markdown" :skip-larger-than "1KiB")
+           (run-flow #'snapshot-create-flow boundaries :root root :lang "markdown" :skip-larger-than "1KiB")
          (expect kind :to-be :ok)
          (expect (field fields "files") :to-be 1)
          (%write-text (format nil "~A/c.md" root) "# c")
          (%write-text (format nil "~A/d.txt" root) "d")
          (%write-text (format nil "~A/b.txt" root) "changed")
-         (multiple-value-bind (diff-kind diff) (run-flow #'snapshot-diff-flow ports (field fields "snapshot_id") :root root)
+         (multiple-value-bind (diff-kind diff) (run-flow #'snapshot-diff-flow boundaries (field fields "snapshot_id") :root root)
            (expect diff-kind :to-be :ok)
            (expect (field diff "added") :to-equal '("c.md"))
            (expect (field diff "removed") :to-be nil)
@@ -108,29 +108,29 @@ ports writing snapshots there; remove both after."
 
   (it "keeps only files newer than a --newer duration or a --newer path"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (declare (ignore state))
        (%write-text (format nil "~A/old.txt" root) "o")
        (%write-text (format nil "~A/ref.txt" root) "r")
        (%write-text (format nil "~A/new.txt" root) "n")
        (%set-mtime (format nil "~A/old.txt" root) 1000000000)
        (%set-mtime (format nil "~A/ref.txt" root) 1500000000)
-       (expect (field (nth-value 1 (run-flow #'snapshot-create-flow ports :root root :newer "1h")) "files") :to-be 1)
-       (expect (field (nth-value 1 (run-flow #'snapshot-create-flow ports :root root
+       (expect (field (nth-value 1 (run-flow #'snapshot-create-flow boundaries :root root :newer "1h")) "files") :to-be 1)
+       (expect (field (nth-value 1 (run-flow #'snapshot-create-flow boundaries :root root
                                              :newer (format nil "~A/old.txt" root)))
                       "files")
                :to-be 2)))))
 
   (it "treats an existing duration-shaped --newer path as a path"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (declare (ignore state))
        (%write-text (format nil "~A/7d" root) "ref")
        (%write-text (format nil "~A/new.txt" root) "new")
        (%set-mtime (format nil "~A/7d" root) 1000)
        (%set-mtime (format nil "~A/new.txt" root) 1500)
        (multiple-value-bind (kind fields)
-           (run-flow #'snapshot-create-flow ports :root root :newer (format nil "~A/7d" root))
+           (run-flow #'snapshot-create-flow boundaries :root root :newer (format nil "~A/7d" root))
          (expect kind :to-be :ok)
          (let ((snapshot nil)
                (id (field fields "snapshot_id")))
@@ -144,15 +144,15 @@ ports writing snapshots there; remove both after."
 
   (it "resolves a relative duration-shaped --newer path from the workspace"
     (%call-with-snapshot-workspace
-     (lambda (root state unused-ports)
-       (declare (ignore unused-ports))
+     (lambda (root state unused-boundaries)
+       (declare (ignore unused-boundaries))
        (%write-text (format nil "~A/7d" root) "ref")
        (%write-text (format nil "~A/new.txt" root) "new")
        (%set-mtime (format nil "~A/7d" root) 1000)
        (%set-mtime (format nil "~A/new.txt" root) 1500)
-       (let ((ports (%real-ports state :current-directory (lambda () root))))
+       (let ((boundaries (%real-boundaries state :current-directory (lambda () root))))
          (multiple-value-bind (kind fields)
-             (run-flow #'snapshot-create-flow ports :root root :newer "7d")
+             (run-flow #'snapshot-create-flow boundaries :root root :newer "7d")
            (expect kind :to-be :ok)
            (let ((snapshot nil)
                  (id (field fields "snapshot_id")))
@@ -167,12 +167,12 @@ ports writing snapshots there; remove both after."
 (describe "snapshot diff records"
   (it "offers existing snapshots for an unknown id, ignoring other files in the directory"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (%write-text (format nil "~A/a.txt" root) "a")
-       (let ((id (%create-snapshot-id ports root)))
+       (let ((id (%create-snapshot-id boundaries root)))
          (%write-text (format nil "~A/snapshots/notes.txt" state) "not a record")
          (%write-text (format nil "~A/snapshots/bogus.json" state) "{}")
-         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow ports "snap-20000101T000000Z-00000000" :root root)
+         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow boundaries "snap-20000101T000000Z-00000000" :root root)
            (expect kind :to-be :error)
            (expect (error-code fields) :to-equal "input.not-found")
            (expect (mapcar (lambda (candidate) (json-object-get candidate "snapshot_id")) (getf fields :candidates))
@@ -182,11 +182,11 @@ ports writing snapshots there; remove both after."
 
   (it "is partial past --limit per list"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (declare (ignore state))
-       (let ((id (%create-snapshot-id ports root)))
+       (let ((id (%create-snapshot-id boundaries root)))
          (dolist (name '("x.txt" "y.txt" "z.txt")) (%write-text (format nil "~A/~A" root name) name))
-         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow ports id :root root :limit 2)
+         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow boundaries id :root root :limit 2)
            (expect kind :to-be :partial)
            (expect (field fields "added") :to-equal '("x.txt" "y.txt"))
            (expect (field fields "truncated") :to-be t))))))
@@ -197,19 +197,19 @@ ports writing snapshots there; remove both after."
       (label content)
     (declare (ignore label))
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
-       (let ((id (%create-snapshot-id ports root)))
+     (lambda (root state boundaries)
+       (let ((id (%create-snapshot-id boundaries root)))
          (with-open-file (out (format nil "~A/snapshots/~A.json" state id) :direction :output :if-exists :supersede
                                                                            :element-type '(unsigned-byte 8))
            (write-sequence (%as-octets content) out))
-         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow ports id :root root)
+         (multiple-value-bind (kind fields) (run-flow #'snapshot-diff-flow boundaries id :root root)
            (expect kind :to-be :error)
            (expect (error-code fields) :to-equal "input.not-found")))))))
 
 (describe "workspace scans past an unreadable directory"
   (it "snapshots the readable files and still ranks candidates for a missing path"
     (%call-with-snapshot-workspace
-     (lambda (root state ports)
+     (lambda (root state boundaries)
        (declare (ignore state))
        (let ((locked (format nil "~A/locked" root)))
          (%write-text (format nil "~A/notes.txt" root) "n")
@@ -218,10 +218,10 @@ ports writing snapshots there; remove both after."
          (sb-posix:chmod locked 0)
          (unwind-protect
               (progn
-                (multiple-value-bind (kind fields) (run-flow #'snapshot-create-flow ports :root root)
+                (multiple-value-bind (kind fields) (run-flow #'snapshot-create-flow boundaries :root root)
                   (expect kind :to-be :ok)
                   (expect (field fields "files") :to-be 1))
-                (multiple-value-bind (kind fields) (run-flow #'read-flow ports (format nil "~A/note.txt" root) :root root)
+                (multiple-value-bind (kind fields) (run-flow #'read-flow boundaries (format nil "~A/note.txt" root) :root root)
                   (expect kind :to-be :error)
                   (expect (error-code fields) :to-equal "input.not-found")
                   (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "notes.txt")))

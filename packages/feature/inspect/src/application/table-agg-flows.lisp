@@ -112,7 +112,7 @@ value is compared as its text; anything else by its rendered JSON."
           :on-ok fields)))))
 
 (aitools.kernel.domain:define-flow
- (table-agg-flow ports path
+ (table-agg-flow boundaries path
                  &key root tx lock-timeout format delimiter pointer no-header
                    ws-columns where encoding group-by count sum avg min max
                    distinct min-count sort desc (limit 50)
@@ -174,7 +174,7 @@ for. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
             :on-error code message :repairs repairs)))
        (aitools.kernel.domain:flow-call
            (%call-with-table/k
-            ports path options
+            boundaries path options
             :root root
             :tx tx
             :lock-timeout lock-timeout)

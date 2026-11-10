@@ -56,7 +56,7 @@
   (it "rejects an unknown --lang before scanning with the current language list"
     ;; OPEN-STORE fails the test if called: validation must not touch the store.
     (multiple-value-bind (kind fields)
-        (run-flow #'snapshot-create-flow (make-test-ports) :lang "klingon")
+        (run-flow #'snapshot-create-flow (make-test-boundaries) :lang "klingon")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (getf fields :message)
@@ -72,7 +72,7 @@
       (label options code message repair)
     (declare (ignore label))
     ;; OPEN-STORE fails the test if called: validation must not touch the store.
-    (multiple-value-bind (kind fields) (apply #'run-flow #'snapshot-create-flow (make-test-ports) options)
+    (multiple-value-bind (kind fields) (apply #'run-flow #'snapshot-create-flow (make-test-boundaries) options)
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal code)
       (expect (getf fields :message) :to-equal message)

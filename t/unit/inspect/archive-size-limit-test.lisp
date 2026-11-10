@@ -86,4 +86,35 @@
        (lambda (reason)
          (fail (format nil "valid tar.gz was malformed: ~A" reason)))
        :on-too-large
-       (lambda (limit) (expect limit :to-be 1))))))
+       (lambda (limit) (expect limit :to-be 1)))))
+  (it "reads an empty gzip member as a zero-byte file"
+    (let* ((gzip (cdr (assoc "notes.txt.gz" (sample-archives) :test (function string=))))
+           (empty (make-array 0 :element-type '(unsigned-byte 8)))
+           (archive nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.text.domain:gzip-decompress))
+            (lambda (octets &key max-output)
+              (declare (ignore octets))
+              (expect max-output :to-be +archive-max-decompressed+)
+              empty)))
+        (aitools.inspect.domain:open-archive/k
+         gzip
+         "notes.txt.gz"
+         :on-archive (lambda (opened) (setf archive opened))
+         :on-unsupported (lambda () (fail "valid gzip was not recognized"))
+         :on-malformed (lambda (reason)
+                         (fail (format nil "valid gzip was malformed: ~A" reason)))
+         :on-too-large (lambda (limit)
+                         (fail (format nil "empty gzip was limited at ~D bytes" limit))))
+        (let ((item (first (aitools.inspect.domain:archive-items archive))))
+          (expect (aitools.inspect.domain:archive-format archive) :to-be :gz)
+          (expect (aitools.inspect.domain:archive-item-name item) :to-equal "notes.txt")
+          (expect (aitools.inspect.domain:archive-item-size item) :to-be 0)
+          (aitools.inspect.domain:archive-item-content/k
+           archive item
+           :on-content (lambda (content) (expect content :to-equalp empty))
+           :on-too-large (lambda (limit)
+                           (fail (format nil "empty member was limited at ~D bytes" limit)))
+           :on-malformed (lambda (reason)
+                           (fail (format nil "empty member was malformed: ~A" reason)))))))))

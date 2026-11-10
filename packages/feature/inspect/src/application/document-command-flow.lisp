@@ -14,7 +14,7 @@
                 :conflicts conflicts :repairs repairs))))
 
 (aitools.kernel.domain:define-flow
- (doc-inspect-flow ports action paths arguments format options
+ (doc-inspect-flow boundaries action paths arguments format options
                    &key root tx lock-timeout on-ok on-partial on-error)
  (declare (type function on-ok on-partial on-error))
  (labels ((option-arguments (values)
@@ -56,7 +56,7 @@
        (cond
         ((string= action "get")
          (%call-doc-inspect-flow
-          (json-get-flow ports (first arguments) (second arguments)
+          (json-get-flow boundaries (first arguments) (second arguments)
                          :root root :tx tx :lock-timeout lock-timeout
                          :format (first formats) :format-override format
                          :max-bytes (getf options :max-bytes)
@@ -64,7 +64,7 @@
                          :raw (getf options :raw))))
         ((string= action "select")
          (%call-doc-inspect-flow
-          (json-select-flow ports (first arguments) (second arguments)
+          (json-select-flow boundaries (first arguments) (second arguments)
                             :root root :tx tx :lock-timeout lock-timeout
                             :format (first formats) :format-override format
                             :where (getf options :where)
@@ -75,7 +75,7 @@
                             :limit (getf options :limit))))
         (t
          (%call-doc-inspect-flow
-          (json-diff-flow ports (first arguments) (second arguments)
+          (json-diff-flow boundaries (first arguments) (second arguments)
                           :root root :tx tx :lock-timeout lock-timeout
                           :format-a (first formats) :format-b (second formats)
                           :format-override format

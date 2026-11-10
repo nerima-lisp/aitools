@@ -6,7 +6,7 @@
 (defun %path-positional ()
   (make-positional :key :path :name "path" :required-p t))
 
-(defun %read-command (ports)
+(defun %read-command (boundaries)
   (make-command
    :name "read" :description (command-summary "read" aitools.data:*inspect-command-schemas*)
    :positionals (list (%path-positional))
@@ -20,7 +20,7 @@
                           (integer-option "max-lines" 80 "Maximum lines returned.")
                           (tx-option)))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:read-flow ports
+              (apply #'run-flow #'aitools.inspect.application:read-flow boundaries
                      (positional-value invocation :path)
                      :tail (option-value invocation :tail)
                      :as (option-value invocation :as)
@@ -31,7 +31,7 @@
                      :max-lines (option-value invocation :max-lines)
                      (append (selector-arguments invocation) (context-arguments invocation))))))
 
-(defun %info-command (ports)
+(defun %info-command (boundaries)
   (make-command
    :name "info" :description (command-summary "info" aitools.data:*inspect-command-schemas*)
    :positionals (list (%path-positional))
@@ -39,25 +39,25 @@
                   (flag-option "allow-missing" "Report exists:false instead of failing.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:info-flow ports
+              (apply #'run-flow #'aitools.inspect.application:info-flow boundaries
                      (positional-value invocation :path)
                      :digest (option-value invocation :digest)
                      :allow-missing (option-value invocation :allow-missing)
                      (context-arguments invocation)))))
 
-(defun %check-command (ports)
+(defun %check-command (boundaries)
   (make-command
    :name "check" :description (command-summary "check" aitools.data:*inspect-command-schemas*)
    :positionals (list (%path-positional))
    :options (list (value-option "format" "json or lisp." :choices '("json" "lisp"))
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:check-flow ports
+              (apply #'run-flow #'aitools.inspect.application:check-flow boundaries
                      (positional-value invocation :path)
                      :format (option-value invocation :format)
                      (context-arguments invocation)))))
 
-(defun %diff-command (ports)
+(defun %diff-command (boundaries)
   (make-command
    :name "diff" :description (command-summary "diff" aitools.data:*inspect-command-schemas*)
    :positionals (list (make-positional :key :a :name "a" :required-p nil)
@@ -70,7 +70,7 @@
                   (integer-option "limit" 100 "Maximum items returned.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:diff-flow ports
+              (apply #'run-flow #'aitools.inspect.application:diff-flow boundaries
                      :a (positional-value invocation :a)
                      :b (positional-value invocation :b)
                      :op (option-value invocation :op)

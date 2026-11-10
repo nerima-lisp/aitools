@@ -2,19 +2,19 @@
 ;;;; `archive list` and `archive read`.
 (in-package #:aitools.inspect.presentation)
 
-(defun %archive-list-command (ports)
+(defun %archive-list-command (boundaries)
   (make-command
    :name "list" :description (command-summary "archive.list" aitools.data:*inspect-archive-command-schemas*)
    :positionals (list (make-positional :key :path :name "path" :required-p t))
    :options (list (integer-option "limit" 200 "Maximum members returned.")
                   (tx-option))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:archive-list-flow ports
+              (apply #'run-flow #'aitools.inspect.application:archive-list-flow boundaries
                      (positional-value invocation :path)
                      :limit (option-value invocation :limit)
                      (context-arguments invocation)))))
 
-(defun %archive-read-command (ports)
+(defun %archive-read-command (boundaries)
   (make-command
    :name "read" :description (command-summary "archive.read" aitools.data:*inspect-archive-command-schemas*)
    :positionals (list (make-positional :key :path :name "path" :required-p t)
@@ -24,7 +24,7 @@
                           (integer-option "max-lines" 80 "Maximum lines returned.")
                           (tx-option)))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:archive-read-flow ports
+              (apply #'run-flow #'aitools.inspect.application:archive-read-flow boundaries
                      (positional-value invocation :path)
                      (positional-value invocation :entry)
                      :as (option-value invocation :as)

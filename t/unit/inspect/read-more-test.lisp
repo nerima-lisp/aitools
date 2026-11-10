@@ -164,14 +164,14 @@ c
   (let ((octets (make-array size :element-type '(unsigned-byte 8))))
     (dotimes (index size octets) (setf (aref octets index) (mod index 251)))))
 
-(describe "read --as hex and --as strings through shared test ports"
+(describe "read --as hex and --as strings through shared test boundaries"
   (it "requests a bounded range and avoids whole-file read APIs"
     (let* ((octets (%patterned-octets (* 1024 1024)))
-           (ports (make-test-ports :files (list (cons "/work/big.bin" octets)))))
+           (boundaries (make-test-boundaries :files (list (cons "/work/big.bin" octets)))))
       (call-with-source-read-spies
        (lambda (reads)
          (multiple-value-bind (kind fields)
-             (run-flow #'read-flow ports "big.bin" :as "hex" :bytes "600000:600020")
+             (run-flow #'read-flow boundaries "big.bin" :as "hex" :bytes "600000:600020")
            (expect kind :to-be :ok)
            (expect (list (field fields "size") (field fields "start") (field fields "end"))
                    :to-equal (list (* 1024 1024) 600000 600020))
@@ -196,11 +196,11 @@ c
       ;; sits across it.
       (replace octets straddling :start1 (- 65536 9))
       (replace octets (string-bytes "last") :start1 (- (* 3 65536) 4))
-      (let ((ports (make-test-ports :files (list (cons "/work/big.bin" octets)))))
+      (let ((boundaries (make-test-boundaries :files (list (cons "/work/big.bin" octets)))))
         (call-with-source-read-spies
          (lambda (reads)
            (multiple-value-bind (kind fields)
-               (run-flow #'read-flow ports "big.bin" :as "strings")
+               (run-flow #'read-flow boundaries "big.bin" :as "strings")
              (expect kind :to-be :ok)
              (expect (field fields "size") :to-be (* 3 65536))
              (expect (mapcar (lambda (item) (list (json-object-get item "offset") (json-object-get item "text")))

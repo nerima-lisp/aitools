@@ -13,7 +13,7 @@ the file on disk when that still has the recorded hash."
       (let ((store (context-store context)))
         (or (%blob-or-nil store (entry-state-hash after))
             (let ((disk
-                   (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path (context-root-real context)
+                   (funcall (cl-boundary-kit:boundary-context-require (context-text-context context) :text-read-octets) (join-path (context-root-real context)
                                                   (change-result-path change)))))
               (and disk
                    (string= (content-hash disk) (entry-state-hash after))
@@ -164,7 +164,7 @@ the file on disk when that still has the recorded hash."
                 (command-line context (list "info" a)))))))))
 
 (aitools.kernel.domain:define-flow
- (diff-flow ports
+ (diff-flow boundaries
             &key
             a
             b
@@ -203,7 +203,7 @@ the file on disk when that still has the recorded hash."
         (invalid "diff needs two paths, or --op <op_id>"))
        (t
         (aitools.kernel.domain:flow-call
-         (inspect-context-flow ports
+         (inspect-context-flow boundaries
                                :root root
                                :tx tx
                                :lock-timeout lock-timeout)

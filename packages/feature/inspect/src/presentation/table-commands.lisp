@@ -25,7 +25,7 @@
         :where (option-value invocation :where)
         :encoding (option-value invocation :encoding)))
 
-(defun %table-read-command (ports)
+(defun %table-read-command (boundaries)
   (make-command
    :name "read" :description (%table-summary "table.read")
    :positionals (list (make-positional :key :path :name "path" :required-p t))
@@ -35,14 +35,14 @@
                           (value-option "range" "Rows S:E, S:, or N." :value-name "S:E")
                           (integer-option "limit" 50 "Maximum rows returned.")))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:table-read-flow ports
+              (apply #'run-flow #'aitools.inspect.application:table-read-flow boundaries
                      (positional-value invocation :path)
                      :columns (option-value invocation :columns)
                      :range (option-value invocation :range)
                      :limit (option-value invocation :limit)
                      (append (%table-read-arguments invocation) (context-arguments invocation))))))
 
-(defun %table-agg-command (ports)
+(defun %table-agg-command (boundaries)
   (make-command
    :name "agg" :description (%table-summary "table.agg")
    :positionals (list (make-positional :key :path :name "path" :required-p t))
@@ -59,7 +59,7 @@
                           (flag-option "desc" "Descending order.")
                           (integer-option "limit" 50 "Maximum groups returned.")))
    :handler (lambda (invocation)
-              (apply #'run-flow #'aitools.inspect.application:table-agg-flow ports
+              (apply #'run-flow #'aitools.inspect.application:table-agg-flow boundaries
                      (positional-value invocation :path)
                      :group-by (option-value invocation :group-by)
                      :count (option-value invocation :count)

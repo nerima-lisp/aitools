@@ -1,8 +1,15 @@
 (in-package #:asdf-user)
 
+(defsystem "aitools/data/inspect"
+  :description "Static JSON query data for inspect."
+  :depends-on ("aitools/data")
+  :pathname "../../../data/"
+  :components
+  ((:file "domain/inspect/json-query-operators-data")))
+
 (defsystem "aitools/feature/inspect"
            :description "Inspection, archive, snapshot, and table features."
-           :depends-on ("aitools/core/kernel" "aitools/core/protocol"
+           :depends-on ("aitools/data/inspect" "aitools/core/kernel" "aitools/core/protocol"
                                               "aitools/core/workspace"
                                               "aitools/core/text"
                                               "aitools/core/store"
@@ -42,7 +49,6 @@
                         (:module "application" :serial t
                                  :components
                                  ((:file "package")
-                                  (:file "ports")
                                   (:file "context")
                                   (:file "files")
                                   (:file "target-flows")
@@ -80,10 +86,7 @@
                                   (:file "archive-read-item-flow")
                                   (:file "archive-read-flow")
                                   (:file "snapshot-flows")
-                                  (:file "snapshot-diff-flows")))
-                        (:module "infrastructure"
-                                 :components
-                                 ((:file "package") (:file "ports")))))
+                                  (:file "snapshot-diff-flows")))))
 (defsystem "aitools/feature/inspect/presentation"
   :description "Inspection and archive CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/inspect" "cl-cli")
@@ -93,7 +96,7 @@
 
 (defsystem "aitools/test/inspect"
   :description "Inspection context tests."
-  :depends-on ("aitools/test/base" "aitools/feature/inspect" "aitools/cli")
+  :depends-on ("aitools/test/base" "aitools/data/inspect" "aitools/feature/inspect" "aitools/feature/inspect/presentation" "aitools/cli")
   :pathname "../../../"
   :components
   ((:module "t" :pathname "t/" :serial t
@@ -125,7 +128,8 @@
      (:file "unit/inspect/selection-test")
      (:file "unit/inspect/selector-property-test")
      (:module "integration" :pathname "integration/" :serial t
-      :components ((:file "inspect-snapshot-test")
+      :components ((:file "inspect-boundary-contract-test")
+                   (:file "inspect-snapshot-test")
                    (:file "inspect-cli-test")
                    (:file "inspect-cli-commands-test")
                    (:file "inspect-yaml-toml-read-test")

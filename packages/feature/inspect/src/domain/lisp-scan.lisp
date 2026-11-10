@@ -117,6 +117,20 @@ when NAME is not a Lisp family language."
     (:bar (%scan-quoted-character scanner char col #\|))
     (:block (%scan-block-comment-character scanner char line col))))
 
+(defun %scan-lisp-line
+    (scanner line line-index dialect openers closers emit
+     block-comments bar-symbols)
+  (loop with col = 0
+        while (< col (length line))
+        do (let ((next-col
+                   (%scan-lisp-state-character
+                    scanner (char line col) line line-index col dialect
+                    openers closers emit block-comments bar-symbols)))
+             (when (eq next-col :stop)
+               (return-from %scan-lisp-line :stop))
+             (setf col next-col)))
+  nil)
+
 (defun scan-lisp-delimiters (lines dialect emit &key (start-line 0))
   "Walk LINES (a vector of strings) from index START-LINE, calling EMIT with
 (:OPEN char line col) or (:CLOSE char line col) for each delimiter outside
@@ -131,16 +145,11 @@ line col) naming where an unterminated construct began."
           (bar-symbols (member dialect '(:common-lisp :scheme))))
       (loop for line-index from start-line below (length lines)
             for line = (svref lines line-index)
-            do (loop with col = 0
-                     while (< col (length line))
-                     do (let ((next-col
-                                (%scan-lisp-state-character
-                                 scanner (char line col) line line-index col
-                                 dialect openers closers emit
-                                 block-comments bar-symbols)))
-                          (when (eq next-col :stop)
-                            (return-from scan-lisp-delimiters :stopped))
-                          (setf col next-col))))
+            do (when (eq (%scan-lisp-line scanner line line-index dialect
+                                          openers closers emit
+                                          block-comments bar-symbols)
+                         :stop)
+                 (return-from scan-lisp-delimiters :stopped)))
       (ecase (%lisp-scan-state-mode scanner)
         (:code nil)
         (:string

@@ -52,7 +52,7 @@
            :repairs repairs))))))))
 
 (aitools.kernel.domain:define-flow
- (archive-read-flow ports
+ (archive-read-flow boundaries
                     path
                     entry
                     &key
@@ -75,7 +75,7 @@
  (declare (type function on-ok on-partial on-error))
  (labels ((continue-with (selector)
             (aitools.kernel.domain:flow-call
-             (call-with-inspect-file/k ports path
+             (call-with-inspect-file/k boundaries path
                                        :root root
                                        :tx tx
                                        :lock-timeout lock-timeout

@@ -51,7 +51,7 @@
              (store (open-store workspace))
              (tx (begin-tx store))
              (aborted nil)
-             (ports (aitools.inspect.application:make-inspect-ports
+             (boundaries (aitools.inspect.composition::make-inspect-dependencies
                      :workspace-host (delegating-host
                                       :on-stat (lambda (path)
                                                  (when (and (not aborted) (string= path (string-right-trim "/" file)))
@@ -65,7 +65,7 @@
                      :state-directory-function (constantly nil)))
              (result (aitools.protocol.application:call-with-command-result/k
                       (lambda (&rest continuations)
-                        (apply #'aitools.inspect.application:read-flow ports file :root workspace :tx tx continuations)))))
+                        (apply #'aitools.inspect.application:read-flow boundaries file :root workspace :tx tx continuations)))))
         (expect aborted :to-be t)
         (expect (aitools.protocol.application:command-result-kind result) :to-be :error)
         (let ((fields (aitools.protocol.application:command-result-fields result)))
@@ -162,14 +162,14 @@
     (aitools.test.support:with-workspace (workspace state)
       (declare (ignore state))
       (ws-file workspace "a.txt" "a")
-      (let* ((ports (aitools.inspect.application:make-inspect-ports
+      (let* ((boundaries (aitools.inspect.composition::make-inspect-dependencies
                      :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                      :text-source (aitools.text.infrastructure:make-host-text-source)
                      :open-store #'open-store
                      :state-directory-function (constantly nil)))
              (created (aitools.protocol.application:call-with-command-result/k
                        (lambda (&rest continuations)
-                         (apply #'aitools.inspect.application:snapshot-create-flow ports :root workspace continuations))))
+                         (apply #'aitools.inspect.application:snapshot-create-flow boundaries :root workspace continuations))))
              (id (cdr (assoc "snapshot_id" (aitools.protocol.application:command-result-fields created) :test #'string=))))
         (expect (probe-file (format nil "~A/snapshots/~A.json"
                                     (aitools.store.application:store-state-directory (open-store workspace)) id))

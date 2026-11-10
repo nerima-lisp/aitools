@@ -62,7 +62,7 @@
               (list (cons "next_commands" (list next-command)))))))
     (values fields truncated)))
 (aitools.kernel.domain:define-flow
- (table-read-flow ports path
+ (table-read-flow boundaries path
                   &key root tx lock-timeout format delimiter pointer no-header
                     ws-columns columns where range encoding (limit 50)
                     on-ok on-partial on-error)
@@ -80,7 +80,7 @@ or ON-PARTIAL (fields), or ON-ERROR."
           :encoding encoding)))
    (aitools.kernel.domain:flow-call
        (%call-with-table/k
-        ports path options
+        boundaries path options
         :root root
         :tx tx
         :lock-timeout lock-timeout)

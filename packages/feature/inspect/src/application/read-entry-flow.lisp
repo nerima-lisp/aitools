@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (read-flow ports
+ (read-flow boundaries
             path
             &key
             root
@@ -46,7 +46,7 @@
                                                                      path))))))
             (continue-with (selector)
               (aitools.kernel.domain:flow-call
-               (%read-with-selector ports
+               (%read-with-selector boundaries
                                     path
                                     selector
                                     mode

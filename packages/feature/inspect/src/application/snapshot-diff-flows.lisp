@@ -118,7 +118,7 @@
         (compare-snapshot snapshot current)
       (let* ((modified
               (loop for (old . new) in suspects
-                    for octets = (funcall (cl-boundary-kit:boundary-context-require (context-source context) :text-read-octets) (join-path
+                    for octets = (funcall (cl-boundary-kit:boundary-context-require (context-text-context context) :text-read-octets) (join-path
                                                       (workspace-root-path
                                                        (inspect-context-root
                                                         context))
@@ -141,7 +141,7 @@
          truncated)))))
 
 (aitools.kernel.domain:define-flow
- (snapshot-diff-flow ports
+ (snapshot-diff-flow boundaries
                      id
                      &key
                      root
@@ -152,7 +152,7 @@
                      on-error)
  "`snapshot diff`. Calls ON-OK or ON-PARTIAL (fields), or ON-ERROR."
  (aitools.kernel.domain:flow-call
-  (inspect-context-flow ports :root root :lock-timeout lock-timeout)
+  (inspect-context-flow boundaries :root root :lock-timeout lock-timeout)
   (:on-ready (context)
              (aitools.kernel.domain:flow-call
               (%load-snapshot/k context id)

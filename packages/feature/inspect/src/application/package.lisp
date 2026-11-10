@@ -41,10 +41,6 @@
   (:import-from #:aitools.kernel.domain #:parse-size #:size-bytes)
   (:import-from #:aitools.text.domain #:language-path-predicate)
   (:export
-   ;; ports.lisp
-   #:inspect-ports
-   #:inspect-ports-p
-   #:make-inspect-ports
    ;; selector.lisp (public API for edit, see inspect-api.md)
    #:parse-selector-options/k
    #:resolve-selector/k

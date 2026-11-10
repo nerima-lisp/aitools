@@ -1,12 +1,12 @@
 ;;;;
-;;;; `info`, `check`, and `diff` through fake ports
+;;;; `info`, `check`, and `diff` through fake boundary contexts
 ;;;; Real symlinks, digests of
 ;;;; real files, and `diff --op` against a real journal are in
 ;;;; t/integration/inspect-cli-test.lisp.
 (in-package #:aitools.inspect.test)
 
 (defun info-of (files path &rest options &key symlinks &allow-other-keys)
-  (apply #'run-flow #'info-flow (make-test-ports :files files :symlinks symlinks) path
+  (apply #'run-flow #'info-flow (make-test-boundaries :files files :symlinks symlinks) path
          (loop for (key value) on options by #'cddr unless (eq key :symlinks) append (list key value))))
 
 (describe "info"
@@ -58,7 +58,7 @@ three  four five
       (expect (json-false-value-p (field fields "inside_workspace")) :to-be t))))
 
 (defun check-of (files path &rest options)
-  (apply #'run-flow #'check-flow (make-test-ports :files files) path options))
+  (apply #'run-flow #'check-flow (make-test-boundaries :files files) path options))
 
 (describe "check"
   (it "accepts valid JSON and Lisp"
@@ -93,7 +93,7 @@ three  four five
     (expect (field (nth-value 1 (check-of '(("/work/x.txt" . "{}")) "x.txt" :format "json")) "valid") :to-be t)))
 
 (defun diff-of (files &rest options)
-  (apply #'run-flow #'diff-flow (make-test-ports :files files) options))
+  (apply #'run-flow #'diff-flow (make-test-boundaries :files files) options))
 
 (describe "diff"
   (let ((files '(("/work/a.txt" . "one
@@ -161,7 +161,7 @@ four
   (it "preserves diagnostics for an invalid first JSON diff operand"
     (multiple-value-bind (kind fields)
         (run-flow #'json-diff-flow
-                  (make-test-ports :files '(("/work/a.json" . "{")
+                  (make-test-boundaries :files '(("/work/a.json" . "{")
                                             ("/work/b.json" . "{}")))
                   "a.json" "b.json")
       (expect kind :to-be :error)
@@ -173,7 +173,7 @@ four
   (it "preserves diagnostics for an invalid second JSON diff operand"
     (multiple-value-bind (kind fields)
         (run-flow #'json-diff-flow
-                  (make-test-ports :files '(("/work/a.json" . "{}")
+                  (make-test-boundaries :files '(("/work/a.json" . "{}")
                                             ("/work/b.json" . "{")))
                   "a.json" "b.json")
       (expect kind :to-be :error)
@@ -185,7 +185,7 @@ four
   (it "reports a missing second JSON diff operand"
     (multiple-value-bind (kind fields)
         (run-flow #'json-diff-flow
-                  (make-test-ports :files '(("/work/a.json" . "{}")))
+                  (make-test-boundaries :files '(("/work/a.json" . "{}")))
                   "a.json" "b.json")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.not-found")
@@ -193,7 +193,7 @@ four
 
   (it "reports directory metadata without reading it as a file"
     (multiple-value-bind (kind fields)
-        (run-flow #'info-flow (make-test-ports :directories '("/work/sub")) "sub")
+        (run-flow #'info-flow (make-test-boundaries :directories '("/work/sub")) "sub")
       (expect kind :to-be :ok)
       (expect (field fields "path") :to-equal "sub")
       (expect (field fields "kind") :to-equal "directory")
@@ -203,7 +203,7 @@ four
   (it "preserves a broken symlink's path fields with --allow-missing"
     (multiple-value-bind (kind fields)
         (run-flow #'info-flow
-                  (make-test-ports :symlinks '(("/work/link" . "/outside/missing")))
+                  (make-test-boundaries :symlinks '(("/work/link" . "/outside/missing")))
                   "link" :allow-missing t)
       (expect kind :to-be :ok)
       (expect (json-false-value-p (field fields "exists")) :to-be t)
@@ -221,7 +221,7 @@ four
 
   (it "rejects an invalid lock timeout before resolving the inspect root"
     (multiple-value-bind (kind fields)
-        (run-flow #'info-flow (make-test-ports :files nil) "a.txt" :lock-timeout "fast")
+        (run-flow #'info-flow (make-test-boundaries :files nil) "a.txt" :lock-timeout "fast")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (getf fields :message)
@@ -233,7 +233,7 @@ four
 (describe "check --format"
   (it "checks an unknown extension as Lisp with --format lisp"
     (multiple-value-bind (kind fields)
-        (run-flow #'check-flow (make-test-ports :files '(("/work/x.conf" . "(a (b)"))) "x.conf" :format "lisp")
+        (run-flow #'check-flow (make-test-boundaries :files '(("/work/x.conf" . "(a (b)"))) "x.conf" :format "lisp")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.syntax-error")
       (expect (json-object-get (first (getf fields :diagnostics)) "message") :to-equal "'(' is never closed"))))

@@ -1,6 +1,6 @@
 ;;;;
-;;;; Fakes for inspect flow tests (unit tests inject fake ports): an in-memory filesystem behind both the WORKSPACE-HOST and the
-;;;; TEXT-SOURCE ports, and a flow runner returning the command result.
+;;;; Fakes for inspect flow tests: an in-memory filesystem behind workspace and
+;;;; text boundary contexts, and a flow runner returning the command result.
 (in-package #:aitools.inspect.test)
 
 (defun %parent (path)
@@ -77,7 +77,7 @@ succeeds) but its bytes cannot be read (EACCES), so the source reports
    :home-directory (constantly "/home/user")
    :working-directory (cl-boundary-kit:make-working-directory :get-fn (lambda () cwd))))
 
-(defun make-fake-source (nodes)
+(defun make-fake-text-context (nodes)
   (flet ((file (path)
            (let ((node (gethash (%follow nodes path) nodes)))
              (cond ((or (null node) (not (eq (first node) :file))) (values nil nil))
@@ -124,17 +124,31 @@ succeeds) but its bytes cannot be read (EACCES), so the source reports
                (values (subseq octets start end) (length octets)))
              (values nil problem)))))))
 
-(defun make-test-ports (&key files directories symlinks unreadable (cwd "/work") open-store state-directory)
-  "INSPECT-PORTS over an in-memory filesystem rooted at CWD (a directory
-created implicitly). OPEN-STORE fails the test unless supplied. UNREADABLE
-files exist but deny their bytes (EACCES)."
-  (let ((nodes (make-fake-filesystem :files files :directories (cons cwd directories) :symlinks symlinks
-                                     :unreadable unreadable)))
-    (values (make-inspect-ports :workspace-host (make-fake-host nodes :cwd cwd)
-                                :text-source (make-fake-source nodes)
-                                :open-store (or open-store (lambda (root) (fail (format nil "open-store ~A" root))))
-                                :state-directory-function (lambda () state-directory))
-            nodes)))
+(defun make-test-boundaries
+    (&key files directories symlinks unreadable (cwd "/work")
+          open-store state-directory workspace-host text-context)
+  "Boundary context over an in-memory filesystem rooted at CWD. OPEN-STORE
+fails the test unless supplied. UNREADABLE files deny their bytes."
+  (let* ((nodes (make-fake-filesystem :files files
+                                      :directories (cons cwd directories)
+                                      :symlinks symlinks
+                                      :unreadable unreadable))
+         (boundaries (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+             (list (cons :inspect-workspace-host
+                         (or workspace-host (make-fake-host nodes :cwd cwd)))
+                   (cons :inspect-text-context
+                         (or text-context (make-fake-text-context nodes)))
+                   (cons :inspect-open-store
+                         (or open-store
+                             (lambda (root)
+                               (fail (format nil "open-store ~A" root)))))
+                   (cons :inspect-state-directory
+                         (lambda () state-directory))))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries (car capability) (cdr capability))))
+    (values boundaries nodes)))
 
 (defun run-flow (function &rest arguments)
   "Run an inspect flow under CALL-WITH-COMMAND-RESULT/K and return (VALUES

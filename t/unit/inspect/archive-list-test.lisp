@@ -27,7 +27,7 @@
            (listed-name
              (multiple-value-bind (kind fields)
                  (run-flow #'archive-list-flow
-                           (make-test-ports :files `(("/work/bundle.gz" . ,gzip)))
+                           (make-test-boundaries :files `(("/work/bundle.gz" . ,gzip)))
                            "bundle.gz")
                (expect kind :to-be :ok)
                (json-object-get (first (field fields "items")) "path")))
@@ -44,7 +44,7 @@
     (let ((gzip (%as-octets #(31 139 8 8 0 0 0 0 0 255 120))))
       (multiple-value-bind (kind fields)
           (run-flow #'archive-list-flow
-                    (make-test-ports :files `(("/work/broken.gz" . ,gzip)))
+                    (make-test-boundaries :files `(("/work/broken.gz" . ,gzip)))
                     "broken.gz")
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal "input.unsupported-format")
@@ -73,20 +73,20 @@
 
   (it "rejects a file that is not an archive as input.unsupported-format"
     (multiple-value-bind (kind fields)
-        (run-flow #'archive-list-flow (make-test-ports :files '(("/work/plain.txt" . "just text"))) "plain.txt")
+        (run-flow #'archive-list-flow (make-test-boundaries :files '(("/work/plain.txt" . "just text"))) "plain.txt")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.unsupported-format")))
 
   (it "rejects a truncated zip without signalling"
     (let ((zip (cdr (assoc "a.zip" (sample-archives) :test #'string=))))
       (multiple-value-bind (kind fields)
-          (run-flow #'archive-list-flow (make-test-ports :files `(("/work/cut.zip" . ,(subseq zip 0 40)))) "cut.zip")
+          (run-flow #'archive-list-flow (make-test-boundaries :files `(("/work/cut.zip" . ,(subseq zip 0 40)))) "cut.zip")
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal "input.unsupported-format"))))
 
   (it "reports input.not-found when the archive path is missing"
     (multiple-value-bind (kind fields)
-        (run-flow (function archive-list-flow) (make-test-ports) "missing.zip")
+        (run-flow (function archive-list-flow) (make-test-boundaries) "missing.zip")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.not-found")
       (expect (getf fields :message)

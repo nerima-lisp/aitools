@@ -13,10 +13,10 @@
 ")
 
 (defun json-get (pointer &rest options)
-  (apply #'run-flow #'json-get-flow (make-test-ports :files `(("/work/d.json" . ,*doc*))) "d.json" pointer options))
+  (apply #'run-flow #'json-get-flow (make-test-boundaries :files `(("/work/d.json" . ,*doc*))) "d.json" pointer options))
 
 (defun json-select (pointer &rest options)
-  (apply #'run-flow #'json-select-flow (make-test-ports :files `(("/work/d.json" . ,*doc*))) "d.json" pointer options))
+  (apply #'run-flow #'json-select-flow (make-test-boundaries :files `(("/work/d.json" . ,*doc*))) "d.json" pointer options))
 
 (defun selected-ids (fields)
   (mapcar (lambda (item) (json-object-get (json-object-get item "value") "id")) (field fields "items")))
@@ -69,7 +69,7 @@
       (expect (json-object-get (first (getf fields :candidates)) "pointer") :to-equal "/items")))
 
   (it "rejects a non-JSON file as input.unsupported-format"
-    (expect (error-code (nth-value 1 (run-flow #'json-get-flow (make-test-ports :files '(("/work/x.json" . "{nope")))
+    (expect (error-code (nth-value 1 (run-flow #'json-get-flow (make-test-boundaries :files '(("/work/x.json" . "{nope")))
                                                "x.json" "")))
             :to-equal "input.unsupported-format"))
 
@@ -126,7 +126,7 @@
 
 (describe "json diff"
   (flet ((diff (a b &rest options)
-           (apply #'run-flow #'json-diff-flow (make-test-ports :files `(("/work/a.json" . ,a) ("/work/b.json" . ,b)))
+           (apply #'run-flow #'json-diff-flow (make-test-boundaries :files `(("/work/a.json" . ,a) ("/work/b.json" . ,b)))
                   "a.json" "b.json" options)))
     (it "does not count key order or number spelling as a difference"
       (multiple-value-bind (kind fields) (diff "{\"x\": 1, \"y\": [1, 2]}" "{ \"y\": [1, 2.0], \"x\": 1 }")
@@ -144,8 +144,8 @@
 (describe "json select --where ~ that exhausts the regex step budget"
   (it "answers input.syntax-error rather than internal.unexpected"
     (let* ((doc (format nil "[{\"s\": \"~A\"}]" (make-string 40 :initial-element #\a)))
-           (ports (make-test-ports :files `(("/work/j.json" . ,doc)))))
-      (expect (error-code (nth-value 1 (run-flow #'json-select-flow ports "j.json" ""
+           (boundaries (make-test-boundaries :files `(("/work/j.json" . ,doc)))))
+      (expect (error-code (nth-value 1 (run-flow #'json-select-flow boundaries "j.json" ""
                                                  :where '("/s~(a+)+(?=[bc])"))))
               :to-equal "input.syntax-error"))))
 
@@ -175,7 +175,7 @@
             ("/i" "number") ("/r" "number") ("/o" "object") ("/a" "array"))
       "reports ~A as type ~A"
       (pointer type)
-    (expect (field (nth-value 1 (run-flow #'json-get-flow (make-test-ports :files `(("/work/s.json" . ,*scalars*)))
+    (expect (field (nth-value 1 (run-flow #'json-get-flow (make-test-boundaries :files `(("/work/s.json" . ,*scalars*)))
                                           "s.json" pointer))
                    "type")
             :to-equal type))
@@ -199,10 +199,10 @@
 
   (it "counts --max-bytes in UTF-8 bytes, not characters"
     (let* ((text (format nil "~C~C~C" (code-char #xE9) (code-char #x65E5) (code-char #x1F600)))
-           (ports (make-test-ports :files `(("/work/u.json" . ,(format nil "{\"s\": \"~A\"}" text))))))
+           (boundaries (make-test-boundaries :files `(("/work/u.json" . ,(format nil "{\"s\": \"~A\"}" text))))))
       ;; "\"é日😀\"" renders as 2 quote bytes + 2 + 3 + 4 = 11 bytes, 5 characters.
-      (expect (run-flow #'json-get-flow ports "u.json" "/s" :max-bytes "11") :to-be :ok)
-      (expect (run-flow #'json-get-flow ports "u.json" "/s" :max-bytes "10") :to-be :partial)))
+      (expect (run-flow #'json-get-flow boundaries "u.json" "/s" :max-bytes "11") :to-be :ok)
+      (expect (run-flow #'json-get-flow boundaries "u.json" "/s" :max-bytes "10") :to-be :partial)))
 
   (it "names --keys and the first element as next commands of a truncated array"
     (expect (field (nth-value 1 (json-get "/items" :max-bytes "20")) "next_commands")
@@ -211,7 +211,7 @@
 (describe "json diff limits"
   (it "is partial past --limit with the total"
     (multiple-value-bind (kind fields)
-        (run-flow #'json-diff-flow (make-test-ports :files '(("/work/a.json" . "[1, 2, 3]") ("/work/b.json" . "[]")))
+        (run-flow #'json-diff-flow (make-test-boundaries :files '(("/work/a.json" . "[1, 2, 3]") ("/work/b.json" . "[]")))
                   "a.json" "b.json" :limit 1)
       (expect kind :to-be :partial)
       (expect (length (field fields "ops")) :to-be 1)
@@ -241,7 +241,7 @@
 (describe "json diff of arrays"
   (it "reports appended elements as adds at their indexes"
     (let ((fields (nth-value 1 (run-flow #'json-diff-flow
-                                         (make-test-ports :files '(("/work/a.json" . "[1]") ("/work/b.json" . "[1, 2, 3]")))
+                                         (make-test-boundaries :files '(("/work/a.json" . "[1]") ("/work/b.json" . "[1, 2, 3]")))
                                          "a.json" "b.json"))))
       (expect (mapcar (lambda (op) (list (json-object-get op "op") (json-object-get op "pointer") (json-object-get op "new")))
                       (field fields "ops"))

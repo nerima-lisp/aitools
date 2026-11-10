@@ -174,7 +174,7 @@ text" "g.md" "Guide")
 (describe "read selection errors"
   (it "repairs an ambiguous --symbol with the first match's full line range"
     (multiple-value-bind (kind fields)
-        (run-flow #'read-flow (make-test-ports :files '(("/work/a.lisp" . "(defvar x 1)
+        (run-flow #'read-flow (make-test-boundaries :files '(("/work/a.lisp" . "(defvar x 1)
 (defun x ()
   2)
 "))) "a.lisp" :symbol "x")
@@ -184,7 +184,7 @@ text" "g.md" "Guide")
 
   (it "repairs --symbol on a file without a definition table with a line range"
     (multiple-value-bind (kind fields)
-        (run-flow #'read-flow (make-test-ports :files '(("/work/n.txt" . "plain"))) "n.txt" :symbol "f")
+        (run-flow #'read-flow (make-test-boundaries :files '(("/work/n.txt" . "plain"))) "n.txt" :symbol "f")
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "input.unsupported-language")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools read n.txt --range 1:80"))))

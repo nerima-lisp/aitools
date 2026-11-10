@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (json-select-flow ports
+ (json-select-flow boundaries
                    path
                    pointer
                    &key
@@ -48,7 +48,7 @@
              (:on-comparisons (comparisons)
                (aitools.kernel.domain:flow-call
                 (%call-with-format-file
-                 ports path format "select"
+                 boundaries path format "select"
                  :root root
                  :tx tx
                  :lock-timeout lock-timeout

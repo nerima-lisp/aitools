@@ -22,7 +22,7 @@ opens the file once and reads nothing past the sniffed prefix of a binary file."
            (length octets)))
          (t (aitools.kernel.domain:flow-continue :on-text octets))))
      (aitools.text.application:call-with-sniffed-octets/k
-      (context-source context)
+      (context-text-context context)
       (file-target-real target)
       :on-text (lambda (octets)
                  (aitools.kernel.domain:flow-continue :on-text octets))
@@ -97,14 +97,14 @@ path outside the workspace cannot be in it), then call ON-RECORDED ()."
      )
      (aitools.kernel.domain:flow-continue :on-recorded)))
 (aitools.kernel.domain:define-flow
- (call-with-inspect-file/k ports path
+ (call-with-inspect-file/k boundaries path
                            &key root tx lock-timeout record on-file on-error)
  "Resolve the inspect context, probe PATH as a readable regular file, and,
 when RECORD (and --tx), record the read before calling ON-FILE (context
 target). The context/readable-file/record chain every single-file flow opens."
  (declare (type function on-file on-error))
  (aitools.kernel.domain:flow-call
-  (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+  (inspect-context-flow boundaries :root root :tx tx :lock-timeout lock-timeout)
   (:on-ready (context)
     (aitools.kernel.domain:flow-call
      (call-with-readable-file/k context path)

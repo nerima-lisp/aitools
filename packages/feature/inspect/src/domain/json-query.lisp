@@ -74,9 +74,6 @@
 ;;; ------------------------------------------------------------ comparison
 
 (progn
- (defparameter *comparison-operators* '("!=" "<=" ">=" "=" "<" ">" "~")
-   "The `--where` comparison operators, two-character ones first so `<=` is not
-read as `<`.")
  (defparameter *comparison-position-before-form*
    '(lambda (position best)
       (or (null best) (< position best))))
@@ -87,7 +84,7 @@ read as `<`.")
  "(VALUES left operator right) splitting TEXT at the earliest operator
 (the longest one at that position), or NIL when TEXT has none."
  (let ((best nil) (best-operator nil))
-   (dolist (operator *comparison-operators*)
+   (dolist (operator aitools.data:*inspect-json-comparison-operators*)
      (let ((position (search operator text)))
        (when (and position
                   (funcall *comparison-position-before-p* position best))
@@ -118,8 +115,8 @@ OPERATOR a keyword; VALUE the right side; REGEX the compiled `~` pattern."
   (regex nil :read-only t))
 
 (defun %operator-keyword (operator)
-  (cdr (assoc operator '(("=" . :equal) ("!=" . :not-equal) ("<" . :less) ("<=" . :less-equal)
-                         (">" . :greater) (">=" . :greater-equal) ("~" . :match))
+  (cdr (assoc operator
+              aitools.data:*inspect-json-comparison-keywords*
               :test #'string=)))
 
 (aitools.kernel.domain:define-flow

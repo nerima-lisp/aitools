@@ -26,7 +26,7 @@
      (%toml-document context target action)))))
 
 (aitools.kernel.domain:define-flow
- (%call-with-format-file ports path format action
+ (%call-with-format-file boundaries path format action
                          &key root tx lock-timeout record
                          on-document on-error)
  (declare (type function on-document on-error))
@@ -38,7 +38,7 @@
              :conflicts conflicts :repairs repairs)))
    (aitools.kernel.domain:flow-call
     (call-with-inspect-file/k
-     ports path :root root :tx tx :lock-timeout lock-timeout :record record)
+     boundaries path :root root :tx tx :lock-timeout lock-timeout :record record)
     (:on-file (context target)
       (aitools.kernel.domain:flow-call
        (%inspect-document context target format action)

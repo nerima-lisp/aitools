@@ -169,9 +169,8 @@ AITOOLS.DATA:*SELECTOR-OPTIONS* table."
         :invert
         (option-value invocation :invert)))
 
-(defun register-inspect-commands (registry ports)
-  "Register every declared inspect command on REGISTRY with PORTS, the
-AITOOLS.INSPECT.APPLICATION:INSPECT-PORTS the composition root built."
+(defun register-inspect-commands (registry boundaries)
+  "Register every declared inspect command on REGISTRY with BOUNDARIES."
   (aitools.protocol.application:register-command-declarations registry
                                                               *inspect-commands*
-                                                              ports))
+                                                              boundaries))

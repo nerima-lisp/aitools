@@ -7,7 +7,7 @@
 (in-package #:aitools.inspect.application)
 
 (defstruct (inspect-context (:constructor %make-inspect-context) (:copier nil) (:predicate nil))
-  (ports nil :type inspect-ports :read-only t)
+  (boundaries nil :read-only t)
   (root nil :read-only t)
   ;; The `--root` argument as typed, repeated in generated commands.
   (root-argument nil :read-only t)
@@ -18,10 +18,10 @@
   (lock-timeout-ms 0 :type integer :read-only t))
 
 (defun context-host (context)
-  (inspect-ports-workspace-host (inspect-context-ports context)))
+  (cl-boundary-kit:boundary-context-require (inspect-context-boundaries context) :inspect-workspace-host))
 
-(defun context-source (context)
-  (inspect-ports-text-source (inspect-context-ports context)))
+(defun context-text-context (context)
+  (cl-boundary-kit:boundary-context-require (inspect-context-boundaries context) :inspect-text-context))
 
 (defun context-root-real (context)
   (workspace-root-real (inspect-context-root context)))
@@ -45,11 +45,11 @@ NIL when TEXT is not a duration."
         (error () nil))))
 
 (aitools.kernel.domain:define-flow
-    (inspect-context-flow ports &key root tx lock-timeout on-ready on-error)
+    (inspect-context-flow boundaries &key root tx lock-timeout on-ready on-error)
   "Resolve the root and, with TX, the tx view; call ON-READY (context) or
 report the failure through ON-ERROR (the command-result error continuation)."
   (declare (type function on-ready on-error))
-  (let ((host (inspect-ports-workspace-host ports))
+  (let ((host (cl-boundary-kit:boundary-context-require boundaries :inspect-workspace-host))
         (timeout (%lock-timeout-ms lock-timeout)))
     (if (null timeout)
         (aitools.kernel.domain:flow-continue
@@ -74,12 +74,12 @@ report the failure through ON-ERROR (the command-result error continuation)."
            (flet ((ready (store view)
                     (aitools.kernel.domain:flow-continue
                       :on-ready
-                      (%make-inspect-context :ports ports :root resolved
+                      (%make-inspect-context :boundaries boundaries :root resolved
                                              :root-argument root :tx tx :store store
                                              :view view :lock-timeout-ms timeout))))
              (if (null tx)
                  (ready nil nil)
-                 (let ((store (funcall (inspect-ports-open-store ports)
+                 (let ((store (funcall (cl-boundary-kit:boundary-context-require boundaries :inspect-open-store)
                                        (workspace-root-real resolved))))
                    (call-with-tx-view/k
                      store tx
@@ -98,4 +98,4 @@ report the failure through ON-ERROR (the command-result error continuation)."
 (defun context-store (context)
   "The workspace's STORE, opened on first use."
   (or (inspect-context-store context)
-      (funcall (inspect-ports-open-store (inspect-context-ports context)) (context-root-real context))))
+      (funcall (cl-boundary-kit:boundary-context-require (inspect-context-boundaries context) :inspect-open-store) (context-root-real context))))

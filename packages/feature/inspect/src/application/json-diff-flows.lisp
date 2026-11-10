@@ -12,7 +12,7 @@
         (list (cons "new" new)))))))
 
 (aitools.kernel.domain:define-flow
- (json-diff-flow ports
+ (json-diff-flow boundaries
                  a
                  b
                  &key
@@ -32,14 +32,14 @@
  (%with-json-flow-error-forwarder
   (aitools.kernel.domain:flow-call
     (%call-with-format-file
-     ports a (or format-a format) "diff"
+     boundaries a (or format-a format) "diff"
      :root root
      :tx tx
      :lock-timeout lock-timeout)
     (:on-document (context target-a document-a)
       (aitools.kernel.domain:flow-call
        (%call-with-format-file
-        ports b (or format-b format) "diff"
+        boundaries b (or format-b format) "diff"
         :root root
         :tx tx
         :lock-timeout lock-timeout)

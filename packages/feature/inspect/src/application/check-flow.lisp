@@ -87,7 +87,7 @@
     (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))))
 
 (aitools.kernel.domain:define-flow
- (check-flow ports
+ (check-flow boundaries
              path
              &key
              root
@@ -143,7 +143,7 @@
                                                           "--format"
                                                           "json"))))))))))
    (aitools.kernel.domain:flow-call
-    (inspect-context-flow ports :root root :tx tx :lock-timeout lock-timeout)
+    (inspect-context-flow boundaries :root root :tx tx :lock-timeout lock-timeout)
     (:on-ready (context)
                (aitools.kernel.domain:flow-call
                 (call-with-readable-file/k context path)

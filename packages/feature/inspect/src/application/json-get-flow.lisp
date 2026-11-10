@@ -1,7 +1,7 @@
 (in-package #:aitools.inspect.application)
 
 (aitools.kernel.domain:define-flow
- (json-get-flow ports
+ (json-get-flow boundaries
                 path
                 pointer
                 &key
@@ -27,7 +27,7 @@
        (:on-tokens (tokens)
          (aitools.kernel.domain:flow-call
           (%call-with-format-file
-           ports path format "get"
+           boundaries path format "get"
            :root root
            :tx tx
            :lock-timeout lock-timeout

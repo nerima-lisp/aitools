@@ -22,7 +22,7 @@
 
   (it "orders values of mixed types null, false, true, numbers, strings, then containers"
     (let* ((doc "[{\"v\": \"b\"}, {\"v\": 2}, {\"v\": [1]}, {\"v\": null}, {\"v\": true}, {\"v\": false}, {\"v\": \"a\"}, {}, {\"v\": 1}]")
-           (fields (nth-value 1 (run-flow #'json-select-flow (make-test-ports :files `(("/work/m.json" . ,doc)))
+           (fields (nth-value 1 (run-flow #'json-select-flow (make-test-boundaries :files `(("/work/m.json" . ,doc)))
                                           "m.json" "" :sort-by "/v"))))
       (expect (mapcar (lambda (item) (json-object-get item "pointer")) (field fields "items"))
               :to-equal '("/3" "/7" "/5" "/4" "/8" "/1" "/6" "/0" "/2"))))

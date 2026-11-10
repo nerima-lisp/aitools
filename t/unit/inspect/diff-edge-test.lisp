@@ -42,7 +42,25 @@
                                                   ("/work/d2/n2" . "2"))
                                                 :a "d1" :b "d2" :limit 1)
       (expect kind :to-be :partial)
-      (expect (field fields "added") :to-equal '("n1")))))
+      (expect (field fields "added") :to-equal '("n1"))))
+
+  (it "ignores .git metadata and temporary files in directory diffs"
+    (multiple-value-bind (kind fields)
+        (diff-of
+         (list (cons "/work/d1/keep" "old")
+               (cons "/work/d1/size" "x")
+               (cons "/work/d1/.git/config" "left")
+               (cons "/work/d1/.aitools-op-1.tmp" "left")
+               (cons "/work/d2/keep" "new")
+               (cons "/work/d2/size" "long")
+               (cons "/work/d2/.git/config" "right")
+               (cons "/work/d2/.aitools-op-1.tmp" "right"))
+         :a "d1" :b "d2")
+      (expect kind :to-be :ok)
+      (expect (field fields "added") :to-equal nil)
+      (expect (field fields "removed") :to-equal nil)
+      (expect (field fields "modified") :to-equal '("keep" "size"))
+      (expect (field fields "identical_count") :to-be 0))))
 
 (describe "diff of the workspace root"
   (it "reports the root directory as ."

@@ -1,5 +1,5 @@
 ;;;;
-;;;; `archive list` and `archive read` through fake ports, for zip, tar,
+;;;; `archive list` and `archive read` through fake boundary contexts, for zip, tar,
 ;;;; tar.gz, and gz.
 (in-package #:aitools.inspect.test)
 
@@ -26,7 +26,7 @@
   (loop for (name . octets) in (sample-archives) collect (cons (concatenate 'string "/work/" name) octets)))
 
 (defun run-archive (flow &rest arguments)
-  (apply #'run-flow flow (make-test-ports :files (archive-files)) arguments))
+  (apply #'run-flow flow (make-test-boundaries :files (archive-files)) arguments))
 
 (describe "archive read"
   (it-each (("a.zip") ("a.tar") ("a.tar.gz"))
@@ -115,7 +115,7 @@
   (it "describes a binary member instead of printing it"
     (let ((zip (aitools.text.domain:write-zip (list (archive-member "img.png" (coerce #(137 80 78 71 13 10 26 10 0 0 0 13) '(vector (unsigned-byte 8))))))))
       (multiple-value-bind (kind fields)
-          (run-flow #'archive-read-flow (make-test-ports :files `(("/work/b.zip" . ,zip))) "b.zip" "img.png")
+          (run-flow #'archive-read-flow (make-test-boundaries :files `(("/work/b.zip" . ,zip))) "b.zip" "img.png")
         (expect kind :to-be :ok)
         (expect (field fields "binary") :to-be t)
         (expect (field fields "size") :to-be 12)
@@ -142,7 +142,7 @@
            (data-start (+ 30 (length "z.txt"))))
       (setf (aref zip data-start) (logxor (aref zip data-start) #xFF))
       (multiple-value-bind (kind fields)
-          (run-flow #'archive-read-flow (make-test-ports :files `(("/work/bad.zip" . ,zip))) "bad.zip" "z.txt")
+          (run-flow #'archive-read-flow (make-test-boundaries :files `(("/work/bad.zip" . ,zip))) "bad.zip" "z.txt")
         (expect kind :to-be :error)
         (expect (error-code fields) :to-equal "input.unsupported-format")
         (expect (getf fields :message) :to-contain "entry z.txt of bad.zip cannot be decoded")
@@ -170,7 +170,7 @@
         (multiple-value-bind (kind fields)
             (run-flow
              (function archive-read-flow)
-             (make-test-ports :files `(("/work/big.tar" . ,tar)))
+             (make-test-boundaries :files `(("/work/big.tar" . ,tar)))
              "big.tar"
              "big.bin")
           (expect kind :to-be :error)
@@ -186,7 +186,7 @@
     (let ((zip (aitools.text.domain:write-zip
                 (list (archive-member "long.txt" (format nil "~A~%" (make-string 20000 :initial-element #\a)))))))
       (multiple-value-bind (kind fields)
-          (run-flow #'archive-read-flow (make-test-ports :files `(("/work/l.zip" . ,zip))) "l.zip" "long.txt")
+          (run-flow #'archive-read-flow (make-test-boundaries :files `(("/work/l.zip" . ,zip))) "l.zip" "long.txt")
         (expect kind :to-be :partial)
         (expect (length (first (field fields "lines"))) :to-be 16384)
         (expect (field fields "cut_lines") :to-equal '(1))

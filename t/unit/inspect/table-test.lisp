@@ -7,10 +7,10 @@
 (in-package #:aitools.inspect.test)
 
 (defun table-read (files path &rest options)
-  (apply #'run-flow #'table-read-flow (make-test-ports :files files) path options))
+  (apply #'run-flow #'table-read-flow (make-test-boundaries :files files) path options))
 
 (defun table-agg (files path &rest options)
-  (apply #'run-flow #'table-agg-flow (make-test-ports :files files) path options))
+  (apply #'run-flow #'table-agg-flow (make-test-boundaries :files files) path options))
 
 (defun column-summary (fields)
   (mapcar (lambda (column) (list (json-object-get column "name") (json-object-get column "type")))
