@@ -7,6 +7,8 @@
  :branch-total 810
  :coverage-exclusions
  ((:kind :branch :package "AITOOLS.STORE.APPLICATION" :symbol "STORE-IO"
-   :reason "The DEFSTRUCT-generated slot type checks are compiler-generated guards without source-mapped SB-COVER branches. Production adapters and COPY-STORE-IO pass only NIL or functions; specs assert invalid search-port values are rejected.")
+   :reason "These DEFSTRUCT guards are compiler-generated and have no source-mapped SB-COVER branches. No valid store input can supply a non-callable port; specs verify invalid values are rejected.")
   (:kind :branch :package "AITOOLS.STORE.APPLICATION" :symbol "%ARCHIVE-PREFIX-CURSOR"
-   :reason "The DEFSTRUCT-generated slot type checks are compiler-generated guards without source-mapped SB-COVER branches. Production cursor constructors use only validated descriptors and identities; specs assert invalid slot values are rejected.")))
+   :reason "These DEFSTRUCT guards are compiler-generated and have no source-mapped SB-COVER branches. No valid cursor state can contain an invalid descriptor or identity; specs verify malformed constructor values are rejected.")
+  (:kind :branch :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "%OPEN-SEARCH-ROOT"
+   :reason "Linux uses O_DIRECTORY when opening the workspace root, so a successful descriptor is always a directory. No path input can reach the non-directory arm.")))
