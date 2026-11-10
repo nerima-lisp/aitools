@@ -123,7 +123,7 @@
     (expect (guess-encoding (octets #xEF #x41 #x41)) :to-be :unknown))
 
   (it "calls NUL-bearing data unknown when it has too few pairs or no UTF-16 pattern"
-    (expect (guess-encoding (octets 0)) :to-be :unknown)
+    (progn (expect (guess-encoding (octets 0)) :to-be :unknown) (expect (guess-encoding (octets 0 65)) :to-be :unknown))
     (expect (guess-encoding (octets 0 0 0 0)) :to-be :unknown))
 
   (it "forgives a sequence cut by the sample's end"

@@ -32,11 +32,23 @@
     (call-with-scratch-directory (lambda (scratch)
       (let ((path (concatenate 'string scratch "/locked")))
         (write-file path "secret")
+        (write-file (concatenate (quote string) scratch "/openable") "data")
         (sb-posix:chmod path 0)
         (unwind-protect
              (progn
                (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size) path))
                        :to-equal '(nil :unreadable))
+               (cl-weave:with-mocked-functions
+                (((symbol-function (quote sb-posix:fstat))
+                  (lambda (fd)
+                    (declare (ignore fd))
+                    (error (make-condition (quote sb-posix:syscall-error)
+                                           :errno sb-posix:ebadf)))))
+                (expect
+                 (multiple-value-list
+                  (funcall (cl-boundary-kit:boundary-context-require (source) :text-file-size)
+                           (concatenate (quote string) scratch "/openable")))
+                 :to-equal (quote (nil :unreadable))))
                (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-octets) path))
                        :to-equal '(nil :unreadable))
                (expect (multiple-value-list (funcall (cl-boundary-kit:boundary-context-require (source) :text-read-prefix) path 4))

@@ -14,7 +14,7 @@
 (describe "aitools.text.domain binary sniffing"
   (it "calls a file binary only for a NUL within the first 8 KiB"
     (expect (binary-octets-p (string-bytes "plain text")) :to-be-falsy)
-    (expect (binary-octets-p (octets 65 0 66)) :to-be-truthy)
+    (progn (expect (binary-octets-p (octets 65 0 66)) :to-be-truthy) (expect (binary-octets-p (octets 0 65) :start 1 :end 2) :to-be-falsy) (expect (binary-octets-p (octets 65 0 66) :start 1 :end 2) :to-be-truthy))
     (let ((late (make-array 9000 :element-type '(unsigned-byte 8) :initial-element 65)))
       (fill late 0 :start 8500 :end 8501)
       (expect (binary-octets-p late) :to-be-falsy)
@@ -78,7 +78,7 @@
         (expect (list start end) :to-equal '(0 4)))
       (multiple-value-bind (start end) (line-index-bounds index bytes 3)
         (expect (map 'string #'code-char (subseq bytes start end)) :to-equal "two"))
-      (expect (line-index-bounds index bytes 4) :to-be-falsy))))
+      (progn (expect (line-index-bounds index bytes 4) :to-be-falsy) (let ((range-index (build-line-index bytes :start 6 :end (length bytes)))) (expect (line-index-count range-index) :to-be 2) (expect (multiple-value-list (line-index-bounds range-index bytes 1)) :to-equal (list 6 9))) (expect (line-index-count (build-line-index bytes :start 2 :end 2)) :to-be 0)))))
 
 (defun %count-line-bytes (bytes)
   (let ((total 0))

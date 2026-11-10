@@ -29,8 +29,8 @@
                                   :on-decoded (lambda (string) string)
                                   :on-invalid (lambda (position) (list :invalid position)))
             :to-equal '(:invalid 2))
-    (expect (utf8-valid-p (string-bytes "é")) :to-be-truthy)
-    (expect (coerce (encode-utf8 "é") 'list) :to-equal '(#xC3 #xA9))))
+    (progn (expect (utf8-valid-p (string-bytes "é")) :to-be-truthy) (expect (utf8-valid-p (octets #xE2 #x82)) :to-be-falsy))
+    (progn (expect (coerce (encode-utf8 "é") 'list) :to-equal '(#xC3 #xA9)) (expect (coerce (encode-utf8 "xéy" :start 1 :end 2) 'list) :to-equal '(#xC3 #xA9)))))
 
 (describe "aitools.text.domain legacy encodings"
   (it "names encodings canonically and accepts aliases"
