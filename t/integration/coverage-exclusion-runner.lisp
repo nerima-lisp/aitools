@@ -75,7 +75,7 @@
            (values definitions current-package)))
         (t (values nil package-name)))))
 
-  (defun coverage-source-definitions-for (pathname)
+  (defun coverage-source-definitions-for-raw (pathname)
     (let ((source (uiop:read-file-string pathname))
           (definitions nil)
           (package-name "CL-USER"))
@@ -83,7 +83,7 @@
         (let ((*read-eval* nil))
           (loop for start = (file-position stream)
                 for form = (let ((*package* (or (find-package package-name) *package*)))
-                             (read stream nil :eof))
+                             (read-preserving-whitespace stream nil :eof))
                 until (eq form :eof)
                 for end = (file-position stream)
                 do (multiple-value-bind (spans next-package)
@@ -92,8 +92,14 @@
                      (dolist (span spans)
                        (push (append (list :pathname (namestring (truename pathname))) span)
                              definitions))
-                     (setf package-name next-package))))
-      (nreverse definitions))))
+                     (setf package-name next-package)))))
+      (nreverse definitions)))
+  (defun coverage-source-definitions-for (pathname)
+    (handler-case
+        (coverage-source-definitions-for-raw pathname)
+      ((or reader-error end-of-file package-error) (condition)
+        (error "Unable to parse coverage source file ~A: ~A"
+               (namestring pathname) condition))))
 
   (defun coverage-owner-for-location (location definitions)
     (let ((pathname (getf location :pathname))
