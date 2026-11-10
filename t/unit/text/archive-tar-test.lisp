@@ -152,7 +152,16 @@
                             (tar-block "f" #\0))))
       (expect (archive-entry-mtime (first (read-tar-entries valid))) :to-be 123)
       (expect (tar-entries-reason invalid)
-              :to-equal '(archive-error "pax numeric value is not decimal"))))
+              :to-equal '(archive-error "pax numeric value is not decimal"))
+      (let* ((record (aitools.text.domain::%pax-record "mtime" "123.50"))
+             (parse-record (symbol-function 'aitools.text.domain::%parse-pax-record)))
+        (multiple-value-bind (record-end key duplicate value)
+            (funcall parse-record record 0 (length record) nil
+                     (lambda (start end)
+                       (map 'string #'code-char (subseq record start end)))
+                     aitools.text.domain::+tar-max-pax-mtime+)
+          (expect (list record-end key duplicate value)
+                  :to-equal (list (length record) "mtime" nil 123))))))
 
   (it "rejects a PAX record length larger than its available payload"
     (let ((archive (tar-of (tar-block "PaxHeader" #\x

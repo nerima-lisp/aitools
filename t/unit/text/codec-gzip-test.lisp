@@ -204,4 +204,13 @@
             (declare (ignore arguments))
             (error (quote deflate-kit:deflate-error) :message "member failure"))))
       (signals archive-error
-        (gzip-decompress (gzip-compress (octets 1)))))))
+        (gzip-decompress (gzip-compress (octets 1))))))
+  (it "calls gzip entry points dynamically"
+    (let ((compress (symbol-function (quote aitools.text.domain:gzip-compress)))
+          (header-reader (symbol-function (quote aitools.text.domain:gzip-member-header)))
+          (decompress (symbol-function (quote aitools.text.domain:gzip-decompress)))
+          (payload (string-bytes "dynamic gzip entry point")))
+      (let* ((gzip (funcall compress payload :name "entry.txt"))
+             (header (multiple-value-list (funcall header-reader gzip))))
+        (expect (first header) :to-equal "entry.txt")
+        (expect (funcall decompress gzip) :to-equalp payload)))))

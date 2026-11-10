@@ -7,6 +7,8 @@
             ("a split central-directory count" :deflated (:directory-count 0) (archive-unsupported "multi-disk zip"))
             ("an entry starting on a second disk" :deflated (:entry-disk 1) (archive-unsupported "multi-disk zip"))
             ("a ZIP64 central-directory count" :deflated (:directory-count #xFFFF) (archive-limit-exceeded "zip records"))
+            ("a ZIP64 central-directory size sentinel" :deflated (:directory-size #xFFFFFFFF) (archive-unsupported "ZIP64"))
+            ("a ZIP64 central-directory offset sentinel" :deflated (:directory-offset #xFFFFFFFF) (archive-unsupported "ZIP64"))
             ("a ZIP64 entry start disk" :deflated (:entry-disk #xFFFF) (archive-unsupported "ZIP64"))
             ("a central directory past its end record" :deflated
                                                        (:directory-size 5000)
@@ -217,13 +219,19 @@
            (entry (first (read-zip-entries archive))))
       (signals archive-limit-exceeded (archive-entry-data archive entry :max-output 1000))))
 
-  (it "reports ZIP64 and garbage as typed archive errors"
-    (let ((archive (write-zip (list (make-archive-member :name "a" :data (string-bytes "x"))))))
-      (let ((zip64 (copy-seq archive)))
-        ;; the entry count field of the end-of-central-directory record
-        (setf (aref zip64 (- (length zip64) 12)) #xFF (aref zip64 (- (length zip64) 11)) #xFF)
-        (signals archive-limit-exceeded (read-zip-entries zip64))))
-    (signals archive-error (read-zip-entries (string-bytes "not a zip archive at all, no"))))
+  (it "reports ZIP64 locators, entry counts, and garbage as typed archive errors"
+    (let* ((archive (write-zip (list (make-archive-member :name "a" :data (string-bytes "x")))))
+           (eocd (- (length archive) 22))
+           (with-locator
+             (concatenate '(vector (unsigned-byte 8))
+                          (subseq archive 0 eocd)
+                          (octets #x50 #x4B #x06 #x07 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+                          (subseq archive eocd)))
+           (zip64 (copy-seq archive)))
+      (setf (aref zip64 (- (length zip64) 12)) #xFF (aref zip64 (- (length zip64) 11)) #xFF)
+      (signals archive-limit-exceeded (read-zip-entries zip64))
+      (expect (zip-entries-reason with-locator) :to-equal '(archive-unsupported "ZIP64"))
+      (signals archive-error (read-zip-entries (string-bytes "not a zip archive at all, no")))))
 
   (it "rejects every truncation of a valid archive"
     (let ((archive (write-zip (subseq (sample-members) 0 3))))

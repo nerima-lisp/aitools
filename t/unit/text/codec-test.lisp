@@ -117,5 +117,16 @@
     (let ((bytes (join-octets (octets 0)
                              (string-bytes "123456789")
                              (octets 0))))
-      (expect (crc32 bytes :start 1 :end 10) :to-be #xCBF43926))))
+      (expect (crc32 bytes :start 1 :end 10) :to-be #xCBF43926)))
+  (it "calls raw codec entry points dynamically"
+    (let ((crc (symbol-function (quote aitools.text.domain:crc32)))
+          (inflate-fn (symbol-function (quote aitools.text.domain:inflate)))
+          (deflate-fn (symbol-function (quote aitools.text.domain:deflate))))
+      (expect (funcall crc (string-bytes "123456789")) :to-be #xCBF43926)
+      (expect (funcall crc (string-bytes "6789")
+                       :crc (funcall crc (string-bytes "12345")))
+              :to-be #xCBF43926)
+      (let* ((payload (string-bytes "dynamic entry point"))
+             (encoded (funcall deflate-fn payload)))
+        (expect (funcall inflate-fn encoded) :to-equalp payload)))))
 

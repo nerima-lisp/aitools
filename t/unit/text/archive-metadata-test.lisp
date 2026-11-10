@@ -115,12 +115,17 @@
            (let ((archive (archive-metadata-test-tar-overrun)))
              (signals archive-limit-exceeded (read-tar-entries archive)))))
 (describe "aitools.text.domain archive member constructor"
-  (it "rejects invalid public member slot values"
+  (it "checks valid and invalid public member slot values"
     (let ((make-member (symbol-function (find-symbol "MAKE-ARCHIVE-MEMBER"
                                                     "AITOOLS.TEXT.TEST")))
           (invalid-kind (copy-symbol :hardlink))
           (invalid-mode (parse-integer "4096"))
           (invalid-mtime (parse-integer "-1")))
+      (let ((member (funcall make-member :kind :symlink :mode #o7777 :mtime 0)))
+        (expect (list (archive-member-kind member)
+                      (archive-member-mode member)
+                      (archive-member-mtime member))
+                :to-equal (list :symlink #o7777 0)))
       (signals type-error (funcall make-member :kind invalid-kind))
       (signals type-error (funcall make-member :mode invalid-mode))
       (signals type-error (funcall make-member :mtime invalid-mtime)))))

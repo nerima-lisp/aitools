@@ -138,3 +138,17 @@
       (expect (funcall utf16 (octets 0 65 0 66) 0 4) :to-be :utf-16be)
       (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 5) :to-be :utf-16le)
       (expect (funcall guess (octets 88 65 0 66 0) :start 1 :end 4) :to-be :unknown))))
+(describe "aitools.text.domain runtime encoding guess"
+  (it "calls the UTF-16 and encoding guess entry points dynamically"
+    (let* ((domain (find-package "AITOOLS.TEXT.DOMAIN"))
+           (guess (fdefinition (find-symbol "GUESS-ENCODING" domain)))
+           (utf16 (fdefinition (find-symbol "%UTF16-WITHOUT-BOM" domain))))
+      (expect (funcall guess (string-bytes "plain text")) :to-be :utf-8)
+      (expect (funcall guess (octets #xEF #xBB #xBF 65)) :to-be :utf-8)
+      (expect (funcall guess (octets #xFF #xFE 65 0)) :to-be :utf-16le)
+      (expect (funcall guess (octets 0 65 0 66)) :to-be :utf-16be)
+      (expect (funcall guess (octets 0)) :to-be :unknown)
+      (expect (funcall utf16 (octets 65 0 66 0) 0 4) :to-be :utf-16le)
+      (expect (funcall utf16 (octets 0 65 0 66) 0 4) :to-be :utf-16be)
+      (expect (funcall utf16 (octets 0 0 0 0) 0 4) :to-be nil)
+      (expect (funcall utf16 (octets 65 0) 0 2) :to-be nil))))

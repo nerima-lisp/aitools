@@ -84,3 +84,23 @@
       (expect (funcall content-end (octets 65 10) 0 1) :to-be 1)
       (expect (funcall content-end (octets 13 10) 0 1) :to-be 0)
       (expect (funcall content-end (octets 10) 0 0) :to-be 0))))
+(describe "aitools.text.domain runtime line-index entry points"
+  (it "calls line scanners and index builder through runtime bindings"
+    (let* ((domain (find-package "AITOOLS.TEXT.DOMAIN"))
+           (map-lines (fdefinition (find-symbol "MAP-LINES" domain)))
+           (count-lines (fdefinition (find-symbol "COUNT-LINES" domain)))
+           (build-index (fdefinition (find-symbol "BUILD-LINE-INDEX" domain)))
+           (bytes (octets 97 10 98)))
+      (let ((visited nil))
+        (expect (funcall map-lines
+                         (lambda (line start end)
+                           (declare (ignore start end))
+                           (push line visited))
+                         bytes)
+                :to-be 2)
+        (expect (nreverse visited) :to-equal (quote (1 2))))
+      (expect (funcall count-lines bytes) :to-be 2)
+      (let ((index (funcall build-index bytes)))
+        (expect (line-index-count index) :to-be 2)
+        (expect (multiple-value-list (line-index-bounds index bytes 2))
+                :to-equal (list 2 3))))))

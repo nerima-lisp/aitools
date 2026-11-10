@@ -131,3 +131,17 @@
       (expect (funcall binary-p inside :end 8191) :to-be nil)
       (expect (funcall binary-p outside) :to-be nil)
       (expect (funcall binary-p outside :start 8192 :end 8193) :to-be t))))
+(describe "aitools.text.domain runtime byte predicates"
+  (it "calls binary and layout predicates through runtime function bindings"
+    (let* ((domain (find-package "AITOOLS.TEXT.DOMAIN"))
+           (binary-p (fdefinition (find-symbol "BINARY-OCTETS-P" domain)))
+           (ending-style (fdefinition (find-symbol "LINE-ENDING-STYLE" domain)))
+           (final-newline (fdefinition (find-symbol "FINAL-NEWLINE-P" domain))))
+      (expect (funcall binary-p (octets 65 0 66)) :to-be t)
+      (expect (funcall binary-p (octets 65 0 66) :start 1 :end 1) :to-be nil)
+      (expect (funcall ending-style (octets 65 10 66 10)) :to-be :lf)
+      (expect (funcall ending-style (octets 65 13 10)) :to-be :crlf)
+      (expect (funcall ending-style (octets 65 10 66 13 10)) :to-be :mixed)
+      (expect (funcall ending-style (octets 65 13)) :to-be :none)
+      (expect (funcall final-newline (octets 65 10)) :to-be t)
+      (expect (funcall final-newline (octets 65)) :to-be nil))))
