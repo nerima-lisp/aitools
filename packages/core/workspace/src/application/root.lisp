@@ -104,6 +104,9 @@ or NIL. START is absolute and normalized."
 (defun %git-metadata-path-inside-p (directory candidate)
   (aitools.workspace.domain:git-metadata-path-inside-p
    directory candidate :name-fold-function (function %git-name-fold)))
+(defun %git-common-root-entry-target-inside-root-p (common-directory root entry-target)
+  (and (%git-metadata-path-inside-p common-directory root)
+       (%git-metadata-path-inside-p root entry-target)))
 (defun %git-common-root-identity-hazard-p (host common-directory root)
   (multiple-value-bind (entries readable-p complete-p)
       (host-list-directory host common-directory)
@@ -126,7 +129,9 @@ or NIL. START is absolute and normalized."
                          (workspace-entry-inode entry-target))
               (return-from %git-common-root-identity-hazard-p :stat-failed))
             (when (or (%workspace-entry-same-identity-p root-entry entry-target)
-                      (%git-metadata-path-inside-p entry-real root-real))
+                      (%git-metadata-path-inside-p entry-real root-real)
+                      (%git-common-root-entry-target-inside-root-p
+                       common-directory root-real entry-real))
               (return-from %git-common-root-identity-hazard-p :identity-match)))))
       nil)))
 

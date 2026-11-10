@@ -151,3 +151,30 @@
                     (error "mock dirent-name failure"))))
                 :to-equal '(nil t nil))
              (sb-posix:closedir stream))))))))
+ (describe "workspace metadata symlink descendants"
+  (it "refuses common metadata targets below a linked worktree root"
+    (let* ((root-path "/bare/.worktrees/wt")
+           (host
+            (make-fake-workspace-boundaries
+             :files
+             (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                   (cons "/bare/worktrees/wt/HEAD" "0123")
+                   (cons "/bare/worktrees/wt/commondir" "../..")
+                   (cons "/bare/worktrees/wt/gitdir"
+                         "/bare/.worktrees/wt/.git")
+                   (cons "/bare/.worktrees/wt/.git"
+                         "gitdir: /bare/worktrees/wt"))
+             :directories
+             (list "/bare/objects"
+                   "/bare/refs"
+                   "/bare/.worktrees/wt/hookdir"
+                   "/bare/.worktrees/wt/src")
+             :symlinks
+             (list (cons "/bare/.worktrees/wt/git-dir"
+                         "/bare/worktrees/wt")
+                   (cons "/bare/hooks"
+                         "/bare/.worktrees/wt/hookdir"))
+             :cwd root-path))
+           (root (resolved-root host)))
+      (expect (boundary-verdict host root "hookdir/pre-commit")
+              :to-be :git-directory))))
