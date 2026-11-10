@@ -7,14 +7,36 @@
             (target (aitools.process.domain:make-process-identity
                      :pid 2147483647 :ppid 1 :pgid 2147483647
                      :uid 0 :ruid 0 :start "missing" :command-line "missing")))
-        (cl-weave:with-mocked-functions
-            (((symbol-function (quote sb-posix:kill))
-              (lambda (&rest arguments)
-                (declare (ignore arguments))
-                (setf called t))))
-          (signals aitools.process.application::process-target-changed
-            (aitools.process.infrastructure::%signal-process target 15)))
-        (expect called :to-be nil)))
+        #+linux
+        (let ((fd (sb-posix:open "/dev/null" sb-posix:o-rdonly)))
+          (unwind-protect
+               (progn
+                 (cl-weave:with-mocked-functions
+                     (((symbol-function (quote aitools.process.infrastructure::%linux-pidfd-open))
+                       (lambda (pid) (declare (ignore pid)) (values fd nil)))
+                      ((symbol-function (quote aitools.process.infrastructure::%linux-pidfd-send-signal))
+                       (lambda (&rest arguments)
+                         (declare (ignore arguments))
+                         (setf called t)))
+                      ((symbol-function (quote aitools.process.infrastructure::%safe-process-info))
+                       (lambda (pid) (declare (ignore pid)) nil)))
+                   (signals aitools.process.application::process-target-changed
+                     (aitools.process.infrastructure::%signal-process target 15)))
+                 (expect called :to-be nil)
+                 (expect (handler-case (progn (sb-posix:fstat fd) t)
+                           (sb-posix:syscall-error () nil))
+                         :to-be nil))
+            (sb-posix:close fd)))
+        #+darwin
+        (progn
+          (cl-weave:with-mocked-functions
+              (((symbol-function (quote sb-posix:kill))
+                (lambda (&rest arguments)
+                  (declare (ignore arguments))
+                  (setf called t))))
+            (signals aitools.process.application::process-target-changed
+              (aitools.process.infrastructure::%signal-process target 15)))
+          (expect called :to-be nil))))
     (it "rejects invalid group ids before probing or signalling"
       (expect (aitools.process.infrastructure::%group-alive-p 1) :to-be nil)
       (expect (aitools.process.infrastructure::%signal-group 1 15) :to-be nil)
