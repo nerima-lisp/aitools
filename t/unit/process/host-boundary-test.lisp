@@ -41,6 +41,22 @@
       (expect (aitools.process.infrastructure::%group-alive-p 1) :to-be nil)
       (expect (aitools.process.infrastructure::%signal-group 1 15) :to-be nil)
       (expect (aitools.process.infrastructure::%signal-group 0 15) :to-be nil))
+    #+linux
+    (it "closes a pidfd through the helper outside cleanup"
+      (let ((source-fd (sb-posix:open "/dev/null" sb-posix:o-rdonly))
+            (fd nil))
+        (unwind-protect
+             (progn
+               (setf fd (sb-posix:dup source-fd))
+               (expect fd :to-be-truthy)
+               (expect fd :not :to-equal source-fd)
+               (aitools.process.infrastructure::%close-pidfd
+                (sb-posix:getpid) fd)
+               (expect (handler-case (progn (sb-posix:fstat fd) t)
+                         (sb-posix:syscall-error () nil))
+                       :to-be nil))
+          (when fd (ignore-errors (sb-posix:close fd)))
+          (ignore-errors (sb-posix:close source-fd)))))
     (it "recognizes the direct parent as an ancestor"
       (expect (aitools.process.infrastructure::%ancestor-p (sb-posix:getppid))
               :to-be t)))
