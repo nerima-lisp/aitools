@@ -10,6 +10,15 @@
   (it "accepts JSON values without changing them"
     (let ((value (parse-json-text "{\"b\":[true,false],\"a\":null}")))
       (expect (eq (validate-yaml-write-value value) value) :to-be t)))
+  (it "validates finite JSON numbers and malformed exponent tokens"
+    (let ((integer (make-json-num "1"))
+          (decimal (make-json-num "1.25"))
+          (zero (make-json-num "0.0")))
+      (expect (eq (validate-yaml-write-value integer) integer) :to-be t)
+      (expect (eq (validate-yaml-write-value decimal) decimal) :to-be t)
+      (expect (eq (validate-yaml-write-value zero) zero) :to-be t)
+      (expect (edit-refusal-code (yaml-write-value-refusal (make-json-num "1e+")))
+              :to-equal "argument.invalid")))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
     (let ((underflow (yaml-write-value-refusal
                       (parse-json-text "{\"value\":1e-9999}")))

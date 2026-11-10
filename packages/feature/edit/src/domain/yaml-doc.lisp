@@ -12,7 +12,7 @@
                 (*read-default-float-format* 'double-float))
             (multiple-value-bind (number end)
                 (read-from-string text nil nil)
-              (unless (and number (= end (length text)))
+              (unless (and (numberp number) (= end (length text)))
                 (refuse "argument.invalid" "JSON number cannot be represented."))
               (when (and (floatp number)
                          (zerop number)
