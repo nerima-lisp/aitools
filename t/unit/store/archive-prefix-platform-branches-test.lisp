@@ -28,11 +28,11 @@
     (call-with-temp-store
      (lambda (store)
        (let ((file-path (disk-path store "plain"))
-             (io (store-io-port store)))
+             (io (store-boundaries store)))
          (with-open-file (stream file-path :direction :output)
            (write-string "file" stream))
          (multiple-value-bind (root-fd identity)
-             (funcall (store-io-open-search-root io) (store-root store))
+             (funcall (store-operation io :open-search-root) (store-root store))
            (declare (ignore identity))
            (unwind-protect
                 (dolist (entry (list (list "." "." :directory)
@@ -45,11 +45,11 @@
                         (progn
                           (expect fd :to-be-truthy)
                           (expect child-identity :to-be-truthy)
-                          (funcall (store-io-close-search-directory io) fd))
+                          (funcall (store-operation io :close-search-directory) fd))
                         (progn
                           (expect fd :to-be nil)
                           (expect child-identity :to-be nil)))))
-             (funcall (store-io-close-search-directory io) root-fd)))))
+             (funcall (store-operation io :close-search-directory) root-fd)))))
      :io nil))
   #+darwin
   (it "rejects a regular file used as the search root"

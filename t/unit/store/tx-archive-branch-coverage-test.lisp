@@ -28,13 +28,12 @@
   (it "covers absent and present case-variant temp probes"
     (call-with-temp-store
      (lambda (store)
-       (let* ((io (store-io-port store))
-              (native-lstat (store-io-lstat io))
+       (let* ((io (store-boundaries store))
+              (native-lstat (store-operation io :lstat))
               (variant-path (disk-path store ".AITOOLS-CASE-PROBE.TMP"))
               (variant-kind :absent)
               (probe-io
-                (copy-store-io
-                 io
+                (cl-boundary-kit:boundary-context-with io
                  :lstat
                  (lambda (path)
                    (if (string= path variant-path)

@@ -4,24 +4,23 @@
   (it "rejects non-directory root and start handles and closes them"
     (call-with-temp-store
      (lambda (store)
-       (let* ((io (store-io-port store))
+       (let* ((io (store-boundaries store))
               (opened 0)
               (closed 0)
               (dot-opens 0)
               (fault :root)
               (tracked-io
-                (copy-store-io
-                 io
+                (cl-boundary-kit:boundary-context-with io
                  :open-search-root
                  (lambda (path)
                    (multiple-value-bind (fd identity)
-                       (funcall (store-io-open-search-root io) path)
+                       (funcall (store-operation io :open-search-root) path)
                      (when fd (incf opened))
                      (values fd identity)))
                  :open-search-entry
                  (lambda (dirfd name path)
                    (multiple-value-bind (kind fd identity)
-                       (funcall (store-io-open-search-entry io) dirfd name path)
+                       (funcall (store-operation io :open-search-entry) dirfd name path)
                      (when (and (string= name ".") (string= path "."))
                        (incf dot-opens)
                        (when (or (eq fault :root)
@@ -32,7 +31,7 @@
                  :close-search-directory
                  (lambda (fd)
                    (incf closed)
-                   (funcall (store-io-close-search-directory io) fd))))
+                   (funcall (store-operation io :close-search-directory) fd))))
               (tracked-store (make-store tracked-io (store-root store) "/tmp")))
          (let ((condition nil))
            (handler-case
@@ -100,20 +99,30 @@
            (funcall checker :finish))))
      :io nil))
 
-  (it "validates search port function slots"
+  (it "rejects non-function search boundary capabilities"
     (call-with-temp-store
      (lambda (store)
-       (let ((io (store-io-port store))
+       (let ((base-boundaries (store-boundaries store))
              (invalid (read-from-string "not-a-function")))
-         (signals type-error (copy-store-io io :open-search-root invalid))
-         (signals type-error (copy-store-io io :open-search-entry invalid))
-         (signals type-error (copy-store-io io :close-search-directory invalid))))
+         (flet ((reject (key)
+                  (let* ((boundaries
+                           (cl-boundary-kit:boundary-context-with
+                            base-boundaries key invalid))
+                         (invalid-store
+                           (make-store boundaries (store-root store) "/tmp")))
+                    (signals aitools.store.application:store-io-error
+                      (aitools.store.application:make-archive-symlink-prefix-checker
+                       (aitools.store.application::%make-store-view invalid-store nil)
+                       "" nil)))))
+           (reject :open-search-root)
+           (reject :open-search-entry)
+           (reject :close-search-directory))))
      :io nil))
 
   (it "classifies search syscall errors"
     (call-with-temp-store
      (lambda (store)
-       (let ((io (store-io-port store))
+       (let ((io (store-boundaries store))
              (file-path (disk-path store "plain"))
              (link-path (disk-path store "alias")))
          (with-open-file (stream file-path :direction :output)
@@ -125,7 +134,7 @@
          (expect (aitools.store.infrastructure::%mode-kind 0) :to-be :other)
          #+linux
          (multiple-value-bind (root-fd identity)
-             (funcall (store-io-open-search-root io) (store-root store))
+             (funcall (store-operation io :open-search-root) (store-root store))
            (declare (ignore identity))
            (unwind-protect
                 (progn
@@ -133,7 +142,7 @@
                       (aitools.store.infrastructure::%open-entry-linux root-fd "." ".")
                     (expect kind :to-be :directory)
                     (expect child-identity :to-be-truthy)
-                    (funcall (store-io-close-search-directory io) child-fd))
+                    (funcall (store-operation io :close-search-directory) child-fd))
                   (multiple-value-bind (kind child-fd child-identity)
                       (aitools.store.infrastructure::%open-entry-linux root-fd "plain" "plain")
                     (expect kind :to-be :file)
@@ -159,10 +168,10 @@
                       (sb-posix:close file-fd)))
                   (signals aitools.store.application:store-io-error
                     (aitools.store.infrastructure::%open-entry-linux -1 "child" "child")))
-             (funcall (store-io-close-search-directory io) root-fd)))
+             (funcall (store-operation io :close-search-directory) root-fd)))
          #+darwin
          (multiple-value-bind (root-fd identity)
-             (funcall (store-io-open-search-root io) (store-root store))
+             (funcall (store-operation io :open-search-root) (store-root store))
            (declare (ignore identity))
            (unwind-protect
                 (progn
@@ -170,7 +179,7 @@
                       (aitools.store.infrastructure::%open-entry-darwin root-fd "." ".")
                     (expect kind :to-be :directory)
                     (expect child-identity :to-be-truthy)
-                    (funcall (store-io-close-search-directory io) child-fd))
+                    (funcall (store-operation io :close-search-directory) child-fd))
                   (multiple-value-bind (kind child-fd child-identity)
                       (aitools.store.infrastructure::%open-entry-darwin root-fd "plain" "plain")
                     (expect kind :to-be :file)
@@ -198,5 +207,5 @@
                     (aitools.store.infrastructure::%open-entry-darwin -1 "child" "child"))
                   (signals aitools.store.application:store-io-error
                     (aitools.store.infrastructure::%open-entry-darwin-metadata -1 "child" "child")))
-             (funcall (store-io-close-search-directory io) root-fd)))))
+             (funcall (store-operation io :close-search-directory) root-fd)))))
      :io nil)))

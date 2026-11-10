@@ -7,16 +7,16 @@
             (lambda (store)
               (sb-posix:mkdir (disk-path store "safe") #o755)
               (sb-posix:mkdir (disk-path store "safe/nested") #o755)
-              (let* ((io (store-io-port store))
+              (let* ((io (store-boundaries store))
                      (opened 0)
                      (closed 0)
                      (tracked-io
-                      (copy-store-io io
+                      (cl-boundary-kit:boundary-context-with io
                                      :open-search-root
                                      (lambda (path)
                                        (multiple-value-bind (fd identity)
                                            (funcall
-                                            (store-io-open-search-root io)
+                                            (store-operation io :open-search-root)
                                             path)
                                          (when fd
                                            (incf opened))
@@ -25,7 +25,7 @@
                                      (lambda (dirfd name path)
                                        (multiple-value-bind (kind fd identity)
                                            (funcall
-                                            (store-io-open-search-entry io)
+                                            (store-operation io :open-search-entry)
                                             dirfd
                                             name
                                             path)
@@ -36,7 +36,7 @@
                                      (lambda (fd)
                                        (incf closed)
                                        (funcall
-                                        (store-io-close-search-directory io)
+                                        (store-operation io :close-search-directory)
                                         fd))))
                      (tracked-store
                       (make-store tracked-io (store-root store) "/tmp")))

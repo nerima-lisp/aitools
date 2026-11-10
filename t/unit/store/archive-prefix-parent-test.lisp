@@ -5,23 +5,22 @@
     (call-with-temp-store
      (lambda (store)
        (sb-posix:mkdir (disk-path store "base") #o755)
-       (let* ((io (store-io-port store))
+       (let* ((io (store-boundaries store))
               (opened 0)
               (closed 0)
               (injected-fault nil)
               (tracked-io
-                (copy-store-io
-                 io
+                (cl-boundary-kit:boundary-context-with io
                  :open-search-root
                  (lambda (path)
                    (multiple-value-bind (fd identity)
-                       (funcall (store-io-open-search-root io) path)
+                       (funcall (store-operation io :open-search-root) path)
                      (when fd (incf opened))
                      (values fd identity)))
                  :open-search-entry
                  (lambda (dirfd name path)
                    (multiple-value-bind (kind fd identity)
-                       (funcall (store-io-open-search-entry io) dirfd name path)
+                       (funcall (store-operation io :open-search-entry) dirfd name path)
                      (when fd (incf opened))
                      (when (string= name "..")
                        (case injected-fault
@@ -30,7 +29,7 @@
                          (:no-descriptor
                           (when fd
                             (incf closed)
-                            (funcall (store-io-close-search-directory io) fd))
+                            (funcall (store-operation io :close-search-directory) fd))
                           (setf fd nil))
                          (:identity-mismatch
                           (setf identity nil))))
@@ -38,7 +37,7 @@
                  :close-search-directory
                  (lambda (fd)
                    (incf closed)
-                   (funcall (store-io-close-search-directory io) fd))))
+                   (funcall (store-operation io :close-search-directory) fd))))
               (tracked-store (make-store tracked-io (store-root store) "/tmp"))
               (checker
                 (aitools.store.application:make-archive-symlink-prefix-checker

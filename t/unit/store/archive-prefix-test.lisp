@@ -10,23 +10,22 @@
                    (sb-posix:symlink "target" (disk-path store "base/link"))
                    (with-open-file (stream (disk-path store "base/file") :direction :output)
                      (write-string "file" stream)))
-                 (let* ((io (store-io-port store))
+                 (let* ((io (store-boundaries store))
                         (opened 0)
                         (closed 0)
                         (injected-fault nil)
                         (tracked-io
-                         (copy-store-io
-                          io
+                         (cl-boundary-kit:boundary-context-with io
                           :open-search-root
                           (lambda (path)
                             (multiple-value-bind (fd identity)
-                                (funcall (store-io-open-search-root io) path)
+                                (funcall (store-operation io :open-search-root) path)
                               (incf opened)
                               (values fd identity)))
                           :open-search-entry
                           (lambda (dirfd name path)
                             (multiple-value-bind (kind fd identity)
-                                (funcall (store-io-open-search-entry io) dirfd name path)
+                                (funcall (store-operation io :open-search-entry) dirfd name path)
                               (cond ((and (eq injected-fault :parent) (string= name "..")) (setf identity "mismatched"))
                                       ((and (eq injected-fault :identity) (string= name ".") (string= path ".")) (setf identity "mismatched"))
                                       ((and (eq injected-fault :boundary) (string= name "boom"))
@@ -37,7 +36,7 @@
                           :close-search-directory
                           (lambda (fd)
                             (incf closed)
-                            (funcall (store-io-close-search-directory io) fd))))
+                            (funcall (store-operation io :close-search-directory) fd))))
                         (tracked-store (make-store tracked-io (store-root store) "/tmp"))
                         (checker (let ((index (make-tx-index)))
                                    (tx-index-put index
@@ -173,18 +172,11 @@
                                                   (make-store io (disk-path store "base/file") "/tmp") nil)
                                                  "" nil)))
                               (let* ((missing-io
-                                       (aitools.store.application:make-store-io
-                                        :lstat (store-io-lstat io) :open-search-root nil :open-search-entry nil
-                                        :close-search-directory nil :read-file (store-io-read-file io)
-                                        :create-file (store-io-create-file io) :append-file (store-io-append-file io)
-                                        :rename (store-io-rename io) :unlink (store-io-unlink io)
-                                        :rmdir (store-io-rmdir io) :mkdir (store-io-mkdir io)
-                                        :chmod (store-io-chmod io) :symlink (store-io-symlink io)
-                                        :set-mtime (store-io-set-mtime io) :list-directory (store-io-list-directory io)
-                                        :try-lock (store-io-try-lock io) :unlock (store-io-unlock io)
-                                        :call-with-retry (aitools.store.application::store-io-call-with-retry io)
-                                        :sleep (store-io-sleep io) :monotonic-ms (store-io-monotonic-ms io)
-                                        :now (store-io-now io) :random-hex (store-io-random-hex io)))
+                                       (cl-boundary-kit:boundary-context-with
+                                        io
+                                        :open-search-root nil
+                                        :open-search-entry nil
+                                        :close-search-directory nil))
                                      (missing-store (make-store missing-io (store-root store) "/tmp")))
                                 (expect-refusal 0
                                                 (lambda ()
