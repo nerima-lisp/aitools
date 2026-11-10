@@ -1,6 +1,28 @@
 ;;;;
 ;;;; File operations, rm safety, and undo behavior.
 (in-package #:aitools.edit.test)
+(describe "aitools rm uses staged file bytes and refusal state"
+  (it "honors recursive entry and byte limits against staged state"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "large.txt" "a much larger disk version")
+       (put "tree/first.txt" "first")
+       (put "tree/second.txt" "second")
+       (let ((tx (begin-tx)))
+         (expect
+          (run-in tx "write" '("large.txt") :content '("x") :overwrite t
+                  :expect-hash (list (format nil "large.txt=~A" (hash "large.txt"))))
+          :to-be :ok)
+         (with-error (code)
+             (run-in tx "rm" '("tree") :recursive t :max-entries "2" :expect-count "2")
+           (expect code :to-equal "refusal.too-large"))
+         (multiple-value-bind (kind fields)
+             (run-in tx "rm" '("large.txt") :max-bytes "1")
+           (expect kind :to-be :ok)
+           (expect (field fields "bytes") :to-be 1))
+         (expect (text "large.txt") :to-equal "a much larger disk version")
+         (expect (commit-tx tx) :to-be :committed)
+         (expect (kind "large.txt") :to-be :absent))))))
 
 (describe "aitools move, copy, rm and mkdir"
   (it "renames a directory, refuses to merge into an existing one, and undoes the move"

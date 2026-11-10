@@ -108,10 +108,15 @@
     (expect (j (js value)) :to-equal value)))
 
 (describe "aitools.edit.domain JSON edge cases"
-  (it "refuses to serialize a value outside the edit value model"
-    (expect (refusal-code (lambda () (serialize-json (vector 1)))) :to-equal "argument.invalid")
+  (it "prints refusal details for values outside the edit JSON model"
+    (expect (serialize-json (vector (make-json-num "1"))) :to-equal "[1]")
     (expect (refusal-code (lambda () (serialize-json (vector 1.5)))) :to-equal "argument.invalid")
-    (expect (refusal-code (lambda () (serialize-json :keyword))) :to-equal "argument.invalid"))
+    (expect (refusal-code (lambda () (serialize-json :keyword))) :to-equal "argument.invalid")
+    (let ((report
+            (handler-case
+                (progn (serialize-json :keyword) "")
+              (edit-refusal (condition) (princ-to-string condition)))))
+      (expect report :to-equal "cannot serialize :KEYWORD")))
 
   (it-each (("a value on one line" "{\"a\": 1}" nil)
             ("the first indented line's whitespace" "{~%   \"a\": [~%      1]~%}" "   ")
@@ -130,6 +135,11 @@
       (expect (js (json-add value '() (j "7"))) :to-equal "7")
       (expect (js (json-remove value (parse-json-pointer "/a/1/1"))) :to-equal "{\"a\":[{\"b\":1},[5]]}")
       (expect (js value) :to-equal "{\"a\":[{\"b\":1},[5,6]]}")))
+  (it "appends with default array mode and escapes JSON strings"
+    (expect (js (json-add (j "[1]") (parse-json-pointer "/1") (j "2")))
+            :to-equal "[1,2]")
+    (expect (json-string-literal (format nil "a~Cb" #\Newline))
+            :to-equal "\"a\\nb\""))
 
   (it-each (("a missing parent below an array" "/a/9/b" "input.not-found")
             ("a non-index token into an array parent" "/a/x/b" "input.not-found")

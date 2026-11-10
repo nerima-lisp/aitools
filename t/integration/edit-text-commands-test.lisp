@@ -116,7 +116,48 @@
         (with-error (code message keys) (run "apply" '() :stdin t)
           (expect code :to-equal "selection.no-match")
           (expect (json-field (first (getf keys :candidates)) "path") :to-equal "src/b.txt"))
-        (expect-unchanged before))))))
+        (expect-unchanged before)))))
+  (it "forwards target byte-limit refusals from edit, insert, apply, replace, and move-lines"
+    (call-with-edit-workspace (lambda ()
+      (put "edit.txt" "old")
+      (put "insert.txt" "line")
+      (put "src/a.txt" (format nil "one~%two~%three~%"))
+      (put "replace.txt" "old")
+      (put "move-source.txt" "move")
+      (put "move-destination.txt" "existing")
+      (let ((blocked-paths '("edit.txt" "insert.txt" "src/a.txt" "replace.txt" "move-source.txt"))
+            (read-file (symbol-function 'aitools.store.application:view-read-file)))
+        (cl-weave:with-mocked-functions
+            (((symbol-function 'aitools.store.application:view-read-file)
+              (lambda (view path &rest arguments)
+                (if (member path blocked-paths :test #'string=)
+                    (error 'aitools.store.application:store-byte-limit-error
+                           :operation "read"
+                           :path path
+                           :detail "target exceeds read limit")
+                    (apply read-file view path arguments)))))
+          (flet ((expect-read-limit (command paths &rest options)
+                   (multiple-value-bind (kind code)
+                       (apply #'run command paths options)
+                     (expect kind :to-be :error)
+                     (expect (list command kind code)
+                           :to-equal (list command :error "refusal.too-large")))))
+            (let ((before (snapshot)))
+              (expect-read-limit "edit" '("edit.txt") :old "old" :new "new")
+              (expect-read-limit "insert" '("insert.txt") :at "start" :content "first")
+              (setf *stdin* (bytes +git-diff+))
+              (expect-read-limit "apply" '() :stdin t)
+              (expect-read-limit "replace" '("old" "new" "replace.txt") :expect-count "1")
+              (expect-read-limit "move-lines" '("move-source.txt") :range "1"
+                                 :to "move-destination.txt" :to-position "start"
+                                 :expect-hash (list (format nil "move-source.txt=~A" (hash "move-source.txt"))
+                                                    (format nil "move-destination.txt=~A" (hash "move-destination.txt"))))
+              (setf blocked-paths '("move-destination.txt"))
+              (expect-read-limit "move-lines" '("move-source.txt") :range "1"
+                                 :to "move-destination.txt" :to-position "start"
+                                 :expect-hash (list (format nil "move-source.txt=~A" (hash "move-source.txt"))
+                                                    (format nil "move-destination.txt=~A" (hash "move-destination.txt"))))
+              (expect-unchanged before)))))))))
 
 (describe "aitools transform"
   (it "applies ops in order, only inside the selection"
@@ -134,7 +175,7 @@
           (expect code :to-equal "selection.count-mismatch")
           (expect (json-field (first (getf keys :diagnostics)) "actual") :to-be 2))
         (expect-unchanged before)))))
-  (it "returns a similar definition when a symbol selector misses"
+  (it "reports symbol selector failures with and without candidates"
     (call-with-edit-workspace (lambda () (put "a.lisp" (format nil "(defun present () 1)~%"))
       (let ((before (snapshot)))
         (with-error (code message keys)
@@ -143,6 +184,13 @@
           (expect code :to-equal "selection.no-match")
           (expect message :to-equal "the selector matches nothing in a.lisp")
           (expect (json-field (first (getf keys :candidates)) "name") :to-equal "present"))
+        (expect-unchanged before))
+      (put "plain.txt" "plain")
+      (let ((before (snapshot)))
+        (with-error (code message keys)
+            (run "transform" '("plain.txt") :op '("comment") :symbol "missing")
+          (expect code :to-equal "input.unsupported-language")
+          (expect (getf keys :candidates) :to-equal nil))
         (expect-unchanged before)))))
 
   (it "applies whole-file ops, refusing them with a selector"
@@ -155,17 +203,24 @@
       (with-error (code) (run "transform" '("a.txt") :op '("eol-lf") :range "1" :expect-hash (list (hash "a.txt")))
         (expect code :to-equal "argument.invalid")))))
 
-  (it "requires --seed for shuffle and a known comment syntax for comment"
+  (it "requires --seed and handles line, block, and unsupported comment syntaxes"
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "1~%2~%3~%"))
       (put "a.unknownext" (format nil "x~%"))
-      (with-error (code) (run "transform" '("a.txt") :op '("shuffle")) (expect code :to-equal "argument.invalid"))
+      (with-error (code) (run "transform" '("a.txt") :op '("shuffle"))
+        (expect code :to-equal "argument.invalid"))
       (expect (run "transform" '("a.txt") :op '("shuffle") :seed "5") :to-be :ok)
       (let ((once (text "a.txt")))
         (put "a.txt" (format nil "1~%2~%3~%"))
         (run "transform" '("a.txt") :op '("shuffle") :seed "5")
         (expect (text "a.txt") :to-equal once))
-      (with-error (code) (run "transform" '("a.unknownext") :op '("comment"))
-        (expect code :to-equal "input.unsupported-language"))))))
+      (dolist (operation '("comment" "uncomment"))
+        (with-error (code)
+            (run "transform" '("a.unknownext") :op (list operation))
+          (expect code :to-equal "input.unsupported-language")))
+      (put "readme.md" (format nil "# title~%body~%"))
+      (expect (run "transform" '("readme.md") :op '("comment")) :to-be :ok)
+      (expect (text "readme.md")
+              :to-equal (format nil "<!-- # title -->~%<!-- body -->~%"))))))
 
 (describe "aitools move-lines"
   (it "moves lines within a file and into another file"

@@ -34,6 +34,11 @@
               :to-equal (format nil "a~C~%x~C~%y~C~%" #\Return #\Return #\Return))
       (expect (doc-string (document-replace-lines open-end 1 2 '("x"))) :to-equal (format nil "a~%x"))
       (expect (doc-string (document-replace-lines open-end 1 2 '())) :to-equal "a")))
+  (it "handles replacing all lines and inserting into an empty document"
+    (expect (doc-string (document-replace-lines (doc (format nil "a~%b~%")) 0 2 (list)))
+            :to-equal "")
+    (expect (doc-string (document-replace-lines (doc "") 0 0 (list "x")))
+            :to-equal (format nil "x~%")))
 
   (it "keeps each untouched line's own terminator in a mixed file"
     (let ((mixed (doc (format nil "a~C~%b~%c~C~%" #\Return #\Return))))
@@ -148,13 +153,19 @@
   (it "cuts by lines, by bytes and before matching lines"
     (let* ((octets (bytes (format nil "h~%a~%b~%h~%c~%")))
            (document (doc (format nil "h~%a~%b~%h~%c~%"))))
-      (expect (mapcar #'split-piece-start-line (split-by-lines octets 2)) :to-equal '(1 3 5))
-      (expect (mapcar (lambda (piece) (- (split-piece-end piece) (split-piece-start piece))) (split-by-bytes octets 4))
-              :to-equal '(4 4 2))
-      (let ((regex (compile-search-pattern/k "^h" :on-regex #'identity :on-invalid #'error)))
+      (expect (mapcar (function split-piece-start-line) (split-by-lines octets 2))
+              :to-equal (list 1 3 5))
+      (expect (mapcar (lambda (piece) (- (split-piece-end piece) (split-piece-start piece)))
+                      (split-by-bytes octets 4))
+              :to-equal (list 4 4 2))
+      (let ((regex (compile-search-pattern/k "^h" :on-regex (function identity) :on-invalid (function error))))
         (expect (mapcar (lambda (piece) (list (split-piece-start-line piece) (split-piece-lines piece)))
                         (split-at-matches octets (text-document-lines document) regex))
-                :to-equal '((1 3) (4 2)))))))
+                :to-equal (list (list 1 3) (list 4 2))))
+      (expect (mapcar (lambda (piece)
+                        (list (split-piece-start piece) (split-piece-end piece) (split-piece-lines piece)))
+                      (split-by-lines (bytes (format nil "a~%b~%")) 1))
+              :to-equal (list (list 0 2 1) (list 2 4 1))))))
 (describe "aitools.edit parser and codec properties"
   (it-property "round-trips generated UTF-8 text through text documents"
       ((text (gen-string :min-length 0 :max-length 80

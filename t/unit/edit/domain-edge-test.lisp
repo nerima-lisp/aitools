@@ -32,6 +32,13 @@
       (expect (edit (format nil "f~%    a~%    b~%") (format nil "a~%b") (format nil "c~%~%  d"))
               :to-equal (list (format nil "f~%    c~%~%      d~%") :whitespace 2)))
 
+    (it "handles empty whitespace prefixes and empty similarity sets"
+      (expect (leading-whitespace "") :to-equal "")
+      (expect (leading-whitespace (format nil " ~C" #\Tab))
+              :to-equal (format nil " ~C" #\Tab))
+      (expect (leading-whitespace "word") :to-equal "")
+      (expect (similar-windows #() (list "needle")) :to-equal (list))
+      (expect (similar-windows (vector "needle") (list "needle") :limit 0) :to-equal (list)))
     (it "offers no candidates in an empty file"
       (expect (edit "" "x" "y") :to-equal '(:no-match ()))))
 
@@ -100,13 +107,14 @@
     (declare (ignore name))
     (expect (octets-search (bytes needle) (bytes haystack)) :to-equal expected))
 
-  (it "offers no byte prefilter for a literal holding a line end"
+  (it "omits byte prefilters for alternatives and line breaks"
     (flet ((literal (pattern)
              (replacer-required-literal
-              (make-replacer (compile-search-pattern/k pattern :on-regex #'identity :on-invalid #'error)
+              (make-replacer (compile-search-pattern/k pattern :on-regex (function identity) :on-invalid (function error))
                              (literal-replacement "x")))))
       (expect (literal "needle") :to-equalp (bytes "needle"))
-      (expect (literal (format nil "a~%b")) :to-be nil)))
+      (expect (literal (format nil "a~%b")) :to-be nil)
+      (expect (literal "cat|dog") :to-be nil)))
 
   (it "replaces across lines with --multiline and refuses a line break without it"
     (flet ((replacer (pattern replacement)
@@ -121,6 +129,14 @@
         (expect count :to-be 0))
       (expect (refusal-code (lambda () (replace-document (doc (format nil "a~%")) (replacer "a" (format nil "x~%y")) nil nil)))
               :to-equal "argument.invalid")))
+  (it "replaces only the selected match number"
+    (let ((regex (compile-search-pattern/k "a" :on-regex (function identity) :on-invalid (function error))))
+      (multiple-value-bind (document count)
+          (replace-document (doc "a a a")
+                            (make-replacer regex (literal-replacement "x") :nth 2)
+                            nil nil)
+        (expect (doc-string document) :to-equal "a x a")
+        (expect count :to-be 1))))
 
   (it-each (("digits" "86400" 86400)
             ("@digits" "@7" 7)
@@ -182,8 +198,11 @@
     (expect (doc-string (document-with-logical-text (doc (format nil "a~%b")) (format nil "A~%b~%") 0 1))
             :to-equal (format nil "A~%b~%")))
 
-  (it "reads a leading number with a sign inside as 0, and orders a number before a word part"
-    (expect (transform-lines "sort-numeric" '("2 b" "1-2 x" "-1 a")) :to-equal '("-1 a" "1-2 x" "2 b"))
+  (it "reads leading numbers with or without trailing text"
+    (expect (transform-lines "sort-numeric" (list "2 b" "1-2 x" "-1 a"))
+            :to-equal (list "-1 a" "1-2 x" "2 b"))
+    (expect (transform-lines "sort-numeric" (list "10" "+" "2" "-"))
+            :to-equal (list "+" "-" "2" "10"))
     (expect (version< "1" "v1") :to-be t)
     (expect (version< "v1" "1") :to-be nil))
 

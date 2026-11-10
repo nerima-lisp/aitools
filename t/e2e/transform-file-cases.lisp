@@ -160,8 +160,8 @@
 
 (define-row-case (26 "iconv -f SHIFT_JIS is read --encoding shift_jis" :foreign ("iconv")) (ws)
   (put ws "s.txt" +japanese-sjis+)
-  (expect (read-text ws "s.txt" "--encoding" "shift_jis")
-          :to-equal (oracle ws '("iconv") "iconv -f SHIFT_JIS -t UTF-8 s.txt" +japanese+)))
+  (expect (lines-text (jget (run-ok ws (list "read" "s.txt" "--encoding" "shift_jis")) "lines"))
+          :to-equal (oracle ws (list "iconv") "iconv -f SHIFT_JIS -t UTF-8 s.txt" +japanese+)))
 
 ;;; Row 27
 

@@ -32,4 +32,18 @@
        (multiple-value-bind (code envelope)
            (run-aitools "doc" "get" "data" "/a/b" "--format" "json")
          (expect code :to-be 0)
-         (expect (envelope-value envelope "status") :to-equal "ok"))))))
+         (expect (envelope-value envelope "status") :to-equal "ok")))))
+  (it "routes malformed JSON writes through the repair continuation"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "broken.json" "{")
+       (let ((before (octets-of "broken.json")))
+         (with-error (code nil keys)
+             (run "doc.set" (list "broken.json" "/a" "1"))
+           (expect code :to-equal "input.unsupported-format")
+           (expect (repair-commands keys)
+                   :to-equal
+                   (list "aitools doc get broken.json /a")))
+         (expect (octets-of "broken.json")
+                 :to-equalp
+                 before))))))

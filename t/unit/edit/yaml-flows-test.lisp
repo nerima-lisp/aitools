@@ -115,3 +115,47 @@
           (declare (ignore message keys))
           (expect status :to-be :error)
           (expect code :to-equal "environment.io")))))))
+(describe "aitools.edit format write continuations"
+  (it "requests an explicit format for an extensionless document"
+    (call-with-edit-workspace
+     (lambda ()
+       (multiple-value-bind (status code message keys)
+           (run "doc.fmt" (list "extensionless") :dry-run t)
+         (declare (ignore message))
+         (expect status :to-be :error)
+         (expect code :to-equal "argument.invalid")
+         (expect (search "--format" (getf (first (getf keys :repairs)) :command))
+                 :to-be-truthy)))))
+  (it "passes a missing document read failure through the format error continuation"
+    (call-with-edit-workspace
+     (lambda ()
+       (multiple-value-bind (status code message keys)
+           (run "doc.fmt" (list "missing.yaml") :dry-run t)
+         (declare (ignore message))
+         (expect status :to-be :error)
+         (expect code :to-equal "input.not-found")
+         (expect (search "--format yaml"
+                         (getf (first (getf keys :repairs)) :command))
+                 :to-be-truthy)))))
+  (it "passes a serializer refusal through the write error continuation"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "serializer.yaml" (format nil "value: old~%"))
+       (let* ((before (snapshot))
+              (*ports*
+                (cl-boundary-kit:boundary-context-with
+                 *ports* :edit-serialize-document
+                 (lambda (format value)
+                   (declare (ignore format value))
+                   (error
+                    (make-condition
+                     (find-symbol "EDIT-REFUSAL" "AITOOLS.EDIT.DOMAIN")
+                     :code "environment.io"
+                     :detail "serializer rejected"))))))
+         (multiple-value-bind (status code message keys)
+             (run "doc.fmt" (list "serializer.yaml") :dry-run t)
+           (declare (ignore keys))
+           (expect status :to-be :error)
+           (expect code :to-equal "environment.io")
+           (expect message :to-equal "serializer rejected")
+           (expect (snapshot) :to-equal before)))))))

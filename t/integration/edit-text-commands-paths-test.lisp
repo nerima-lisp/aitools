@@ -210,4 +210,17 @@
     (call-with-edit-workspace (lambda () (put "f" (format nil "one~%"))
       (setf *stdin* (bytes (format nil "--- f~%+++ f~%@@ -1 +1 @@~%-one~%+ONE~%")))
       (expect (run "apply" '() :stdin t) :to-be :ok)
-      (expect (text "f") :to-equal (format nil "ONE~%"))))))
+      (expect (text "f") :to-equal (format nil "ONE~%")))))
+  (it "does not report unreadable directory skips as oversized"
+    (call-with-edit-workspace (lambda ()
+      (put "a.txt" (format nil "foo~%"))
+      (sb-posix:mkdir (disk "locked") #o700)
+      (unwind-protect
+          (progn
+            (sb-posix:chmod (disk "locked") 0)
+            (multiple-value-bind (kind fields)
+                (run "replace" '("foo" "bar") :expect-count "1")
+              (expect kind :to-be :ok)
+              (expect (field fields "skipped") :to-equal nil)
+              (expect (text "a.txt") :to-equal (format nil "bar~%"))))
+        (sb-posix:chmod (disk "locked") #o700))))))

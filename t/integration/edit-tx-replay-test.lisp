@@ -1,4 +1,58 @@
 (in-package #:aitools.edit.test)
+(describe "aitools archive creation from transaction overlays"
+  (it "archives staged additions and replacements and omits staged deletions"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "src/replaced.txt" "old")
+       (put "src/deleted.txt" "delete")
+       (let ((tx (begin-tx)))
+         (expect
+          (run-in tx "write" '("src/replaced.txt") :content '("new") :overwrite t
+                  :expect-hash (list (format nil "src/replaced.txt=~A"
+                                             (hash "src/replaced.txt"))))
+          :to-be :ok)
+         (expect (run-in tx "write" '("src/added.txt") :content '("added")) :to-be :ok)
+         (expect (run-in tx "rm" '("src/deleted.txt")) :to-be :ok)
+         (expect (run-in tx "archive.create" '("snapshot.tar" "src") :format "tar")
+                 :to-be :ok)
+         (expect (run-in tx "archive.extract" '("snapshot.tar") :to "unpacked")
+                 :to-be :ok)
+         (expect (text "src/replaced.txt") :to-equal "old")
+         (expect (text "src/deleted.txt") :to-equal "delete")
+         (expect (kind "src/added.txt") :to-be :absent)
+         (expect (kind "snapshot.tar") :to-be :absent)
+         (expect (kind "unpacked") :to-be :absent)
+         (expect (commit-tx tx) :to-be :committed)
+         (expect (text "src/replaced.txt") :to-equal "new")
+         (expect (text "src/added.txt") :to-equal "added")
+         (expect (kind "src/deleted.txt") :to-be :absent)
+         (expect (text "unpacked/src/replaced.txt") :to-equal "new")
+         (expect (text "unpacked/src/added.txt") :to-equal "added")
+         (expect (kind "unpacked/src/deleted.txt") :to-be :absent))))))
+(describe "aitools archive create member kinds and host-read fallback"
+  (it "preserves directories and symlinks when a view read falls back to the host"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "src/nested/fallback.txt" "from host")
+       (put "src/regular.txt" "regular")
+       (sb-posix:symlink "regular.txt" (disk "src/link"))
+       (let ((real-read (symbol-function 'aitools.store.application:view-read-file))
+             (fallback-seen nil))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.store.application:view-read-file)
+               (lambda (view path &rest keys)
+                 (if (string= path "src/nested/fallback.txt")
+                     (progn (setf fallback-seen t) nil)
+                     (apply real-read view path keys)))))
+           (expect (run "archive.create" '("bundle.tar" "src") :format "tar") :to-be :ok))
+         (expect fallback-seen :to-be t)
+         (expect (run "archive.extract" '("bundle.tar") :to "unpacked") :to-be :ok)
+         (expect (kind "unpacked/src") :to-be :directory)
+         (expect (kind "unpacked/src/nested") :to-be :directory)
+         (expect (text "unpacked/src/nested/fallback.txt") :to-equal "from host")
+         (expect (text "unpacked/src/regular.txt") :to-equal "regular")
+         (expect (kind "unpacked/src/link") :to-be :symlink)
+         (expect (sb-posix:readlink (disk "unpacked/src/link")) :to-equal "regular.txt"))))))
 
 (defun replay-argv (argv)
   "REPLAY-EDIT-OP of ARGV against the workspace on disk: (:commit paths) or
