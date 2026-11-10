@@ -45,6 +45,8 @@
      (:file "unit/search/find-flow-test")
      (:file "unit/search/code-flow-test")
      (:file "unit/search/code-extents-test")
+     (:file "unit/search/application-edge-test")
+     (:file "unit/search/domain-edge-test")
      (:file "unit/search/overview-flow-test")
      (:file "unit/search/domain-contract-test")
      (:file "unit/search/commands-test")
