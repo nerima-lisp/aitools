@@ -57,6 +57,24 @@
                        :to-be nil))
           (when fd (ignore-errors (sb-posix:close fd)))
           (ignore-errors (sb-posix:close source-fd)))))
+    #+linux
+    (it "reports a process port error when pidfd close fails"
+      (let* ((pid (sb-posix:getpid)) (fd (sb-posix:open "/dev/null" sb-posix:o-rdonly))
+             (prefix (format nil "closing pidfd for process ~D failed:" pid)) (condition nil))
+        (unwind-protect
+             (progn
+               (sb-posix:close fd)
+               (setf condition
+                     (handler-case (aitools.process.infrastructure::%close-pidfd pid fd)
+                       (aitools.process.application:process-port-error (caught) caught)))
+               (expect (typep condition
+                              (quote aitools.process.application:process-port-error))
+                       :to-be t)
+               (expect (and condition
+                            (eql 0 (search prefix
+                                           (aitools.process.application:process-port-error-message condition))))
+                       :to-be t))
+          (ignore-errors (sb-posix:close fd)))))
     (it "recognizes the direct parent as an ancestor"
       (expect (aitools.process.infrastructure::%ancestor-p (sb-posix:getppid))
               :to-be t)))
