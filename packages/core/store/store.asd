@@ -41,8 +41,17 @@
                         (:file "unit/store/record-codec-test")
                         (:file "unit/store/tx-model-test")
                         (:file "unit/store/archive-prefix-test")
-                        (:file "unit/store/archive-prefix-parent-test")
-                        (:file "unit/store/tx-commit-test")
+                        (:module "archive-prefix-tests"
+ :pathname "unit/store/"
+ :serial t
+ :components ((:file "archive-prefix-parent-test")
+              (:file "archive-prefix-added-branches-test")
+              (:file "archive-prefix-platform-branches-test")))
+                        (:module "tx-commit-tests"
+ :pathname "unit/store/"
+ :serial t
+ :components ((:file "tx-commit-test")
+              (:file "tx-archive-branch-coverage-test")))
                         (:file "integration/store-write-protocol-test")
                         (:file "integration/store-journal-undo-test")
                         (:file "integration/store-recovery-test")
