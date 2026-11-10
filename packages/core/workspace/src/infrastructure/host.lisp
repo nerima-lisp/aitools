@@ -31,11 +31,11 @@
   (handler-case (sb-posix:opendir path)
     (error () nil)))
 
-(defun %next-directory-name (stream)
+(defun %next-directory-name (stream &optional (name-reader (function sb-posix:dirent-name)))
   (let ((dirent (sb-posix:readdir stream)))
     (if (or (null dirent) (sb-alien:null-alien dirent))
         (values nil :end)
-      (let ((name (handler-case (sb-posix:dirent-name dirent)
+      (let ((name (handler-case (funcall name-reader dirent)
                     (error () nil))))
         (if name
             (values name :entry)
@@ -58,11 +58,12 @@
     (when entry (push entry entries))
     (values entries (and complete-p child-complete-p))))
 
-(defun %list-directory-entries (stream path)
+(defun %list-directory-entries (stream path &optional (name-reader (function sb-posix:dirent-name)))
   (let ((entries nil)
         (complete-p t))
     (loop
-     (multiple-value-bind (name status) (%next-directory-name stream)
+     (multiple-value-bind (name status)
+         (%next-directory-name stream name-reader)
        (case status
          (:end (return))
          (:invalid (setf complete-p nil))

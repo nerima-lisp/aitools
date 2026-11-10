@@ -32,6 +32,7 @@
                (:file "unit/workspace/gitignore-test")
                (:file "unit/workspace/root-boundary-test")
                (:file "unit/workspace/root-boundary-linked-worktree-test")
+               (:file "unit/workspace/boundary-verdict-coverage-test")
                (:file "unit/workspace/root-boundary-git-metadata-test")
                (:file "unit/workspace/root-boundary-casefold-test")
                (:file "unit/workspace/root-boundary-unresolvable-git-dir-test")
