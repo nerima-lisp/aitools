@@ -1,11 +1,11 @@
 (:schema-version 1
  :context :net
- :linux-specs 91
- :darwin-specs 91
- :minimum-executed-specs 91
+ :linux-specs 101
+ :darwin-specs 101
+ :minimum-executed-specs 101
  :source :successful-linux-and-darwin-ci-runs
- :run-id "provisional-local-count"
- :linux-job-id 0
- :darwin-job-id 0
- :revision "provisional-local-count"
- :reason "Three shared context-registration specs were removed from the net-specific system to avoid duplicate source ownership; one content-coding limit spec was added. The shared specs remain in the shared system. Replace run metadata with successful Linux and Darwin CI evidence.")
+ :run-id "42739541891"
+ :linux-job-id 129576929797
+ :darwin-job-id 129576929495
+ :revision "8faf5e58dfbd79cc5955843f438649eb84e08fff"
+ :reason "CI executed 101 net specs on both platforms; this floor keeps all current net specs required.")
