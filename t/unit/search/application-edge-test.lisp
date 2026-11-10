@@ -137,5 +137,75 @@
              (declare (ignore repairs))
              (setf result (list code message))))
           (expect (first result) :to-equal "input.not-found")
-          (expect (second result) :to-equal "tx vanished does not exist"))))))
+          (expect (second result) :to-equal "tx vanished does not exist")))))
+  (it "uses the default result limits for outline, defs, and refs"
+    (let* ((content
+            (with-output-to-string (out)
+              (loop for index from 1 to 201
+                    do (format out "(defun parse () ~D)~%" index))))
+          (boundaries
+            (make-fake-search-boundaries
+             :files (list (list "/w/a.lisp" content)))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'code-outline/k boundaries :path "a.lisp")
+        (expect kind :to-be :partial)
+        (expect (field fields "total") :to-be 201)
+        (expect (length (field fields "symbols")) :to-be 200))
+      (multiple-value-bind (kind fields)
+          (run-flow #'code-defs/k boundaries :name "parse")
+        (expect kind :to-be :partial)
+        (expect (field fields "total") :to-be 201)
+        (expect (length (field fields "defs")) :to-be 50))
+      (multiple-value-bind (kind fields)
+          (run-flow #'code-refs/k boundaries :name "parse")
+        (expect kind :to-be :partial)
+        (expect (field fields "total") :to-be 201)
+        (expect (length (field fields "refs")) :to-be 50))))
+  (it "reports code reference scan errors outside the workspace"
+    (multiple-value-bind (kind fields)
+        (run-flow #'code-refs/k
+                  (make-fake-search-boundaries :directories '("/w"))
+                  :name "parse" :path "/outside")
+      (expect kind :to-be :error)
+      (expect (getf fields :code) :to-equal "argument.invalid")
+      (expect (getf fields :message) :to-contain "outside the workspace root")))
+  (it "uses find's default sorting, output, and limit"
+    (let ((files
+            (loop for index from 1 to 51
+                  collect (list (format nil "/w/file~2,'0D.txt" index) "x"))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'find/k (make-fake-search-boundaries :files files))
+        (let ((items (field fields "items")))
+          (expect kind :to-be :partial)
+          (expect (field fields "mode") :to-equal "flat")
+          (expect (field fields "total") :to-be 51)
+          (expect (length items) :to-be 50)
+          (expect (jfield (first items) "path") :to-equal "file01.txt")
+          (expect (jfield (car (last items)) "path") :to-equal "file50.txt")))))
+  (it "uses the default path and limit for an empty overview"
+    (multiple-value-bind (kind fields)
+        (run-flow #'overview/k
+                  (make-fake-search-boundaries :directories '("/w")))
+      (expect kind :to-be :ok)
+      (expect (field fields "root") :to-equal "/w")
+      (expect (field fields "path") :to-equal "")
+      (expect (field fields "languages_total") :to-be 0)
+      (expect (field fields "languages") :to-equal '())
+      (expect (field fields "entries") :to-equal '())))
+  (it "uses search's default two lines of context"
+    (multiple-value-bind (kind fields)
+        (run-flow #'search/k
+                  (make-fake-search-boundaries
+                   :files
+                   (list
+                    (list "/w/a.txt"
+                          (format nil "one~%two~%hit~%four~%five~%"))))
+                  :patterns '("hit"))
+      (expect kind :to-be :ok)
+      (expect (field fields "total_matches") :to-be 1)
+      (let ((block (first (field fields "blocks"))))
+        (expect (jfield block "start_line") :to-be 1)
+        (expect (jfield block "lines")
+                :to-equal '("one" "two" "hit" "four" "five"))
+        (expect (jfield block "match_lines") :to-equal '(3))))))
 
