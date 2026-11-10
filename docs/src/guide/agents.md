@@ -50,22 +50,20 @@ symlink that leaves it, or into the workspace's `.git/` fail with
 `copy --recursive` children go through the same boundary, so an archive entry
 or nested directory that resolves into `.git/` is refused.
 
-During planning, `archive extract` rejects symlink targets that leave the
-resolved extraction root or pass through an archive symlink at any target
-component. It checks each component, including the one immediately before
-`..` and the last component. For example, with `D -> .`, a target of `D/..` is
-refused.
+During planning, `archive extract` resolves each symlink target one component
+at a time. It refuses a target that leaves the resolved extraction root or
+passes through an archive symlink. For example, if the archive contains
+`D -> .`, the target `D/..` is refused because the planner checks `D` before
+applying `..`.
 
-The prefix check walks filesystem components without following symlinks. It
-also checks symlinks in the transaction's staged view and the archive being
-planned, including links staged by earlier archive operations. Staged and
-archive symlink components use Unicode NFD normalization and full case folding
-on every platform. Other archive-name comparisons follow the spelling rules
-below.
-
-Planning also refuses an archive symlink target that crosses an existing
-destination symlink, including at the target's final component. It refuses
-archive entries whose parent paths cross archive or destination symlinks.
+The planner checks disk entries without following symlinks and combines them
+with the transaction's staged entries and symlinks in the current and earlier
+archive operations. A target cannot cross an existing destination symlink,
+including at its final component. An archive entry also cannot have a parent
+that is an archive or destination symlink, even when that symlink resolves
+inside the extraction root. Staged and archive symlink components use Unicode
+NFD normalization and full case folding on every platform. Other archive-name
+comparisons follow the spelling rules below.
 
 Without `--tx`, `archive extract` writes after planning against the resolved
 extraction root. With `--tx`, it stages the entries after the same planning
@@ -75,9 +73,11 @@ an archive. An unsafe target or prefix rejects the commit with
 `refusal.outside-workspace` and leaves the transaction open. Remove or replace
 the offending staged link and retry `tx commit`, or run `tx abort`.
 
-Archive entry paths containing `..` are refused. Entry selection with
-`--entry`, duplicate-name checks, and hard-link target lookup preserve case and
-Unicode spelling after empty and `.` path components are removed. Thus
+Archive member names containing `..` are refused. Relative symlink targets may
+contain `..` when component-by-component resolution stays inside the resolved
+extraction root. Entry selection with `--entry`, duplicate-name checks, and
+hard-link target lookup preserve case and Unicode spelling after empty and `.`
+path components are removed. Thus
 `README` and `readme` are distinct entries on a case-sensitive filesystem. On
 a case-insensitive filesystem, both may pass planning. Applying the extraction
 returns `refusal.exists` if the destination aliases the paths; with `--tx`,
@@ -93,11 +93,12 @@ Archive extraction caps entry paths at 4,095 UTF-8 bytes, path components at
 targets at 4,095 UTF-8 bytes. The tar reader accepts at most 200,000 nonzero
 header records; the all-zero end-of-archive records do not count. PAX and GNU
 metadata headers count toward the limit. The ZIP reader accepts at most 65,534
-central-directory entries. The reader also caps the combined entry-name and
-link-target metadata byte count at 16 MiB per archive. ZIP counts raw name
-lengths and uncompressed symlink target sizes; tar counts emitted UTF-8 name
-and link-target bytes. This limits the path and target text retained across
-entries. Exceeding a limit returns `refusal.too-large`.
+central-directory entries. The readers also cap retained path metadata at
+16 MiB per archive, summed across entry names and link targets. ZIP charges
+raw name bytes and uncompressed symlink target sizes; tar charges emitted
+UTF-8 name and link-target bytes. This budget does not cap archive file bytes.
+`--max-bytes` separately limits extracted output. Exceeding an archive limit
+returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. Aitools' state directory
 lives outside the root, so writes there are refused too. The one

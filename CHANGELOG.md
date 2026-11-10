@@ -17,11 +17,12 @@
   link targets to 4,095 UTF-8 bytes. It accepts at most 200,000 nonzero tar
   header records; all-zero end-of-archive records do not count, while PAX and
   GNU metadata headers do. ZIP archives may contain at most 65,534
-  central-directory entries. Archive readers also cap the combined entry-name
-  and link-target metadata byte count at 16 MiB per archive. ZIP counts raw name
-  lengths and uncompressed symlink target sizes; tar counts emitted UTF-8 name
-  and link-target bytes. This limits the path and target text retained across
-  entries. Larger inputs return `refusal.too-large`.
+  central-directory entries. Archive readers cap retained path metadata at
+  16 MiB per archive, summed across entry names and link targets. ZIP charges
+  raw name bytes and uncompressed symlink target sizes; tar charges emitted
+  UTF-8 name and link-target bytes. This budget does not cap archive file bytes;
+  `--max-bytes` separately limits extracted output. Exceeding an archive limit
+  returns `refusal.too-large`.
 - Archive entry paths containing `..` are refused. Entry selection,
   duplicate-name checks, and hard-link target lookup compare names after
   removing empty and `.` path components while preserving case and Unicode
