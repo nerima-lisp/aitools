@@ -37,18 +37,18 @@ continuations, returning the resulting COMMAND-RESULT."
   (make-option :name "max-diff-lines" :kind :value :type :integer :min 0 :default 200
                :description "Diff lines shown per change."))
 
-(defun %history-command (ports)
+(defun %history-command (boundaries)
   (make-command
    :name "history" :description (%summary "history")
    :positionals (list (make-positional :key :path :name "path" :required-p nil))
    :options (list (make-option :name "limit" :kind :value :type :integer :min 1 :default 50
                                :description "Ops returned."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:history-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:history-flow boundaries (%context invocation)
                          :path (positional-value invocation :path)
                          :limit (option-value invocation :limit)))))
 
-(defun %undo-command (ports)
+(defun %undo-command (boundaries)
   (make-command
    :name "undo" :description (%summary "undo")
    ;; Optional for cl-cli so that a missing op_id reaches the flow, which
@@ -57,55 +57,55 @@ continuations, returning the resulting COMMAND-RESULT."
    :options (list (make-option :name "dry-run" :kind :flag :description "Validate without writing.")
                   (%max-diff-lines-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:undo-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:undo-flow boundaries (%context invocation)
                          (positional-value invocation :op-id)
                          :dry-run (and (option-value invocation :dry-run) t)
                          :max-diff-lines (option-value invocation :max-diff-lines)))))
 
-(defun %tx-begin-command (ports)
+(defun %tx-begin-command (boundaries)
   (make-command
    :name "begin" :description (%summary "tx.begin")
    :options (list (make-option :name "name" :kind :value :value-name "NAME" :description "Label for tx status."))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-begin-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-begin-flow boundaries (%context invocation)
                          :name (option-value invocation :name)))))
 
-(defun %tx-status-command (ports)
+(defun %tx-status-command (boundaries)
   (make-command
    :name "status" :description (%summary "tx.status")
    :positionals (list (make-positional :key :tx :name "tx" :required-p nil))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-status-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-status-flow boundaries (%context invocation)
                          (positional-value invocation :tx)))))
 
-(defun %tx-diff-command (ports)
+(defun %tx-diff-command (boundaries)
   (make-command
    :name "diff" :description (%summary "tx.diff")
    :positionals (list (%tx-positional))
    :options (list (%max-diff-lines-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-diff-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-diff-flow boundaries (%context invocation)
                          (positional-value invocation :tx)
                          :max-diff-lines (option-value invocation :max-diff-lines)))))
 
-(defun %tx-drop-command (ports)
+(defun %tx-drop-command (boundaries)
   (make-command
    :name "drop" :description (%summary "tx.drop")
    :positionals (list (%tx-positional) (make-positional :key :tx-op :name "tx_op" :required-p t))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-drop-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-drop-flow boundaries (%context invocation)
                          (positional-value invocation :tx)
                          (positional-value invocation :tx-op)))))
 
-(defun %tx-rebase-command (ports)
+(defun %tx-rebase-command (boundaries)
   (make-command
    :name "rebase" :description (%summary "tx.rebase")
    :positionals (list (%tx-positional))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-rebase-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-rebase-flow boundaries (%context invocation)
                          (positional-value invocation :tx)))))
 
-(defun %tx-commit-command (ports)
+(defun %tx-commit-command (boundaries)
   (make-command
    :name "commit" :description (%summary "tx.commit")
    :positionals (list (%tx-positional))
@@ -113,23 +113,21 @@ continuations, returning the resulting COMMAND-RESULT."
                                :description "Commit despite read conflicts.")
                   (%max-diff-lines-option))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-commit-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-commit-flow boundaries (%context invocation)
                          (positional-value invocation :tx)
                          :ignore-stale-reads (and (option-value invocation :ignore-stale-reads) t)
                          :max-diff-lines (option-value invocation :max-diff-lines)))))
 
-(defun %tx-abort-command (ports)
+(defun %tx-abort-command (boundaries)
   (make-command
    :name "abort" :description (%summary "tx.abort")
    :positionals (list (%tx-positional))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.journal.application:tx-abort-flow ports (%context invocation)
+              (%run-flow #'aitools.journal.application:tx-abort-flow boundaries (%context invocation)
                          (positional-value invocation :tx)))))
 
-(defun register-journal-commands (registry ports)
-  "Register `history`, `undo` and `tx begin|status|diff|drop|rebase|commit|
-abort` on REGISTRY, each handler running against PORTS (an
-AITOOLS.JOURNAL.APPLICATION:JOURNAL-PORTS)."
+(defun register-journal-commands (registry boundaries)
+  "Install the journal commands in the CLI registry."
   (aitools.protocol.application:register-command-declarations
    registry
    (list
@@ -160,5 +158,5 @@ AITOOLS.JOURNAL.APPLICATION:JOURNAL-PORTS)."
     (aitools.protocol.application:define-command
         "tx.abort"
       (:group "tx" :command-builder #'%tx-abort-command :schema (%schema "tx.abort"))))
-   ports)
+   boundaries)
   registry)

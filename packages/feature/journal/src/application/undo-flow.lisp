@@ -5,7 +5,7 @@
 (in-package #:aitools.journal.application)
 
 (aitools.kernel.domain:define-flow
-    (undo-flow ports context op-id &key dry-run
+    (undo-flow boundaries context op-id &key dry-run
                (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
                on-ok on-partial on-error)
   (declare (type function on-ok on-error) (ignore on-partial))
@@ -21,7 +21,7 @@
       :repairs (list (%history-repair context))))
     (t
      (aitools.kernel.domain:flow-call
-         (%call-with-store ports context "undo")
+         (%call-with-store boundaries context "undo")
        (:on-error (code message &key candidates diagnostics conflicts repairs)
          (aitools.kernel.domain:flow-continue
           :on-error code message

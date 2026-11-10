@@ -11,7 +11,7 @@
        (parse-integer text)))
 
 (aitools.kernel.domain:define-flow
-    (tx-drop-flow ports context tx-id tx-op &key on-ok on-partial on-error)
+    (tx-drop-flow boundaries context tx-id tx-op &key on-ok on-partial on-error)
   "Undo TX-OP (a decimal string) and every later op of the tx."
   (declare (type function on-ok on-error) (ignore on-partial))
   (let ((number (%parse-tx-op tx-op)))
@@ -21,7 +21,7 @@
          :repairs (list (repair "list-ops" "List the tx's operations and their numbers."
                                 (%aitools context "tx" "status" tx-id))))
         (aitools.kernel.domain:flow-call
-            (%call-with-store ports context "tx.drop")
+            (%call-with-store boundaries context "tx.drop")
           (:on-error (code message &key candidates diagnostics conflicts repairs)
             (aitools.kernel.domain:flow-continue
              :on-error code message
@@ -71,14 +71,14 @@
          (format nil "no replayer is registered for ~A" (argv-command-line argv))))))
 
 (aitools.kernel.domain:define-flow
-    (tx-rebase-flow ports context tx-id &key on-ok on-partial on-error)
+    (tx-rebase-flow boundaries context tx-id &key on-ok on-partial on-error)
   "Re-apply the tx's ops onto the current disk for drifted paths.
 A position-based op, an op whose command registered no replayer, or a
 replay that no longer applies is a conflict (exit 2) and leaves the tx as
 it was."
   (declare (type function on-ok on-error) (ignore on-partial))
   (aitools.kernel.domain:flow-call
-      (%call-with-store ports context "tx.rebase")
+      (%call-with-store boundaries context "tx.rebase")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message

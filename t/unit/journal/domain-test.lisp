@@ -5,15 +5,17 @@
 
 (defun %file (text) (aitools.store.domain:file-state (aitools.kernel.domain:content-hash (bytes text)) #o644))
 
-(describe "aitools.journal constructor defaults"
-  (it "leaves optional ports and invocation options absent when omitted"
-    (let ((ports (make-journal-ports))
-          (context (make-journal-context)))
-      (expect (list (aitools.journal.application::journal-ports-workspace-host ports)
-                    (aitools.journal.application::journal-ports-open-store ports)
-                    (aitools.journal.application::journal-context-root context)
+(describe "aitools.journal invocation context"
+  (it "leaves options absent when omitted"
+    (let ((context (make-journal-context)))
+      (expect (list (aitools.journal.application::journal-context-root context)
                     (aitools.journal.application::journal-context-lock-timeout context))
-              :to-equal (list nil nil nil nil)))))
+              :to-equal (list nil nil))))
+  (it "keeps supplied options"
+    (let ((context (make-journal-context :root "repo" :lock-timeout "10ms")))
+      (expect (list (aitools.journal.application::journal-context-root context)
+                    (aitools.journal.application::journal-context-lock-timeout context))
+              :to-equal (list "repo" "10ms")))))
 
 (describe "aitools.journal argv command lines"
   (it "renders a recorded argv as the aitools line that ran it"

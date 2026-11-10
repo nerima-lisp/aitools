@@ -4,7 +4,7 @@
 (in-package #:aitools.journal.application)
 
 (aitools.kernel.domain:define-flow
-    (tx-commit-flow ports context tx-id &key ignore-stale-reads
+    (tx-commit-flow boundaries context tx-id &key ignore-stale-reads
                     (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
                     on-ok on-partial on-error)
   "Write the whole tx through the store commit as one op, or report the
@@ -12,7 +12,7 @@ write and read conflicts (exit 2) and write nothing."
   (declare (type function on-ok on-error) (ignore on-partial))
   (let ((flag (and ignore-stale-reads "--ignore-stale-reads")))
     (aitools.kernel.domain:flow-call
-        (%call-with-store ports context "tx.commit")
+        (%call-with-store boundaries context "tx.commit")
       (:on-error (code message &key candidates diagnostics conflicts repairs)
         (aitools.kernel.domain:flow-continue
          :on-error code message
@@ -59,12 +59,12 @@ write and read conflicts (exit 2) and write nothing."
                :repairs repairs)))))))))
 
 (aitools.kernel.domain:define-flow
-    (tx-abort-flow ports context tx-id &key on-ok on-partial on-error)
+    (tx-abort-flow boundaries context tx-id &key on-ok on-partial on-error)
   "Delete the tx without touching the working tree; `discarded`
 lists its write-set paths."
   (declare (type function on-ok on-error) (ignore on-partial))
   (aitools.kernel.domain:flow-call
-      (%call-with-store ports context "tx.abort")
+      (%call-with-store boundaries context "tx.abort")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message

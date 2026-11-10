@@ -45,14 +45,21 @@ Dispatch rejects a non-duration --lock-timeout before any journal flow runs
         aitools.store.application:+default-lock-timeout-ms+
         (aitools.kernel.domain:duration-milliseconds (aitools.kernel.domain:parse-duration text)))))
 
+(defun %open-store (boundaries)
+  (cl-boundary-kit:boundary-context-require
+   boundaries :journal-open-store))
+(defun %workspace-host (boundaries)
+  (cl-boundary-kit:boundary-context-require
+   boundaries :journal-workspace-host))
+
 (aitools.kernel.domain:define-flow
-    (%call-with-store ports context command-name &key on-error on-store)
+    (%call-with-store boundaries context command-name &key on-error on-store)
   "Resolve the workspace root and call CONTINUATION with (STORE ROOT
 LOCK-TIMEOUT-MS), ROOT being the workspace context's WORKSPACE-ROOT. A store
 I/O failure or a damaged state record escaping CONTINUATION is reported as
 `environment.io`."
   (declare (type function on-error on-store))
-  (let ((host (journal-ports-workspace-host ports))
+  (let ((host (%workspace-host boundaries))
         (timeout (%lock-timeout-ms context)))
     (aitools.workspace.application:call-with-resolved-root/k
      host
@@ -67,7 +74,7 @@ I/O failure or a damaged state record escaping CONTINUATION is reported as
      (lambda (root)
        (handler-case
            (aitools.kernel.domain:flow-continue
-            :on-store (funcall (journal-ports-open-store ports)
+            :on-store (funcall (%open-store boundaries)
                                (aitools.workspace.application:workspace-root-real root))
             root timeout)
          ;; A post-commit I/O failure: the op passed the store's commit point

@@ -19,11 +19,11 @@ condition a failing rename or fsync raises, at the first POINT."
     (multiple-value-prog1 (funcall thunk)
       (assert fired () "the fault point ~S was never reached" point))))
 
-(defun run-with (ports context flow &rest arguments)
+(defun run-with (boundaries context flow &rest arguments)
   "Like RUN, with explicit PORTS and CONTEXT."
   (let ((result (aitools.protocol.application:call-with-command-result/k
                  (lambda (&rest continuations)
-                   (apply flow ports context (append arguments continuations))))))
+                   (apply flow boundaries context (append arguments continuations))))))
     (values (aitools.protocol.application:command-result-kind result)
             (aitools.protocol.application:command-result-fields result))))
 
@@ -102,10 +102,7 @@ condition a failing rename or fsync raises, at the first POINT."
     "reports a ~A escaping the store as environment.io"
     (label condition-type initargs committed)
   (declare (ignore label))
-  (call-with-temp-store (lambda (store) (let* ((ports (make-journal-ports
-                   :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (constantly (aitools.store.application:store-root store))
-                                    :getenv (constantly nil))
-                   :open-store (lambda (real-root)
+  (call-with-temp-store (lambda (store) (let* ((boundaries (boundaries-for store (lambda (real-root)
                                  (declare (ignore real-root))
                                  (apply #'error condition-type initargs))))
            (flows '((tx-begin-flow "tx begin" (:name "demo"))
@@ -119,7 +116,7 @@ condition a failing rename or fsync raises, at the first POINT."
       (dolist (flow-call flows)
         (destructuring-bind (flow words arguments) flow-call
           (multiple-value-bind (kind error)
-              (apply #'run-with ports (context-for store) flow arguments)
+              (apply #'run-with boundaries (context-for store) flow arguments)
             (expect kind :to-be :error)
             (expect (getf error :code) :to-equal "environment.io")
             (expect (getf error :message)
@@ -144,7 +141,7 @@ condition a failing rename or fsync raises, at the first POINT."
       (flow words arguments)
     (call-with-temp-store (lambda (store) (let ((missing (concatenate 'string (aitools.store.application:store-root store) "/no/such/dir")))
         (multiple-value-bind (kind error)
-            (apply #'run-with (ports-for store) (make-journal-context :root missing) flow arguments)
+            (apply #'run-with (boundaries-for store) (make-journal-context :root missing) flow arguments)
           (expect kind :to-be :error)
           (expect (getf error :code) :to-equal "argument.invalid")
           (expect (search (format nil "workspace root ~A" missing) (getf error :message)) :to-be 0)
@@ -166,7 +163,7 @@ condition a failing rename or fsync raises, at the first POINT."
              (pid (hold-lock-in-child store 3)))
         (unwind-protect
              (multiple-value-bind (kind error)
-                 (apply #'run-with (ports-for store) (context-for store :lock-timeout "100ms") flow arguments)
+                 (apply #'run-with (boundaries-for store) (context-for store :lock-timeout "100ms") flow arguments)
                (expect kind :to-be :error)
                (expect (getf error :code) :to-equal "environment.busy")
                (expect (repair-commands error)
@@ -182,10 +179,7 @@ condition a failing rename or fsync raises, at the first POINT."
       ;; Without --root the workspace is found from the working directory,
       ;; whichever .git lies above it; the store is STORE either way.
       (multiple-value-bind (kind error)
-          (run-with (make-journal-ports
-                     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (constantly (aitools.store.application:store-root store))
-                                      :getenv (constantly nil))
-                     :open-store (lambda (real-root) (declare (ignore real-root)) store))
+          (run-with (boundaries-for store (lambda (real-root) (declare (ignore real-root)) store))
                     (make-journal-context) #'tx-status-flow "tx-20260101T000000Z-00000000")
         (expect kind :to-be :error)
         (expect (getf error :code) :to-equal "input.not-found")

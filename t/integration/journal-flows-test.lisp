@@ -195,7 +195,7 @@ the lock for HOLD-SECONDS. Returns the pid once the lock is held."
         (unwind-protect
              (let ((result (aitools.protocol.application:call-with-command-result/k
                             (lambda (&rest continuations)
-                              (apply #'undo-flow (ports-for store) (context-for store :lock-timeout "100ms")
+                              (apply #'undo-flow (boundaries-for store) (context-for store :lock-timeout "100ms")
                                      op continuations)))))
                (let ((error (aitools.protocol.application:command-result-fields result)))
                  (expect (getf error :code) :to-equal "environment.busy")

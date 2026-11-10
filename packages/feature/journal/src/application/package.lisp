@@ -1,8 +1,8 @@
 ;;;;
 ;;;; The journal context's public boundary: the flows behind `history`,
 ;;;; `undo` and the `tx` group (thin over the store context's journal, undo
-;;;; and tx API), their ports, and the registry through which write-command
-;;;; owners supply `tx rebase` replays.
+;;;; and tx API), its invocation context, and the registry through which
+;;;; write-command owners supply `tx rebase` replays.
 (in-package #:cl-user)
 
 (defpackage #:aitools.journal.application
@@ -10,10 +10,7 @@
   (:import-from #:aitools.protocol.domain
                 #:json-object #:json-null #:json-boolean #:repair #:schema-repair)
   (:export
-   ;; ports.lisp
-   #:journal-ports
-   #:make-journal-ports
-   #:journal-ports-p
+   ;; context.lisp
    #:journal-context
    #:make-journal-context
    #:journal-context-p

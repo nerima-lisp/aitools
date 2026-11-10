@@ -15,10 +15,10 @@ outside the workspace."
    :on-outside (constantly nil)))
 
 (aitools.kernel.domain:define-flow
-    (history-flow ports context &key path (limit +default-history-limit+) on-ok on-partial on-error)
+    (history-flow boundaries context &key path (limit +default-history-limit+) on-ok on-partial on-error)
   (declare (type function on-ok on-partial on-error))
   (aitools.kernel.domain:flow-call
-    (%call-with-store ports context "history")
+    (%call-with-store boundaries context "history")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message
@@ -28,7 +28,7 @@ outside the workspace."
        :repairs repairs))
     (:on-store (store root timeout)
       (declare (ignore timeout))
-      (let ((relative (and path (%relative-history-path (journal-ports-workspace-host ports) root path))))
+      (let ((relative (and path (%relative-history-path (%workspace-host boundaries) root path))))
         (if (and path (null relative))
             (aitools.kernel.domain:flow-continue
              :on-error "argument.invalid" (format nil "~A is outside the workspace" path)

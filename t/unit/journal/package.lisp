@@ -1,8 +1,8 @@
 ;;;;
 ;;;; One test package for the journal context's unit tests (t/unit/journal/)
 ;;;; and its integration tests (t/integration/journal-*.lisp), with the
-;;;; helpers both use: a real temporary workspace and store behind
-;;;; JOURNAL-PORTS, flow invocation returning the COMMAND-RESULT, and JSON
+;;;; helpers both use: a real temporary workspace and store behind a journal
+;;;; boundary context, flow invocation returning the COMMAND-RESULT, and JSON
 ;;;; field access.
 (in-package #:cl-user)
 
@@ -47,16 +47,23 @@ edit, or fixture setup). CONTENT is a string or an octet vector."
 (defun disk-mode (store relative)
   (aitools.store.domain:entry-state-mode (disk-state store relative)))
 
-(defun ports-for (store)
-  "JOURNAL-PORTS whose workspace is STORE's root (the working directory
-too) and whose OPEN-STORE hands back STORE itself."
-  (let ((root (aitools.store.application:store-root store)))
-    (make-journal-ports
-     :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries :current-directory (lambda () root)
-                      :getenv (constantly nil))
-     :open-store (lambda (real-root)
-                   (assert (string= real-root root))
-                   store))))
+(defun boundaries-for (store &optional store-opener)
+  "A journal boundary context backed by STORE."
+  (let* ((root (aitools.store.application:store-root store))
+         (workspace-host
+           (aitools.workspace.infrastructure:make-host-workspace-boundaries
+            :current-directory (lambda () root)
+            :getenv (constantly nil)))
+         (opener (or store-opener
+                     (lambda (real-root)
+                       (assert (string= real-root root))
+                       store)))
+         (boundaries (cl-boundary-kit:make-boundary-context)))
+    (setf boundaries
+          (cl-boundary-kit:boundary-context-with
+           boundaries :journal-workspace-host workspace-host))
+    (cl-boundary-kit:boundary-context-with
+     boundaries :journal-open-store opener)))
 
 (defun context-for (store &key lock-timeout)
   (make-journal-context :root (aitools.store.application:store-root store) :lock-timeout lock-timeout))
@@ -66,7 +73,7 @@ too) and whose OPEN-STORE hands back STORE itself."
 :ok, :partial or :error, FIELDS the result alist or the error plist."
   (let ((result (aitools.protocol.application:call-with-command-result/k
                  (lambda (&rest continuations)
-                   (apply flow (ports-for store) (context-for store) (append arguments continuations))))))
+                   (apply flow (boundaries-for store) (context-for store) (append arguments continuations))))))
     (values (aitools.protocol.application:command-result-kind result)
             (aitools.protocol.application:command-result-fields result))))
 

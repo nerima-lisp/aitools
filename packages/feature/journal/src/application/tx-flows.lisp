@@ -11,10 +11,10 @@
    :repairs (list (%tx-list-repair context))))
 
 (aitools.kernel.domain:define-flow
-    (tx-begin-flow ports context &key name on-ok on-partial on-error)
+    (tx-begin-flow boundaries context &key name on-ok on-partial on-error)
   (declare (type function on-ok on-error) (ignore on-partial))
   (aitools.kernel.domain:flow-call
-      (%call-with-store ports context "tx.begin")
+      (%call-with-store boundaries context "tx.begin")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message
@@ -68,13 +68,13 @@
         (cons "stale_reads" (aitools.store.application:tx-status-stale-reads status))))
 
 (aitools.kernel.domain:define-flow
-    (tx-status-flow ports context tx-id &key on-ok on-partial on-error)
+    (tx-status-flow boundaries context tx-id &key on-ok on-partial on-error)
   "Without TX-ID, every open tx as {tx, name, created, ops, paths,
 drift, stale_reads} (`ops` and `paths` are counts); with it, that tx's ops,
 paths, drift and stale reads."
   (declare (type function on-ok on-error) (ignore on-partial))
   (aitools.kernel.domain:flow-call
-      (%call-with-store ports context "tx.status")
+      (%call-with-store boundaries context "tx.status")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message
@@ -103,13 +103,13 @@ paths, drift and stale reads."
                                 :repairs repairs)))))))))
 
 (aitools.kernel.domain:define-flow
-    (tx-diff-flow ports context tx-id &key (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
+    (tx-diff-flow boundaries context tx-id &key (max-diff-lines aitools.store.domain:+default-max-diff-lines+)
                   on-ok on-partial on-error)
   "The tx's changes from `base` to `staged` in the write-result shape, without
 an op id. A cut diff points at the same command with a limit that fits."
   (declare (type function on-ok on-error) (ignore on-partial))
   (aitools.kernel.domain:flow-call
-    (%call-with-store ports context "tx.diff")
+    (%call-with-store boundaries context "tx.diff")
     (:on-error (code message &key candidates diagnostics conflicts repairs)
       (aitools.kernel.domain:flow-continue
        :on-error code message

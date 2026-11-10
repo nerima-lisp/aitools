@@ -1,6 +1,6 @@
 ;;;;
 ;;;; `history`, `undo` and `tx` end to end through the composition root:
-;;;; argv parsing with the global `--root`, the production ports and store,
+;;;; argv parsing with the global `--root`, the production boundaries and store,
 ;;;; the envelope, and the exit code. XDG_STATE_HOME points at a
 ;;;; temporary directory for the duration of each test so no state reaches
 ;;;; the user's real state directory.
