@@ -232,18 +232,18 @@
           (((symbol-function (quote deflate-kit:gzip-decode-prefix))
             (lambda (&rest arguments)
               (push (getf (rest arguments) :max-output) observed)
-              (apply decoder arguments))))
+              (if (= (length (first arguments)) 3)
+                  (values (octets 1 2 3 4) nil 1)
+                  (apply decoder arguments)))))
         (signals archive-limit-exceeded (gzip-decompress stream))
-        (expect (length observed) :to-be count)
+        (signals archive-limit-exceeded
+          (expect (length observed) :to-be count)
+          (aitools.text.domain::%gzip-decompress-with-member-limit (octets #x1f #x8b 8) 10 3))
         (expect (gzip-decompress exact) :to-equalp payload))
       (expect (first observed) :to-be (1+ aitools.text.domain::+archive-max-gzip-member-output-bytes+))
-      (let ((default-limits nil))
-        (cl-weave:with-mocked-functions
-            (((symbol-function (quote aitools.text.domain::%gzip-decompress-with-member-limit))
-              (lambda (&rest arguments)
-                (setf default-limits (rest arguments))
-                (octets))))
+      (let ((default-limits nil)) (cl-weave:with-mocked-functions
+          (((symbol-function (quote aitools.text.domain::%gzip-decompress-with-member-limit))
+            (lambda (&rest arguments) (setf default-limits (rest arguments)) (octets))))
           (gzip-decompress (octets 1)))
-        (expect default-limits :to-equal
-                (list aitools.text.domain::+archive-max-gzip-output-bytes+
-                      aitools.text.domain::+archive-max-gzip-member-output-bytes+))))))
+        (expect default-limits :to-equal (list aitools.text.domain::+archive-max-gzip-output-bytes+
+                                               aitools.text.domain::+archive-max-gzip-member-output-bytes+))))))
