@@ -6,49 +6,50 @@
 ;;;; misreport a lexical `../` escape as a symlink problem.
 (in-package #:aitools.workspace.domain)
 
+(defun %git-casefold (name)
+  (sb-unicode:casefold (sb-unicode:normalize-string name :nfd)))
+(defun %git-name-equal-p (left right)
+  (string= (%git-casefold left) (%git-casefold right)))
 (defun %git-component-p (relative)
-  (some #'git-metadata-name-p (path-components relative)))
+  (some (lambda (component)
+          (git-metadata-name-p (%git-casefold component)))
+        (path-components relative)))
 
 (defun git-metadata-path-inside-p (directory candidate)
-  "True when CANDIDATE is DIRECTORY or below it, comparing normalized
-components without case. This fail-closed match protects metadata when path
-resolution preserves the caller spelling on case-insensitive filesystems."
+  "True when CANDIDATE is DIRECTORY or below it, comparing NFD case-folded components."
   (let ((directory-components
-          (mapcar (lambda (component)
-                    (sb-unicode:normalize-string component :nfd))
-                  (path-components directory)))
+          (mapcar (function %git-casefold) (path-components directory)))
         (candidate-components
-          (mapcar (lambda (component)
-                    (sb-unicode:normalize-string component :nfd))
-                  (path-components candidate))))
+          (mapcar (function %git-casefold) (path-components candidate))))
     (and (<= (length directory-components) (length candidate-components))
          (loop for directory-component in directory-components
                for candidate-component in candidate-components
-               always (string-equal directory-component candidate-component)))))
+               always (string= directory-component candidate-component)))))
 ;; Literal Git names and their source links live in data/domain/workspace/git-metadata-data.lisp.
 ;; The predicates below classify shared-index hashes and root-level refs.
 (defun %git-common-root-base-entry-name-p (name)
-  (or (member name aitools.data:*git-common-root-metadata-names*
-              :test (function string-equal))
-      (and (>= (length name) 12)
-           (string-equal name "sharedindex." :end1 12)
-           (or (= (- (length name) 12) 40)
-               (= (- (length name) 12) 64))
-           (every (lambda (character) (digit-char-p character 16))
-                  (subseq name 12)))
-      (and (>= (length name) 5)
-           (string-equal name "_HEAD" :start1 (- (length name) 5))
-           (every (lambda (character)
-                    (find (char-upcase character) "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_"))
-                  name))))
+  (let ((name (%git-casefold name)))
+    (or (member name aitools.data:*git-common-root-metadata-names*
+                :test (function %git-name-equal-p))
+        (and (>= (length name) 12)
+             (string= name "sharedindex." :end1 12)
+             (or (= (- (length name) 12) 40)
+                 (= (- (length name) 12) 64))
+             (every (lambda (character) (digit-char-p character 16))
+                    (subseq name 12)))
+        (and (>= (length name) 5)
+             (string= name "_head" :start1 (- (length name) 5))
+             (every (lambda (character)
+                      (find (char-upcase character) "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_"))
+                    name)))))
 
 (defun git-common-root-entry-name-p (name)
   "True for Git metadata names and concrete lock files at a common root."
   (when (stringp name)
-    (let* ((name (sb-unicode:normalize-string name :nfd))
+    (let* ((name (%git-casefold name))
            (lock-suffix
              (and (>= (length name) 5)
-                  (string-equal name ".lock" :start1 (- (length name) 5))))
+                  (string= name ".lock" :start1 (- (length name) 5))))
            (entry-name
              (if lock-suffix (subseq name 0 (- (length name) 5)) name)))
       (or (and (not lock-suffix)
@@ -57,23 +58,21 @@ resolution preserves the caller spelling on case-insensitive filesystems."
                (or (find entry-name
                          #("config" "config.worktree" "gc.pid" "index"
                            "packed-refs" "shallow")
-                         :test (function string-equal))
+                         :test (function %git-name-equal-p))
                    (find entry-name
                          #("HEAD" "AUTO_MERGE" "BISECT_EXPECTED_REV"
                            "NOTES_MERGE_PARTIAL" "NOTES_MERGE_REF"
                            "MERGE_AUTOSTASH")
-                         :test (function string-equal))
+                         :test (function %git-name-equal-p))
                    (and (>= (length entry-name) 5)
-                        (string-equal entry-name "_HEAD"
-                                      :start1 (- (length entry-name) 5))
+                        (string= entry-name "_head"
+                                 :start1 (- (length entry-name) 5))
                         (not (find entry-name
                                    #("FETCH_HEAD" "MERGE_HEAD")
-                                   :test (function string-equal)))
+                                   :test (function %git-name-equal-p)))
                         (every (lambda (character)
-                                 (let ((character (char-upcase character)))
-                                   (or (and (char<= #\A character)
-                                            (char<= character #\Z))
-                                       (find character "-_"))))
+                                 (find (char-upcase character)
+                                       "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_"))
                                entry-name))))))))
 (defun git-common-root-metadata-path-p (directory root)
   "True when ROOT is DIRECTORY or lies below one of its Git entries."
