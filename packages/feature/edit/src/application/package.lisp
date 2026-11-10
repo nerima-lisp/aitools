@@ -10,11 +10,7 @@
   (:import-from #:aitools.kernel.domain #:flow-continue)
   (:import-from #:aitools.inspect.application #:+max-format-document-depth+ #:document-format)
   (:export
-   ;; ports.lisp
-   #:edit-ports
-   #:edit-ports-p
-   #:make-edit-ports
-   #:make-write-edit-ports
+   ;; limits.lisp
    #:+max-input-bytes+
    ;; command-spec.lisp
    #:edit-command-specs
@@ -28,6 +24,7 @@
    #:make-write-target
    #:write-plan
    #:make-write-plan
+   #:make-edit-write-boundaries
    #:write-context
    #:write-context-view
    #:write-context-paths

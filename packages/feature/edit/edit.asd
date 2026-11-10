@@ -43,7 +43,7 @@
                         :serial
                         t
                         :components
-                        ((:file "package") (:file "ports")
+                        ((:file "package") (:file "limits")
                          (:file "command-spec")
                          (:file "write-plan")
                          (:file "write-guards")
@@ -96,7 +96,7 @@
                         :serial
                         t
                         :components
-                        ((:file "package") (:file "ports")))))
+                        ((:file "package") (:file "boundaries")))))
 (defsystem "aitools/feature/edit/presentation"
   :description "Document and file editing CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/edit" "cl-cli")
@@ -116,8 +116,7 @@
   :components
   ((:module "t" :pathname "t/" :serial t
     :components
-    ((:file "unit/edit/package")
-     (:file "unit/edit/domain-test")
+    ((:file "unit/edit/package") (:file "unit/edit/boundaries") (:file "unit/edit/domain-test")
      (:file "unit/edit/command-spec-test")
      (:file "unit/edit/domain-edge-test")
      (:file "unit/edit/pipeline-edge-test")
@@ -137,6 +136,7 @@
                    (:file "edit-text-pipeline-test")
                    (:file "edit-text-write-runtime-test")
                    (:file "edit-text-ports-test")
+                   (:file "edit-boundary-contract-test")
                    (:file "edit-text-commands-test")
                    (:file "edit-text-commands-inputs-test")
                    (:file "edit-text-command-input-ports-test")

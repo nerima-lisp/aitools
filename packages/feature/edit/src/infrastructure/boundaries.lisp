@@ -1,7 +1,7 @@
 ;;;;
-;;;; MAKE-PRODUCTION-EDIT-PORTS, which the composition root calls with the
-;;;; shared host, store constructor and text source. Construction does no
-;;;; I/O, so building the ports costs nothing at process start.
+;;;; The composition root calls MAKE-EDIT-DEPENDENCIES with the shared host,
+;;;; store constructor and text source. Construction does no I/O, so building
+;;;; the boundary context costs nothing at process start.
 (in-package #:aitools.edit.infrastructure)
 
 (defun %read-bounded (stream limit)
@@ -45,15 +45,6 @@ bytes so the limit bounds the read itself."
 
 (defun unix-now ()
   (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
-
-(defun make-production-edit-ports (&key workspace-host open-store text-source &allow-other-keys)
-  (aitools.edit.application:make-edit-ports
-   :workspace-host workspace-host
-   :open-store open-store
-   :text-source text-source
-   :read-stdin-octets (function read-stdin-octets)
-   :unix-now (function unix-now)
-   :serialize-document (function serialize-document)))
 
 (defun %yaml-native-value (value)
   (case (aitools.edit.domain:json-value-kind value)

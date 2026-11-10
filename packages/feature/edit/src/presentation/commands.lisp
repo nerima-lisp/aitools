@@ -106,7 +106,7 @@
           :on-ok on-ok :on-partial on-partial :on-error on-error))))))
 
 (defun register-edit-commands (registry ports)
-  "Register every edit command on REGISTRY using PORTS."
+  "Register every edit command on REGISTRY using its boundary context."
   (aitools.protocol.application:register-command-declarations
    registry
    (mapcar (lambda (spec)

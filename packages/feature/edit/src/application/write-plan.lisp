@@ -225,3 +225,10 @@ ON-OK when an --expect-hash was given, else REJECT argument.invalid."
                                                            "aitools info ~A"
                                                            (aitools.protocol.domain:shell-quote
                                                             path)))))))
+
+(defmacro make-edit-write-boundaries (workspace-host open-store)
+  `(cl-boundary-kit:boundary-context-with
+    (cl-boundary-kit:boundary-context-with
+     (cl-boundary-kit:make-boundary-context)
+     :edit-workspace-host ,workspace-host)
+    :edit-open-store ,open-store))

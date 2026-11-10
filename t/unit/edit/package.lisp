@@ -1,7 +1,7 @@
 ;;;;
 ;;;; The edit context's test package (t/unit/edit/ and
 ;;;; t/integration/edit-*.lisp) and the helpers the flow tests share: a real
-;;;; temporary workspace with its own state home, ports over the production
+;;;; temporary workspace with its own state home, boundaries over production
 ;;;; adapters, RUN to invoke a command the way presentation does, and
 ;;;; direct file access for fixtures and assertions.
 (in-package #:cl-user)
@@ -11,7 +11,7 @@
   (:shadowing-import-from #:cl-weave #:describe)
   (:import-from #:cl-weave #:it #:it-each #:it-property #:gen-string #:expect #:expect-not #:signals)
   (:import-from #:aitools.edit.application
-                #:make-edit-ports #:run-edit-command #:replay-edit-op #:options-argv #:parse-recorded-argv))
+                #:run-edit-command #:replay-edit-op #:options-argv #:parse-recorded-argv))
 
 (in-package #:aitools.edit.test)
 
@@ -98,36 +98,6 @@ opens such a root as a temporary store exempt from the state-directory guard."
 
 (defun open-store (root)
   (aitools.store.application:make-store (aitools.store.infrastructure:make-posix-store-io :root root) root *home* :temporary (%temporary-area-p root)))
-
-(defun call-with-edit-workspace (function)
-  (aitools.test.support:call-with-workspace
-   (lambda (root home)
-     (let ((*root* root)
-           (*home* home)
-           (*stdin* nil)
-           (*stdin-outcome* nil)
-           (*ports*
-            (cl-weave:with-mocked-functions
-                (((symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
-                  (lambda (limit)
-                    (expect limit :to-be aitools.edit.application:+max-input-bytes+)
-                    (case *stdin-outcome*
-                      (:too-large (values :too-large nil))
-                      (:failure (values :failure "read failed"))
-                      (otherwise
-                       (if *stdin*
-                           (values :octets *stdin*)
-                           (values :failure "the test did not expect stdin to be read")))))))
-              (make-edit-ports
-               :workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries)
-               :open-store (function open-store)
-               :text-source (aitools.text.infrastructure:make-host-text-source)
-               :read-stdin-octets
-               (symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
-               :unix-now (function aitools.edit.infrastructure:unix-now)
-               :serialize-document (function aitools.edit.infrastructure::serialize-document)))))
-       (funcall function)))
-   :chdir t))
 (defmacro with-edit-workspace (() &body body) `(call-with-edit-workspace (lambda () ,@body)))
 (defun disk (relative)
   (concatenate 'string *root* "/" relative))
