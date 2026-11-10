@@ -17,7 +17,6 @@
     (expect (every (lambda (char) (or (alphanumericp char) (find char "._-")))
                    (workspace-id "/tmp/my dir:x"))
             :to-be-truthy))
-
   (it "accepts only clean workspace-relative paths"
     (dolist (good '("a" "a/b.txt" ".hidden" "a/.b"))
       (expect (valid-relative-path-p good) :to-be-truthy))
@@ -31,7 +30,6 @@
       (expect (valid-op-id-p (concatenate 'string op "/..")) :to-be-falsy)
       (expect (valid-op-id-p "op-../../etc") :to-be-falsy)
       (expect (valid-tx-id-p (format-tx-id 3964000000 "0123abcd")) :to-be-truthy)))
-
   (it "gives the composition root the same state directory a store uses"
     (expect (state-directory-for-root "/srv/proj/" :xdg-state-home "/x/state" :home "/home/u")
             :to-equal (concatenate 'string "/x/state/aitools/" (workspace-id "/srv/proj")))
@@ -83,7 +81,6 @@
       (expect (actions results)
               :to-equal '(("new.txt" :created) ("keep.txt" :modified) ("gone.txt" :deleted)
                           ("moved.txt" :moved) ("old.txt" :mode-changed) ("link" :linked)))))
-
   (it "creates missing parents as directory results before the file"
     (multiple-value-bind (status results) (plan '() (list (write-file-request "a/b/c.txt" (bytes "x"))))
       (expect status :to-be :planned)
@@ -97,7 +94,6 @@
       (expect status :to-be :planned)
       (expect (actions results)
               :to-equal '(("d/child" :deleted) ("d" :deleted)))))
-
   (it "keeps the existing mode on modify and uses 644 for a new file"
     (multiple-value-bind (status results)
         (plan (list (cons "x" (list "a" #o755)))
@@ -252,5 +248,3 @@
     (expect (join-path "/" "var" "log") :to-equal "/var/log"))
   (it "uses a safe root name for dot paths"
     (expect (subseq (workspace-id "/srv/.") 0 5) :to-equal "root-")))
-
-

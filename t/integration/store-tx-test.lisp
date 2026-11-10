@@ -239,7 +239,6 @@ append TEXT to PATH as the view shows it."
         (expect (disk-text store "b.txt") :to-equal "b")
         (expect (status-of store tx) :to-be :not-found)
         (expect (length (read-journal store)) :to-be 1))) :io nil))
-
   (it "keeps the tx intact when a commit is interrupted before its commit point"
     (call-with-temp-store (lambda (store) (put-file store "a.txt" "a")
       (let ((tx (begin store)))
@@ -249,4 +248,3 @@ append TEXT to PATH as the view shows it."
         (expect (disk-text store "a.txt") :to-equal "a")
         (expect (commit-tx store tx) :to-be :committed)
         (expect (disk-text store "a.txt") :to-equal "a+1"))) :io nil)))
-
