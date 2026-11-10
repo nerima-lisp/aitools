@@ -1,6 +1,6 @@
 (in-package #:aitools.md.presentation)
 
-(defun register-md-commands (registry ports)
+(defun register-md-commands (registry boundaries)
   (aitools.protocol.application:register-command-declarations registry
                                                               (list
                                                                (aitools.protocol.application:define-command
@@ -24,5 +24,5 @@
                                                                                                                     :schema
                                                                                                                     (%schema
                                                                                                                      "md.replace"))))
-                                                              ports)
+                                                              boundaries)
   registry)

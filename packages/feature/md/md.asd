@@ -2,8 +2,7 @@
 
 (defsystem "aitools/feature/md"
   :description "Markdown section commands."
-  :depends-on ("aitools/core/kernel" "aitools/core/protocol"
-                                     "aitools/core/text"
+  :depends-on ("aitools/core/kernel" "aitools/core/protocol" "cl-boundary-kit" "aitools/core/text"
                                      "aitools/core/workspace"
                                      "aitools/core/store"
                                      "aitools/feature/edit"
@@ -18,8 +17,7 @@
                         :serial
                         t
                         :components
-                        ((:file "package") (:file "ports")
-                         (:file "read-document")
+                        ((:file "package") (:file "read-document")
                          (:file "read-flow")
                          (:file "replace-plan")
                          (:file "replace-flow")))
@@ -29,7 +27,7 @@
                         :serial
                         t
                         :components
-                        ((:file "package") (:file "markdown-parser") (:file "ports")))))
+                        ((:file "package") (:file "markdown-parser") (:file "stdin")))))
 
 (defsystem "aitools/feature/md/presentation"
   :description "Markdown section CLI commands."
@@ -66,5 +64,5 @@
                                   :serial
                                   t
                                   :components
-                                  ((:file "md-command-test") (:file "md-write-test") (:file "md-write-edge-test")))
+                                  ((:file "md-boundary-contract-test") (:file "md-command-test") (:file "md-coverage-edge-test") (:file "md-write-test") (:file "md-write-edge-test")))
                          (:module "e2e" :pathname "e2e/" :serial t :components ((:file "md-cli-test")))))))

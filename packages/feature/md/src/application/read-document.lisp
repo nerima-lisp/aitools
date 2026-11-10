@@ -1,13 +1,16 @@
 (in-package #:aitools.md.application)
 
+(defconstant +md-max-input-bytes+
+  (* 16 1024 1024))
+
 (defun %md-schema-repair (command detail)
   (list (repair "inspect-schema" detail (format nil "aitools schema ~A" command))))
 
-(aitools.kernel.domain:define-flow (%md-read-document/k ports path root command &key on-document on-error)
+(aitools.kernel.domain:define-flow (%md-read-document/k boundaries path root command &key on-document on-error)
                                    (declare (type function on-document on-error))
-                                   (let ((host (md-ports-workspace-host ports))
-                                         (source (md-ports-text-source ports))
-                                         (parser (md-ports-parse-markdown ports)))
+                                   (let ((host (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host))
+                                         (source (cl-boundary-kit:boundary-context-require boundaries :md-text-source))
+                                         (parser (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown)))
                                      (cond
                                        ((or (not (stringp path)) (zerop (length path)))
                                         (aitools.kernel.domain:flow-continue :on-error
@@ -19,7 +22,7 @@
                                        ((or (null host) (null source) (null parser))
                                         (aitools.kernel.domain:flow-continue :on-error
                                                                              "internal.unexpected"
-                                                                             "the md context is missing a required port"
+                                                                             "the md context is missing a required capability"
                                                                              :repairs
                                                                              (%md-schema-repair command
                                                                                                 "Show this command's requirements.")))

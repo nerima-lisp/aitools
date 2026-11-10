@@ -1,3 +1,5 @@
 (in-package #:cl-user)
 
-(defpackage #:aitools.md.infrastructure (:use #:cl) (:export #:make-production-md-ports #:parse-md-octets))
+(defpackage #:aitools.md.infrastructure
+  (:use #:cl)
+  (:export #:read-stdin-octets #:parse-md-octets))

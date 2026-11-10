@@ -1,10 +1,10 @@
 (in-package #:aitools.md.application)
 
-(defun %md-section-write (ports path section replacement octets)
+(defun %md-section-write (boundaries path section replacement octets)
   (if (null octets)
       (values nil nil "input.not-found" "Markdown file does not exist" nil "Pass an existing Markdown file.")
       (multiple-value-bind (document code message offset)
-          (funcall (md-ports-parse-markdown ports) octets)
+          (funcall (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown) octets)
         (cond
           ((null document)
            (values nil nil code message
@@ -16,7 +16,7 @@
                  (values nil nil "selection.no-match"
                          (format nil "section ~D does not exist" section)
                          nil "Choose an ordinal from md headings.")
-                 (let* ((updated (funcall (md-ports-splice-section ports) document heading replacement))
+                 (let* ((updated (funcall (cl-boundary-kit:boundary-context-require boundaries :md-splice-section) document heading replacement))
                         (requests (if (equalp octets updated)
                                       nil
                                       (list (aitools.store.domain:write-file-request path updated)))))
@@ -27,7 +27,7 @@
                                  (cons "line" (aitools.md.domain:md-heading-line heading)))
                            nil nil nil nil))))))))
 )
-(defun %md-prepare-write (ports context section replacement)
+(defun %md-prepare-write (boundaries context section replacement)
   (let* ((view (aitools.edit.application:write-context-view context))
          (path (aitools.edit.application:context-path context))
          (state (aitools.store.application:view-path-kind view path)))
@@ -39,7 +39,7 @@
       (t
        (handler-case
            (let ((octets (aitools.store.application:view-read-file view path :max-bytes +md-max-input-bytes+)))
-             (%md-section-write ports path section replacement octets))
+             (%md-section-write boundaries path section replacement octets))
          (aitools.store.application:store-byte-limit-error ()
            (values nil nil "refusal.too-large"
                    "Markdown file exceeds the 16777216-byte input limit"
@@ -49,10 +49,10 @@
                    nil "Check file permissions."))))))
 )
 (aitools.kernel.domain:define-flow
-    (%md-plan-write/k ports context section replacement &key on-committed on-rejected)
+    (%md-plan-write/k boundaries context section replacement &key on-committed on-rejected)
   (declare (type function on-committed on-rejected))
   (multiple-value-bind (requests fields code message diagnostics repair)
-      (%md-prepare-write ports context section replacement)
+      (%md-prepare-write boundaries context section replacement)
     (if code
         (aitools.kernel.domain:flow-continue
          :on-rejected code message

@@ -7,9 +7,9 @@
 
 (in-package #:aitools.integration.md-write-test)
 
-(defun %md-write-ports (replacement &optional read-stdin)
+(defun %md-write-boundaries (replacement &optional read-stdin)
   (let ((replacement-octets (sb-ext:string-to-octets replacement :external-format :utf-8)))
-    (aitools.md.application:make-md-ports :workspace-host
+    (%make-md-test-boundaries :workspace-host
                                           (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                                           :text-source
                                           (aitools.text.infrastructure:make-host-text-source)
@@ -30,6 +30,20 @@
   (aitools.protocol.application:call-with-command-result/k
    (lambda (&rest continuations)
      (apply flow (append arguments continuations)))))
+(defun %make-md-test-boundaries (&key workspace-host text-source open-store
+                                            read-stdin-octets parse-markdown splice-section)
+  (let ((boundaries (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+             (list (cons :md-workspace-host workspace-host)
+                   (cons :md-text-source text-source)
+                   (cons :md-open-store open-store)
+                   (cons :md-read-stdin-octets read-stdin-octets)
+                   (cons :md-parse-markdown parse-markdown)
+                   (cons :md-splice-section splice-section)))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries (car capability) (cdr capability))))
+    boundaries))
 
 (defun %field (fields name)
   (cdr (assoc name fields :test #'string=)))
@@ -63,7 +77,7 @@
                                                                    #\Return
                                                                    #\Newline))
                                                           (path (concatenate 'string root "/notes.md"))
-                                                          (ports (%md-write-ports replacement)))
+                                                          (boundaries (%md-write-boundaries replacement)))
                                                      (aitools.test.support:write-text path source)
                                                      (let* ((original (aitools.test.support:read-bytes path))
                                                             (hash (aitools.kernel.domain:content-hash original))
@@ -79,7 +93,7 @@
                                                               :utf-8))
                                                             (result
                                                              (%md-flow-result #'aitools.md.application:md-replace/k
-                                                                              ports
+                                                                              boundaries
                                                                               "notes.md"
                                                                               1
                                                                               :root
@@ -113,7 +127,7 @@
                                                          (expect (aitools.test.support:read-bytes path)
                                                                  :to-equalp
                                                                  original))))))
-          (it "preserves byte boundaries with front matter, fences, setext, and duplicate headings"
+          (it "preserves bytes for EOF sections without a final newline"
   (aitools.test.support:with-workspace (root state :chdir t)
     (declare (ignore state))
     (let* ((first-source (format nil "# First~%keep first~%# Last~%keep last~%"))
@@ -125,13 +139,13 @@
                            (subseq first-source first-end))
               :external-format :utf-8))
            (first-path (concatenate (quote string) root "/first.md"))
-           (first-ports (%md-write-ports first-replacement)))
+           (first-boundaries (%md-write-boundaries first-replacement)))
       (aitools.test.support:write-text first-path first-source)
       (let* ((original (aitools.test.support:read-bytes first-path))
              (hash (aitools.kernel.domain:content-hash original))
              (result
                (%md-flow-result
-                (function aitools.md.application:md-replace/k) first-ports "first.md" 1
+                (function aitools.md.application:md-replace/k) first-boundaries "first.md" 1
                 :root root :expect-hash hash :stdin t)))
         (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
         (expect (aitools.test.support:read-bytes first-path) :to-equalp first-expected)))
@@ -139,8 +153,8 @@
              (concatenate
               (quote string) (string (code-char #xFEFF))
               (format nil
-                      "---~%title: demo~%# Hidden metadata heading~%---~%# Before~%keep before~%~~~~~~lisp~%# Hidden fence~%~~~~~~~~~%Setext~%===~%keep setext~%# Same~%first duplicate~%# Same~%old ending~%")))
-           (rich-replacement (format nil "# Same~%new ending ✓~%"))
+                      "---~%title: demo~%# Hidden metadata heading~%---~%# Before~%keep before~%~~~~~~lisp~%# Hidden fence~%~~~~~~~~~%Setext~%===~%keep setext~%# Same~%first duplicate~%# Same~%old ending")))
+           (rich-replacement (format nil "# Same~%new ending ✓"))
            (rich-start (search "# Same" rich-source :from-end t))
            (rich-expected
              (sb-ext:string-to-octets
@@ -148,13 +162,13 @@
                            rich-replacement)
               :external-format :utf-8))
            (rich-path (concatenate (quote string) root "/rich.md"))
-           (rich-ports (%md-write-ports rich-replacement)))
+           (rich-boundaries (%md-write-boundaries rich-replacement)))
       (aitools.test.support:write-text rich-path rich-source)
       (let* ((original (aitools.test.support:read-bytes rich-path))
              (hash (aitools.kernel.domain:content-hash original))
              (result
                (%md-flow-result
-                (function aitools.md.application:md-replace/k) rich-ports "rich.md" 4
+                (function aitools.md.application:md-replace/k) rich-boundaries "rich.md" 4
                 :root root :expect-hash hash :stdin t))
              (fields (aitools.protocol.application:command-result-fields result)))
         (expect (aitools.protocol.application:command-result-kind result) :to-be :ok)
