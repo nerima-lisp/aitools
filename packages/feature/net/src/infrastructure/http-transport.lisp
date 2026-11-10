@@ -1,12 +1,9 @@
 (in-package #:aitools.net.infrastructure)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require :sb-introspect))
+(defconstant +max-http-body-bytes+ (* 16 1024 1024))
 
-  (defconstant +max-http-body-bytes+ (* 16 1024 1024))
-
-  ;; The sender seam keeps redirect policy tests entirely off the network.
-  (defvar *http-client-send-function* #'http-kit/client:http-client-send)
+;; The sender seam keeps redirect policy tests entirely off the network.
+(defvar *http-client-send-function* #'http-kit/client:http-client-send)
 
 (defun %http-kit-address-opener ()
   (let* ((symbol (quote http-kit/network::%network-open-address))

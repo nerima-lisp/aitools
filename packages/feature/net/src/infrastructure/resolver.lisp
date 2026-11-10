@@ -1,6 +1,4 @@
 (in-package #:aitools.net.infrastructure)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require :sb-bsd-sockets))
 (defparameter +default-resolver-timeout-seconds+ 30d0)
 (defun %ascii-digit-p (character)
   (let ((code (char-code character)))
@@ -104,55 +102,55 @@
                (error condition))
     (error ()
            (%raise-net-error "environment.io" "The operating system resolver failed."))))
-(progn
-  ;; A stalled OS lookup cannot be interrupted. Keep only one outstanding worker,
-  ;; then let UIOP flush output and skip waiting for it during process exit.
-  (defparameter *resolver-worker-semaphore*
-    (sb-thread:make-semaphore :count 1))
-  (defun %resolver-timeout (&optional abandoned-worker-p)
-    (when abandoned-worker-p
-      (setf sb-ext:*exit-timeout* 0))
-    (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
-  (defun %timed-lookup (lookup-function host deadline clock-function thread-function)
-    (let ((remaining (- deadline (funcall clock-function))))
-      (when (<= remaining 0)
-        (%resolver-timeout))
-      (unless (sb-thread:wait-on-semaphore *resolver-worker-semaphore* :timeout remaining)
-        (%resolver-timeout))
-      (let ((thread nil)
-            (worker-started-p nil))
-        (unwind-protect
-             (progn
-               (when (<= (- deadline (funcall clock-function)) 0)
-                 (%resolver-timeout))
-               (setf thread
-                     (handler-case
-                         (funcall thread-function
-                                  (lambda ()
-                                    (unwind-protect
-                                         (handler-case
-                                             (list :ok (%lookup-result lookup-function host))
-                                           (error (condition) (list :error condition)))
-                                      (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
-                                  :name "aitools OS resolver")
-                       (error ()
-                         (%raise-net-error "environment.unavailable" "A resolver worker thread is unavailable."))))
-               (setf worker-started-p t))
-          (unless worker-started-p
-            (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
-        (let ((remaining-after-start (- deadline (funcall clock-function))))
-          (when (<= remaining-after-start 0) (%resolver-timeout t))
-          (let ((outcome
-                  (sb-thread:join-thread thread
-                                         :timeout remaining-after-start
-                                         :default :timed-out)))
-            (when (eq outcome :timed-out)
-              (%resolver-timeout t))
-            (when (>= (funcall clock-function) deadline)
+
+;; A stalled OS lookup cannot be interrupted. Keep only one outstanding worker,
+;; then let UIOP flush output and skip waiting for it during process exit.
+(defparameter *resolver-worker-semaphore*
+  (sb-thread:make-semaphore :count 1))
+(defun %resolver-timeout (&optional abandoned-worker-p)
+  (when abandoned-worker-p
+    (setf sb-ext:*exit-timeout* 0))
+  (%raise-net-error "environment.timeout" "Name resolution exceeded its deadline."))
+(defun %timed-lookup (lookup-function host deadline clock-function thread-function)
+  (let ((remaining (- deadline (funcall clock-function))))
+    (when (<= remaining 0)
+      (%resolver-timeout))
+    (unless (sb-thread:wait-on-semaphore *resolver-worker-semaphore* :timeout remaining)
+      (%resolver-timeout))
+    (let ((thread nil)
+          (worker-started-p nil))
+      (unwind-protect
+          (progn
+            (when (<= (- deadline (funcall clock-function)) 0)
               (%resolver-timeout))
-            (if (eq (first outcome) :ok)
-                (second outcome)
-                (error (second outcome)))))))))
+            (setf thread
+                  (handler-case
+                      (funcall thread-function
+                               (lambda ()
+                                 (unwind-protect
+                                     (handler-case
+                                         (list :ok (%lookup-result lookup-function host))
+                                       (error (condition) (list :error condition)))
+                                   (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
+                               :name "aitools OS resolver")
+                    (error ()
+                           (%raise-net-error "environment.unavailable" "A resolver worker thread is unavailable."))))
+            (setf worker-started-p t))
+        (unless worker-started-p
+          (sb-thread:signal-semaphore *resolver-worker-semaphore*)))
+      (let ((remaining-after-start (- deadline (funcall clock-function))))
+        (when (<= remaining-after-start 0) (%resolver-timeout t))
+        (let ((outcome
+               (sb-thread:join-thread thread
+                                      :timeout remaining-after-start
+                                      :default :timed-out)))
+          (when (eq outcome :timed-out)
+            (%resolver-timeout t))
+          (when (>= (funcall clock-function) deadline)
+            (%resolver-timeout))
+          (if (eq (first outcome) :ok)
+              (second outcome)
+            (error (second outcome))))))))
 (defun %address-type-and-size (family)
   (case family
     (:inet (values "A" 4))

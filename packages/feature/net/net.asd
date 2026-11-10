@@ -4,6 +4,8 @@
   :depends-on ("aitools/core/kernel"
                "aitools/core/protocol"
                "aitools/core/text"
+               "sb-bsd-sockets"
+               "sb-introspect"
                "cl-boundary-kit"
                "cl-http-kit/client"
                "cl-http-kit/tls")
