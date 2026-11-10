@@ -31,7 +31,7 @@
   (handler-case (sb-posix:opendir path)
     (error () nil)))
 
-(defun %next-directory-name (stream &optional (name-reader (function sb-posix:dirent-name)))
+(defun %next-directory-name (stream name-reader)
   (let ((dirent (sb-posix:readdir stream)))
     (if (or (null dirent) (sb-alien:null-alien dirent))
         (values nil :end)
