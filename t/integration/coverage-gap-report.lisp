@@ -69,7 +69,7 @@
   (dolist (measurement measured)
     (let* ((context (first measurement))
            (group (assoc context groups))
-           (locations (coverage-uncovered-form-locations (cdr group)))
+           (locations (coverage-uncovered-form-locations-for (cdr group)))
            (records
              (coverage-gap-records root context locations (fifth measurement))))
       (report-coverage-gap-records context records))))
