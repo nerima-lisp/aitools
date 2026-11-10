@@ -100,10 +100,7 @@ the matching error through ON-ERROR."
                        (aitools.kernel.domain:flow-continue
                         :on-error
                         "refusal.too-large"
-                        (format nil
-                                "~A decompresses past the ~D-byte limit"
-                                path
-                                limit)
+                        (format nil "~A exceeds archive reader limit ~A" path limit)
                         :repairs
                         (list
                          (repair "list"

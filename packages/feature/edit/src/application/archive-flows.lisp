@@ -15,40 +15,49 @@ per member and in total.")
 
 (aitools.kernel.domain:define-flow
   (%archive-octets/k context env path &key on-error on-octets)
-  "The archive PATH's bytes: through the write's view when it is inside the
-workspace (so --tx sees staged archives), else from the host, since reads
-are not bounded by the workspace boundary."
+  "Read archive PATH through its view or host, bounded by the archive input limit."
   (let ((view (write-context-view context)))
-    (flet ((from-host ()
-             (let* ((host (command-env-host env))
-                    (absolute (aitools.workspace.application:user-path-absolute host path))
-                    (octets (aitools.workspace.application:host-read-octets host absolute)))
-               (if octets
-                   (aitools.kernel.domain:flow-continue
-                     :on-octets
-                     (coerce octets 'octets))
-
-                   (aitools.kernel.domain:flow-continue
-                     :on-error
-                     "input.not-found"
-                     (format
-                       nil
-                       "archive ~A does not exist"
-                       path))
-)))
-           ) (aitools.kernel.domain:flow-call
-             (resolve-extra-path/k context path :base :cwd)
-             (:on-inside (relative)
-               (if (eq (aitools.store.domain:entry-state-kind (aitools.store.application:view-path-state view relative))
-                       :file)
-                   (aitools.kernel.domain:flow-continue
-                     :on-octets
-                     (coerce (aitools.store.application:view-read-file view relative) 'octets))
-
-                   (from-host)))
-             (:on-outside (message)
-               (declare (ignore message))
-               (from-host))))))
+    (labels ((too-large ()
+               (aitools.kernel.domain:flow-continue
+                 :on-error
+                 "refusal.too-large"
+                 (format nil "archive input exceeds the ~D-byte limit"
+                         aitools.text.domain:+archive-max-input-bytes+)))
+             (from-host ()
+               (let* ((host (command-env-host env))
+                      (absolute (aitools.workspace.application:user-path-absolute host path)))
+                 (multiple-value-bind (octets status)
+                     (aitools.workspace.application:host-read-octets host absolute
+                      :max-bytes aitools.text.domain:+archive-max-input-bytes+)
+                   (cond
+                     ((eq status :too-large)
+                      (too-large))
+                     (octets
+                      (aitools.kernel.domain:flow-continue :on-octets
+                        (coerce octets (quote octets))))
+                     (t
+                      (aitools.kernel.domain:flow-continue
+                        :on-error
+                        "input.not-found"
+                        (format nil "archive ~A does not exist" path))))))))
+      (aitools.kernel.domain:flow-call
+          (resolve-extra-path/k context path :base :cwd)
+        (:on-inside (relative)
+          (if (eq (aitools.store.domain:entry-state-kind
+                   (aitools.store.application:view-path-kind view relative))
+                  :file)
+              (handler-case
+                  (aitools.kernel.domain:flow-continue :on-octets
+                    (coerce
+                     (aitools.store.application:view-read-file
+                      view relative :max-bytes aitools.text.domain:+archive-max-input-bytes+)
+                     (quote octets)))
+                (aitools.store.application:store-byte-limit-error ()
+                  (too-large)))
+              (from-host)))
+        (:on-outside (message)
+          (declare (ignore message))
+          (from-host))))))
 
 (aitools.kernel.domain:define-flow
   (%check-extract-paths/k context steps &key on-error on-ok)

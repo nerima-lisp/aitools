@@ -20,9 +20,12 @@
   central-directory entries. Archive readers cap retained path metadata at
   16 MiB per archive, summed across entry names and link targets. ZIP charges
   raw name bytes and uncompressed symlink target sizes; tar charges emitted
-  UTF-8 name and link-target bytes. This budget does not cap archive file bytes;
-  `--max-bytes` separately limits extracted output. Exceeding an archive limit
-  returns `refusal.too-large`.
+  UTF-8 name and link-target bytes. Archive input is capped at 64 MiB. Gzip
+  streams may contain at most 1,024 concatenated members, each with at most
+  256 MiB of decompressed output. The decoder defaults to 1 GiB total output
+  when no cumulative limit is supplied. `--max-bytes` separately limits
+  cumulative extracted output. Exceeding any archive limit returns
+  `refusal.too-large`.
 - Archive entry paths containing `..` are refused. Entry selection,
   duplicate-name checks, and hard-link target lookup compare names after
   removing empty and `.` path components while preserving case and Unicode

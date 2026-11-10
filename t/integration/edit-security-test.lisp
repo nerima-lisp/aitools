@@ -141,3 +141,38 @@ checksum alone."
     (call-with-edit-workspace (lambda () (put "d.json" "{\"k\":1}")
       (with-error (code) (run "doc.set" '("d.json" "/k" "\"[REDACTED_SECRET]\""))
         (expect code :to-equal "refusal.redacted-input"))))))
+
+(describe "aitools archive extract bounds compressed input bytes"
+  (it "refuses an oversized workspace archive without creating output"
+    (call-with-edit-workspace (lambda ()
+      (put "large.tar" "x")
+      (sb-posix:truncate
+       (disk "large.tar")
+       (1+ aitools.text.domain:+archive-max-input-bytes+))
+      (with-error (code)
+          (run "archive.extract" '("large.tar") :to "out")
+        (expect code :to-equal "refusal.too-large"))
+      (expect (probe-file (disk "out")) :to-be nil))))
+  (it "refuses an oversized host archive without creating output"
+    (call-with-edit-workspace (lambda ()
+      (let ((path
+              (concatenate
+               'string (string-right-trim "/" *root*) ".archive-input-limit.tar")))
+        (unwind-protect
+             (progn
+               (with-open-file
+                   (stream (sb-ext:parse-native-namestring path)
+                           :direction :output
+                           :element-type '(unsigned-byte 8)
+                           :if-does-not-exist :create
+                           :if-exists :supersede)
+                 (write-byte 0 stream))
+               (sb-posix:truncate
+                path
+                (1+ aitools.text.domain:+archive-max-input-bytes+))
+               (with-error (code)
+                   (run "archive.extract" (list path) :to "out")
+                 (expect code :to-equal "refusal.too-large"))
+               (expect (probe-file (disk "out")) :to-be nil))
+          (when (probe-file path)
+            (delete-file path))))))))

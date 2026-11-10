@@ -30,18 +30,34 @@ entries WRITE-TAR does not produce."
         (expect (extract-step-path (first (plan anonymous ".gz"))) :to-equal "out/.gz.out"))))
 
   (it "refuses a gz member that exists or inflates past --max-bytes"
-    (let ((octets (aitools.text.domain:gzip-compress (make-array 5000 :element-type '(unsigned-byte 8) :initial-element 7)
-                                                     :name "big")))
-      (expect (refusal-code (lambda () (plan-archive-extraction
- octets :gz "" :max-bytes 100 :max-entries 1
- :lookup-kind (constantly :absent)
- :make-prefix-checker (constantly nil))))
-              :to-equal "refusal.too-large")
-      (expect (refusal-code (lambda () (plan-archive-extraction
- octets :gz "" :max-bytes 10000 :max-entries 1
- :lookup-kind (constantly :file)
- :make-prefix-checker (constantly nil))))
-              :to-equal "refusal.exists")))
+    (let ((octets (aitools.text.domain:gzip-compress
+                 (make-array 5000 :element-type '(unsigned-byte 8) :initial-element 7)
+                 :name "big")))
+      (flet ((refusal (max-bytes kind)
+               (refusal-code
+                (lambda () (plan-archive-extraction octets :gz "" :max-bytes max-bytes :max-entries 1
+                                                    :lookup-kind (constantly kind)
+                                                    :make-prefix-checker (constantly nil))))))
+        (expect (list (refusal 100 :absent) (refusal 10000 :file))
+                :to-equal '("refusal.too-large" "refusal.exists"))))
+  (let* ((member (aitools.text.domain:gzip-compress (bytes "")))
+         (count aitools.text.domain::+archive-max-gzip-members+)
+         (size (length member))
+         (stream (make-array (* (1+ count) size) :element-type '(unsigned-byte 8))))
+    (dotimes (index (1+ count))
+      (replace stream member :start1 (* index size)))
+    (expect (extract-step-data
+             (first (extract-plan (subseq stream 0 (* count size)) :gz)))
+            :to-equalp (bytes ""))
+    (expect (handler-case (extract-plan stream :gz)
+              (edit-refusal (condition)
+                (list (edit-refusal-code condition)
+                      (edit-refusal-detail condition))))
+            :to-equal
+            (list "refusal.too-large"
+                  (format nil
+                          "archive limit exceeded (gzip member count: ~A)"
+                          aitools.text.domain::+archive-max-gzip-members+)))))
 
   (it "plans a tar.gz, refusing one that inflates past --max-bytes"
     (let ((octets (aitools.text.domain:gzip-compress

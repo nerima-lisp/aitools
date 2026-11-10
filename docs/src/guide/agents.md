@@ -96,9 +96,14 @@ metadata headers count toward the limit. The ZIP reader accepts at most 65,534
 central-directory entries. The readers also cap retained path metadata at
 16 MiB per archive, summed across entry names and link targets. ZIP charges
 raw name bytes and uncompressed symlink target sizes; tar charges emitted
-UTF-8 name and link-target bytes. This budget does not cap archive file bytes.
-`--max-bytes` separately limits extracted output. Exceeding an archive limit
-returns `refusal.too-large`.
+UTF-8 name and link-target bytes. Archive input is capped at 64 MiB. The reader
+checks the open file's size with `fstat` and refuses larger files before
+reading. If a file grows during the read, it stops at the first byte beyond
+the cap and returns `refusal.too-large`. Gzip streams may contain at most
+1,024 concatenated members, each with at most 256 MiB of decompressed output.
+Without a caller-supplied cumulative cap, the decoder allows at most 1 GiB of
+total output. `--max-bytes` limits cumulative extracted output. Exceeding any
+archive limit returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. Aitools' state directory
 lives outside the root, so writes there are refused too. The one

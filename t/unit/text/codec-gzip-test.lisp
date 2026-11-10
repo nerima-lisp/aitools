@@ -214,3 +214,36 @@
              (header (multiple-value-list (funcall header-reader gzip))))
         (expect (first header) :to-equal "entry.txt")
         (expect (funcall decompress gzip) :to-equalp payload)))))
+(describe "gzip member limits"
+  (it "caps member count, member output, and default output"
+    (let* ((empty (gzip-compress (octets)))
+           (size (length empty))
+           (count aitools.text.domain::+archive-max-gzip-members+)
+           (stream (make-array (* (1+ count) size) :element-type (quote (unsigned-byte 8))))
+           (payload (octets 1 2 3))
+           (exact (gzip-compress payload))
+           (over (gzip-compress (octets 1 2 3 4)))
+           (decoder (symbol-function (quote deflate-kit:gzip-decode-prefix)))
+           (observed nil))
+      (dotimes (index (1+ count)) (replace stream empty :start1 (* index size)))
+      (expect (aitools.text.domain::%gzip-decompress-with-member-limit exact 3 3) :to-equalp payload)
+      (signals archive-limit-exceeded (aitools.text.domain::%gzip-decompress-with-member-limit over 10 3))
+      (cl-weave:with-mocked-functions
+          (((symbol-function (quote deflate-kit:gzip-decode-prefix))
+            (lambda (&rest arguments)
+              (push (getf (rest arguments) :max-output) observed)
+              (apply decoder arguments))))
+        (signals archive-limit-exceeded (gzip-decompress stream))
+        (expect (length observed) :to-be count)
+        (expect (gzip-decompress exact) :to-equalp payload))
+      (expect (first observed) :to-be (1+ aitools.text.domain::+archive-max-gzip-member-output-bytes+))
+      (let ((default-limits nil))
+        (cl-weave:with-mocked-functions
+            (((symbol-function (quote aitools.text.domain::%gzip-decompress-with-member-limit))
+              (lambda (&rest arguments)
+                (setf default-limits (rest arguments))
+                (octets))))
+          (gzip-decompress (octets 1)))
+        (expect default-limits :to-equal
+                (list aitools.text.domain::+archive-max-gzip-output-bytes+
+                      aitools.text.domain::+archive-max-gzip-member-output-bytes+))))))

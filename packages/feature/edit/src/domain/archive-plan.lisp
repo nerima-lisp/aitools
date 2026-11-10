@@ -133,10 +133,7 @@ after removing empty and `.` components. The checker handles symlink prefixes."
                                                                       archive-path
                                                                       ""))
                    (aitools.text.domain:archive-limit-exceeded (condition)
-                     (refuse "refusal.too-large"
-                             "archive exceeds reader limit ~A"
-                             (aitools.text.domain:archive-limit-exceeded-limit
-                              condition))))))
+                     (refuse "refusal.too-large" "~A" condition)))))
             (check-path-limit name
                               aitools.text.domain:+archive-max-path-bytes+
                               "gzip member name")
@@ -144,10 +141,8 @@ after removing empty and `.` components. The checker handles symlink prefixes."
                     (handler-case (aitools.text.domain:gzip-decompress octets
                                                                        :max-output
                                                                        max-bytes)
-                      (aitools.text.domain:archive-limit-exceeded ()
-                        (refuse "refusal.too-large"
-                                "the extracted size exceeds --max-bytes ~D"
-                                max-bytes))))
+                      (aitools.text.domain:archive-limit-exceeded (condition)
+                        (refuse "refusal.too-large" "~A" condition))))
                    (path (aitools.workspace.domain:join-path destination name)))
               (unless (eq (funcall lookup-kind path) :absent)
                 (refuse "refusal.exists" "~A already exists" path))
@@ -160,17 +155,12 @@ after removing empty and `.` components. The checker handles symlink prefixes."
                                                       octets
                                                       :max-output
                                                       max-bytes)
-                                         (aitools.text.domain:archive-limit-exceeded ()
-                                           (refuse "refusal.too-large"
-                                                   "the extracted size exceeds --max-bytes ~D"
-                                                   max-bytes)))))
+                                         (aitools.text.domain:archive-limit-exceeded (condition)
+                                           (refuse "refusal.too-large" "~A" condition)))))
                                   (%archive-entries tar :tar))
                                 (%archive-entries octets format))
                 (aitools.text.domain:archive-limit-exceeded (condition)
-                  (refuse "refusal.too-large"
-                          "archive exceeds reader limit ~A"
-                          (aitools.text.domain:archive-limit-exceeded-limit
-                           condition))))
+                  (refuse "refusal.too-large" "~A" condition)))
             (dolist (entry raw-entries)
               (check-path-limit (aitools.text.domain:archive-entry-name entry)
                                 aitools.text.domain:+archive-max-path-bytes+

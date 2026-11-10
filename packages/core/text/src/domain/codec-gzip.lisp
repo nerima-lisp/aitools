@@ -146,12 +146,10 @@ or to `.out` when that fallback is unsafe or has no basename."
                              (concatenate 'string base ".out"))))
           (if (%gzip-safe-member-name-p fallback) fallback ".out")))))
 
-(defun gzip-decompress (octets &key max-output)
-  "Decode every gzip member in OCTETS, checking CRCs and the cumulative limit."
+(defun %gzip-decompress-with-member-limit (octets max-output member-output-limit)
   (declare (type octets octets))
-  (when (and max-output
-             (not (and (integerp max-output) (>= max-output 0))))
-    (%archive-fail "invalid gzip output limit"))
+  (check-type max-output (integer 0))
+  (check-type member-output-limit (integer 0))
   (when (and (>= (length octets) 10)
              (= (aref octets 0) #x1F)
              (= (aref octets 1) #x8B)
@@ -169,20 +167,30 @@ or to `.out` when that fallback is unsafe or has no basename."
                             (loop for position from index below (length octets)
                                   always (zerop (aref octets position))))
                    (return))
-                 (multiple-value-bind (member header next)
-                     (deflate-kit:gzip-decode-prefix
-                      octets :start index
-                      :max-output (if max-output
-                                      (1+ (- max-output output-size))
-                                      most-positive-fixnum))
-                   (declare (ignore header))
-                   (unless next
-                     (error 'archive-limit-exceeded
-                            :limit max-output :reason "gzip output limit"))
-                   (push member members)
-                   (incf member-count)
-                   (incf output-size (length member))
-                   (setf index next)))
+                 (when (>= member-count +archive-max-gzip-members+)
+                   (error 'archive-limit-exceeded
+                          :limit +archive-max-gzip-members+
+                          :reason "gzip member count"))
+                 (let* ((remaining-output
+                          (- max-output output-size))
+                        (member-limit (min remaining-output member-output-limit))
+                        (total-limit-p (<= remaining-output member-output-limit))
+                        (limit (if total-limit-p max-output member-output-limit))
+                        (reason (if total-limit-p
+                                    "gzip output limit"
+                                    "gzip member output limit")))
+                   (multiple-value-bind (member header next)
+                       (deflate-kit:gzip-decode-prefix
+                        octets :start index :max-output (1+ member-limit))
+                     (declare (ignore header))
+                     (unless next
+                       (error 'archive-limit-exceeded :limit limit :reason reason))
+                     (when (> (length member) member-limit)
+                       (error 'archive-limit-exceeded :limit limit :reason reason))
+                     (push member members)
+                     (incf member-count)
+                     (incf output-size (length member))
+                     (setf index next))))
         (let ((members (nreverse members)))
           (if (null (cdr members))
               (let ((member (car members)))
@@ -212,6 +220,14 @@ or to `.out` when that fallback is unsafe or has no basename."
            (deflate-kit:deflate-error-message condition))))
     (deflate-kit:deflate-error ()
       (%archive-fail "invalid gzip stream"))))
+(defun gzip-decompress (octets &key max-output)
+  "Decode gzip members within MAX-OUTPUT, defaulting to 1 GiB total output."
+  (declare (type octets octets))
+  (let ((max-output (or max-output +archive-max-gzip-output-bytes+)))
+    (unless (and (integerp max-output) (>= max-output 0))
+      (%archive-fail "invalid gzip output limit"))
+    (%gzip-decompress-with-member-limit
+     octets max-output +archive-max-gzip-member-output-bytes+)))
 
 (defun gzip-compress (octets &key name (mtime 0))
   "OCTETS as one gzip member with an optional UTF-8 NAME and MTIME."

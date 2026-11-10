@@ -103,3 +103,41 @@
                   (apply user-home arguments)))))
         (expect (aitools.workspace.infrastructure::%home-directory)
                 :to-equal "/home/test")))))
+(describe "workspace bounded stream reads"
+  (it "refuses an oversized stat before reading any bytes"
+    (let ((read-bytes 0))
+      (expect
+       (multiple-value-list
+        (aitools.workspace.infrastructure::%read-stream-octets
+         nil 4 3
+         :reader (lambda (buffer stream)
+                   (declare (ignore buffer stream))
+                   (incf read-bytes))))
+       :to-equal '(nil :too-large))
+      (expect read-bytes :to-be 0)))
+  (it "stops a growing stream at exactly limit plus one byte"
+    (let ((read-bytes 0))
+      (expect
+       (multiple-value-list
+        (aitools.workspace.infrastructure::%read-stream-octets
+         nil 3 3
+         :reader (lambda (buffer stream)
+                   (declare (ignore stream))
+                   (incf read-bytes (length buffer))
+                   (length buffer))))
+       :to-equal '(nil :too-large))
+      (expect read-bytes :to-be 4)))
+  (it "accepts a stream exactly at its limit"
+    (let ((read-bytes 0))
+      (multiple-value-bind (octets status)
+          (aitools.workspace.infrastructure::%read-stream-octets
+           nil 3 3
+           :reader (lambda (buffer stream)
+                     (declare (ignore stream))
+                     (dotimes (index 3)
+                       (setf (aref buffer index) index))
+                     (incf read-bytes 3)
+                     3))
+        (expect octets :to-equalp #(0 1 2))
+        (expect status :to-be nil)
+        (expect read-bytes :to-be 3)))))

@@ -85,7 +85,7 @@
     (expect (error-code (nth-value 1 (run-archive #'archive-read-flow "a.zip" "docs"))) :to-equal "refusal.not-a-file")
     (expect (error-code (nth-value 1 (run-archive #'archive-read-flow "a.zip" nil))) :to-equal "argument.invalid"))
 
-  (it "maps a gzip archive limit exception to refusal.too-large"
+  (it "maps a gzip member-count limit to refusal.too-large"
     (let ((observed-limit nil))
       (cl-weave:with-mocked-functions
           (((symbol-function
@@ -94,14 +94,14 @@
               (declare (ignore octets))
               (setf observed-limit max-output)
               (error (quote aitools.text.domain:archive-limit-exceeded)
-                     :limit max-output
-                     :reason "entry size"))))
+                     :limit 1024
+                     :reason "gzip member count"))))
         (multiple-value-bind (kind fields)
-            (run-archive (function archive-read-flow)
-                         "notes.txt.gz"
-                         nil)
+            (run-archive (function archive-read-flow) "notes.txt.gz" nil)
           (expect kind :to-be :error)
-          (expect (error-code fields) :to-equal "refusal.too-large"))
+          (expect (error-code fields) :to-equal "refusal.too-large")
+          (expect (getf fields :message)
+                  :to-equal "notes.txt.gz exceeds archive reader limit 1024"))
         (expect observed-limit :to-be +archive-max-entry+)))))
 
 (describe "archive read outcomes"

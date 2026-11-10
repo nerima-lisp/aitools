@@ -14,7 +14,9 @@
 (define-condition archive-limit-exceeded (archive-error)
   ((limit :initarg :limit :reader archive-limit-exceeded-limit))
   (:report (lambda (condition stream)
-             (format stream "decoded size exceeds the limit of ~D bytes"
+             (format stream
+                     "archive limit exceeded (~A: ~D)"
+                     (archive-error-reason condition)
                      (archive-limit-exceeded-limit condition)))))
 
 (define-condition archive-unsupported (archive-error)

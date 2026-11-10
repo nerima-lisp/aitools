@@ -39,45 +39,71 @@
                      (when entry (push entry entries)))))))
            (values entries t))
       (sb-posix:closedir stream))))
-
 (defun %read-link (path)
   (handler-case (sb-posix:readlink path)
     (error () nil)))
 
-(defun read-regular-file-octets (path)
-  "PATH's bytes when it is (or links to) a regular file, else NIL. Opened
-O_NONBLOCK and type-checked with fstat on the open descriptor, so a FIFO or
-device planted where an ignore or config file is expected neither blocks the
-scan nor gets read."
-  (labels ((read-stream-octets (stream)
-             (let ((buffer (make-array 65536 :element-type '(unsigned-byte 8)))
-                   (out (make-array 0 :element-type '(unsigned-byte 8)
-                                    :adjustable t :fill-pointer 0)))
-               (loop for count = (read-sequence buffer stream)
-                     while (plusp count)
-                     do (loop for i from 0 below count
-                              do (vector-push-extend (aref buffer i) out)))
-               (coerce out '(simple-array (unsigned-byte 8) (*)))))
-           (read-open-fd (fd)
+(defun %read-stream-octets (stream stat-size max-bytes &key (reader (function read-sequence)))
+  "Read STREAM up to MAX-BYTES and return NIL, :TOO-LARGE on overflow."
+  (check-type stat-size (integer 0))
+  (check-type max-bytes (or null (integer 0)))
+  (when (and max-bytes (> stat-size max-bytes))
+    (return-from %read-stream-octets (values nil :too-large)))
+  (let ((chunks nil)
+        (total 0))
+    (labels ((finish ()
+               (let ((result
+                       (make-array total :element-type (quote (unsigned-byte 8))))
+                     (offset 0))
+                 (dolist (chunk (nreverse chunks) result)
+                   (replace result chunk :start1 offset)
+                   (incf offset (length chunk))))))
+      (loop
+        (let* ((read-count
+                 (if max-bytes
+                     (min 65536 (1+ (- max-bytes total)))
+                     65536))
+               (buffer
+                 (make-array read-count :element-type (quote (unsigned-byte 8))))
+               (count (funcall reader buffer stream)))
+          (when (and max-bytes (> (+ total count) max-bytes))
+            (return-from %read-stream-octets (values nil :too-large)))
+          (when (plusp count)
+            (push (if (= count (length buffer)) buffer (subseq buffer 0 count))
+                  chunks)
+            (incf total count))
+          (when (< count (length buffer))
+            (return-from %read-stream-octets (values (finish) nil))))))))
+(defun read-regular-file-octets (path &key max-bytes)
+  "PATH bytes when regular, else NIL. Returns NIL and :TOO-LARGE when MAX-BYTES is exceeded."
+  (check-type max-bytes (or null (integer 0)))
+  (labels ((read-open-fd (fd)
              (let ((stream nil))
                (unwind-protect
                     (handler-case
-                        (when (sb-posix:s-isreg (sb-posix:stat-mode (sb-posix:fstat fd)))
-                          (setf stream
-                                (sb-sys:make-fd-stream fd :input t
-                                                         :element-type '(unsigned-byte 8)
-                                                         :buffering :full
-                                                         :auto-close nil))
-                          (read-stream-octets stream))
+                        (let* ((stat (sb-posix:fstat fd))
+                               (mode (sb-posix:stat-mode stat))
+                               (size (max 0 (sb-posix:stat-size stat))))
+                          (when (sb-posix:s-isreg mode)
+                            (if (and max-bytes (> size max-bytes))
+                                (values nil :too-large)
+                                (progn
+                                  (setf stream
+                                        (sb-sys:make-fd-stream fd :input t
+                                                                 :element-type (quote (unsigned-byte 8))
+                                                                 :buffering :full
+                                                                 :auto-close nil))
+                                  (%read-stream-octets stream size max-bytes)))))
                       (error () nil))
                  ;; Closing the fd-stream closes FD itself; closing both would
                  ;; close a descriptor number another thread may already have reused.
                  (if stream
                      (close stream)
                      (sb-posix:close fd))))))
-    (let ((fd (handler-case
-                  (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nonblock))
-                (error () nil))))
+    (let ((fd
+            (handler-case
+                (sb-posix:open path (logior sb-posix:o-rdonly sb-posix:o-nonblock))
+              (error () nil))))
       (when fd (read-open-fd fd)))))
 
 (defun %home-directory ()

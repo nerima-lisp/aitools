@@ -66,12 +66,15 @@ READABLE-P is NIL when PATH is missing, not a directory, or unreadable.")
  "Return the raw symlink target string for PATH, or NIL when PATH is not a
 readable symbolic link.")
 
-(define-workspace-operation
- host-read-octets
- :workspace-read-octets
- (path)
- "Return PATH bytes as an (unsigned-byte 8) vector, or NIL when PATH is
-missing or unreadable.")
+(defun host-read-octets (boundaries path &key max-bytes)
+  "Return PATH bytes, or NIL when PATH is missing or unreadable. Bounded readers return NIL and :TOO-LARGE when MAX-BYTES is exceeded."
+  (check-type max-bytes (or null (integer 0)))
+  (let ((reader
+          (cl-boundary-kit:boundary-context-require
+           boundaries :workspace-read-octets)))
+    (if max-bytes
+        (funcall reader path :max-bytes max-bytes)
+        (funcall reader path))))
 
 (defun host-getenv (boundaries name)
   "Return a non-empty environment value for NAME, or NIL."
