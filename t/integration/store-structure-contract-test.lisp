@@ -74,7 +74,6 @@
          (functions nil)
          (expected-keys
            '((:branch "AITOOLS.STORE.APPLICATION" "%ARCHIVE-PREFIX-CURSOR")
-             (:branch "AITOOLS.STORE.INFRASTRUCTURE" "%OPEN-SEARCH-ROOT")
              (:branch "aitools.store.application" "tx-status")
              (:branch "aitools.store.domain" "change-request")
              (:branch "aitools.store.domain" "change-result")
@@ -88,7 +87,8 @@
              (:expression "AITOOLS.STORE.APPLICATION" "%ARCHIVE-PREFIX-START")
              (:expression "aitools.store.domain" "plan-changes/k")
              (:expression "AITOOLS.STORE.APPLICATION"
-                          "%DIRECTORY-FINALIZATION-STEPS"))))
+                          "%DIRECTORY-FINALIZATION-STEPS")
+             (:expression "AITOOLS.STORE.INFRASTRUCTURE" "%CREATE-FILE"))))
     (labels ((source-name (designator)
                (cond ((symbolp designator) (string-downcase (symbol-name designator)))
                      ((stringp designator) (string-downcase designator))))
@@ -159,8 +159,8 @@
                          (and (= (length function-matches) 1)
                               (null structure-matches)
                               (null flow-matches)))
-                        ((equal key '(:branch "AITOOLS.STORE.INFRASTRUCTURE"
-                                      "%OPEN-SEARCH-ROOT"))
+                        ((equal key '(:expression "AITOOLS.STORE.INFRASTRUCTURE"
+                                      "%CREATE-FILE"))
                          (and (= (length function-matches) 1)
                               (null structure-matches)
                               (null flow-matches)))

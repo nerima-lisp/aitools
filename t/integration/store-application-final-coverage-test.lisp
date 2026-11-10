@@ -1,0 +1,181 @@
+(in-package #:aitools.store.test)
+(describe "Store application final coverage"
+    (it "reports none when recovery finds no intent"
+      (call-with-temp-store
+       (lambda (store)
+         (expect (recover/k store
+                            :on-rolled-forward #'identity
+                            :on-discarded #'identity
+                            :on-none (constantly :none)
+                            :on-busy (constantly :busy)
+                            :on-failed #'list)
+                 :to-be :none))
+       :io nil))
+
+    (it "records a read, drops staged work, commits an empty tx, and aborts another"
+      (call-with-temp-store
+       (lambda (store)
+         (put-file store "base.txt" "base")
+         (let ((tx (tx-begin/k store :name "coverage"
+                               :on-begun (lambda (id name created)
+                                           (declare (ignore name created))
+                                           id)
+                               :on-busy (constantly :busy))))
+           (expect (tx-record-read/k store tx "base.txt"
+                                     :on-recorded (lambda (state) (entry-state-kind state))
+                                     :on-not-found (constantly :not-found)
+                                     :on-busy (constantly :busy))
+                   :to-be :file)
+           (expect (tx-stage/k store tx '("noop")
+                               (lambda (view commit reject)
+                                 (declare (ignore view reject))
+                                 (funcall commit '()))
+                               :on-staged (lambda (tx-op results) (list tx-op results))
+                               :on-rejected #'list
+                               :on-not-found (constantly :not-found)
+                               :on-busy (constantly :busy))
+                   :to-equal '(nil nil))
+           (expect (stage store tx (list (write-file-request "discard.txt" (bytes "x"))))
+                   :to-be 1)
+           (expect (tx-drop/k store tx 1 :on-dropped #'identity
+                              :on-not-found (constantly :not-found)
+                              :on-busy (constantly :busy))
+                   :to-equal '(1))
+           (expect (tx-view-text store tx "discard.txt") :to-be :absent)
+           (expect (tx-commit/k store tx '("tx" "commit")
+                                :on-committed (lambda (op-id results)
+                                                (list :committed op-id results))
+                                :on-rejected #'list
+                                :on-not-found (constantly :not-found)
+                                :on-busy (constantly :busy))
+                   :to-equal '(:committed nil nil))
+           (expect (status-of store tx) :to-be :not-found))
+         (let ((tx (tx-begin/k store :on-begun (lambda (id name created)
+                                                 (declare (ignore name created))
+                                                 id)
+                               :on-busy (constantly :busy))))
+           (stage store tx (list (write-file-request "abort.txt" (bytes "x"))))
+           (expect (tx-abort/k store tx :on-aborted #'identity
+                               :on-not-found (constantly :not-found)
+                               :on-busy (constantly :busy))
+                   :to-equal '("abort.txt"))
+           (expect (disk-text store "abort.txt") :to-be :absent)))
+       :io nil))
+
+    (it "forwards validator rejection metadata from tx stage"
+      (call-with-temp-store
+       (lambda (store)
+         (let* ((tx (begin store))
+                (outcome
+                  (tx-stage/k store tx '("reject")
+                              (lambda (view commit reject)
+                                (declare (ignore view commit))
+                                (funcall reject "refusal.target-changed" "external edit"
+                                         :candidates '("a.txt")
+                                         :diagnostics '("base changed")
+                                         :conflicts nil
+                                         :repairs '("rebase")
+                                         :path "a.txt"))
+                              :on-staged #'list
+                              :on-rejected (lambda (code message &rest keys)
+                                             (list code message keys))
+                              :on-not-found (constantly :not-found)
+                              :on-busy (constantly :busy))))
+           (expect (first outcome) :to-equal "refusal.target-changed")
+           (expect (getf (third outcome) :candidates) :to-equal '("a.txt"))
+           (expect (getf (third outcome) :diagnostics) :to-equal '("base changed"))
+           (expect (member :conflicts (third outcome)) :to-be-truthy)
+           (expect (getf (third outcome) :repairs) :to-equal '("rebase"))
+           (expect (getf (third outcome) :path) :to-equal "a.txt")))
+       :io nil))
+
+    (it "distinguishes a same-content mtime change from a chmod in tx diff"
+      (call-with-temp-store
+       (lambda (store)
+         (put-file store "a.txt" "same")
+         (let ((tx (begin store)))
+           (stage store tx (list (chmod-request "a.txt" #o600)))
+           (expect (tx-diff/k store tx :on-diff (lambda (results)
+                                                  (mapcar #'change-result-action results))
+                             :on-not-found (constantly :not-found))
+                   :to-equal '(:mode-changed))
+           (stage store tx (list (mtime-request "a.txt" 1577934245)))
+           (expect (tx-diff/k store tx :on-diff (lambda (results)
+                                                  (mapcar #'change-result-action results))
+                             :on-not-found (constantly :not-found))
+                   :to-equal '(:modified))))
+       :io nil))
+
+    (it "replays drifted ops, preserves clean ops, and reports only drifted conflict paths"
+      (call-with-temp-store
+       (lambda (store)
+         (put-file store "a.txt" "base-a")
+         (put-file store "b.txt" "base-b")
+         (let ((tx (begin store)))
+           (stage-append store tx "b.txt" "+clean")
+           (stage-append store tx "a.txt" "+replay")
+           (put-file store "a.txt" "external-a")
+           (expect (tx-rebase/k store tx #'replay-append
+                                :on-rebased #'identity
+                                :on-conflict (lambda (conflicts) (list :conflict conflicts))
+                                :on-not-found (constantly :not-found)
+                                :on-busy (constantly :busy))
+                   :to-equal '("a.txt"))
+           (expect (tx-view-text store tx "a.txt") :to-equal "external-a+replay")
+           (expect (tx-view-text store tx "b.txt") :to-equal "base-b+clean")
+           (tx-abort/k store tx :on-aborted #'identity
+                       :on-not-found (constantly :not-found)
+                       :on-busy (constantly :busy)))
+         (let ((tx (begin store)))
+           (stage store tx (list (write-file-request "a.txt" (bytes "staged-a"))
+                                 (write-file-request "b.txt" (bytes "staged-b"))))
+           (stage-append store tx "b.txt" "+later")
+           (put-file store "a.txt" "external-again")
+           (let ((outcome (tx-rebase/k store tx #'replay-append
+                                       :on-rebased (lambda (paths) (list :rebased paths))
+                                       :on-conflict (lambda (conflicts) (cons :conflict conflicts))
+                                       :on-not-found (constantly :not-found)
+                                       :on-busy (constantly :busy))))
+             (expect (first outcome) :to-be :conflict)
+             (expect (mapcar #'conflict-path (rest outcome)) :to-equal '("a.txt"))
+             (expect (tx-view-text store tx "a.txt") :to-equal "staged-a")
+             (expect (tx-view-text store tx "b.txt") :to-equal "staged-b+later"))))
+       :io nil))
+
+    (it "undoes a journal op and refuses undo after an external edit"
+      (call-with-temp-store
+       (lambda (store)
+         (put-file store "undo.txt" "before")
+         (multiple-value-bind (status op-id results)
+             (commit store (list (write-file-request "undo.txt" (bytes "after"))))
+           (declare (ignore results))
+           (expect status :to-be :committed)
+           (multiple-value-bind (undo-status undo-id undo-results)
+               (undo-op/k store op-id '("undo")
+                          :on-committed (lambda (new-op changes)
+                                          (values :committed new-op changes))
+                          :on-rejected (lambda (code message &rest keys)
+                                         (values :rejected code message keys))
+                          :on-busy (constantly :busy))
+             (declare (ignore undo-results))
+             (expect undo-status :to-be :committed)
+             (expect (disk-text store "undo.txt") :to-equal "before")
+             (expect (journal-entry-undoes (find-journal-entry store undo-id))
+                     :to-equal op-id)))
+         (multiple-value-bind (status op-id results)
+             (commit store (list (write-file-request "undo.txt" (bytes "second"))))
+           (declare (ignore results))
+           (expect status :to-be :committed)
+           (put-file store "undo.txt" "external")
+           (multiple-value-bind (undo-status code message keys)
+               (undo-op/k store op-id '("undo")
+                          :on-committed #'list
+                          :on-rejected (lambda (rejection-code rejection-message &rest rejection-keys)
+                                         (values :rejected rejection-code rejection-message rejection-keys))
+                          :on-busy (constantly :busy))
+             (declare (ignore message))
+             (expect undo-status :to-be :rejected)
+             (expect code :to-equal "refusal.target-changed")
+             (expect (mapcar #'conflict-path (getf keys :conflicts)) :to-equal '("undo.txt"))
+             (expect (disk-text store "undo.txt") :to-equal "external"))))
+       :io nil)))

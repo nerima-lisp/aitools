@@ -38,6 +38,7 @@
            :components ((:file "unit/store/package")
                         (:file "unit/store/domain-test")
                         (:file "unit/store/domain-coverage-test")
+                        (:file "unit/store/domain-final-coverage-test")
                         (:file "unit/store/serialization-test")
                         (:file "unit/store/domain-record-test")
                         (:file "unit/store/record-codec-test")
@@ -59,6 +60,7 @@
                         (:file "integration/store-write-protocol-test")
                         (:file "integration/store-write-coverage-test")
                         (:file "integration/store-write-completion-coverage-test")
+                        (:file "integration/store-application-io-final-coverage-test")
                         (:file "integration/store-case-collision-test")
                         (:file "integration/store-journal-undo-test")
                         (:file "integration/store-undo-coverage-test")
@@ -68,6 +70,7 @@
                         (:file "integration/store-retry-plan-edge-test")
                         (:file "integration/store-tx-test")
                         (:file "integration/store-tx-coverage-test")
+                        (:file "integration/store-application-final-coverage-test")
                         (:file "integration/store-view-hash-test")
                         (:file "integration/store-tx-operations-test")
                         (:file "integration/store-tx-command-test")
@@ -77,6 +80,7 @@
                         (:file "integration/store-security-gc-test")
                         (:file "integration/store-security-concurrency-test")
                         (:file "integration/store-posix-io-coverage-test")
+                        (:file "integration/store-posix-final-coverage-test")
                         (:module "e2e"
                          :pathname "e2e/"
                          :serial t
