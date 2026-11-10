@@ -34,7 +34,7 @@
     (expect (state-directory-for-root "/srv/proj/" :xdg-state-home "/x/state" :home "/home/u")
             :to-equal (concatenate 'string "/x/state/aitools/" (workspace-id "/srv/proj")))
     (expect (state-directory-for-root "/srv/proj" :home "/home/u")
-            :to-equal (store-state-directory (make-store (make-posix-store-io) "/srv/proj/"
+            :to-equal (store-state-directory (make-store (make-posix-store-io :root "/srv/proj/") "/srv/proj/"
                                                          "/home/u/.local/state/aitools"))))
 
   (it "recognises the write protocol's temp file names"

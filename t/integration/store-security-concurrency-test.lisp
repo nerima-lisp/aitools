@@ -187,4 +187,22 @@
               (progn (aitools.store.application::%complete-intent store intent) :returned)
             (store-committed-error (condition)
               (store-committed-error-op-id condition)))
-          :to-equal inner-op-id))) :io nil)))
+          :to-equal inner-op-id))) :io nil))
+  (it "refuses writes when the boundary root is absent or unresolved"
+    (call-with-temp-store
+     (lambda (store)
+       (let ((path (disk-path store "unwritten.txt")))
+         (dolist (root (list nil "/" (join-path (base-directory store) "unresolved-root")))
+           (let ((broken
+                   (make-store (make-posix-store-io :root root)
+                               (store-root store)
+                               (state-home-of store))))
+             (expect
+              (handler-case
+                  (progn
+                    (commit broken (list (write-file-request "unwritten.txt" (bytes "x"))))
+                    :written)
+                (store-io-error () :refused))
+              :to-be :refused)
+             (expect (probe-file path) :to-be nil)))))
+     :io nil)))

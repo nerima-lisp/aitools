@@ -92,12 +92,13 @@ XDG-STATE-HOME and HOME are the environment's values, read by the caller.
 Its `tmp/` (TMP-DIRECTORY) is `mktemp`'s area and `bg/` the bg logs."
   (workspace-state-directory (state-home xdg-state-home home) (%normalize-root real-root)))
 
-(defun make-store (boundaries root state-home &key temporary
-                                                 (clock (cl-boundary-kit:make-clock))
-                                                 (sleeper (cl-boundary-kit:make-sleeper)))
+(defun make-store (boundaries root state-home
+                   &key temporary
+                     (clock (cl-boundary-kit:boundary-context-require boundaries :clock))
+                     (sleeper (cl-boundary-kit:boundary-context-require boundaries :sleeper)))
   "Create a store for the real workspace ROOT. CLOCK supplies transaction
-  timestamps and lock timing; SLEEPER waits between lock attempts. TEMPORARY
-  stores write under the workspace mktemp area without an intent record."
+timestamps and lock timing; SLEEPER waits between lock attempts. TEMPORARY
+stores write under the workspace mktemp area without an intent record."
   (let ((root (%normalize-root root)))
     (if temporary
         (let* ((slash (position #\/ root :from-end t))

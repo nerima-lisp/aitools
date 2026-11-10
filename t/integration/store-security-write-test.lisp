@@ -166,7 +166,7 @@
 
   (it "creates the state directories only under a directory, reporting the file in the way"
     (call-with-temp-store (lambda (plain) (let* ((blocker (concatenate 'string (base-directory plain) "/blocker"))
-             (store (make-store (make-posix-store-io) (store-root plain) (concatenate 'string blocker "/state"))))
+             (store (make-store (make-posix-store-io :root (store-root plain)) (store-root plain) (concatenate 'string blocker "/state"))))
         (with-open-file (out (sb-ext:parse-native-namestring blocker) :direction :output) (write-string "f" out))
         (let ((condition (handler-case (progn (commit store (list (write-file-request "a.txt" (bytes "a")))) nil)
                            (store-io-error (condition) condition))))

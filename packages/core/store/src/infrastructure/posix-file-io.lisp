@@ -83,9 +83,14 @@
                               (%io-error "fchmod" path condition)))
     (%write-and-close path fd octets sync)))
 
-(defun %append-file (path octets &key sync)
-  (let ((fd (%syscall ("open" path)
-              (sb-posix:open path (logior sb-posix:o-wronly sb-posix:o-append sb-posix:o-nofollow +o-cloexec+)))))
+(defun %append-file (root path octets &key sync)
+  (let ((fd (%call-with-parent
+             root path
+             (lambda (dirfd name)
+               (%openat dirfd name
+                        (logior sb-posix:o-wronly sb-posix:o-append
+                                sb-posix:o-nofollow +o-cloexec+)
+                        path)))))
     (%write-and-close path fd octets sync)))
 
 ;;; Changes in place: mode and modification time.

@@ -97,8 +97,7 @@ opens such a root as a temporary store exempt from the state-directory guard."
          (string= (subseq parent 0 id-slash) (string-right-trim "/" *home*)))))
 
 (defun open-store (root)
-  (aitools.store.application:make-store (aitools.store.infrastructure:make-posix-store-io) root *home*
-                                        :temporary (%temporary-area-p root)))
+  (aitools.store.application:make-store (aitools.store.infrastructure:make-posix-store-io :root root) root *home* :temporary (%temporary-area-p root)))
 
 (defun call-with-edit-workspace (function)
   (aitools.test.support:call-with-workspace
@@ -129,7 +128,7 @@ opens such a root as a temporary store exempt from the state-directory guard."
                :serialize-document (function aitools.edit.infrastructure::serialize-document)))))
        (funcall function)))
    :chdir t))
-
+(defmacro with-edit-workspace (() &body body) `(call-with-edit-workspace (lambda () ,@body)))
 (defun disk (relative)
   (concatenate 'string *root* "/" relative))
 
@@ -174,7 +173,7 @@ a string (UTF-8) or octets."
 \"nothing changed\" and \"undo restored everything\" assertions."
   (let ((entries '()))
     (labels ((walk (relative)
-               (let ((names (funcall (cl-boundary-kit:boundary-context-require (aitools.store.infrastructure:make-posix-store-io) :list-directory)
+               (let ((names (funcall (cl-boundary-kit:boundary-context-require (aitools.store.infrastructure:make-posix-store-io :root *root*) :list-directory)
                                      (if (string= relative "") *root* (disk relative)))))
                  (dolist (name (sort (copy-list names) #'string<))
                    (let* ((child (if (string= relative "") name (concatenate 'string relative "/" name)))

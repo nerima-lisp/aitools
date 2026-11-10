@@ -2,8 +2,7 @@
 
 (describe "aitools file commands: remaining refusals and areas"
   (it "refuses to merge a directory into a file and to overwrite a directory"
-    (with-workspace ()
-      (put "a.txt" (format nil "a~%"))
+    (with-edit-workspace () (put "a.txt" (format nil "a~%"))
       (sb-posix:mkdir (disk "d") #o755)
       (with-error (code message) (run "move" '("d" "a.txt") :overwrite t :expect-hash (list (format nil "a.txt=~A" (hash "a.txt"))))
         (expect code :to-equal "refusal.exists")
@@ -13,23 +12,20 @@
         (expect message :to-equal "d already exists"))))
 
   (it "refuses a .gz of a symlink"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (sb-posix:symlink "a.txt" (disk "lnk"))
       (with-error (code) (run "archive.create" '("s.gz" "lnk"))
         (expect code :to-equal "argument.invalid"))))
 
   (it "extracts into the workspace root itself"
-    (with-workspace ()
-      (put "a.tar" (aitools.text.domain:write-tar (list (member-file "x.txt" "X"))))
+    (with-edit-workspace () (put "a.tar" (aitools.text.domain:write-tar (list (member-file "x.txt" "X"))))
       (multiple-value-bind (kind fields) (run "archive.extract" '("a.tar") :to ".")
         (expect kind :to-be :ok)
         (expect (changes fields) :to-equal '(("x.txt" "created"))))
       (expect (text "x.txt") :to-equal "X")))
 
   (it "refuses a --root that is a file for mktemp"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (let ((result nil))
         (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
                           :on-ok (lambda (fields) (setf result fields))
@@ -38,8 +34,7 @@
         (expect (search "is not a usable directory" (second result)) :to-be-truthy))))
 
   (it "keeps going when an expired mktemp entry cannot be removed"
-    (with-workspace ()
-      (let* ((temporary (mktemp-path :dir t))
+    (with-edit-workspace () (let* ((temporary (mktemp-path :dir t))
              (inner (concatenate 'string temporary "/kept")))
         (with-open-file (out (sb-ext:parse-native-namestring inner) :direction :output :if-does-not-exist :create))
         (sb-posix:utimes temporary 0 0)
@@ -54,8 +49,7 @@
             (sb-posix:chmod temporary #o755))))))
 
   (it "refuses a --content-file larger than the input limit without reading it"
-    (with-workspace ()
-      (let ((path (disk "huge.bin")))
+    (with-edit-workspace () (let ((path (disk "huge.bin")))
         (with-open-file (out (sb-ext:parse-native-namestring path) :direction :output :if-does-not-exist :create))
         (sb-posix:truncate path (1+ aitools.edit.application:+max-input-bytes+))
         (with-error (code message) (run "write" '("out.bin") :content-file (list "huge.bin"))
@@ -72,7 +66,7 @@
            (lambda (root)
              (aitools.store.application:make-store
               (apply (function cl-boundary-kit:boundary-context-with)
-                     (aitools.store.infrastructure:make-posix-store-io)
+                     (aitools.store.infrastructure:make-posix-store-io :root *root*)
                      overrides)
               root *home* :temporary (%temporary-area-p root)))
            :text-source (aitools.edit.application::edit-ports-text-source *ports*)
@@ -82,8 +76,7 @@
 
 (describe "aitools mktemp against a racing mktemp area"
   (it "draws another name when the first is taken"
-    (with-workspace ()
-      (let* ((first (mktemp-path))
+    (with-edit-workspace () (let* ((first (mktemp-path))
              (tmp (subseq first 0 (position #\/ first :from-end t)))
              (taken (concatenate 'string tmp "/tmp.aaaaaaaaaaaa"))
              (draws (list "aaaaaaaaaaaa" "bbbbbbbbbbbb")))
@@ -95,8 +88,7 @@
         (expect (with-open-file (in (sb-ext:parse-native-namestring taken)) (read-line in)) :to-equal "kept"))))
 
   (it "accepts the area another process created between its check and its mkdir"
-    (with-workspace ()
-      (let ((real-mkdir (cl-boundary-kit:boundary-context-require (aitools.store.infrastructure:make-posix-store-io) :mkdir)))
+    (with-edit-workspace () (let ((real-mkdir (cl-boundary-kit:boundary-context-require (aitools.store.infrastructure:make-posix-store-io :root *root*) :mkdir)))
         (call-with-store-boundaries
          (list :mkdir (lambda (path &rest keys)
                         (apply real-mkdir path keys)
@@ -134,8 +126,7 @@
 
 (describe "aitools copy --recursive of the workspace root"
   (it "places the root's entries below the destination directory"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (put "d/b.txt" "b")
       (multiple-value-bind (kind fields) (run "copy" '("." "x") :recursive t)
         (expect kind :to-be :ok)
@@ -146,8 +137,7 @@
 
 (describe "aitools rm protected roots and recovery"
   (it "refuses the injected home directory without touching its children"
-    (with-workspace ()
-      (put "fixture-home/keep" "protected")
+    (with-edit-workspace () (put "fixture-home/keep" "protected")
       (put "ordinary/keep" "ordinary")
       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries
                     :home-directory (lambda () (disk "fixture-home"))))
@@ -164,8 +154,7 @@
         (expect-unchanged before))))
 
   (it "refuses an ancestor containing a custom state home before deleting ordinary files"
-    (with-workspace ()
-      (let ((*home* (disk "protected/custom-state/aitools")))
+    (with-edit-workspace () (let ((*home* (disk "protected/custom-state/aitools")))
         (put "protected/ordinary" "keep")
         (expect (run "write" '("initialized") :content '("ready")) :to-be :ok)
         (expect (kind "protected/custom-state/aitools") :to-be :directory)
@@ -184,8 +173,7 @@
           (expect-unchanged before)))))
 
   (it "never traverses an existing outside directory linked from a removed tree"
-    (with-workspace ()
-      (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
+    (with-edit-workspace () (put "../outside/keep" (octet-vector 0 255 128 10) :mode #o600)
       (put "tree/ordinary" "owned")
       (sb-posix:symlink "../../outside" (disk "tree/link"))
       (let ((before (snapshot))
@@ -206,8 +194,7 @@
   (it-each ((:after-intent :throw) (:after-apply-step :throw)
             (:after-apply :throw) (:after-journal :throw) (:after-apply-step :exit))
       "recovers a recursive rm interrupted at ~A with ~A and preserves its undo" (point mode)
-    (with-workspace ()
-      (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
+    (with-edit-workspace () (put "tree/sub/binary" (octet-vector 0 255 10) :mode #o600)
       (put "keep" "untouched")
       (sb-posix:chmod (disk "tree") #o750)
       (sb-posix:chmod (disk "tree/sub") #o700)

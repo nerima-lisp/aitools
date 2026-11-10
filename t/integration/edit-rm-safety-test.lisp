@@ -22,7 +22,7 @@
                 (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                 :open-store
                 (lambda (root)
-                  (let* ((io (aitools.store.infrastructure:make-posix-store-io))
+                  (let* ((io (aitools.store.infrastructure:make-posix-store-io :root root))
                          (read-file (cl-boundary-kit:boundary-context-require io :read-file))
                          (test-io
                            (cl-boundary-kit:boundary-context-with io

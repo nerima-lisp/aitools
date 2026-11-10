@@ -59,25 +59,24 @@ Returns (values fired-p thunk-value)."
                                                                  (concatenate 'string path "/")))))))
 
 (defun call-with-temp-store (function &key io fake-monotonic-clock)
-  "Call FUNCTION with a STORE over a fresh workspace directory and a fresh
-state home, both removed afterwards. IO defaults to the production boundary
-context. FAKE-MONOTONIC-CLOCK advances retry deadlines by requested sleeps."
+  "Call FUNCTION with a STORE over a fresh workspace directory and state home, both removed afterwards. IO overrides the production boundary context; FAKE-MONOTONIC-CLOCK advances retry deadlines by requested sleeps."
   (let* ((base (%make-temp-directory))
-         (boundaries (or io (aitools.store.infrastructure:make-posix-store-io)))
+         (root (format nil "~A/work" base))
+         (home (format nil "~A/state" base))
          (clock (if fake-monotonic-clock
                     (cl-boundary-kit:make-fake-clock :start 0 :monotonic-start 0)
                     (cl-boundary-kit:make-clock)))
-         (sleeper
-           (if fake-monotonic-clock
-               (cl-boundary-kit:make-sleeper
-                :sleep-fn
-                (lambda (seconds)
-                  (cl-boundary-kit:advance-fake-clock
-                   clock 0 :monotonic-delta
-                   (round (* seconds internal-time-units-per-second)))))
-               (cl-boundary-kit:make-sleeper)))
-         (root (format nil "~A/work" base))
-         (home (format nil "~A/state" base)))
+         (sleeper (if fake-monotonic-clock
+                      (cl-boundary-kit:make-sleeper
+                       :sleep-fn
+                       (lambda (seconds)
+                         (cl-boundary-kit:advance-fake-clock
+                          clock 0 :monotonic-delta
+                          (round (* seconds internal-time-units-per-second)))))
+                      (cl-boundary-kit:make-sleeper)))
+         (boundaries (or io
+                         (aitools.store.infrastructure:make-posix-store-io
+                          :root root :clock clock :sleeper sleeper))))
     (unwind-protect
          (progn
            (sb-posix:mkdir root #o755)

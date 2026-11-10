@@ -28,7 +28,5 @@
   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
  (:kind :branch :package "aitools.store.domain" :symbol "tx-op-record"
   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
- (:kind :branch :package "aitools.store.application" :symbol "store"
-  :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
  (:kind :branch :package "aitools.store.domain" :symbol "plan-changes/k"
   :reason "Empty paths are rejected before planning, and proper ancestors never include the root.")))

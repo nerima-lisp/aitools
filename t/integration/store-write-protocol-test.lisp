@@ -208,10 +208,10 @@
       "validates temporary root form ~A"
       (root valid-p)
     (if valid-p
-        (let ((store (make-store (make-posix-store-io) root "/state/aitools" :temporary t)))
+        (let ((store (make-store (make-posix-store-io :root root) root "/state/aitools" :temporary t)))
           (expect (store-temporary store) :to-be t)
           (expect (store-state-directory store) :to-equal "/state/aitools/project"))
-        (signals error (make-store (make-posix-store-io) root "/state/aitools" :temporary t)))))
+        (signals error (make-store (make-posix-store-io :root root) root "/state/aitools" :temporary t)))))
 (describe "aitools.store rejection flow macro"
   (it "expands all rejection field masks"
     (let* ((expanded

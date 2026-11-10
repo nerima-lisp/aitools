@@ -49,13 +49,15 @@
    (sb-alien:extern-alien "flock" (function sb-alien:int sb-alien:int sb-alien:int))
    fd operation))
 
-(defun %try-lock (path &key create)
-  "The open file descriptor, holding an exclusive flock, or NIL when another
-open file description holds it."
-  (let ((fd (%syscall ("open" path)
-              (sb-posix:open path (logior sb-posix:o-rdwr sb-posix:o-nofollow +o-cloexec+
-                                          (if create sb-posix:o-creat 0))
-                             #o600))))
+(defun %try-lock (root path &key create)
+  "The open file descriptor, holding an exclusive flock, or NIL when another open file description holds it."
+  (let ((fd (%call-with-parent
+             root path
+             (lambda (dirfd name)
+               (%openat dirfd name
+                        (logior sb-posix:o-rdwr sb-posix:o-nofollow +o-cloexec+
+                                (if create sb-posix:o-creat 0))
+                        path #o600)))))
     (loop
       (when (zerop (%flock fd (logior +lock-ex+ +lock-nb+)))
         (return fd))
@@ -99,20 +101,19 @@ names the path, while TO is what blocks the rename. The detail names FROM."
                                                          :detail (format nil "~A (renaming ~A)" (sb-int:strerror errno) from))))
                                               result))))))
 
-(defun make-posix-store-io (&key root)
-  "The POSIX Store boundary context. Changes to paths below ROOT (the workspace's real
-root path, or NIL for none) go through pinned parent directories; see this
-file's header. Its retry adapter runs resilience-kit with the CLOCK and SLEEPER
-held by the store, and declares the clock's internal-time tick rate."
+(defun make-posix-store-io (&key root (clock (cl-boundary-kit:make-clock)) (sleeper (cl-boundary-kit:make-sleeper)))
+  "The POSIX Store boundary context. Writes require ROOT to resolve to an absolute directory. Changes below ROOT use pinned parent directories; see this file's header. The context carries CLOCK and SLEEPER for Store construction and retry."
   (let ((root (and root (%strip-trailing-slash root))))
     (cl-boundary-kit:make-boundary-context
+     :clock clock
+     :sleeper sleeper
      :lstat #'%lstat
      :open-search-root #'%open-search-root
      :open-search-entry #'%open-search-entry
      :close-search-directory #'%close-search-directory
      :read-file #'%read-file
      :create-file (lambda (path octets &rest keys) (apply #'%create-file root path octets keys))
-     :append-file #'%append-file
+     :append-file (lambda (path octets &rest keys) (apply #'%append-file root path octets keys))
      :rename (lambda (from to) (%rename root from to))
      :unlink (lambda (path)
                (%call-with-parent root path
@@ -143,7 +144,7 @@ held by the store, and declares the clock's internal-time tick rate."
                                                   target dirfd name))))
      :set-mtime (lambda (path unix-seconds) (%set-mtime root path unix-seconds))
      :list-directory #'%list-directory
-     :try-lock #'%try-lock
+     :try-lock (lambda (path &rest keys) (apply #'%try-lock root path keys))
      :unlock #'%unlock
      :call-with-retry
      (lambda (policy thunk clock sleeper)

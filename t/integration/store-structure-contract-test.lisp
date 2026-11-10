@@ -84,7 +84,7 @@
              (:branch "aitools.store.domain" "tx-index")
              (:branch "aitools.store.domain" "tx-meta")
              (:branch "aitools.store.domain" "tx-op-record")
-             (:branch "aitools.store.application" "store"))))
+             (:branch "aitools.store.domain" "plan-changes/k"))))
     (labels ((source-name (designator)
                (cond ((symbolp designator) (string-downcase (symbol-name designator)))
                      ((stringp designator) (string-downcase designator))))
@@ -159,6 +159,12 @@
                     (= (length candidates)
                        (length (remove-duplicates (mapcar #'exclusion-key candidates)
                                                   :test #'equal)))
+                    (= 1
+                       (count-if
+                        (lambda (exclusion)
+                          (equal (exclusion-key exclusion)
+                                 '(:branch "aitools.store.domain" "plan-changes/k")))
+                        candidates))
                     (every #'valid-exclusion-p candidates))))
       (dolist (pathname (directory (merge-pathnames "packages/core/store/src/**/*.lisp" root)))
         (with-open-file (stream pathname)

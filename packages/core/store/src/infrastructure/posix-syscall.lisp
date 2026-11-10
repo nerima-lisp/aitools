@@ -9,7 +9,6 @@
 ;; differ between Darwin and Linux. O_CLOEXEC keeps a process started by
 ;; `run` or `bg start` from inheriting a descriptor, above all the lock's,
 ;; which would keep the workspace locked until that process exited.
-(defconstant +at-fdcwd+ #+darwin -2 #-darwin -100)
 (defconstant +at-removedir+ #+darwin #x80 #-darwin #x200)
 (progn (defconstant +o-cloexec+ #+darwin #x1000000 #-darwin #x80000) (defconstant +o-path+ #+linux #x200000 #-linux 0) (defconstant +o-search+ #+darwin #x40100000 #-darwin 0) (defconstant +o-symlink+ #+darwin #x200000 #-darwin 0) (defconstant +o-evtonly+ #+darwin #x8000 #-darwin 0))
 
@@ -75,10 +74,11 @@ handles, not as an SBCL stream condition."
                  dirfd name
                  (logior sb-posix:o-rdonly sb-posix:o-directory +o-cloexec+ (if follow 0 sb-posix:o-nofollow))
                  0))
-  (defun %openat (dirfd name flags path)
+  (defun %openat (dirfd name flags path &optional (mode 0))
     (%alien-call ("open" path) "openat"
-                 (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int &optional sb-alien:unsigned-int)
-                 dirfd name flags 0))
+                 (function sb-alien:int sb-alien:int sb-alien:c-string sb-alien:int
+                           &optional sb-alien:unsigned-int)
+                 dirfd name flags mode))
   (defun %mode-kind (mode)
     (let ((type (logand mode sb-posix:s-ifmt)))
       (cond ((= type sb-posix:s-ifreg) :file)
@@ -165,28 +165,49 @@ handles, not as an SBCL stream condition."
     (sb-posix:close fd)))
 
 (defun %call-with-parent (root path function)
-  "Call FUNCTION with (dirfd name) naming PATH: a pinned descriptor of its
-parent and its last component when PATH is below ROOT, else AT_FDCWD and
-PATH itself."
+  "Call FUNCTION with a pinned parent descriptor for PATH. Writes refuse a missing, invalid or unresolved workspace root."
   (declare (type function function))
-  (let ((relative (and root (%relative-below root path))))
-    (if (null relative)
-        (funcall function +at-fdcwd+ path)
-        (let ((components (loop with start = 0
-                                for slash = (position #\/ relative :start start)
-                                for component = (subseq relative start (or slash (length relative)))
-                                unless (zerop (length component)) collect component
-                                while slash
-                                do (setf start (1+ slash))))
-              (fd (%open-directory-at +at-fdcwd+ root root :follow t))
-              (walked root))
-          (unwind-protect
-               (progn
-                 (dolist (component (butlast components))
-                   (setf walked (concatenate 'string walked "/" component))
-                   (let ((next (%open-directory-at fd component walked)))
-                     (rotatef fd next)
-                     (sb-posix:close next)))
-                 (funcall function fd (car (last components))))
-            (sb-posix:close fd))))))
+  (unless (and (stringp root)
+               (> (length root) 1)
+               (char= (char root 0) #\/)
+               (stringp path)
+               (plusp (length path))
+               (char= (char path 0) #\/))
+    (error 'aitools.store.application:store-io-error
+           :operation "open"
+           :path (or path "")
+           :detail "workspace root is missing or invalid"))
+  (let ((fd (%open-search-root root)))
+    (unwind-protect
+         (let ((relative (%relative-below root path)))
+           (cond ((string= root path)
+                  (funcall function fd "."))
+                 (relative
+                  (let* ((components
+                           (loop with start = 0
+                                 for slash = (position #\/ relative :start start)
+                                 for component = (subseq relative start (or slash (length relative)))
+                                 unless (zerop (length component)) collect component
+                                 while slash
+                                 do (setf start (1+ slash))))
+                         (walked root))
+                    (when (or (null components)
+                              (some (lambda (component)
+                                      (or (string= component ".")
+                                          (string= component "..")))
+                                    components))
+                      (error 'aitools.store.application:store-io-error
+                             :operation "open"
+                             :path path
+                             :detail "path is not beneath the workspace root"))
+                    (dolist (component (butlast components))
+                      (let ((next (%open-directory-at fd component
+                                                      (format nil "~A/~A" walked component))))
+                        (sb-posix:close fd)
+                        (setf fd next
+                              walked (format nil "~A/~A" walked component))))
+                    (funcall function fd (car (last components)))))
+                 (t
+                  (funcall function fd path))))
+      (sb-posix:close fd))))
 

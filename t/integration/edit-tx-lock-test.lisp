@@ -2,8 +2,7 @@
 
 (describe "aitools edit lock contention"
   (it "reports environment.busy when a tx write cannot take the workspace lock"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (let* ((tx (begin-tx))
              (result nil)
              (store (open-store *root*))
@@ -26,8 +25,7 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal "b"))))
   (it "reports environment.busy and leaves the tx unstaged while another thread holds its tx lock"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (let* ((tx (begin-tx)) (store (open-store *root*)) (acquired nil)
              (lock-result-ready (sb-thread:make-semaphore)) (release (sb-thread:make-semaphore))
              (holder (sb-thread:make-thread
@@ -50,8 +48,7 @@
         (expect (commit-tx tx) :to-be :committed)
         (expect (text "a.txt") :to-equal "b"))))
   (it "reports environment.busy with the same command as repair when the workspace lock is held"
-    (with-workspace ()
-      (put "a.txt" "a")
+    (with-edit-workspace () (put "a.txt" "a")
       (let ((result nil))
         (let* ((store (open-store *root*))
                (io (aitools.store.application:store-boundaries store))

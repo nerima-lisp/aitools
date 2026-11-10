@@ -47,7 +47,7 @@
    (lambda ()
      (let ((real-mkdir
              (cl-boundary-kit:boundary-context-require
-              (aitools.store.infrastructure:make-posix-store-io)
+              (aitools.store.infrastructure:make-posix-store-io :root *root*)
               :mkdir)))
        (call-with-mktemp-boundaries
         (list :mkdir
