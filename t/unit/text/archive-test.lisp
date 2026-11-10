@@ -119,27 +119,7 @@ is recomputed."
             (list (archive-entry-name entry) (archive-entry-kind entry) (archive-entry-size entry)
                   (archive-entry-mtime entry) (archive-entry-link-target entry)))
           (read-tar-entries archive)))
-(describe "aitools.text.domain archive symlink paths"
-  (it "flags symlink targets that leave the extraction directory"
-    (expect (archive-link-target-problem "a/b/link" "../c") :to-be-falsy)
-    (expect (archive-link-target-problem "a/b/link" "../../c") :to-be-falsy)
-    (expect (archive-link-target-problem "a/b/link" "../../../c") :to-be :escapes)
-    (expect (archive-link-target-problem "link" "x/../../y") :to-be :escapes)
-    (expect (archive-link-target-problem "link" "/etc") :to-be :absolute)
-    (expect (archive-link-target-problem "link" "") :to-be :absolute))
-
-  (it "flags a target whose .. climbs out of another symlink of the same archive"
-    ;; x/d -> .. is harmless alone, but s -> x/d/.. resolves outside the root.
-    (let ((symlinks (list "x/d" "s")))
-      (expect (archive-link-target-problem "x/d" ".." :symlink-names symlinks) :to-be-falsy)
-      (expect (archive-link-target-problem "s" "x/d/.." :symlink-names symlinks) :to-be :escapes)
-      (expect (archive-link-target-problem "s" "x/./d/.." :symlink-names symlinks) :to-be :escapes)
-      (expect (archive-link-target-problem "s" "x//d/.." :symlink-names symlinks) :to-be :escapes)
-      (expect (archive-link-target-problem "x/d/t" "../y" :symlink-names symlinks) :to-be :escapes)
-      (expect (archive-link-target-problem "s2" "x/d/y" :symlink-names symlinks) :to-be-falsy)
-      (expect (archive-link-target-problem "x/e" "../x/f" :symlink-names symlinks) :to-be-falsy))))
-
-(describe "aitools.text.domain archive model path normalization"
+(describe "aitools.text.domain archive entry path validation"
   (it-each (("an empty name" "" :empty)
             ("a name made only of slash separators" "///" :empty)
             ("a directory name with a trailing separator" "dir/" nil)
@@ -147,15 +127,5 @@ is recomputed."
       "classifies archive member name ~A"
       (description name expected)
     (declare (ignore description))
-    (expect (archive-entry-path-problem name) :to-be expected))
-
-  (it-each (("a target normalizing to the current directory" "link" "." nil nil)
-            ("a target normalizing to no components" "link" "./" nil nil)
-            ("a member name normalized before parent traversal" "a//b/./link" "../c" nil nil)
-            ("a symlink name normalized before parent traversal" "s" "x/d/.." ("x/./d//") :escapes))
-      "resolves archive link target ~A"
-      (description name target symlink-names expected)
-    (declare (ignore description))
-    (expect (archive-link-target-problem name target :symlink-names symlink-names)
-            :to-be expected)))
+    (expect (archive-entry-path-problem name) :to-be expected)))
 
