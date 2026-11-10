@@ -26,7 +26,7 @@
                  (expect (handler-case (progn (sb-posix:fstat fd) t)
                            (sb-posix:syscall-error () nil))
                          :to-be nil))
-            (sb-posix:close fd)))
+            (ignore-errors (sb-posix:close fd))))
         #+darwin
         (progn
           (cl-weave:with-mocked-functions
