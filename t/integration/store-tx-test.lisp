@@ -104,9 +104,22 @@ append TEXT to PATH as the view shows it."
                    :on-not-found (lambda () (expect :not-found :to-be nil))))) :io nil))
 
   (it "answers not-found for an unknown or malformed tx id"
-    (call-with-temp-store (lambda (store) (expect (stage-append store (format-tx-id 3964000000 "00000000") "a" "x") :to-be :not-found)
-      (expect (stage-append store "../../x" "a" "x") :to-be :not-found)
-      (expect (status-of store "tx-nope") :to-be :not-found)) :io nil)))
+    (call-with-temp-store
+     (lambda (store)
+       (expect (stage-append store (format-tx-id 3964000000 "00000000") "a" "x")
+               :to-be :not-found)
+       (expect (stage-append store "../../x" "a" "x") :to-be :not-found)
+       (expect (status-of store "tx-nope") :to-be :not-found)
+       (let ((diff-result :unresolved))
+         (tx-diff/k store "tx-nope"
+                    :on-diff (lambda (results)
+                               (declare (ignore results))
+                               (setf diff-result :diff))
+                    :on-not-found (lambda ()
+                                    (setf diff-result :not-found)))
+         (expect diff-result :to-be :not-found))
+       (expect (commit-tx store "tx-nope") :to-be :not-found))
+     :io nil)))
 
 (describe "aitools.store tx commit"
   (it "preserves an explicit directory mode from the tx overlay"
