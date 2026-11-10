@@ -130,7 +130,10 @@ root) is refused rather than written. Calls ON-OK after every step is inside."
       (t
        (flow-continue
          :on-plan
-         (make-write-plan :command
+         (let ((planned-symlinks nil)
+              (planned-store nil))
+           (make-write-plan
+                          :command
                           "archive.extract"
                           :targets
                           (list (make-write-target destination))
@@ -207,14 +210,29 @@ root) is refused rather than written. Calls ON-OK after every step is inside."
                                                      (lambda (step)
                                                        (%extract-step-request step))
                                                      steps))))
-                                              (funcall on-committed
-                                                       requests
-                                                       (list (cons :limit-changes +extract-changes-shown+)
-                                                             (cons :total-changes t))))))
+                                              (progn
+                                                (setf planned-store
+                                                      (aitools.store.application:store-view-store
+                                                     (write-context-view context))
+                                                      planned-symlinks
+                                                      (loop for step in steps
+                                                          when (eq (extract-step-kind step) :symlink)
+                                                            collect (cons (extract-step-path step)
+                                                                          (extract-step-target step))))
+                                                (funcall on-committed
+                                                         requests
+                                                         (list (cons :limit-changes
+                                                                   +extract-changes-shown+)
+                                                             (cons :total-changes t)))))))
                             )))))
        )
                           :record-options
                           options
                           :record-positionals
-                          (constantly (list path))))
+                          (constantly (list path))
+           :precommit-check
+           (lambda ()
+             (when planned-symlinks
+               (aitools.store.application:recheck-archive-symlink-targets
+                planned-store planned-symlinks))))))
 ))))

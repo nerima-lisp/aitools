@@ -37,6 +37,7 @@ on a symlink rather than what it points at (delete, move, link)."
                          expect-count
                          replayable
                          plan
+                         precommit-check
                          record-options
                          record-positionals))
      (:copier nil) (:predicate nil))
@@ -55,6 +56,8 @@ PLAN: a function of CONTEXT that receives :ON-COMMITTED and :ON-REJECTED.
   ON-COMMITTED receives change requests and optional extra output fields.
   ON-REJECTED receives a code, message, and optional candidates,
   diagnostics, conflicts, and repairs.
+PRECOMMIT-CHECK: an optional function called under the workspace lock after
+  planning and before write preparation.
 RECORD-OPTIONS / RECORD-POSITIONALS: the option plist (or a function of the
   resolved target paths returning it) and a function of those paths
   returning the positionals, from which the journal/tx argv is built
@@ -67,6 +70,7 @@ RECORD-OPTIONS / RECORD-POSITIONALS: the option plist (or a function of the
   (expect-count nil :read-only t)
   (replayable nil :read-only t)
   (plan nil :type function :read-only t)
+  (precommit-check nil :type (or null function) :read-only t)
   (record-options '() :read-only t)
   (record-positionals (constantly '()) :type function :read-only t))
 

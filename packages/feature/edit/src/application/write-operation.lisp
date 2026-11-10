@@ -170,7 +170,8 @@
                                                  argv
                                                  path)))))))
                :lock-timeout-ms lock-timeout-ms
-               :dry-run dry-run)
+               :dry-run dry-run
+               :precommit-check (write-plan-precommit-check write-plan))
              (:on-committed (op-id results)
                (if dry-run
                    (finish results :dry-run t)

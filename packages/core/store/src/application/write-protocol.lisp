@@ -61,7 +61,7 @@
 (aitools.kernel.domain:define-flow
     (commit-changes/k store argv validate
                       &key (lock-timeout-ms +default-lock-timeout-ms+)
-                        dry-run undoes on-committed on-rejected on-busy)
+                        dry-run undoes precommit-check on-committed on-rejected on-busy)
   "The write protocol for one write command.
 
 For a normal write, VALIDATE is called as (VALIDATE COMMIT REJECT) after the
@@ -106,7 +106,8 @@ as given."
                                (list :rejected code message)))
                            (aitools.kernel.domain:flow-call
                                (%plan-and-commit/k store argv requests
-                                                   :undoes undoes)
+                                                   :undoes undoes
+                                                   :precommit-check precommit-check)
                              (:on-committed (op-id results)
                                (list :committed op-id results))
                              (:on-rejected (code message)
