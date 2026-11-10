@@ -95,4 +95,3 @@
           (expect (boundary-verdict host root ".git/config") :to-be :git-directory)
           (expect (boundary-verdict host root "../../worktrees/wt/index.lock")
                   :to-be :outside-root)))))
-
