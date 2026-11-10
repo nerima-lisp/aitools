@@ -165,6 +165,14 @@ the lexical target, and the real target (NIL when unresolvable)."
       ((null real)
        (aitools.kernel.domain:flow-continue
         :on-outside :unresolvable lexical nil))
+      ((and real-root
+            (some (lambda (candidate)
+                    (null (resolve-real-path
+                           host (git-repository-git-dir candidate))))
+                  repositories)
+            (path-inside-p real-root real))
+       (aitools.kernel.domain:flow-continue
+        :on-outside :git-directory lexical real))
       (t
        (let ((verdict (write-target-verdict
                        :root (workspace-root-path root)
