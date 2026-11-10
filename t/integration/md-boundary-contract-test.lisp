@@ -46,16 +46,16 @@
       (expect legacy-port-files :to-equal nil)))
   (it "registers every capability required by application flows"
     (let* ((required-keys (%md-required-boundary-keys))
-           (expected-keys '(:md-workspace-host :md-text-source :md-open-store
+           (expected-keys '(:md-workspace-host :md-text-context :md-open-store
                             :md-read-stdin-octets :md-parse-markdown :md-splice-section))
            (workspace-host
              (aitools.workspace.infrastructure:make-host-workspace-boundaries))
-           (text-source (aitools.text.infrastructure:make-host-text-source))
+           (text-context (aitools.text.infrastructure:make-host-text-source))
            (open-store (function aitools.store.infrastructure:make-posix-store))
            (boundaries
              (aitools.md.composition::make-md-dependencies
               :workspace-host workspace-host
-              :text-source text-source
+              :text-source text-context
               :open-store open-store)))
       (expect required-keys :to-be-truthy)
       (expect (every (lambda (key) (member key required-keys)) expected-keys)
@@ -69,8 +69,8 @@
        :to-be t)
       (expect (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host)
               :to-equal workspace-host)
-      (expect (cl-boundary-kit:boundary-context-require boundaries :md-text-source)
-              :to-equal text-source)
+      (expect (cl-boundary-kit:boundary-context-require boundaries :md-text-context)
+              :to-equal text-context)
       (expect (cl-boundary-kit:boundary-context-require boundaries :md-open-store)
               :to-equal open-store)
       (dolist (key '(:md-read-stdin-octets :md-parse-markdown :md-open-store :md-splice-section))

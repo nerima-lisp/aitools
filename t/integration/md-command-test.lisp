@@ -25,12 +25,12 @@
   (aitools.protocol.application:call-with-command-result/k
    (lambda (&rest continuations)
      (apply flow (append arguments continuations)))))
-(defun %make-md-test-boundaries (&key workspace-host text-source open-store
+(defun %make-md-test-boundaries (&key workspace-host text-context open-store
                                             read-stdin-octets parse-markdown splice-section)
   (let ((boundaries (cl-boundary-kit:make-boundary-context)))
     (dolist (capability
              (list (cons :md-workspace-host workspace-host)
-                   (cons :md-text-source text-source)
+                   (cons :md-text-context text-context)
                    (cons :md-open-store open-store)
                    (cons :md-read-stdin-octets read-stdin-octets)
                    (cons :md-parse-markdown parse-markdown)
@@ -40,34 +40,35 @@
              boundaries (car capability) (cdr capability))))
     boundaries))
 (defun %md-read-boundaries (root &key (outcome :text) parser)
-  (let* ((text (format nil "# One~%body~%## Two~%nested~%"))
+  (let* ((markdown (format nil "# One~%body~%## Two~%nested~%"))
          (bytes (if (eq outcome :binary)
                     (make-array 1 :element-type '(unsigned-byte 8) :initial-element 0)
-                    (sb-ext:string-to-octets text :external-format :utf-8))))
-    (flet ((unused (&rest arguments)
-             (declare (ignore arguments))
-             nil))
-      (%make-md-test-boundaries :workspace-host
+                    (sb-ext:string-to-octets markdown :external-format :utf-8))))
+    (flet ((read-sniffed (path count continue-p &key max-bytes)
+             (declare (ignore path))
+             (case outcome
+               (:missing (values nil nil))
+               (:unreadable (values nil :unreadable))
+               (otherwise
+                (let* ((size (if (eq outcome :too-large)
+                                 (1+ aitools.md.application::+md-max-input-bytes+)
+                                 (length bytes)))
+                       (read-count (if max-bytes (min count (1+ max-bytes)) count))
+                       (prefix (subseq bytes 0 (min read-count (length bytes))))
+                       (continue (funcall continue-p prefix size)))
+                  (cond ((not continue) (values prefix))
+                        ((and max-bytes (> (length bytes) max-bytes))
+                         (values nil :too-large))
+                        (t (values bytes))))))))
+      (%make-md-test-boundaries
+       :workspace-host
        (aitools.workspace.infrastructure:make-host-workspace-boundaries
         :current-directory (lambda () root))
-       :text-source
-       (aitools.text.application:make-text-source
-        :file-size #'unused :read-prefix #'unused :read-octets #'unused
-        :call-with-chunks #'unused
-        :read-sniffed
-        (lambda (path count continue-p &key max-bytes)
-          (declare (ignore path max-bytes))
-          (case outcome
-            (:missing (values nil nil))
-            (:unreadable (values nil :unreadable))
-            (otherwise
-             (let* ((size (if (eq outcome :too-large)
-                              (1+ aitools.md.application::+md-max-input-bytes+)
-                              (length bytes)))
-                    (prefix (subseq bytes 0 (min count (length bytes))))
-                    (continue (funcall continue-p prefix size)))
-               (values (if continue bytes prefix) size))))))
-       :parse-markdown (or parser #'aitools.md.infrastructure:parse-md-source)))))
+       :text-context
+       (cl-boundary-kit:make-boundary-context
+        :text-read-sniffed (function read-sniffed))
+       :parse-markdown
+       (or parser (function aitools.md.infrastructure:parse-md-source))))))
 
 (describe "Markdown commands through the loaded dispatcher"
           (it "lists duplicate headings and reads each selected section completely"
@@ -177,7 +178,7 @@
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
       (let* ((boundaries (%md-read-boundaries root))
-             (source (cl-boundary-kit:boundary-context-require boundaries :md-text-source))
+             (source (cl-boundary-kit:boundary-context-require boundaries :md-text-context))
              (host (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host))
              (parser (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown)))
         (dolist (path (list nil ""))
@@ -185,9 +186,9 @@
                          (%md-flow-result #'aitools.md.application:md-headings/k boundaries path :root root))
                         :code)
                   :to-equal "argument.invalid"))
-        (dolist (incomplete (list (%make-md-test-boundaries :text-source source :parse-markdown parser)
+        (dolist (incomplete (list (%make-md-test-boundaries :text-context source :parse-markdown parser)
                                   (%make-md-test-boundaries :workspace-host host :parse-markdown parser)
-                                  (%make-md-test-boundaries :workspace-host host :text-source source)))
+                                  (%make-md-test-boundaries :workspace-host host :text-context source)))
           (expect (getf (aitools.protocol.application:command-result-fields
                          (%md-flow-result #'aitools.md.application:md-headings/k incomplete "guide.md" :root root))
                         :code)

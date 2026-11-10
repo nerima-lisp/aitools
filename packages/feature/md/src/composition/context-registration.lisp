@@ -4,7 +4,7 @@
   (let ((boundaries (cl-boundary-kit:make-boundary-context)))
     (dolist (capability
              (list (cons :md-workspace-host workspace-host)
-                   (cons :md-text-source text-source)
+                   (cons :md-text-context text-source)
                    (cons :md-open-store open-store)
                    (cons :md-read-stdin-octets
                          (function aitools.md.infrastructure:read-stdin-octets))

@@ -25,7 +25,7 @@
 (aitools.kernel.domain:define-flow (%md-read-document/k boundaries path root command &key on-document on-error)
                                    (declare (type function on-document on-error))
                                    (let ((host (cl-boundary-kit:boundary-context-require boundaries :md-workspace-host))
-                                         (source (cl-boundary-kit:boundary-context-require boundaries :md-text-source))
+                                         (text-context (cl-boundary-kit:boundary-context-require boundaries :md-text-context))
                                          (parser (cl-boundary-kit:boundary-context-require boundaries :md-parse-markdown)))
                                      (cond
                                        ((or (not (stringp path)) (zerop (length path)))
@@ -35,7 +35,7 @@
                                                                              :repairs
                                                                              (%md-schema-repair command
                                                                                                 "Pass a Markdown file path.")))
-                                       ((or (null host) (null source) (null parser))
+                                       ((or (null host) (null text-context) (null parser))
                                         (aitools.kernel.domain:flow-continue :on-error
                                                                              "internal.unexpected"
                                                                              "the md context is missing a required capability"
@@ -78,7 +78,7 @@
                                                                                                            path))
                                                                                                          (outcome nil))
                                                                                                      (aitools.text.application:call-with-text-file/k
-                                                                                                      source
+                                                                                                      text-context
                                                                                                       absolute
                                                                                                       :max-bytes
                                                                                                       +md-max-input-bytes+

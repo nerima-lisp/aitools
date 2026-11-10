@@ -11,7 +11,7 @@
   (let ((replacement-octets (sb-ext:string-to-octets replacement :external-format :utf-8)))
     (%make-md-test-boundaries :workspace-host
                                           (aitools.workspace.infrastructure:make-host-workspace-boundaries)
-                                          :text-source
+                                          :text-context
                                           (aitools.text.infrastructure:make-host-text-source)
                                           :open-store
                                           #'aitools.store.infrastructure:make-posix-store
@@ -30,12 +30,12 @@
   (aitools.protocol.application:call-with-command-result/k
    (lambda (&rest continuations)
      (apply flow (append arguments continuations)))))
-(defun %make-md-test-boundaries (&key workspace-host text-source open-store
+(defun %make-md-test-boundaries (&key workspace-host text-context open-store
                                             read-stdin-octets parse-markdown splice-section)
   (let ((boundaries (cl-boundary-kit:make-boundary-context)))
     (dolist (capability
              (list (cons :md-workspace-host workspace-host)
-                   (cons :md-text-source text-source)
+                   (cons :md-text-context text-context)
                    (cons :md-open-store open-store)
                    (cons :md-read-stdin-octets read-stdin-octets)
                    (cons :md-parse-markdown parse-markdown)
