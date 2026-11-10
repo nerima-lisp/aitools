@@ -127,7 +127,7 @@
           (expect (multiple-value-list (wait-for-child pid)) :to-equal '(:exited 0)))
         (expect (mapcar #'tx-op-record-tx-op (tx-status-ops (status-of store tx)))
                 :to-equal '(1 2 3 4 5 6 7 8 9 10))
-        (expect (length (tx-view-text store tx "log.txt")) :to-be 10))) :fake-monotonic-clock t)))
+        (expect (length (tx-view-text store tx "log.txt")) :to-be 10))))))
 
 (defun replay-chmod (record view commit reject)
   "Re-run a recorded (\"chmod\" path mode) op against VIEW."

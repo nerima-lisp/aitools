@@ -137,5 +137,5 @@
                  nil operation nil nil)
         (funcall (cl-boundary-kit:boundary-context-require wrapped :random-hex) 4))
       (expect (cl-boundary-kit:recording-sleeper-calls sleeper)
-              :to-equal (list 0.01d0))
+              :to-equal '((:operation :sleep :arguments (0.01d0) :result 0.01d0)))
       (expect (aitools/cli::%trace-session-records session) :to-be nil))))
