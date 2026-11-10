@@ -196,7 +196,7 @@
          :on-plan
          (%format-plan
           format command path (function identity) options
-          :serializer (and ports (edit-ports-serialize-document ports))
+          :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
           :indent-function
           (when (string= format "json")
             (cond

@@ -18,7 +18,7 @@
                         (lambda (document)
                           (json-add document tokens value :array-mode :replace))
                         options
-                        :serializer (and ports (edit-ports-serialize-document ports))
+                        :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
                         :repair-pointer tokens
                         :record-options saved-options
                         :record-positionals
@@ -89,7 +89,7 @@
               (%format-plan format command (first positionals)
                             (lambda (document) (json-remove document tokens))
                             options
-                            :serializer (and ports (edit-ports-serialize-document ports))
+                            :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
                             :repair-pointer tokens
                             :record-positionals
                             (lambda (paths)
@@ -127,7 +127,7 @@
            (%format-plan format command (first positionals)
                          (funcall transform-for patch)
                          options
-                         :serializer (and ports (edit-ports-serialize-document ports))
+                         :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
                          :record-options (inline-stdin-options options text)
                          :record-positionals (lambda (paths) (list (first paths)))
                          :inputs (list text))))))))

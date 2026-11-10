@@ -17,7 +17,7 @@
                      &key
                      on-committed
                      on-rejected)
-  (let* ((host (edit-ports-workspace-host ports))
+  (let* ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
          (targets (write-plan-targets write-plan))
          (command (write-plan-command write-plan))
          (failure-code nil)
@@ -30,7 +30,7 @@
                    view
                    (aitools.store.application:disk-view
                     (if (eq entry-area :temporary)
-                        (funcall (edit-ports-open-store ports) temporary-root)
+                        (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store) temporary-root)
                         workspace-store)))))
       (aitools.kernel.domain:flow-call
         (%resolve-targets host workspace-root targets temporary-root)

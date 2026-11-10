@@ -28,7 +28,11 @@
              :on-reject "argument.invalid"
              (format nil "~A cannot be replayed" name))
             (funcall preparer
-                     (and serializer (make-edit-ports :serialize-document serializer))
+                     (and serializer (cl-boundary-kit:boundary-context-with
+ (cl-boundary-kit:boundary-context-with
+  (cl-boundary-kit:make-boundary-context)
+  :edit-read-stdin-octets nil)
+ :edit-serialize-document serializer))
                      nil positionals options
                      :on-plan
                      (lambda (plan)

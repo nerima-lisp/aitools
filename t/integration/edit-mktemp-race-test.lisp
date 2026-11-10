@@ -1,22 +1,36 @@
 (in-package #:aitools.edit.test)
+(describe "aitools mktemp area boundary"
+  (it "accepts an in-workspace temporary area outside protected metadata"
+    (call-with-edit-workspace
+     (lambda ()
+       (let ((temporary-root (disk "safe-area/tmp")))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.store.domain:tmp-directory)
+               (lambda (state-directory)
+                 (declare (ignore state-directory))
+                 temporary-root)))
+           (multiple-value-bind (kind fields) (run "mktemp" '())
+             (expect kind :to-be :ok)
+             (let ((path (field fields "path")))
+               (expect (search temporary-root path) :to-equal 0)
+               (expect (probe-file path) :to-be-truthy)))))))))
 (defun call-with-mktemp-boundaries (overrides function)
   (let* ((ports *ports*)
          (*ports*
-           (aitools.edit.application:make-edit-ports
-            :workspace-host (aitools.edit.application::edit-ports-workspace-host ports)
-            :open-store
+           (make-edit-test-boundaries :edit-workspace-host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host)
+            :edit-open-store
             (lambda (root)
               (aitools.store.application:make-store
                (apply (function cl-boundary-kit:boundary-context-with)
                       (aitools.store.infrastructure:make-posix-store-io :root root)
                       overrides)
                root *home* :temporary (%temporary-area-p root)))
-            :text-source (aitools.edit.application::edit-ports-text-source ports)
-            :read-stdin-octets
-            (aitools.edit.application::edit-ports-read-stdin-octets ports)
-            :unix-now (aitools.edit.application::edit-ports-unix-now ports)
-            :serialize-document
-            (aitools.edit.application::edit-ports-serialize-document ports))))
+            :edit-text-source (cl-boundary-kit:boundary-context-require ports :edit-text-source)
+            :edit-read-stdin-octets
+            (cl-boundary-kit:boundary-context-require ports :edit-read-stdin-octets)
+            :edit-unix-now (cl-boundary-kit:boundary-context-require ports :edit-unix-now)
+            :edit-serialize-document
+            (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))))
     (funcall function)))
 
 (describe "aitools mktemp against a racing mktemp area"

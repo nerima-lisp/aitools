@@ -173,7 +173,7 @@ tool creates would be a privilege-escalation surface)."
 
 (define-write-command "touch"
                       (ports env positionals options &key on-plan on-error)
-                      (let* ((now (funcall (edit-ports-unix-now ports)))
+                      (let* ((now (funcall (cl-boundary-kit:boundary-context-require ports :edit-unix-now)))
                              (mtime
                               (if (getf options :mtime)
                                   (parse-mtime (getf options :mtime))

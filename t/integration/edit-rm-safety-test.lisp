@@ -17,10 +17,10 @@
              (read-count 0)
              (read-limit nil)
              (*ports*
-               (make-edit-ports
-                :workspace-host
+               (make-edit-test-boundaries
+                :edit-workspace-host
                 (aitools.workspace.infrastructure:make-host-workspace-boundaries)
-                :open-store
+                :edit-open-store
                 (lambda (root)
                   (let* ((io (aitools.store.infrastructure:make-posix-store-io :root root))
                          (read-file (cl-boundary-kit:boundary-context-require io :read-file))
@@ -36,11 +36,11 @@
                                   (funcall read-file path :max-bytes max-bytes))))))
                     (aitools.store.application:make-store
                      test-io root *home* :temporary (%temporary-area-p root))))
-                :text-source
-                (aitools.edit.application::edit-ports-text-source *ports*)
-                :read-stdin-octets
-                (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
-                :unix-now (function aitools.edit.infrastructure:unix-now))))
+                :edit-text-source
+                (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                :edit-read-stdin-octets
+                (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
         (with-error (code message)
             (run "rm" (list "small.bin") :max-bytes "2")
           (expect code :to-equal "refusal.too-large")
@@ -59,14 +59,14 @@
             (lambda () (disk "fixture-home"))))
         (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries :home-directory
                       (symbol-function 'aitools.workspace.infrastructure::%home-directory)))
-               (*ports* (make-edit-ports
-                         :workspace-host host
-                         :open-store (function open-store)
-                         :text-source
-                         (aitools.edit.application::edit-ports-text-source *ports*)
-                         :read-stdin-octets
-                         (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
-                         :unix-now (function aitools.edit.infrastructure:unix-now)))
+               (*ports* (make-edit-test-boundaries
+                         :edit-workspace-host host
+                         :edit-open-store (function open-store)
+                         :edit-text-source
+                         (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                         :edit-read-stdin-octets
+                         (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                         :edit-unix-now (function aitools.edit.infrastructure:unix-now)))
                (before (snapshot)))
           (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
           (with-error (code)
@@ -105,14 +105,14 @@
                 :working-directory
                 (cl-boundary-kit:boundary-context-require base-host :working-directory)))
              (*ports*
-               (make-edit-ports
-                :workspace-host host
-                :open-store (function open-store)
-                :text-source
-                (aitools.edit.application::edit-ports-text-source *ports*)
-                :read-stdin-octets
-                (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
-                :unix-now (function aitools.edit.infrastructure:unix-now))))
+               (make-edit-test-boundaries
+                :edit-workspace-host host
+                :edit-open-store (function open-store)
+                :edit-text-source
+                (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                :edit-read-stdin-octets
+                (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
         (with-error (code message)
             (run "rm" (list "tree") :recursive t :expect-count "5")
           (expect swapped :to-be-truthy)

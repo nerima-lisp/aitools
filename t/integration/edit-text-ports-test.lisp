@@ -62,24 +62,43 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
     (call-with-edit-workspace (lambda () (sb-posix:mkdir (disk "dir") #o755)
       (call-with-standard-input-from (disk "dir") (lambda () (expect (read-stdin-outcome 10) :to-equal '(:failure t)))))))
 
-  (it "builds ports over the production adapters without doing I/O"
-    (let ((ports (aitools.edit.infrastructure:make-production-edit-ports :workspace-host :host :open-store #'identity
-                                                                         :text-source :source :ignored t)))
-      (expect (aitools.edit.application::edit-ports-read-stdin-octets ports)
-              :to-be #'aitools.edit.infrastructure:read-stdin-octets)
-      (expect (aitools.edit.application::edit-ports-unix-now ports) :to-be #'aitools.edit.infrastructure:unix-now)
-      (expect (aitools.edit.application::edit-ports-workspace-host ports) :to-be :host)
-      (expect (aitools.edit.application::edit-ports-text-source ports) :to-be :source))
+  (it "composition registers every edit boundary capability"
+  (let* ((host :host)
+         (store (function identity))
+         (source :source)
+         (boundaries
+           (aitools.edit.composition::make-edit-dependencies
+            :workspace-host host :open-store store :text-source source :ignored t)))
+    (expect (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
+            :to-be host)
+    (expect (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
+            :to-be store)
+    (expect (cl-boundary-kit:boundary-context-require boundaries :edit-text-source)
+            :to-be source)
+    (dolist (key (list :edit-read-stdin-octets :edit-unix-now :edit-serialize-document))
+      (expect (functionp (cl-boundary-kit:boundary-context-require boundaries key))
+              :to-be t))
     (let ((now (aitools.edit.infrastructure:unix-now)))
-      (expect (<= 0 (- (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)) now) 1)
-              :to-be t)))
+      (expect (<= 0 (- (aitools.kernel.domain:universal-time-to-unix-seconds
+                        (get-universal-time))
+                       now)
+                 1)
+              :to-be t))))
 
-  (it "builds write-only ports with no stdin, text source or clock"
-    (let ((ports (aitools.edit.application:make-write-edit-ports :workspace-host :host :open-store #'identity)))
-      (expect (list (aitools.edit.application::edit-ports-read-stdin-octets ports)
-                    (aitools.edit.application::edit-ports-text-source ports)
-                    (aitools.edit.application::edit-ports-unix-now ports))
-              :to-equal '(nil nil nil)))))
+  (it "a write-only context requires only workspace and store capabilities"
+  (let ((boundaries
+          (make-edit-test-boundaries
+           :edit-workspace-host :host
+           :edit-open-store (function identity))))
+    (expect (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
+            :to-be :host)
+    (expect (functionp (cl-boundary-kit:boundary-context-require
+                        boundaries :edit-open-store))
+            :to-be t)
+    (dolist (key (list :edit-text-source :edit-read-stdin-octets :edit-unix-now
+                       :edit-serialize-document))
+      (expect (cl-boundary-kit:boundary-context-present-p boundaries key)
+              :to-be nil)))))
 
 (defun call-with-fault-at-lock (function thunk)
   "Call THUNK with FUNCTION run once when a write takes the workspace lock

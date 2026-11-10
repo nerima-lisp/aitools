@@ -23,7 +23,7 @@ the user typed after the program name (for repair commands; defaults to the
 recorded argv). A --dry-run writes nothing, so it needs no --expect-count:
 it reports the count it selected as `expect_count` instead."
  (let* ((command (write-plan-command write-plan))
-        (host (edit-ports-workspace-host ports))
+        (host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
         (first-target (first (write-plan-targets write-plan)))
         (display-path (and first-target (write-target-path first-target)))
         (argv

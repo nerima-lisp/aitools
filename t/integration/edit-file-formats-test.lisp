@@ -205,7 +205,7 @@
   (it "records archive positionals through the direct write pipeline"
     (call-with-edit-workspace (lambda () (put "src/a.txt" (format nil "alpha~%"))
       (let ((result nil)
-            (host (aitools.edit.application::edit-ports-workspace-host *ports*)))
+            (host (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)))
         (aitools.workspace.application:call-with-resolved-root/k
          host
          :root *root*

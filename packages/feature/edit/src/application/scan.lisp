@@ -17,7 +17,7 @@
         (aitools.workspace.application:user-path-absolute host path))
       :current-time
       (lambda ()
-        (funcall (edit-ports-unix-now (command-env-ports env))))
+        (funcall (cl-boundary-kit:boundary-context-require (command-env-boundaries env) :edit-unix-now)))
       :language-predicate
       #'aitools.text.domain:language-path-predicate
       :language-names
@@ -51,7 +51,7 @@ when the tx does not exist (the write itself then reports it)."
   (aitools.kernel.domain:flow-call
    (aitools.store.application:call-with-tx-view/k
     (funcall
-     (edit-ports-open-store (command-env-ports env))
+     (cl-boundary-kit:boundary-context-require (command-env-boundaries env) :edit-open-store)
      (aitools.workspace.application:workspace-root-real
       (command-env-root env)))
     tx)

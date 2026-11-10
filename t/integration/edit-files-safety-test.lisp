@@ -61,18 +61,18 @@
 (defun call-with-store-boundaries (overrides function)
   "Call FUNCTION with *PORTS* opening stores whose boundary context is the production one with OVERRIDES in place."
   (let ((*ports*
-          (make-edit-ports
-           :workspace-host (aitools.edit.application::edit-ports-workspace-host *ports*)
-           :open-store
+          (make-edit-test-boundaries
+           :edit-workspace-host (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)
+           :edit-open-store
            (lambda (root)
              (aitools.store.application:make-store
               (apply (function cl-boundary-kit:boundary-context-with)
                      (aitools.store.infrastructure:make-posix-store-io :root *root*)
                      overrides)
               root *home* :temporary (%temporary-area-p root)))
-           :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-           :read-stdin-octets (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
-           :unix-now (function aitools.edit.infrastructure:unix-now))))
+           :edit-text-source (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+           :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+           :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
     (funcall function)))
 
 (describe "aitools mktemp against a racing mktemp area"
@@ -142,12 +142,12 @@
       (put "ordinary/keep" "ordinary")
       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries
                     :home-directory (lambda () (disk "fixture-home"))))
-             (*ports* (make-edit-ports
-                       :workspace-host host
-                       :open-store #'open-store
-                       :text-source (aitools.edit.application::edit-ports-text-source *ports*)
-                       :read-stdin-octets (aitools.edit.application::edit-ports-read-stdin-octets *ports*)
-                       :unix-now #'aitools.edit.infrastructure:unix-now))
+             (*ports* (make-edit-test-boundaries
+                       :edit-workspace-host host
+                       :edit-open-store #'open-store
+                       :edit-text-source (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                       :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                       :edit-unix-now #'aitools.edit.infrastructure:unix-now))
              (before (snapshot)))
         (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
         (with-error (code) (run "rm" '("fixture-home") :recursive t :expect-count "2")

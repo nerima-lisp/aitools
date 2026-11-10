@@ -5,19 +5,19 @@
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "keep~%"))
       (let ((before (snapshot)))
         (let ((*ports*
-                (make-edit-ports
-                 :workspace-host
-                 (aitools.edit.application::edit-ports-workspace-host *ports*)
-                 :open-store
-                 (aitools.edit.application::edit-ports-open-store *ports*)
-                 :text-source
-                 (aitools.edit.application::edit-ports-text-source *ports*)
-                 :read-stdin-octets
+                (make-edit-test-boundaries
+                 :edit-workspace-host
+                 (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)
+                 :edit-open-store
+                 (cl-boundary-kit:boundary-context-require *ports* :edit-open-store)
+                 :edit-text-source
+                 (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                 :edit-read-stdin-octets
                  (lambda (limit)
                    (declare (ignore limit))
                    (values :unknown nil))
-                 :unix-now
-                 (aitools.edit.application::edit-ports-unix-now *ports*))))
+                 :edit-unix-now
+                 (cl-boundary-kit:boundary-context-require *ports* :edit-unix-now))))
           (let ((failure
                   (handler-case
                       (progn (run "edit" (list "a.txt") :stdin t) nil)

@@ -19,9 +19,9 @@
         (aitools.kernel.domain:flow-continue :on-invalid value))))
 
 (aitools.kernel.domain:define-flow
-  (read-stdin/k ports options &key on-octets on-error)
+  (read-stdin/k boundaries options &key on-octets on-error)
   "The --stdin input: --stdin-data when present (a recorded or inline
-input), else standard input read through the port. Calls ON-OCTETS
+ input), else standard input read through its boundary capability. Calls ON-OCTETS
 (octets) or ON-ERROR (code message)."
   (let ((inline (getf options :stdin-data)))
     (cond
@@ -29,14 +29,14 @@ input), else standard input read through the port. Calls ON-OCTETS
        (aitools.kernel.domain:flow-continue
          :on-octets
          (aitools.text.domain:encode-utf8 inline)))
-      ((null (and ports (edit-ports-read-stdin-octets ports)))
+      ((null (and boundaries (cl-boundary-kit:boundary-context-require boundaries :edit-read-stdin-octets)))
        (aitools.kernel.domain:flow-continue
          :on-error
          "environment.unavailable"
          "standard input cannot be read here"))
       (t
        (multiple-value-bind (status payload)
-           (funcall (edit-ports-read-stdin-octets ports) +max-input-bytes+)
+           (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-read-stdin-octets) +max-input-bytes+)
          (case status
            (:octets
             (aitools.kernel.domain:flow-continue :on-octets payload))
@@ -51,10 +51,10 @@ input), else standard input read through the port. Calls ON-OCTETS
             (error "Unknown standard-input result ~S." status))))))))
 
 (aitools.kernel.domain:define-flow
-  (read-stdin-text/k ports options &key on-text on-error)
+  (read-stdin-text/k boundaries options &key on-text on-error)
   "The --stdin input as UTF-8 text; ON-TEXT (text)."
   (aitools.kernel.domain:flow-call
-    (read-stdin/k ports options)
+    (read-stdin/k boundaries options)
     (:on-octets (octets)
       (aitools.kernel.domain:flow-call
         (%utf8-text/k octets)
@@ -77,11 +77,11 @@ input), else standard input read through the port. Calls ON-OCTETS
         message))))
 
 (aitools.kernel.domain:define-flow
-  (read-stdin-json/k ports options &key on-json on-error)
+  (read-stdin-json/k boundaries options &key on-json on-error)
   "The --stdin input parsed as JSON (the edit value model); ON-JSON (value
 text) with TEXT the raw input, recorded as --stdin-data."
   (aitools.kernel.domain:flow-call
-    (read-stdin-text/k ports options)
+    (read-stdin-text/k boundaries options)
     (:on-text (text)
       (aitools.kernel.domain:flow-call
         (parse-json-text/k text)
@@ -104,8 +104,8 @@ text) with TEXT the raw input, recorded as --stdin-data."
         code
         message))))
 
-(defun %absolute-input-path (ports path)
-  (aitools.workspace.application:user-path-absolute (edit-ports-workspace-host ports) path))
+(defun %absolute-input-path (boundaries path)
+  (aitools.workspace.application:user-path-absolute (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host) path))
 
 (defun inline-stdin-options (options text)
   (let ((copy (copy-list options)))
@@ -113,13 +113,13 @@ text) with TEXT the raw input, recorded as --stdin-data."
     (setf (getf copy :stdin-data) text)
     copy))
 
-(defstruct (command-env (:constructor make-command-env (host root ports)) (:copier nil) (:predicate nil))
+(defstruct (command-env (:constructor make-command-env (host root boundaries)) (:copier nil) (:predicate nil))
   "The live invocation's workspace host and resolved WORKSPACE-ROOT, for the
 few preparations that look at the workspace before the write (scans). A
 `tx rebase` replay has no env: its recorded paths are already resolved."
   (host nil :read-only t)
   (root nil :read-only t)
-  (ports nil :read-only t))
+  (boundaries nil :read-only t))
 
 (defvar *preparers*
   (make-hash-table :test 'equal)
@@ -127,7 +127,7 @@ few preparations that look at the workspace before the write (scans). A
 
 (defmacro define-write-command (name lambda-list &body body)
   "Declare a write command as a CPS flow and register its dispatch name."
-  (destructuring-bind (ports env positionals options marker on-plan on-error) lambda-list
+  (destructuring-bind (boundaries env positionals options marker on-plan on-error) lambda-list
     (unless
         (and (stringp name)
              (plusp (length name))
@@ -147,7 +147,7 @@ few preparations that look at the workspace before the write (scans). A
             *package*)))
       `(progn
          (aitools.kernel.domain:define-flow
-           (,flow-name ,ports ,env ,positionals ,options ,marker ,on-plan ,on-error)
+           (,flow-name ,boundaries ,env ,positionals ,options ,marker ,on-plan ,on-error)
            ,@body)
          (setf (gethash ,name *preparers*) (symbol-function (quote ,flow-name)))))))
 

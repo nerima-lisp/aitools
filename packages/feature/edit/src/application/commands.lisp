@@ -48,7 +48,7 @@ commands."
                             conflicts
                             :repairs
                             repairs)))
-         (let ((host (edit-ports-workspace-host ports)))
+         (let ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host)))
            (aitools.workspace.application:call-with-resolved-root/k
              host
              :root

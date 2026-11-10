@@ -4,7 +4,7 @@
   (read-input-file/k ports path &key on-octets on-error)
   "--content-file PATH (relative to the working directory, outside the
 workspace allowed: reads are not bounded by the workspace boundary) as bytes."
-  (let ((source (edit-ports-text-source ports))
+  (let ((source (cl-boundary-kit:boundary-context-require ports :edit-text-source))
         (absolute (%absolute-input-path ports path)))
     (multiple-value-bind (size problem) (funcall (cl-boundary-kit:boundary-context-require source :text-file-size) absolute)
       (cond

@@ -13,9 +13,9 @@
                 &key
                 on-ok
                 on-error)
- (let* ((host (edit-ports-workspace-host ports))
+ (let* ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
         (workspace-store
-         (funcall (edit-ports-open-store ports)
+         (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store)
                   (aitools.workspace.application:workspace-root-real workspace-root)))
         (temporary-root
          (let ((tmp
@@ -36,7 +36,7 @@
         (t
          (let* ((store
                  (if (eq area :temporary)
-                     (funcall (edit-ports-open-store ports) temporary-root)
+                     (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store) temporary-root)
                      workspace-store))
                 (paths
                  (if (eq area :temporary)
