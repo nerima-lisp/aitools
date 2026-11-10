@@ -226,3 +226,19 @@ boundary contexts writing snapshots there; remove both after."
                   (expect (error-code fields) :to-equal "input.not-found")
                   (expect (json-object-get (first (getf fields :candidates)) "path") :to-equal "notes.txt")))
            (sb-posix:chmod locked #o755)))))))
+(describe "snapshot diff default limit"
+  (it "returns at most 100 added paths when --limit is omitted"
+    (%call-with-snapshot-workspace
+     (lambda (root state boundaries)
+       (declare (ignore state))
+       (let ((id (%create-snapshot-id boundaries root)))
+         (dotimes (index 101)
+           (%write-text (format nil "~A/~3,'0D.txt" root index) "x"))
+         (multiple-value-bind (kind fields)
+             (run-flow #'snapshot-diff-flow boundaries id :root root)
+           (expect kind :to-be :partial)
+           (let ((added (field fields "added")))
+             (expect (length added) :to-be 100)
+             (expect (first added) :to-equal "000.txt")
+             (expect (car (last added)) :to-equal "099.txt"))
+           (expect (field fields "truncated") :to-be t)))))))

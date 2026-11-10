@@ -106,3 +106,17 @@
         "rejects the malformed id ~A"
         (id)
       (expect (valid-snapshot-id-p id) :to-be nil))))
+(describe "snapshot flow path edges"
+  (it "creates a one-component directory without trying to recurse to a parent"
+    (let ((created nil))
+      (let* ((io (cl-boundary-kit:make-boundary-context
+                  :lstat (lambda (path) (declare (ignore path)) nil)
+                  :mkdir (lambda (path &key mode)
+                           (declare (ignore mode))
+                           (push path created))))
+             (store (aitools.store.application:make-store
+                     io "/work" "/tmp"
+                     :clock (cl-boundary-kit:make-clock)
+                     :sleeper (cl-boundary-kit:make-sleeper))))
+        (aitools.inspect.application::%ensure-directory store "snapshots")
+        (expect created :to-equal '("snapshots"))))))

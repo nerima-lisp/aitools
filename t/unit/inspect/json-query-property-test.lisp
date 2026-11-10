@@ -25,11 +25,18 @@
            (fields (nth-value 1 (run-flow #'json-select-flow (make-test-boundaries :files `(("/work/m.json" . ,doc)))
                                           "m.json" "" :sort-by "/v"))))
       (expect (mapcar (lambda (item) (json-object-get item "pointer")) (field fields "items"))
-              :to-equal '("/3" "/7" "/5" "/4" "/8" "/1" "/6" "/0" "/2"))))
+              :to-equal '("/3" "/7" "/5" "/4" "/8" "/1" "/6" "/0" "/2"))
+      (expect (json-value-less-p (json-false) t) :to-be t)
+      (expect (json-value-less-p t (json-false)) :to-be nil)
+      (expect (json-value-less-p (json-false) (json-false)) :to-be nil)
+      (expect (json-value-less-p t t) :to-be nil)))
 
   (it "compares strings by order and never matches across types"
     (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name<\"b\"")))) :to-equal '(1))
-    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>1")))) :to-be nil))
+    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>1")))) :to-be nil)
+    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name<=\"alpha\"")))) :to-equal '(1))
+    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/name>=\"alpha\"")))) :to-equal '(1 2 3))
+    (expect (selected-ids (nth-value 1 (json-select "/items" :where '("/score~1")))) :to-be nil))
 
   (it-each (("without filters" nil 3 "aitools doc select d.json /items --output count")
             ("with one filter" ("/score>=20") 2 "aitools doc select d.json /items --where '/score>=20' --output count")

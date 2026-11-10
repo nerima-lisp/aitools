@@ -223,4 +223,28 @@ B
       (expect kind :to-be :error)
       (expect (getf fields :message) :to-equal "d is a directory, not a file")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools find --depth 1 d"))))
+(describe "read text from tx views"
+  (it "routes staged text, binary, and absent bytes"
+    (flet ((from-view (octets)
+             (let* ((boundaries (make-test-boundaries))
+                    (context (aitools.inspect.application::%make-inspect-context
+                              :boundaries boundaries :view t))
+                    (target (aitools.inspect.application::%make-file-target
+                             :argument "f.txt" :absolute "/work/f.txt" :real "/work/f.txt"
+                             :relative "f.txt" :kind :file))
+                    (outcome nil))
+               (cl-weave:with-mocked-functions
+                   (((symbol-function 'aitools.store.application:view-read-file)
+                     (lambda (view path) (declare (ignore view path)) octets)))
+                 (aitools.inspect.application::call-with-target-text/k
+                  context target
+                  :on-text (lambda (bytes) (setf outcome (list :text bytes)))
+                  :on-binary (lambda (prefix size) (setf outcome (list :binary prefix size)))
+                  :on-missing (lambda () (setf outcome :missing))
+                  :on-unreadable (lambda () (setf outcome :unreadable))))
+               outcome)))
+      (expect (from-view (string-bytes "text")) :to-equalp (list :text (string-bytes "text")))
+      (expect (from-view (coerce #(0 1) '(vector (unsigned-byte 8))))
+              :to-equalp (list :binary (coerce #(0 1) '(vector (unsigned-byte 8))) 2))
+      (expect (from-view nil) :to-be :missing))))
 

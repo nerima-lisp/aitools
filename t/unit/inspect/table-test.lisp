@@ -195,3 +195,38 @@ oops
         (expect (json-object-get (first (getf fields :diagnostics)) "value") :to-equal "oops")
         (expect (and (find-if (lambda (r) (search "n!=oops" (getf r :command))) (getf fields :repairs)) t)
                 :to-be t)))))
+(describe "table flow forwarding and defaults"
+  (it "defaults a table options record to no filters"
+    (let ((options (aitools.inspect.application::make-table-options)))
+      (expect (aitools.inspect.application::table-options-where options) :to-equal '())))
+  (it "uses the default schema repair for an invalid table option"
+    (aitools.kernel.domain:flow-call
+        (aitools.inspect.application::%table-invalid "bad table option")
+      (:on-error (code message &key repairs)
+        (expect code :to-equal "argument.invalid")
+        (expect message :to-equal "bad table option")
+        (expect (getf (first repairs) :command)
+                :to-equal "aitools schema table read"))))
+  (it "uses default limits for table read and aggregate count"
+    (multiple-value-bind (kind fields)
+        (table-read (list (cons "/work/p.csv" *people-csv*)) "p.csv")
+      (expect kind :to-be :ok)
+      (expect (length (field fields "rows")) :to-be 3))
+    (multiple-value-bind (kind fields)
+        (table-agg (list (cons "/work/s.csv" *sales-csv*)) "s.csv")
+      (expect kind :to-be :ok)
+      (expect (json-object-get (first (field fields "groups")) "count")
+              :to-be 4)))
+  (it "stops checking --where after the first invalid predicate"
+    (multiple-value-bind (kind fields)
+        (table-read (list (cons "/work/p.csv" *people-csv*)) "p.csv"
+                    :where (list "missing=1" "also-missing=1"))
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "argument.invalid")
+      (expect (getf fields :message) :to-contain "no column \"missing\"")))
+  (it "forwards a missing-file error through table read"
+    (multiple-value-bind (kind fields) (table-read nil "missing.csv")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools find missing.csv"))))

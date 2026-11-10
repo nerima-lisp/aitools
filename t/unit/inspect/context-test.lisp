@@ -66,3 +66,39 @@
       (expect (getf fields :candidates) :to-be nil)
       (expect (getf (first (getf fields :repairs)) :command)
               :to-equal "aitools info ."))))
+(describe "inspect context edges"
+  (it "reports when --root exists as a file instead of a directory"
+    (multiple-value-bind (kind fields)
+        (run-flow (function info-flow)
+                  (make-test-boundaries
+                   :files (list (cons "/work/not-a-root.txt" "x")))
+                  "a.txt" :root "/work/not-a-root.txt")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "input.not-found")
+      (expect (getf fields :message)
+              :to-equal "workspace root /work/not-a-root.txt is not a directory")
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools info .")))
+  (it "maps each composition dependency to its context-specific boundary key"
+    (let* ((workspace-host (gensym "HOST"))
+           (text-context (gensym "TEXT"))
+           (open-store (gensym "STORE"))
+           (state-directory-function (gensym "STATE"))
+           (boundaries
+             (aitools.inspect.composition::make-inspect-dependencies
+              :workspace-host workspace-host
+              :text-source text-context
+              :open-store open-store
+              :state-directory-function state-directory-function)))
+      (expect (cl-boundary-kit:boundary-context-require
+               boundaries :inspect-workspace-host)
+              :to-be workspace-host)
+      (expect (cl-boundary-kit:boundary-context-require
+               boundaries :inspect-text-context)
+              :to-be text-context)
+      (expect (cl-boundary-kit:boundary-context-require
+               boundaries :inspect-open-store)
+              :to-be open-store)
+      (expect (cl-boundary-kit:boundary-context-require
+               boundaries :inspect-state-directory)
+              :to-be state-directory-function))))

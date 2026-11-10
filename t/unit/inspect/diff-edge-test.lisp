@@ -60,7 +60,36 @@
       (expect (field fields "added") :to-equal nil)
       (expect (field fields "removed") :to-equal nil)
       (expect (field fields "modified") :to-equal '("keep" "size"))
-      (expect (field fields "identical_count") :to-be 0))))
+      (expect (field fields "identical_count") :to-be 0)))
+  (it "retexts ignored-whitespace hunks for additions, deletions, and context"
+    (let* ((insert (first (compare-lines #() #("new") :ignore-whitespace t)))
+           (delete (first (compare-lines #("old") #() :ignore-whitespace t)))
+           (change (first (compare-lines #("before  here" "old" "after") #("before here" "new" "after") :ignore-whitespace t))))
+      (expect (list (aitools.kernel.domain:diff-hunk-old-count insert)
+                    (aitools.kernel.domain:diff-hunk-new-count insert))
+              :to-equal '(0 1))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-op
+                      (aitools.kernel.domain:diff-hunk-lines insert))
+              :to-equal '(:insert))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-text
+                      (aitools.kernel.domain:diff-hunk-lines insert))
+              :to-equal '("new"))
+      (expect (list (aitools.kernel.domain:diff-hunk-old-count delete)
+                    (aitools.kernel.domain:diff-hunk-new-count delete))
+              :to-equal '(1 0))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-op
+                      (aitools.kernel.domain:diff-hunk-lines delete))
+              :to-equal '(:delete))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-text
+                      (aitools.kernel.domain:diff-hunk-lines delete))
+              :to-equal '("old"))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-op
+                      (aitools.kernel.domain:diff-hunk-lines change))
+              :to-equal '(:context :delete :insert :context))
+      (expect (mapcar #'aitools.kernel.domain:diff-line-text
+                      (aitools.kernel.domain:diff-hunk-lines change))
+              :to-equal '("before  here" "old" "new" "after"))
+      (expect (aitools.inspect.domain:diff-key "" :ignore-eol t) :to-equal ""))))
 
 (describe "diff of the workspace root"
   (it "reports the root directory as ."

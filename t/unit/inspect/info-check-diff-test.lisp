@@ -226,6 +226,12 @@ four
       (expect (error-code fields) :to-equal "argument.invalid")
       (expect (getf fields :message)
               :to-equal "--lock-timeout \"fast\" is not a duration"))))
+(describe "inspect path and continuation edges"
+  (it "reports the root path and a missing check error"
+    (let ((files '(("/work/d/a.txt" . "x") ("/work/f.txt" . "y"))))
+      (expect (field (nth-value 1 (info-of files ".")) "relative") :to-equal ".")
+      (expect (error-code (nth-value 1 (check-of files "missing.json")))
+              :to-equal "input.not-found"))))
 
 ;;; contract-F1: a path that exists but denies its bytes (EACCES) is
 ;;; environment.io, not input.not-found; a genuinely absent path stays

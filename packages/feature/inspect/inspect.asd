@@ -124,6 +124,7 @@
      (:file "unit/inspect/info-check-diff-test")
      (:file "unit/inspect/text-content-counts-test")
      (:file "unit/inspect/diff-edge-test")
+     (:file "unit/inspect/diff-operation-coverage-test")
      (:file "unit/inspect/inspect-file-error-test")
      (:file "unit/inspect/selection-test")
      (:file "unit/inspect/selector-property-test")

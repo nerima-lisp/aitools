@@ -43,3 +43,48 @@
   (it "returns the entire JSON text when it fits within the byte limit"
     (expect (aitools.inspect.application::%utf8-prefix "short" 5)
             :to-equal "short")))
+(describe "JSON flow defaults and pointer validation"
+  (it "uses the default JSON format and byte limit for get"
+    (let ((boundaries (make-test-boundaries
+                       :files '(("/work/doc.json" . "{\"name\": \"Ada\"}")))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'json-get-flow boundaries "doc.json" "/name")
+        (expect kind :to-be :ok)
+        (expect (field fields "value") :to-equal "Ada"))))
+  (it "uses the default select output and limit"
+    (let ((boundaries
+            (make-test-boundaries
+             :files '(("/work/items.json" . "{\"items\":[{\"id\":1}]}")))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'json-select-flow boundaries "items.json" "/items")
+        (expect kind :to-be :ok)
+        (expect (field fields "total") :to-be 1)
+        (expect (json-object-get (first (field fields "items")) "pointer")
+                :to-equal "/items/0")
+        (expect (json-object-get
+                 (json-object-get (first (field fields "items")) "value")
+                 "id")
+                :to-be 1))))
+  (it-each (("pick" :pick ("id"))
+            ("sort-by" :sort-by "id"))
+      "rejects a malformed relative --~A pointer"
+      (label option value)
+    (declare (ignore label))
+    (multiple-value-bind (kind fields)
+        (apply #'run-flow #'json-select-flow (make-test-boundaries)
+               "missing.json" "" (list option value))
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "argument.invalid")
+      (expect (getf fields :message) :to-contain "is not a relative JSON pointer")
+      (expect (getf (first (getf fields :repairs)) :command)
+              :to-equal "aitools schema doc select")))
+  (it "uses the default format and operation limit for diff"
+    (let ((boundaries
+            (make-test-boundaries
+             :files '(("/work/a.json" . "{\"x\":1}")
+                      ("/work/b.json" . "{\"x\":2}")))))
+      (multiple-value-bind (kind fields)
+          (run-flow #'json-diff-flow boundaries "a.json" "b.json")
+        (expect kind :to-be :ok)
+        (expect (field fields "total") :to-be 1)
+        (expect (json-false-value-p (field fields "truncated")) :to-be t)))))

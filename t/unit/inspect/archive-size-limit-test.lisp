@@ -117,4 +117,7 @@
            :on-too-large (lambda (limit)
                            (fail (format nil "empty member was limited at ~D bytes" limit)))
            :on-malformed (lambda (reason)
-                           (fail (format nil "empty member was malformed: ~A" reason)))))))))
+                           (fail (format nil "empty member was malformed: ~A" reason))))))))
+  (it "rejects an archive item with a negative size"
+    (signals type-error
+      (aitools.inspect.domain::make-archive-item "negative.bin" :file (parse-integer "-1") nil 0 nil))))

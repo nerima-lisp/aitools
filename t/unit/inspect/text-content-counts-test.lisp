@@ -24,11 +24,14 @@
 
   (it-each (("a lone continuation byte" ((#x80)) ((13 10) "c"))
             ("a truncated two-byte sequence" ((#xC3)) ((13 10) "c"))
+            ("a two-byte lead followed by ASCII" ((#xC3 #x41)) ((13 10) "c"))
             ("an overlong E0 sequence" ((#xE0 #x80 #x80)) ((13 10) "c"))
             ("a UTF-16 surrogate" ((#xED #xA0 #x80)) ((13 10) "c"))
+            ("a three-byte lead without its first continuation" ((#xE1)) ((13 10) "c"))
             ("a truncated three-byte sequence" ((#xE1 #x80)) ((13 10) "c"))
             ("an overlong F0 sequence" ((#xF0 #x80 #x80 #x80)) ((13 10) "c"))
             ("a code point past U+10FFFF" ((#xF4 #x90 #x80 #x80)) ((13 10) "c"))
+            ("a four-byte lead without its first continuation" ((#xF1)) ((13 10) "c"))
             ("a truncated four-byte sequence" ((#xF1 #x80 #x80)) ((13 10) "c"))
             ("a byte that never starts a sequence" ((#xFF)) ((13 10) "c"))
             ("a plain LF and a trailing CR" ((#xFF)) ((10) "c" (#xFF) (13))))
@@ -42,4 +45,11 @@
   (it-each ((:lf "lf") (:crlf "crlf") (:mixed "mixed") (:none "none"))
       "names line ending ~S ~S"
       (style name)
-    (expect (line-ending-name style) :to-equal name)))
+    (expect (line-ending-name style) :to-equal name))
+  (it "counts empty lines in the decoded fallback"
+    (let ((bytes (octets '(#xFF) '(10 10) "x")))
+      (expect (nth-value 4 (aitools.inspect.domain::%valid-utf8-text-counts bytes 0)) :to-be nil)
+      (expect (multiple-value-list (text-content-counts bytes))
+              :to-equal '(3 2 1 4))
+      (expect (multiple-value-list (text-content-counts bytes))
+              :to-equal (multiple-value-list (aitools.inspect.domain::%decoded-text-counts bytes 0))))))
