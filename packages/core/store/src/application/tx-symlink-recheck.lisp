@@ -81,3 +81,15 @@
                                                               target)
                                                              path)))
       (funcall checker :finish cursor))))
+(defun recheck-archive-symlink-targets (store path-targets)
+  "Recheck (PATH . TARGET) pairs against a fresh disk view."
+  (when path-targets
+    (let ((checker
+            (make-archive-symlink-prefix-checker
+             (disk-view store) "" (mapcar #'car path-targets))))
+      (unwind-protect
+           (dolist (path-target path-targets)
+             (%recheck-tx-symlink-path checker
+                                       (car path-target)
+                                       (cdr path-target)))
+        (funcall checker :finish)))))

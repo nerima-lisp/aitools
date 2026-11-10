@@ -112,4 +112,5 @@
    #:tx-diff/k
    #:tx-commit/k
    #:copy-store-io
-   #:make-archive-symlink-prefix-checker))
+   #:make-archive-symlink-prefix-checker
+   #:recheck-archive-symlink-targets))
