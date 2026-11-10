@@ -92,7 +92,70 @@ the lexical target, and the real target (NIL when unresolvable)."
                                      (aitools.workspace.domain:git-metadata-path-inside-p
                                       common-directory git-directory)
                                      (aitools.workspace.domain:git-metadata-path-inside-p
-                                      git-directory common-directory))
+                                      git-directory common-directory)
+                                     (some
+                                      (lambda (worktree)
+                                        (let* ((worktree-top
+                                                 (resolve-real-path
+                                                  host
+                                                  (git-repository-top worktree)))
+                                               (worktree-git-directory
+                                                 (resolve-real-path
+                                                  host
+                                                  (git-repository-git-dir worktree)))
+                                               (common-path
+                                                 (git-repository-common-dir worktree))
+                                               (worktree-common-directory
+                                                 (and common-path
+                                                      (resolve-real-path
+                                                       host common-path)))
+                                               (worktree-root-parent
+                                                 (and worktree-top
+                                                      (path-parent worktree-top)))
+                                               (worktree-git-parent
+                                                 (and worktree-git-directory
+                                                      (path-parent worktree-git-directory))))
+                                          (and worktree-top
+                                               worktree-git-directory
+                                               worktree-common-directory
+                                               worktree-root-parent
+                                               worktree-git-parent
+                                               (not
+                                                (and
+                                                 (aitools.workspace.domain:git-metadata-path-inside-p
+                                                  worktree-common-directory
+                                                  worktree-git-directory)
+                                                 (aitools.workspace.domain:git-metadata-path-inside-p
+                                                  worktree-git-directory
+                                                  worktree-common-directory)))
+                                               (and
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 real-root worktree-top)
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 worktree-top real-root))
+                                               (and
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 (join-path worktree-common-directory
+                                                            ".worktrees")
+                                                 worktree-root-parent)
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 worktree-root-parent
+                                                 (join-path worktree-common-directory
+                                                            ".worktrees")))
+                                               (and
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 (join-path worktree-common-directory
+                                                            "worktrees")
+                                                 worktree-git-parent)
+                                                (aitools.workspace.domain:git-metadata-path-inside-p
+                                                 worktree-git-parent
+                                                 (join-path worktree-common-directory
+                                                            "worktrees")))
+                                               (string-equal
+                                                (path-basename worktree-top)
+                                                (path-basename
+                                                 worktree-git-directory)))))
+                                      repositories))
                               (when git-directory (list git-directory)))
                             (when common-is-child (list common-directory)))))))
     (cond
