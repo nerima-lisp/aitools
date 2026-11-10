@@ -15,7 +15,13 @@
     (let ((context (make-journal-context :root "repo" :lock-timeout "10ms")))
       (expect (list (aitools.journal.application::journal-context-root context)
                     (aitools.journal.application::journal-context-lock-timeout context))
-              :to-equal (list "repo" "10ms")))))
+              :to-equal (list "repo" "10ms"))))
+  (it "rejects non-string invocation options"
+    (dolist (keyword (list :root :lock-timeout))
+      (expect (handler-case
+                  (progn (apply #'make-journal-context (list keyword 1)) nil)
+                (type-error () t))
+              :to-be t))))
 
 (describe "aitools.journal argv command lines"
   (it "renders a recorded argv as the aitools line that ran it"
