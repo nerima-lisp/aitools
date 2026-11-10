@@ -83,7 +83,7 @@
         (let ((*read-eval* nil))
           (loop for start = (file-position stream)
                 for form = (let ((*package* (or (find-package package-name) *package*)))
-                             (read stream nil :eof))
+                             (read-preserving-whitespace stream nil :eof))
                 until (eq form :eof)
                 for end = (file-position stream)
                 do (multiple-value-bind (spans next-package)
