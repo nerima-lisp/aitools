@@ -67,9 +67,9 @@
                    (:file "process-bg-ended-test")
                    (:file "process-signal-test")
                    #+(and linux (or x86-64 arm64)) (:file "process-pidfd-test")
-                   (:file "process-ports-test")
-                   (:file "process-ports-state-test")
-                   (:file "process-ports-launch-test")
-                   (:file "process-ports-launch-trace-test") (:file "process-boundary-contract-test")))
+                   (:file "process-boundaries-test")
+                   (:file "process-boundary-state-test")
+                   (:file "process-boundary-launch-test")
+                   (:file "process-boundary-launch-trace-test") (:file "process-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "process-env-cases")))))))
