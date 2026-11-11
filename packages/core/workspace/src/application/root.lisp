@@ -69,6 +69,12 @@ or NIL. START is absolute and normalized."
        (workspace-entry-inode right)
        (= (workspace-entry-device left) (workspace-entry-device right))
        (= (workspace-entry-inode left) (workspace-entry-inode right))))
+(defun %workspace-path-has-identity-p (host root target identity)
+  ;; realpath keeps mount aliases at their mountpoint, so compare ancestors too.
+  (loop for path = target then (path-parent path)
+        while (and path (path-inside-p root path))
+        thereis (%workspace-entry-same-identity-p
+                 identity (host-stat host path))))
 (defun %same-file-identity-p (host left right)
   (let ((left-real (resolve-real-path host left))
         (right-real (resolve-real-path host right)))
@@ -104,10 +110,11 @@ or NIL. START is absolute and normalized."
 (defun %git-metadata-path-inside-p (directory candidate)
   (aitools.workspace.domain:git-metadata-path-inside-p
    directory candidate :name-fold-function (function %git-name-fold)))
-(defun %git-common-root-entry-target-inside-root-p (common-directory root entry-target)
-  (and (%git-metadata-path-inside-p common-directory root)
-       (%git-metadata-path-inside-p root entry-target)))
-(defun %git-common-root-identity-hazard-p (host common-directory root)
+(defun %git-common-root-entry-target-inside-root-p (common-directory root entry-path entry-target)
+  (and (%git-metadata-path-inside-p root entry-target)
+       (or (not (%git-metadata-path-inside-p common-directory entry-target))
+           (not (%git-metadata-path-inside-p root entry-path)))))
+(defun %git-common-root-identity-hazard-p (host common-directory root &optional target)
   (multiple-value-bind (entries readable-p complete-p)
       (host-list-directory host common-directory)
     (unless (and readable-p complete-p)
@@ -121,7 +128,7 @@ or NIL. START is absolute and normalized."
       (dolist (entry entries)
         (when (%git-common-root-entry-name-p (workspace-entry-name entry))
           (let* ((entry-path
-                   (join-path common-directory (workspace-entry-name entry)))
+                  (join-path common-directory (workspace-entry-name entry)))
                  (entry-real (resolve-real-path host entry-path))
                  (entry-target (and entry-real (host-stat host entry-real))))
             (unless (and entry-target
@@ -130,8 +137,9 @@ or NIL. START is absolute and normalized."
               (return-from %git-common-root-identity-hazard-p :stat-failed))
             (when (or (%workspace-entry-same-identity-p root-entry entry-target)
                       (%git-metadata-path-inside-p entry-real root-real)
-                      (%git-common-root-entry-target-inside-root-p
-                       common-directory root-real entry-real))
+                      (or (%workspace-path-has-identity-p host root-real target entry-target)
+                          (%git-common-root-entry-target-inside-root-p
+                           common-directory root-real entry-path entry-real)))
               (return-from %git-common-root-identity-hazard-p :identity-match)))))
       nil)))
 

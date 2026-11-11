@@ -19,13 +19,15 @@
     nil))
 
 (defun %common-root-identity-verdict (host common-directory root-path real-root temporary-root temporary-real real-target)
-  (if (or (%git-common-root-identity-hazard-p host common-directory root-path)
-          (%git-common-root-identity-hazard-p host common-directory real-root)
+  (if (or (%git-common-root-identity-hazard-p host common-directory root-path real-target)
+          (%git-common-root-identity-hazard-p host common-directory real-root real-target)
           (and temporary-real
                real-target
                (path-inside-p temporary-real real-target)
-               (or (%git-common-root-identity-hazard-p host common-directory temporary-root)
-                   (%git-common-root-identity-hazard-p host common-directory temporary-real))))
+               (or (%git-common-root-identity-hazard-p
+                    host common-directory temporary-root real-target)
+                   (%git-common-root-identity-hazard-p
+                    host common-directory temporary-real real-target))))
       :git-directory
     nil))
 

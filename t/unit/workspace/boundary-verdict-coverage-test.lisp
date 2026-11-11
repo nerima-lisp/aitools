@@ -178,3 +178,57 @@
            (root (resolved-root host)))
       (expect (boundary-verdict host root "hookdir/pre-commit")
               :to-be :git-directory))))
+ (describe "workspace metadata symlink outside common directory"
+  (it "refuses metadata targets below a linked worktree rooted outside its common directory"
+    (let* ((root-path "/checkout")
+           (host
+            (make-fake-workspace-boundaries
+             :files
+             (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                   (cons "/bare/worktrees/wt/HEAD" "0123")
+                   (cons "/bare/worktrees/wt/commondir" "../..")
+                   (cons "/bare/worktrees/wt/gitdir" "/checkout/.git")
+                   (cons "/checkout/.git" "gitdir: /bare/worktrees/wt"))
+             :directories
+             (list "/bare/objects" "/bare/refs"
+                   "/checkout/hookdir" "/checkout/src")
+             :symlinks
+             (list (cons "/bare/hooks" "/checkout/hookdir"))
+             :cwd root-path))
+           (root (resolved-root host)))
+      (expect (boundary-verdict host root "hookdir/pre-commit")
+              :to-be :git-directory))))
+ (describe "workspace metadata entry target verdict"
+  (it "distinguishes metadata aliases from ordinary repository paths"
+    (expect (aitools.workspace.application::%git-common-root-entry-target-inside-root-p
+             "/bare" "/checkout" "/bare/hooks" "/checkout/hookdir")
+            :to-be-truthy)
+    (expect (aitools.workspace.application::%git-common-root-entry-target-inside-root-p
+             "/bare" "/bare/.worktrees/wt" "/bare/hooks"
+             "/bare/.worktrees/wt/hookdir")
+            :to-be-truthy)
+    (expect (aitools.workspace.application::%git-common-root-entry-target-inside-root-p
+             "/repo/.git" "/repo" "/repo/.git/hooks"
+             "/repo/.git/hooks")
+            :to-be-falsy)))
+ (describe "workspace mounted metadata aliases"
+  (it "refuses writes beneath a common entry sharing a descendant identity"
+    (let* ((root-path "/checkout")
+           (host
+            (make-fake-workspace-boundaries
+             :files
+             (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                   (cons "/bare/worktrees/wt/HEAD" "0123")
+                   (cons "/bare/worktrees/wt/commondir" "../..")
+                   (cons "/bare/worktrees/wt/gitdir" "/checkout/.git")
+                   (cons "/checkout/.git" "gitdir: /bare/worktrees/wt"))
+             :directories
+             (list "/bare/objects" "/bare/refs" "/bare/hooks"
+                   "/checkout/hookdir" "/checkout/src")
+             :file-identities
+             (list (cons "/bare/hooks" (cons 99 42))
+                   (cons "/checkout/hookdir" (cons 99 42)))
+             :cwd root-path))
+           (root (resolved-root host)))
+      (expect (boundary-verdict host root "hookdir/pre-commit")
+              :to-be :git-directory))))
