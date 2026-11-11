@@ -205,7 +205,7 @@
                        (aitools.edit.application::%rm-requests/k
                         (aitools.edit.application::make-write-context
                          :view view :host host :root root :paths (list path))
-                        nil max-bytes max-entries)
+                        nil max-entries max-bytes)
                        (:on-error (code message &rest keys)
                          (declare (ignore message keys))
                          (setf result (list :error code)))

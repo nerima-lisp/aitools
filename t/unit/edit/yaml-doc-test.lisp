@@ -38,6 +38,10 @@
   (it "rejects malformed JSON number tokens"
     (let ((refusal
             (yaml-write-value-refusal (make-json-num "1 trailing"))))
+      (expect (edit-refusal-code refusal) :to-equal "argument.invalid")))
+  (it "rejects fully read non-number tokens"
+    (let ((refusal
+            (yaml-write-value-refusal (make-json-num "foo"))))
       (expect (edit-refusal-code refusal) :to-equal "argument.invalid"))))
 
 (defun expect-yaml-comment-warning (fields count)
