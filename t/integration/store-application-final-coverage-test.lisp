@@ -89,7 +89,7 @@
            (expect (getf (third outcome) :path) :to-equal "a.txt")))
        :io nil))
 
-    (it "distinguishes a same-content mtime change from a chmod in tx diff"
+    (it "distinguishes content, mtime, and mode changes in tx diff"
       (call-with-temp-store
        (lambda (store)
          (put-file store "a.txt" "same")
@@ -100,6 +100,11 @@
                              :on-not-found (constantly :not-found))
                    :to-equal '(:mode-changed))
            (stage store tx (list (mtime-request "a.txt" 1577934245)))
+           (expect (tx-diff/k store tx :on-diff (lambda (results)
+                                                  (mapcar #'change-result-action results))
+                             :on-not-found (constantly :not-found))
+                   :to-equal '(:modified))
+           (stage store tx (list (write-file-request "a.txt" (bytes "different"))))
            (expect (tx-diff/k store tx :on-diff (lambda (results)
                                                   (mapcar #'change-result-action results))
                              :on-not-found (constantly :not-found))
