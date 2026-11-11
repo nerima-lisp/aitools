@@ -176,3 +176,24 @@ checksum alone."
                (expect (probe-file (disk "out")) :to-be nil))
           (when (probe-file path)
             (delete-file path))))))))
+
+(describe "archive.extract default aggregate output limit"
+  (it "passes 1 GiB to gzip decoding when --max-bytes is omitted"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "archive.tar.gz"
+            (aitools.text.domain:gzip-compress
+             (aitools.text.domain:write-tar
+              (list (member-file "entry.txt" "payload")))))
+       (let ((observed-limit nil)
+             (decode #'aitools.text.domain:gzip-decompress))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.text.domain:gzip-decompress)
+               (lambda (octets &rest arguments)
+                 (setf observed-limit (getf arguments :max-output))
+                 (apply decode octets arguments))))
+           (expect
+            (run "archive.extract" '("archive.tar.gz") :to "out")
+            :to-be :ok))
+         (expect observed-limit :to-be (* 1024 1024 1024))
+         (expect (text "out/entry.txt") :to-equal "payload"))))))

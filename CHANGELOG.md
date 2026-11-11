@@ -23,9 +23,9 @@
   UTF-8 name and link-target bytes. Archive input is capped at 64 MiB. Gzip
   streams may contain at most 1,024 concatenated members, each with at most
   256 MiB of decompressed output. The decoder defaults to 1 GiB total output
-  when no cumulative limit is supplied. `--max-bytes` separately limits
-  cumulative extracted output. Exceeding any archive limit returns
-  `refusal.too-large`.
+  when no cumulative limit is supplied. `archive extract --max-bytes` also
+  defaults to 1 GiB and limits cumulative extracted output. Exceeding any
+  archive limit returns `refusal.too-large`.
 - Archive entry paths containing `..` are refused. Entry selection,
   duplicate-name checks, and hard-link target lookup compare names after
   removing empty and `.` path components while preserving case and Unicode

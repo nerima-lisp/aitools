@@ -7,11 +7,9 @@
   "`archive extract`'s `changes` lists at most this many entries; `total` counts all.")
 
 (defparameter +extract-default-max-bytes+
-  (* 256 1024 1024)
-  "The default output cap for `archive extract` when --max-bytes is not
-given. The former 1GiB default let one gzip/tar bomb allocate most of the
-heap; the text-domain inflater enforces this bound (ARCHIVE-LIMIT-EXCEEDED)
-per member and in total.")
+  (* 1024 1024 1024)
+  "The default cumulative output cap for archive extraction. Gzip members
+have a separate 256 MiB decompressed-output limit.")
 
 (aitools.kernel.domain:define-flow
   (%archive-octets/k context env path &key on-error on-octets)

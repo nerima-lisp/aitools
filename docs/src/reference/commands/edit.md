@@ -656,7 +656,7 @@ Extract a zip, tar, tar.gz or gz archive after validating every entry.
 | `path` (positional, required) | string |  |  |
 | `--to` | string |  | Destination directory (required). |
 | `--entry` | string, repeatable |  | Entry to extract; repeat (default: all). |
-| `--max-bytes` | string | `256MiB` | Largest total extracted size. |
+| `--max-bytes` | string | `1GiB` | Largest total extracted size. |
 | `--max-entries` | string | `100000` | Most entries extracted. |
 | `--dry-run` | flag |  | Validate and show the diff; write nothing. |
 | `--tx` | string |  | Stage the write in this tx instead of the working tree. |

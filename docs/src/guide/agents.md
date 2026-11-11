@@ -104,9 +104,9 @@ reading. If a file grows during the read, it reads at most 64 MiB plus one
 byte; that extra byte triggers `refusal.too-large`. Gzip streams may contain
 at most 1,024 concatenated members, each with at most 256 MiB of decompressed
 output. With no explicit output limit, gzip decoding allows at most 1 GiB of
-total decompressed data. `archive extract` supplies the decoder with
-`--max-bytes`, defaulting to 256 MiB when the option is omitted. This cap also
-limits cumulative extracted file data.
+total decompressed data. `archive extract` defaults `--max-bytes` to 1 GiB
+when the option is omitted and supplies that cap to decoding and extraction
+planning. The cap limits cumulative extracted file data.
 Exceeding any archive limit returns `refusal.too-large`.
 Extracted files get the entry's mode masked with `0755`: never group- or
 other-writable, and never setuid, setgid, or sticky. Aitools' state directory
