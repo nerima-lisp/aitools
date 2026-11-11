@@ -148,6 +148,10 @@
                    (:file "read-render-edge-test")
                    (:file "read-parse-domain-coverage-test")
                    (:file "presentation-registry-coverage-test")
+                   (:file "application-flow-edge-coverage-test")
+                   (:file "domain-flow-edge-coverage-test")
+                   (:file "format-domain-edge-coverage-test")
+                   (:file "table-domain-edge-coverage-test")
                    (:file "table-domain-coverage-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "read-search-cases")
