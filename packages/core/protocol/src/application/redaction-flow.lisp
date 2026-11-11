@@ -39,7 +39,7 @@ element redacted on its own."
     text))
 
 (defun %redact-value (value)
-  (etypecase value
+  (typecase value
     (string (first (%redact-sequence (list value))))
     ((satisfies aitools.protocol.domain:json-object-p)
      (aitools.protocol.domain:json-object-from-alist

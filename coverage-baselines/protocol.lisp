@@ -15,7 +15,5 @@
   (:kind :branch :package "AITOOLS.PROTOCOL.APPLICATION" :symbol "COMMAND-RESULT"
    :reason "The kind slot MEMBER type is declarative metadata; the CPS adapter constructs only the three valid kinds.")
   (:kind :branch :package "AITOOLS.PROTOCOL.DOMAIN" :symbol "COMMAND-SCHEMA"
-   :reason "SB-COVER attributes the generated DEFSTRUCT constructor slot type check for (OR NULL STRING) to declarative type metadata; schema tests cover NIL, string, and invalid values.")
-  (:kind :branch :package "AITOOLS.PROTOCOL.APPLICATION" :symbol "%REDACT-VALUE"
-   :reason "The final T clause matches every remaining value, so the fall-through path after it is unreachable.")))
+   :reason "SB-COVER attributes the generated DEFSTRUCT constructor slot type check for (OR NULL STRING) to declarative type metadata; schema tests cover NIL, string, and invalid values.")))
 
