@@ -13,7 +13,7 @@
           (let ((exporter (cl-boundary-kit:boundary-context-require boundaries :org-export)))
             (if (null exporter)
                 (aitools.kernel.domain:flow-continue
-                 :on-error "internal.unexpected" "the org context has no export port"
+                 :on-error "internal.unexpected" "the org context has no export boundary capability"
                  :repairs (%schema-repair "org export" "Show this command's requirements."))
                 (multiple-value-bind (content failure) (funcall exporter document backend)
                   (if failure

@@ -30,7 +30,7 @@
           (let ((query (cl-boundary-kit:boundary-context-require boundaries :org-query)))
             (if (null query)
                 (aitools.kernel.domain:flow-continue
-                 :on-error "internal.unexpected" "the org context has no query port"
+                 :on-error "internal.unexpected" "the org context has no query boundary capability"
                  :repairs (%schema-repair "org query" "Show this command's requirements."))
                 (multiple-value-bind (matches failure)
                     (funcall query document match at tz dst-policy)

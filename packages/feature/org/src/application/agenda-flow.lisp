@@ -12,7 +12,7 @@
                                                                                     (if (null agenda)
                                                                                         (aitools.kernel.domain:flow-continue :on-error
                                                                                                                              "internal.unexpected"
-                                                                                                                             "the org context has no agenda port"
+                                                                                                                             "the org context has no agenda boundary capability"
                                                                                                                              :repairs
                                                                                                                              (%schema-repair "org agenda" "Show this command's requirements."))
                                                                                         (multiple-value-bind (result failure) (funcall agenda document from through at tz dst-policy future-repeats)

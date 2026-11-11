@@ -61,7 +61,7 @@
        (:file "org-write-edge-test")
        (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
-       (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))
+       (:file "org-read-boundary-contract-test" :depends-on ("org-read-contract-test"))
        (:file "org-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components

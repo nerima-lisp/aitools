@@ -44,7 +44,7 @@
     (remove-duplicates keys :test (function eq))))
 
 (describe "aitools org boundary contract"
-  (it "contains no retired production symbol or ports source file"
+  (it "contains no retired context structure or adapter source file"
     (let* ((source-files
              (%org-boundary-lisp-files (%org-boundary-source-directory)))
            (legacy-symbol-files
@@ -52,14 +52,14 @@
                    when (search "org-ports" (uiop:read-file-string file)
                                 :test (function char-equal))
                      collect file))
-           (legacy-port-files
+           (obsolete-source-files
              (remove-if-not
               (lambda (file)
                 (string-equal (or (pathname-name file) "") "ports"))
               source-files)))
       (expect source-files :to-be-truthy)
       (expect legacy-symbol-files :to-equal nil)
-      (expect legacy-port-files :to-equal nil)))
+      (expect obsolete-source-files :to-equal nil)))
   (it "registers each capability required by application flows"
     (let* ((required-keys (%org-required-boundary-keys))
            (expected-keys

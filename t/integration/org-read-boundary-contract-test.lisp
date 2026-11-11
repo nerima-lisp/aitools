@@ -139,7 +139,7 @@
           (cl-weave:signals type-error
                             (aitools.org.infrastructure::query-org-document
                              document 7 "2026-10-19T09:00:00" "UTC" "compatible")))))
-  (it "returns internal errors for each missing required or operation port"
+  (it "returns internal errors for missing required or operation capabilities"
     (dolist (boundaries
              (list
               (cl-boundary-kit:make-boundary-context
@@ -154,7 +154,7 @@
       (%expect-org-flow-error
        (%org-flow-result #'aitools.org.application:org-outline/k boundaries
                          :path "missing.org")
-       "internal.unexpected" "the org context is missing a required port"))
+       "internal.unexpected" "the org context is missing a required boundary capability"))
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
       (let* ((path (concatenate 'string root "/entry.org"))
@@ -173,9 +173,9 @@
                          (:query #'aitools.org.application:org-query/k)
                          (:export #'aitools.org.application:org-export/k)))
                  (message (ecase operation
-                            (:outline "the org context has no outline port")
-                            (:query "the org context has no query port")
-                            (:export "the org context has no export port")))
+                            (:outline "the org context has no outline boundary capability")
+                            (:query "the org context has no query boundary capability")
+                            (:export "the org context has no export boundary capability")))
                  (command (ecase operation
                             (:outline "aitools schema org outline")
                             (:query "aitools schema org query")

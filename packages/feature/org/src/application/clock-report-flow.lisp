@@ -12,7 +12,7 @@
                                                                                 "internal.unexpected"
                                                                                 "argument.invalid")
                                                                             (if (null (cl-boundary-kit:boundary-context-require boundaries :org-clock-report))
-                                                                                "the org context has no clock report port"
+                                                                                "the org context has no clock report boundary capability"
                                                                                 "--match is required")
                                                                             :repairs
                                                                             (%schema-repair "org clock report" "Show this command's requirements."))

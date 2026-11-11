@@ -20,7 +20,7 @@
           (let ((outline (cl-boundary-kit:boundary-context-require boundaries :org-outline)))
             (if (null outline)
                 (aitools.kernel.domain:flow-continue
-                 :on-error "internal.unexpected" "the org context has no outline port"
+                 :on-error "internal.unexpected" "the org context has no outline boundary capability"
                  :repairs (%schema-repair "org outline" "Show this command's requirements."))
                 (multiple-value-bind (result failure) (funcall outline document limit)
                   (if failure

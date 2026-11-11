@@ -47,7 +47,7 @@
         :repairs (%schema-repair command "Pass an Org file path.")))
       ((or (null host) (null source) (null parser))
        (aitools.kernel.domain:flow-continue
-        :on-error "internal.unexpected" "the org context is missing a required port"
+        :on-error "internal.unexpected" "the org context is missing a required boundary capability"
         :repairs (%schema-repair command "Show this command's requirements.")))
       (t
        (aitools.workspace.application:call-with-resolved-root/k

@@ -90,7 +90,7 @@
          (null (cl-boundary-kit:boundary-context-require boundaries :org-edit))
          (null (cl-boundary-kit:boundary-context-require boundaries :org-write)))
      (aitools.kernel.domain:flow-continue
-      :on-error "internal.unexpected" "the Org write ports are unavailable"
+      :on-error "internal.unexpected" "the Org write boundary capabilities are unavailable"
       :repairs (%schema-repair command "Show this command's requirements.")))
     (t
      (let ((outcome nil))
