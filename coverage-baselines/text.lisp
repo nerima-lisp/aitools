@@ -9,7 +9,7 @@
  ((:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "ARCHIVE-ENTRY"
-   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/archive-safety-test.lisp exercises the :SIZE guard with a negative archive-entry size.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/archive-entry-guard-test.lisp exercises the :SIZE guard with a negative archive-entry size.")
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "ARCHIVE-MEMBER"
@@ -77,7 +77,7 @@
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "LANGUAGE"
-   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/language-test.lisp exercises the :EXTENT guard with :BAD.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/language-test.lisp exercises the :EXTENT guard with an invalid value.")
   (:kind :expression
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "LINE-ENDING-STYLE"
@@ -89,7 +89,7 @@
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "TEXT-LAYOUT"
-   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards; t/unit/text/layout-test.lisp exercises the :LINE-ENDING guard with :BAD.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards; t/unit/text/layout-test.lisp exercises the :LINE-ENDING guard with an invalid value.")
   (:kind :expression
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "UTF8-VALID-P"
