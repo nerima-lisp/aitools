@@ -132,8 +132,7 @@ from its data after its declared size is checked."
                                  (error (quote archive-limit-exceeded)
                                         :limit (ecase problem
                                                  (:path-too-long +archive-max-path-bytes+)
-                                                 (:component-too-long +archive-max-component-bytes+)
-                                                 (:too-deep +archive-max-depth+))
+                                                 (:component-too-long +archive-max-component-bytes+))
                                         :reason "zip path")))
                              (setf path-metadata-bytes
                                    (%archive-path-metadata-total path-metadata-bytes name-length))
@@ -174,9 +173,7 @@ from its data after its declared size is checked."
                                   (when problem
                                     (error (quote archive-limit-exceeded)
                                            :limit (ecase problem
-                                                    (:path-too-long +archive-max-path-bytes+)
-                                                    (:component-too-long +archive-max-component-bytes+)
-                                                    (:too-deep +archive-max-depth+))
+                                                    (:component-too-long +archive-max-component-bytes+))
                                            :reason "zip link target")))
                                 (make-archive-entry
                                  :format :zip

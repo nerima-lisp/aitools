@@ -46,8 +46,7 @@ when the first byte has its high bit set."
         (error 'archive-limit-exceeded
                :limit (ecase problem
                         (:path-too-long +archive-max-path-bytes+)
-                        (:component-too-long +archive-max-component-bytes+)
-                        (:too-deep +archive-max-depth+))
+                        (:component-too-long +archive-max-component-bytes+))
                :reason (if link-target-p "tar link target" "tar path"))))
     (%name-from-octets octets offset end)))
 

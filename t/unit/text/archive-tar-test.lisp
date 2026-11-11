@@ -223,3 +223,26 @@
                                               (archive-entry-data bytes entry)))
                             (subseq archive 0 end)))
               :to-be-truthy))))
+
+(describe "tar PAX numeric writer thresholds"
+  (it "creates PAX numeric records without a large payload"
+    (let* ((limit (expt 8 11))
+           (records (aitools.text.domain::%tar-pax-numeric-record
+                     "size" limit limit)))
+      (expect (aitools.text.domain::%tar-pax-numeric-record
+               "size" (1- limit) limit)
+              :to-be nil)
+      (expect (map (quote string) (function code-char) (first records))
+              :to-equal
+              (map (quote string) (function code-char)
+                   (aitools.text.domain::%pax-record
+                    "size" (princ-to-string limit)))))
+  (it "round-trips an mtime at the octal field limit"
+    (let* ((mtime (expt 8 11))
+           (entry (first
+                   (read-tar-entries
+                    (write-tar
+                     (list (make-archive-member
+                            :name "large-mtime"
+                            :mtime mtime)))))))
+      (expect (archive-entry-mtime entry) :to-be mtime)))))

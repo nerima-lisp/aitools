@@ -6,18 +6,10 @@
  :branch-covered 556
  :branch-total 556
  :coverage-exclusions
- ((:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "%ARCHIVE-PATH-OCTETS-PROBLEM"
-   :reason "The :TOO-DEEP returns are unreachable after the 4095-octet path cap: 2049 nonempty, non-dot one-byte components require at least 4097 octets. Specs accept 2048 components at the limit and reject the path that exceeds both limits.")
-  (:kind :branch
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "%ARCHIVE-PATH-OCTETS-PROBLEM"
-   :reason "The depth-limit branches are unreachable: a 2049th nonempty, non-dot one-byte component needs at least 4097 path octets, beyond the 4095-octet cap.")
-  (:kind :branch
+ ((:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "ARCHIVE-ENTRY"
-   :reason "SB-COVER reports generated slot type-check branches for the private constructor; archive readers construct entries only from validated header metadata.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/archive-safety-test.lisp exercises the :SIZE guard with a negative archive-entry size.")
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "ARCHIVE-MEMBER"
@@ -81,11 +73,11 @@
   (:kind :expression
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "LANGUAGE"
-   :reason "SB-COVER reports generated defaults for the private constructor; the curated language table supplies every slot explicitly at load time.")
+   :reason "SB-COVER cannot map generated DEFSTRUCT default initializers for this private constructor; the omitted slots are exercised by the LANGUAGE spec in t/integration/edit-text-test.lisp lines 211-214.")
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "LANGUAGE"
-   :reason "SB-COVER reports generated slot type-check branches for the private constructor; the curated language table supplies only valid values at load time.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards for this private constructor; t/unit/text/language-test.lisp exercises the :EXTENT guard with :BAD.")
   (:kind :expression
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "LINE-ENDING-STYLE"
@@ -96,41 +88,9 @@
    :reason "SB-COVER leaves this lambda-list default initializer uncovered; runtime specs exercise this function default behavior.")
   (:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "%PARSE-PAX-RECORD"
-   :reason "The false arm of the mtime clause cannot be reached through production pax-key: earlier clauses consume path, linkpath, and size, and unknown keys are filtered to NIL. The true arm is exercised by the fractional-mtime spec.")
-  (:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "%PARSE-PAX-RECORD"
-   :reason "The :TOO-DEEP path arm requires at least 4097 octets for 2049 components, beyond the 4095-octet path cap checked first.")
-  (:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "%TAR-STRING"
-   :reason "The :TOO-DEEP path arm requires at least 4097 octets for 2049 components, beyond the 4095-octet path cap checked first.")
-  (:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "READ-ZIP-ENTRIES"
-   :reason "The :TOO-DEEP path arm requires 4097 octets, beyond the 4095-octet cap; ZIP symlink targets are capped at 4095 bytes before path validation, so :PATH-TOO-LONG is unreachable.")
-  (:kind :branch
-   :package "AITOOLS.TEXT.DOMAIN"
    :symbol "TEXT-LAYOUT"
-   :reason "The private constructor line-ending type check receives only detector output; callers cannot supply arbitrary values through the public API.")
+   :reason "SB-COVER cannot map compiler-generated DEFSTRUCT slot type guards; t/unit/text/layout-test.lisp exercises the :LINE-ENDING guard with :BAD.")
   (:kind :expression
    :package "AITOOLS.TEXT.DOMAIN"
    :symbol "UTF8-VALID-P"
-   :reason "SB-COVER leaves this lambda-list default initializer uncovered; runtime specs exercise this function default behavior.")
-  (:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "WRITE-TAR"
-   :reason "The PAX size path requires a simple octet array of at least 8^11 bytes, which is impractical to materialize in the test environment.")
-  (:kind :branch
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "WRITE-TAR"
-   :reason "The PAX size threshold requires a simple octet array of at least 8^11 bytes, which is impractical to materialize in the test environment.")
-  (:kind :expression
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "WRITE-ZIP"
-   :reason "The ZIP32 size paths require in-memory data or an archive of at least #xFFFFFFFF bytes, which is impractical to materialize in the test environment.")
-  (:kind :branch
-   :package "AITOOLS.TEXT.DOMAIN"
-   :symbol "WRITE-ZIP"
-   :reason "The ZIP32 size thresholds require in-memory data or an archive of at least #xFFFFFFFF bytes, which is impractical to materialize in the test environment.")))
+   :reason "SB-COVER leaves this lambda-list default initializer uncovered; runtime specs exercise this function default behavior.")))

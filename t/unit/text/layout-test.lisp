@@ -143,3 +143,9 @@
       (expect (funcall ending-style (octets 65 13)) :to-be :none)
       (expect (funcall final-newline (octets 65 10)) :to-be t)
       (expect (funcall final-newline (octets 65)) :to-be nil))))
+
+(describe "aitools.text.domain text-layout constructor guards"
+  (it "rejects an invalid line ending"
+    (let ((invalid-line-ending (read-from-string ":bad")))
+      (signals type-error
+        (aitools.text.domain::%make-text-layout nil invalid-line-ending nil)))))

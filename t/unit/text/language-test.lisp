@@ -40,3 +40,9 @@
       (expect (and language (language-name language)) :to-equal expected)))
 
   (it-each (("case-insensitive name and extension" "Python" "src/a.PY" "src/a.lisp" t) ("Common Lisp extension" "common-lisp" "src/a.cl" "src/a.py" t) ("exact filename" "Emacs-Lisp" "home/.emacs" "home/.bashrc" t) ("unknown language" "cobol" "src/a.py" "src/a.py" nil)) "builds a predicate for ~A" (description name matching-path other-path known-p) (declare (ignore description)) (let ((predicate (language-path-predicate name))) (if known-p (progn (expect predicate :to-be-truthy) (expect (funcall predicate matching-path) :to-be-truthy) (expect (funcall predicate other-path) :to-be-falsy)) (expect predicate :to-be-falsy)))))
+
+(describe "aitools.text.domain language constructor guards"
+  (it "rejects an invalid language extent"
+    (let ((invalid-extent (read-from-string ":bad")))
+      (signals type-error
+        (aitools.text.domain::make-language :extent invalid-extent)))))

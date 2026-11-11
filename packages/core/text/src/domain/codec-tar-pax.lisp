@@ -75,8 +75,7 @@
                         (error 'archive-limit-exceeded
                                :limit (ecase problem
                                         (:path-too-long +archive-max-path-bytes+)
-                                        (:component-too-long +archive-max-component-bytes+)
-                                        (:too-deep +archive-max-depth+))
+                                        (:component-too-long +archive-max-component-bytes+))
                                :reason (if link-target-p
                                            "tar link target"
                                            "tar path"))))
@@ -84,7 +83,7 @@
                  ((string= key "size")
                   (%parse-pax-number octets value-start value-end
                                      (- (length octets) end) nil "tar pax size"))
-                 ((string= key "mtime")
+                 (t
                   (%parse-pax-number octets value-start value-end
                                      maximum-mtime t "tar pax mtime"))))))
       (values record-end key duplicate-p value))))

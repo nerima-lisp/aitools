@@ -243,3 +243,9 @@
                   (logxor (aref bad-crc (1- (length bad-crc))) 1))
             (expect (gzip-reason (lambda () (gzip-member-header bad-crc)))
                     :to-equal (list 'archive-error "gzip header CRC-32 mismatch"))))))))
+
+(describe "aitools.text.domain archive-entry constructor guards"
+  (it "rejects a negative archive-entry size"
+    (let ((invalid-size (1- (parse-integer "0"))))
+      (signals type-error
+        (aitools.text.domain::make-archive-entry :size invalid-size)))))

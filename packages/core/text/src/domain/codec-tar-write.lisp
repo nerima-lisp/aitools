@@ -23,6 +23,10 @@ NIL when OCTETS cannot be split at a `/` to fit."
       (incf total))
     (concatenate 'octets (encode-utf8 (princ-to-string total)) #(32) body)))
 
+(defun %tar-pax-numeric-record (key value limit)
+  (when (>= value limit)
+    (list (%pax-record key (princ-to-string value)))))
+
 (defun %octal-field (value width)
   "VALUE as WIDTH-1 zero-padded octal digits and a NUL."
   (let ((text (format nil "~v,'0O" (1- width) value)))
@@ -75,10 +79,12 @@ and empty owner names so the output depends only on MEMBERS."
                                     (subseq name (max 0 (- (length name) 100))))))
             (when (or (> (length link) 100) (not (%ascii-octets-p link)))
               (push (%pax-record "linkpath" (archive-member-link-target member)) records))
-            (when (>= (length data) octal-limit)
-              (push (%pax-record "size" (princ-to-string (length data))) records))
-            (when (>= mtime octal-limit)
-              (push (%pax-record "mtime" (princ-to-string mtime)) records))
+            (setf records
+                  (nconc (%tar-pax-numeric-record "size" (length data) octal-limit)
+                         records))
+            (setf records
+                  (nconc (%tar-pax-numeric-record "mtime" mtime octal-limit)
+                         records))
             (when records
               (let ((body (apply #'concatenate 'octets (reverse records)))
                     (pax-name (map 'octets #'char-code "PaxHeader/entry")))
