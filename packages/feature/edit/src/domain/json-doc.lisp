@@ -18,6 +18,10 @@
 (defstruct (json-num (:constructor make-json-num (text)) (:copier nil))
   (text "" :type string :read-only t))
 
+(defun json-string-literal (string)
+  "STRING written as a JSON string."
+  (json-kit:stringify string))
+
 (defun parse-json-text (text)
   "TEXT parsed into the edit value model; signals JSON-KIT:JSON-PARSE-ERROR."
   (json-kit:parse text
@@ -33,7 +37,7 @@
                     (make-json-num token))))
 
 (defun %write-json-string (string out)
-  (write-string (json-kit:stringify string) out))
+  (write-string (json-string-literal string) out))
 
 (defun serialize-json (value &key indent sort-keys)
   "VALUE as JSON text. INDENT is the string one level adds (\"  \", a tab)
@@ -240,9 +244,5 @@ element-wise. The read side (`doc get`/`diff`) uses the same rule."
         (aitools.kernel.domain:flow-continue
           :on-invalid
           value))))
-
-(defun json-string-literal (string)
-  "STRING written as a JSON string."
-  (json-kit:stringify string))
 
 (defun json-value-kind (value) (nth-value 0 (%classify-json value)))
