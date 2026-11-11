@@ -87,4 +87,14 @@
           (run-flow #'json-diff-flow boundaries "a.json" "b.json")
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 1)
-        (expect (json-false-value-p (field fields "truncated")) :to-be t)))))
+        (expect (json-false-value-p (field fields "truncated")) :to-be t))))
+  (it "expands shared document flow result forwarding"
+    (let ((expansion
+            (macroexpand-1
+             '(aitools.inspect.application::%call-doc-inspect-flow
+               (marker)))))
+      (expect (first expansion) :to-be 'aitools.kernel.domain:flow-call)
+      (expect (second expansion) :to-equal '(marker))
+      (expect (first (third expansion)) :to-be :on-ok)
+      (expect (first (fourth expansion)) :to-be :on-partial)
+      (expect (first (fifth expansion)) :to-be :on-error))))
