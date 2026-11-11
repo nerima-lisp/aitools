@@ -140,7 +140,8 @@
          ((string= op "%")
           (when (zerop right) (%calc-fail offset "division by zero"))
           (mod left right))
-         ((string= op "**") (%power left right offset)))
+         ((string= op "**") (%power left right offset))
+         (t (%calc-fail offset (format nil "unsupported binary operator ~S" op))))
    offset))
 
 (defun format-decimal (value decimals)

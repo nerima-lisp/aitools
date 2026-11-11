@@ -14,8 +14,9 @@
   (it "percent-encodes every byte except RFC 3986 unreserved characters"
     (expect (encode-octets "url" (string-bytes "a-Z_0.~ /?=é")) :to-equal "a-Z_0.~%20%2F%3F%3D%C3%A9"))
 
-  (it "writes lowercase hex pairs"
-    (expect (encode-octets "hex" (octets 0 15 16 255)) :to-equal "000f10ff")))
+  (it "writes lowercase hex pairs and rejects unsupported schemes"
+    (expect (encode-octets "hex" (octets 0 15 16 255)) :to-equal "000f10ff")
+    (signals type-error (encode-octets "rot13" (octets 97)))))
 
 (describe "aitools.util.domain decode-text"
   (it-property "round-trips generated octet vectors through every codec"
@@ -54,8 +55,12 @@ YmE")) :to-equalp (string-bytes "fooba")))
       (expect kind :to-be :invalid)
       (expect position :to-be offset)))
 
-  (it "rejects the URL-safe base64 alphabet under the standard scheme"
-    (expect (decode "base64" "-_8=") :to-be :invalid)))
+  (it "rejects unsupported schemes and URL-safe base64 under the standard scheme"
+    (expect (decode "base64" "-_8=") :to-be :invalid)
+    (signals type-error
+      (decode-text "rot13" (octets)
+                   :on-decoded (constantly :decoded)
+                   :on-invalid (constantly :invalid)))))
 
 (describe "aitools.util.domain UTF-8 helpers"
   (it "reports the offset of invalid UTF-8"

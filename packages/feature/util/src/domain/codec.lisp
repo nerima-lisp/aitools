@@ -99,11 +99,13 @@ ON-INVALID with the byte offset of the first invalid sequence."
                         (write-char (char-upcase (char +hex-digits+ (logand octet 15))) out))))))
 
 (defun encode-octets (scheme octets)
-  "Encode OCTETS with SCHEME (\"base64\", \"url\", or \"hex\") and return
-the ASCII result string."
+  "Encode OCTETS with SCHEME (\"base64\", \"url\", or \"hex\") and return the ASCII result string."
   (cond ((string= scheme "base64") (%encode-base64 octets))
         ((string= scheme "url") (%encode-url octets))
-        ((string= scheme "hex") (octets->hex octets))))
+        ((string= scheme "hex") (octets->hex octets))
+        (t (error (quote type-error)
+                  :datum scheme
+                  :expected-type (quote (member "base64" "url" "hex"))))))
 
 (define-condition %invalid-encoding (error)
   ((offset :initarg :offset :reader %invalid-encoding-offset)
@@ -190,7 +192,10 @@ decoding failed and a fixed description."
            t
            (cond ((string= scheme "base64") (%decode-base64 octets))
                  ((string= scheme "url") (%decode-url octets))
-                 ((string= scheme "hex") (%decode-hex octets)))
+                 ((string= scheme "hex") (%decode-hex octets))
+                 (t (error (quote type-error)
+                           :datum scheme
+                           :expected-type (quote (member "base64" "url" "hex")))))
            nil
            nil)
         (%invalid-encoding (condition)

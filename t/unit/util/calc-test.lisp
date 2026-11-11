@@ -45,7 +45,13 @@
       (text)
     (expect (calc text) :to-be :error))
 
-  (it "rejects identifiers as unknown names rather than evaluating them"
+  (it "checks ASCII identifier characters directly"
+    (let ((predicate (symbol-function (quote aitools.util.domain::%ascii-letter-p))))
+      (expect (funcall predicate (code-char 97)) :to-be-truthy)
+      (expect (funcall predicate (code-char 65)) :to-be-truthy)
+      (expect (funcall predicate (code-char 95)) :to-be-truthy)
+      (expect (funcall predicate (code-char 55)) :to-be nil)
+      (expect (funcall predicate (code-char 45)) :to-be nil))
     (expect (nth-value 1 (calc "x")) :to-contain "no variables"))
 
   (it "rejects an exponent whose result exceeds the bit budget before computing it"
@@ -78,11 +84,18 @@
   (it "rejects input longer than the length budget"
     (expect (calc (make-string 5000 :initial-element #\1)) :to-be :error))
 
-  (it "reports the character offset of a syntax error"
-    (expect (evaluate-expression "1 + $" :on-value #'identity :on-error (lambda (offset reason)
-                                                                         (declare (ignore reason))
-                                                                         offset))
-            :to-be 4))
+  (it "reports syntax offsets and rejects unsupported direct operators"
+    (expect (evaluate-expression "1 + $" :on-value (function identity) :on-error (lambda (offset reason)
+                                                                          (declare (ignore reason))
+                                                                          offset))
+            :to-be 4)
+    (handler-case
+        (progn (aitools.util.domain::%apply-binary "rot13" 1 2 7)
+               (expect nil :to-be-truthy))
+      (aitools.util.domain::%calc-error (condition)
+        (expect (aitools.util.domain::%calc-error-offset condition) :to-be 7)
+        (expect (aitools.util.domain::%calc-error-reason condition)
+                :to-contain "unsupported binary operator"))))
   (it "observes the real parser through util-calc-flow"
     (let ((spy (cl-weave:spy-on 'aitools.util.domain:evaluate-expression)))
       (unwind-protect
