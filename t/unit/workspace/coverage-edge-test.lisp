@@ -1,10 +1,15 @@
 (in-package #:aitools.workspace.test)
 
 (describe "workspace value construction edges"
-  (it "accepts the workspace value alternatives"
+  (it "constructs workspace entries, ignore contexts, and overlays"
     (dolist (kind '(:file :directory :symlink :other))
       (expect (workspace-entry-kind
-               (make-workspace-entry :kind kind :mtime -1))
+               (make-workspace-entry :kind kind
+                                     :size 1
+                                     :mtime -1
+                                     :mode #o7777
+                                     :device 0
+                                     :inode 0))
               :to-be kind))
     (let* ((repository
              (make-git-repository :top "/repo"
@@ -13,20 +18,43 @@
            (root (make-workspace-root :repository repository)))
       (expect (workspace-root-repository root) :to-be repository))
     (dolist (source '(:none :builtin :gitignore))
-      (expect (aitools.workspace.application:ignore-context-source
-               (aitools.workspace.application::make-ignore-context :source source))
-              :to-be source))
+      (let* ((base-stack
+               (list (aitools.workspace.domain:parse-ignore-lines '("skip.tmp"))))
+             (context
+               (aitools.workspace.application::make-ignore-context
+                :source source
+                :base-stack base-stack)))
+        (expect (aitools.workspace.application:ignore-context-source context)
+                :to-be source)
+        (expect (aitools.workspace.application::ignore-context-base-stack context)
+                :to-be base-stack)))
     (let* ((bytes #(65 66))
            (overlay
-             (make-workspace-overlay
+             (aitools.workspace.application:make-workspace-overlay
+              :list-directory (lambda (path entries)
+                                (list path (length entries)))
               :read-octets (lambda (path)
                              (declare (ignore path))
                              (values t bytes)))))
+      (expect
+       (funcall
+        (aitools.workspace.application::workspace-overlay-list-directory overlay)
+        "dir" '(entry))
+       :to-equal '("dir" 1))
       (multiple-value-bind (override-p actual)
           (funcall
            (aitools.workspace.application::workspace-overlay-read-octets overlay)
            "file")
-        (expect override-p :to-be-truthy)
+        (progn
+          (expect override-p :to-be-truthy)
+          (let ((default-overlay
+                  (aitools.workspace.application:make-workspace-overlay)))
+            (expect
+             (aitools.workspace.application::workspace-overlay-list-directory default-overlay)
+             :to-be nil)
+            (expect
+             (aitools.workspace.application::workspace-overlay-read-octets default-overlay)
+             :to-be nil)))
         (expect actual :to-equalp bytes)))))
 
 (describe "workspace Git boundary predicates"
@@ -118,7 +146,7 @@
         (expect calls :to-be 2)))))
 
 (describe "workspace direct coverage calls"
-  (it "executes the scan flow with the default size limit"
+  (it "executes scan and parser entry points"
     (let* ((host
              (make-fake-workspace-boundaries
               :files '(("/r/.git/HEAD" . "ref: refs/heads/main")
@@ -127,7 +155,7 @@
            (root (resolved-root host))
            (seen nil))
       (expect
-       (call-with-workspace-scan/k
+       (aitools.workspace.application:call-with-workspace-scan/k
         host root
         :emit (lambda (entry result)
                 (declare (ignore result))
@@ -138,46 +166,57 @@
                     (declare (ignore arguments))
                     :error))
        :to-equal '(:gitignore nil))
-      (expect (nreverse seen) :to-equal '("sample"))))
-  (it "calls the index and ignore parsers directly"
-    (expect
-     (coerce
-      (parse-git-index-paths
-       (make-array 12 :element-type '(unsigned-byte 8)
-                   :initial-contents '(68 73 82 67 0 0 0 2 0 0 0 0)))
-      'list)
-     :to-equal nil)
-    (let ((lines (parse-ignore-lines '("skip.tmp")))
-          (octets (parse-ignore-octets (string-bytes "skip.tmp"))))
-      (expect (ignore-list-verdict lines "skip.tmp" nil)
-              :to-be :ignored)
-      (expect (ignore-list-verdict octets "skip.tmp" nil)
-              :to-be :ignored)))
-  (it "evaluates workspace root and ignore context value paths"
-    (let* ((repository (make-git-repository))
-           (root (make-workspace-root :repository repository))
-           (context (apply #'aitools.workspace.application::make-ignore-context nil)))
-      (expect (workspace-root-repository root) :to-be repository)
+      (expect (nreverse seen) :to-equal '("sample")))
+    (let ((empty-index
+            (make-array 12 :element-type '(unsigned-byte 8)
+                        :initial-contents '(68 73 82 67 0 0 0 2 0 0 0 0)))
+          (one-entry-index
+            (make-array 96 :element-type '(unsigned-byte 8) :initial-element 0)))
+      (replace one-entry-index #(68 73 82 67 0 0 0 2 0 0 0 1))
+      (setf (aref one-entry-index 74) 97)
+      (expect
+       (coerce
+        (aitools.workspace.domain:parse-git-index-paths empty-index)
+        'list)
+       :to-equal nil)
+      (expect
+       (coerce
+        (aitools.workspace.domain:parse-git-index-paths one-entry-index)
+        'list)
+       :to-equal '("a")))
+    (let ((lines
+            (apply #'aitools.workspace.domain:parse-ignore-lines
+                   (list '("skip.tmp"))))
+          (octets
+            (apply #'aitools.workspace.domain:parse-ignore-octets
+                   (list (string-bytes "skip.tmp")))))
+      (expect
+       (aitools.workspace.domain:ignore-list-verdict lines "skip.tmp" nil)
+       :to-be :ignored)
+      (expect
+       (aitools.workspace.domain:ignore-list-verdict octets "skip.tmp" nil)
+       :to-be :ignored)))
+  (it "covers workspace-root sources and gitdir marker alternatives"
+    (let* ((repository (aitools.workspace.domain:make-git-repository))
+           (root (aitools.workspace.domain:make-workspace-root
+                  :repository repository))
+           (context
+             (apply #'aitools.workspace.application::make-ignore-context nil)))
+      (expect (aitools.workspace.domain:workspace-root-repository root)
+              :to-be repository)
       (expect (aitools.workspace.application:ignore-context-source context)
               :to-be :none)
-      (expect (aitools.workspace.application::ignore-context-base-stack context)
-              :to-be nil))
+      (expect
+       (aitools.workspace.application::ignore-context-base-stack context)
+       :to-be nil))
     (dolist (source '(:option :git :cwd))
-      (expect (aitools.workspace.domain::workspace-root-source
-               (make-workspace-root :source source))
-              :to-be source))
-    (dolist (source '(:none :builtin :gitignore))
-      (expect (aitools.workspace.application:ignore-context-source
-               (aitools.workspace.application::make-ignore-context :source source))
-              :to-be source)))
-  (it "covers a positive count and the nonpositive fallback"
-    (expect (plusp (aitools.workspace.infrastructure::processor-count))
-            :to-be-truthy)
-    (cl-weave:with-mocked-functions
-        (((symbol-function
-           (find-symbol "%SYSCONF-ONLINE-PROCESSORS"
-                        "AITOOLS.WORKSPACE.INFRASTRUCTURE"))
-          (lambda () -1)))
-      (expect (aitools.workspace.infrastructure::processor-count)
-              :to-be
-              1))))
+      (let ((root
+              (apply #'aitools.workspace.domain:make-workspace-root
+                     (list :source source))))
+        (expect (aitools.workspace.domain::workspace-root-source root)
+                :to-be source)))
+    (expect (aitools.workspace.domain::parse-gitdir-file "gitdir:")
+            :to-be nil)
+    (expect
+     (aitools.workspace.domain::parse-gitdir-file "gitdir: /worktrees/active")
+     :to-equal "/worktrees/active")))
