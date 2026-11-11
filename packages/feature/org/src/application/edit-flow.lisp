@@ -13,12 +13,12 @@
                                            :conflicts conflicts
                                            :repairs repairs))))
 
-(aitools.kernel.domain:define-flow (%org-write-flow ports path command operation options &key root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
+(aitools.kernel.domain:define-flow (%org-write-flow boundaries path command operation options &key root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
                                    (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-result ports path command operation options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
+                                   (%org-write-flow-call (%org-write-result boundaries path command operation options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
 
-(aitools.kernel.domain:define-flow (org-todo-set/k ports &key path match state note at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-todo-set/k boundaries &key path match state note at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.todo.set"
                                                      :todo-set
@@ -38,8 +38,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-property-set/k ports &key path match name value at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-property-set/k boundaries &key path match name value at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.property.set"
                                                      :property-set
@@ -59,8 +59,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-property-delete/k ports &key path match name at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-property-delete/k boundaries &key path match name at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.property.delete"
                                                      :property-delete
@@ -80,8 +80,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-planning-set/k ports &key path match kind timestamp at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-planning-set/k boundaries &key path match kind timestamp at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.planning.set"
                                                      :planning-set
@@ -101,8 +101,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-planning-delete/k ports &key path match kind at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-planning-delete/k boundaries &key path match kind at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.planning.delete"
                                                      :planning-delete
@@ -122,8 +122,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-clock-in/k ports &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-clock-in/k boundaries &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.clock.in"
                                                      :clock-in
@@ -143,8 +143,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-clock-out/k ports &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-clock-out/k boundaries &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.clock.out"
                                                      :clock-out
@@ -164,8 +164,8 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-table-align/k ports &key path table root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-table-align/k boundaries &key path table root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.table.align"
                                                      :table-align
@@ -181,8 +181,8 @@
                                                      :display-argv
                                                      display-argv)))
 
-(aitools.kernel.domain:define-flow (org-table-sort/k ports &key path table column type order start end root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-table-sort/k boundaries &key path table column type order start end root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.table.sort"
                                                      :table-sort
@@ -198,8 +198,8 @@
                                                      :display-argv
                                                      display-argv)))
 
-(aitools.kernel.domain:define-flow (org-table-recalculate/k ports &key path table root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-flow ports
+(aitools.kernel.domain:define-flow (org-table-recalculate/k boundaries &key path table root lock-timeout dry-run tx display-argv on-ok on-error on-partial expect-count expect-hash) (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
+                                   (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.table.recalculate"
                                                      :table-recalculate

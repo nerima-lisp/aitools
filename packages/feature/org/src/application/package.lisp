@@ -6,22 +6,7 @@
                           #:json-object
                           #:json-null
                           #:repair)
-            (:export #:org-ports
-                     #:org-ports-p
-                     #:make-org-ports
-                     #:org-ports-workspace-host
-                     #:org-ports-text-source
-                     #:org-ports-max-input-bytes
-                     #:org-ports-parse-org
-                     #:org-ports-outline-org
-                     #:org-ports-query-org
-                     #:org-ports-export-org
-                     #:org-ports-open-store
-                     #:org-ports-write-org
-                     #:org-ports-edit-org
-                     #:org-ports-agenda-org
-                     #:org-ports-clock-report-org
-                     #:org-outline/k
+            (:export #:org-outline/k
                      #:org-query/k
                      #:org-export/k
                      #:org-todo-set/k

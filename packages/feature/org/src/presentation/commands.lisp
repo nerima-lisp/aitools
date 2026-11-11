@@ -30,19 +30,19 @@
   (apply #'make-option :name name :kind :value
          :value-name value-name :description description options))
 
-(defun %outline-command (ports)
+(defun %outline-command (boundaries)
   (make-command
    :name "outline" :description (%summary "org.outline")
    :positionals (list (%path-positional))
    :options (list (%value-option "limit" "N" "Maximum entries returned."
                                  :type :integer :min 0))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.org.application:org-outline/k ports
+              (%run-flow #'aitools.org.application:org-outline/k boundaries
                          :path (positional-value invocation :path)
                          :limit (option-value invocation :limit)
                          :root (option-value invocation :root)))))
 
-(defun %query-command (ports)
+(defun %query-command (boundaries)
   (make-command
    :name "query" :description (%summary "org.query")
    :positionals (list (%path-positional))
@@ -53,7 +53,7 @@
                                  :choices '("compatible" "earlier" "later" "strict")
                                  :default "compatible"))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.org.application:org-query/k ports
+              (%run-flow #'aitools.org.application:org-query/k boundaries
                          :path (positional-value invocation :path)
                          :match (option-value invocation :match)
                          :at (option-value invocation :at)
@@ -61,14 +61,14 @@
                          :dst-policy (option-value invocation :dst-policy)
                          :root (option-value invocation :root)))))
 
-(defun %export-command (ports)
+(defun %export-command (boundaries)
   (make-command
    :name "export" :description (%summary "org.export")
    :positionals (list (%path-positional))
    :options (list (%value-option "backend" "html|gfm|ascii" "Export backend."
                                  :choices '("html" "gfm" "ascii")))
    :handler (lambda (invocation)
-              (%run-flow #'aitools.org.application:org-export/k ports
+              (%run-flow #'aitools.org.application:org-export/k boundaries
                          :path (positional-value invocation :path)
                          :backend (%backend (option-value invocation :backend))
                          :root (option-value invocation :root)))))

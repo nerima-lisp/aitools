@@ -2,12 +2,24 @@
 
 (describe "Org write flow preconditions"
           (it
-           "rejects an empty path and missing write ports"
-           (let ((ports (aitools.org.application:make-org-ports)))
+           "rejects an empty path and missing write capabilities"
+           (let ((boundaries (cl-boundary-kit:make-boundary-context
+ :org-workspace-host nil
+ :org-text-source nil
+ :org-max-input-bytes nil
+ :org-parse nil
+ :org-outline nil
+ :org-query nil
+ :org-export nil
+ :org-open-store nil
+ :org-write nil
+ :org-edit nil
+ :org-agenda nil
+ :org-clock-report nil)))
              (expect
               (org-flow-error-code
                (function aitools.org.application:org-todo-set/k)
-               ports
+               boundaries
                :path
                "")
               :to-equal
@@ -15,7 +27,7 @@
              (expect
               (org-flow-error-code
                (function aitools.org.application:org-todo-set/k)
-               ports
+               boundaries
                :path
                "missing.org")
               :to-equal
@@ -24,12 +36,12 @@
 (describe "Org write flow targets"
           (it
            "rejects missing and non-file targets without changing nearby files"
-           (call-with-edit-workspace (lambda () (let ((ports (make-org-write-flow-ports)))
+           (call-with-edit-workspace (lambda () (let ((boundaries (make-org-write-flow-boundaries)))
                                   (expect
                                    (org-flow-error-code
                                     (function
                                      aitools.org.application:org-todo-set/k)
-                                    ports
+                                    boundaries
                                     :path
                                     "missing.org"
                                     :root
@@ -43,7 +55,7 @@
                                      (org-flow-error-code
                                       (function
                                        aitools.org.application:org-todo-set/k)
-                                      ports
+                                      boundaries
                                       :path
                                       "folder"
                                       :root
@@ -56,7 +68,7 @@
 
 (describe "Org write flow input rejection"
           (it "rejects malformed UTF-8 before changing the source bytes"
-              (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
+              (call-with-edit-workspace (lambda () (let* ((boundaries (make-org-write-flow-boundaries))
                                           (original
                                            (octet-vector 42
                                                          32
@@ -72,7 +84,7 @@
                                       (org-flow-error-code
                                        (function
                                         aitools.org.application:org-todo-set/k)
-                                       ports
+                                       boundaries
                                        :path
                                        "invalid.org"
                                        :root
@@ -91,14 +103,14 @@
                                              :to-equalp
                                              original)))))
           (it "rejects NUL bytes before editing and preserves source bytes"
-              (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
+              (call-with-edit-workspace (lambda () (let* ((boundaries (make-org-write-flow-boundaries))
                        (original (octet-vector 42 32 84 79 68 79 32 0 10)))
                   (put "nul.org" original)
                   (expect
                    (org-flow-error-code
                     (function
                      aitools.org.application:org-todo-set/k)
-                    ports
+                    boundaries
                     :path "nul.org"
                     :root *root*
                     :match "/TODO"
@@ -111,7 +123,7 @@
 (describe "Org table sort arguments"
           (it
            "rejects an unknown sort type through the application flow without changing the table"
-           (call-with-edit-workspace (lambda () (let* ((ports (make-org-write-flow-ports))
+           (call-with-edit-workspace (lambda () (let* ((boundaries (make-org-write-flow-boundaries))
                                        (source
                                         (format nil
                                                 "| A | B |~%|---+---|~%| 1 | 2 |~%")))
@@ -121,7 +133,7 @@
                                      (org-flow-error-code
                                       (function
                                        aitools.org.application:org-table-sort/k)
-                                      ports
+                                      boundaries
                                       :path
                                       "table.org"
                                       :table

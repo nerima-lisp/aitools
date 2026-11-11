@@ -35,11 +35,11 @@
        "UTF-16 big-endian"))))
 
 (aitools.kernel.domain:define-flow
-    (org-read-document/k ports path root command &key on-document on-error)
+    (org-read-document/k boundaries path root command &key on-document on-error)
   (declare (type function on-document on-error))
-  (let ((host (org-ports-workspace-host ports))
-        (source (org-ports-text-source ports))
-        (parser (org-ports-parse-org ports)))
+  (let ((host (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host))
+        (source (cl-boundary-kit:boundary-context-require boundaries :org-text-source))
+        (parser (cl-boundary-kit:boundary-context-require boundaries :org-parse)))
     (cond
       ((or (not (stringp path)) (zerop (length path)))
        (aitools.kernel.domain:flow-continue
@@ -67,7 +67,7 @@
                 (outcome nil))
             (aitools.text.application:call-with-text-file/k
              source absolute
-             :max-bytes (org-ports-max-input-bytes ports)
+             :max-bytes (cl-boundary-kit:boundary-context-require boundaries :org-max-input-bytes)
              :on-text (lambda (octets layout)
                         (declare (ignore layout))
                         (setf outcome (list :octets octets)))

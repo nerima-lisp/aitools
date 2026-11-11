@@ -1,6 +1,6 @@
 (in-package #:aitools.org.presentation)
 
-(defun register-org-commands (registry ports)
+(defun register-org-commands (registry boundaries)
   (let ((declarations
          (append
           (list
@@ -21,5 +21,5 @@
           (%org-agenda-report-declarations)
           (%org-table-declarations))))
     (aitools.protocol.application:register-command-declarations
-     registry declarations ports))
+     registry declarations boundaries))
   registry)

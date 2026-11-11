@@ -3,12 +3,12 @@
 (defun %org-agenda-entry-json (entry)
   (json-object "date" (getf entry :date) "kind" (getf entry :kind) "line" (getf entry :line) "title" (getf entry :title) "todo" (or (getf entry :todo) (json-null)) "tags" (getf entry :tags)))
 
-(aitools.kernel.domain:define-flow (org-agenda/k ports &key path from through future-repeats at tz dst-policy root on-ok on-partial on-error)
+(aitools.kernel.domain:define-flow (org-agenda/k boundaries &key path from through future-repeats at tz dst-policy root on-ok on-partial on-error)
                                    (declare (ignore on-partial)
                                             (type function on-ok on-error))
-                                   (aitools.kernel.domain:flow-call (org-read-document/k ports path root "org agenda")
+                                   (aitools.kernel.domain:flow-call (org-read-document/k boundaries path root "org agenda")
                                                                     (:on-document (document)
-                                                                                  (let ((agenda (org-ports-agenda-org ports)))
+                                                                                  (let ((agenda (cl-boundary-kit:boundary-context-require boundaries :org-agenda)))
                                                                                     (if (null agenda)
                                                                                         (aitools.kernel.domain:flow-continue :on-error
                                                                                                                              "internal.unexpected"

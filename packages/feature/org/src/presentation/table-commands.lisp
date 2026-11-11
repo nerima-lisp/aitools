@@ -4,17 +4,17 @@
   (%value-option "table" "N" "One-based table number in the document."
                  :type :integer :min 1 :required-p t))
 
-(defun %table-align-command (ports)
+(defun %table-align-command (boundaries)
   (make-command
    :name "align" :description (%summary "org.table.align")
    :positionals (list (%path-positional))
    :options (append (list (%table-option)) (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-write #'aitools.org.application:org-table-align/k
-                              ports invocation
+                              boundaries invocation
                               (list :table (option-value invocation :table))))))
 
-(defun %table-sort-command (ports)
+(defun %table-sort-command (boundaries)
   (make-command
    :name "sort" :description (%summary "org.table.sort")
    :positionals (list (%path-positional))
@@ -35,7 +35,7 @@
              (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-write #'aitools.org.application:org-table-sort/k
-                              ports invocation
+                              boundaries invocation
                               (list :table (option-value invocation :table)
                                     :column (option-value invocation :column)
                                     :type (option-value invocation :type)
@@ -43,14 +43,14 @@
                                     :start (option-value invocation :start)
                                     :end (option-value invocation :end))))))
 
-(defun %table-recalculate-command (ports)
+(defun %table-recalculate-command (boundaries)
   (make-command
    :name "recalculate" :description (%summary "org.table.recalculate")
    :positionals (list (%path-positional))
    :options (append (list (%table-option)) (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-write #'aitools.org.application:org-table-recalculate/k
-                              ports invocation
+                              boundaries invocation
                               (list :table (option-value invocation :table))))))
 
 (defun %org-table-declarations ()

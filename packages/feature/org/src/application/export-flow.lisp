@@ -1,16 +1,16 @@
 (in-package #:aitools.org.application)
 
 (aitools.kernel.domain:define-flow
-    (org-export/k ports &key path backend root on-ok on-partial on-error)
+    (org-export/k boundaries &key path backend root on-ok on-partial on-error)
   (declare (ignore on-partial) (type function on-ok on-error))
   (if (not (member backend '(:html :gfm :ascii)))
       (aitools.kernel.domain:flow-continue
        :on-error "argument.invalid" "--backend must be html, gfm, or ascii"
        :repairs (%schema-repair "org export" "Pass a supported --backend value."))
       (aitools.kernel.domain:flow-call
-          (org-read-document/k ports path root "org export")
+          (org-read-document/k boundaries path root "org export")
         (:on-document (document)
-          (let ((exporter (org-ports-export-org ports)))
+          (let ((exporter (cl-boundary-kit:boundary-context-require boundaries :org-export)))
             (if (null exporter)
                 (aitools.kernel.domain:flow-continue
                  :on-error "internal.unexpected" "the org context has no export port"

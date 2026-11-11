@@ -1,6 +1,6 @@
 (in-package #:aitools.org.presentation)
 
-(defun %planning-set-command (ports)
+(defun %planning-set-command (boundaries)
   (make-command
    :name "set" :description (%summary "org.planning.set")
    :positionals (list (%path-positional))
@@ -14,11 +14,11 @@
              (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-planning-set/k ports invocation
+               #'aitools.org.application:org-planning-set/k boundaries invocation
                (list :kind (option-value invocation :kind)
                      :timestamp (option-value invocation :timestamp))))))
 
-(defun %planning-delete-command (ports)
+(defun %planning-delete-command (boundaries)
   (make-command
    :name "delete" :description (%summary "org.planning.delete")
    :positionals (list (%path-positional))
@@ -30,26 +30,26 @@
              (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-planning-delete/k ports invocation
+               #'aitools.org.application:org-planning-delete/k boundaries invocation
                (list :kind (option-value invocation :kind))))))
 
-(defun %clock-in-command (ports)
+(defun %clock-in-command (boundaries)
   (make-command
    :name "in" :description (%summary "org.clock.in")
    :positionals (list (%path-positional))
    :options (append (%org-selector-time-options) (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-clock-in/k ports invocation nil))))
+               #'aitools.org.application:org-clock-in/k boundaries invocation nil))))
 
-(defun %clock-out-command (ports)
+(defun %clock-out-command (boundaries)
   (make-command
    :name "out" :description (%summary "org.clock.out")
    :positionals (list (%path-positional))
    :options (append (%org-selector-time-options) (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-clock-out/k ports invocation nil))))
+               #'aitools.org.application:org-clock-out/k boundaries invocation nil))))
 
 (defun %org-planning-clock-declarations ()
   (list

@@ -1,6 +1,6 @@
 (in-package #:aitools.org.presentation)
 
-(defun %agenda-command (ports)
+(defun %agenda-command (boundaries)
   (make-command
    :name "agenda" :description (%summary "org.agenda")
    :positionals (list (%path-positional))
@@ -14,7 +14,7 @@
                                   :default "all"))
              (%org-time-options))
    :handler (lambda (invocation)
-              (apply #'%run-flow #'aitools.org.application:org-agenda/k ports
+              (apply #'%run-flow #'aitools.org.application:org-agenda/k boundaries
                      (append
                       (list :path (positional-value invocation :path)
                             :from (option-value invocation :from)
@@ -23,7 +23,7 @@
                       (%org-time-arguments invocation)
                       (%org-read-arguments invocation))))))
 
-(defun %clock-report-command (ports)
+(defun %clock-report-command (boundaries)
   (make-command
    :name "report" :description (%summary "org.clock.report")
    :positionals (list (%path-positional))
@@ -35,7 +35,7 @@
                                   :required-p t)))
    :handler (lambda (invocation)
               (%org-run-selector-read
-               #'aitools.org.application:org-clock-report/k ports invocation
+               #'aitools.org.application:org-clock-report/k boundaries invocation
                (list :from (option-value invocation :from)
                      :through (option-value invocation :through))))))
 

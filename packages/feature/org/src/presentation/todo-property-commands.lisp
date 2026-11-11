@@ -1,6 +1,6 @@
 (in-package #:aitools.org.presentation)
 
-(defun %todo-set-command (ports)
+(defun %todo-set-command (boundaries)
   (make-command
    :name "set" :description (%summary "org.todo.set")
    :positionals (list (%path-positional))
@@ -11,11 +11,11 @@
                     (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-todo-set/k ports invocation
+               #'aitools.org.application:org-todo-set/k boundaries invocation
                (list :state (option-value invocation :state)
                      :note (option-value invocation :note))))))
 
-(defun %property-set-command (ports)
+(defun %property-set-command (boundaries)
   (make-command
    :name "set" :description (%summary "org.property.set")
    :positionals (list (%path-positional))
@@ -26,11 +26,11 @@
                     (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-property-set/k ports invocation
+               #'aitools.org.application:org-property-set/k boundaries invocation
                (list :name (option-value invocation :name)
                      :value (option-value invocation :value))))))
 
-(defun %property-delete-command (ports)
+(defun %property-delete-command (boundaries)
   (make-command
    :name "delete" :description (%summary "org.property.delete")
    :positionals (list (%path-positional))
@@ -40,7 +40,7 @@
                     (%org-write-options))
    :handler (lambda (invocation)
               (%org-run-selector-write
-               #'aitools.org.application:org-property-delete/k ports invocation
+               #'aitools.org.application:org-property-delete/k boundaries invocation
                (list :name (option-value invocation :name))))))
 
 (defun %org-todo-property-declarations ()

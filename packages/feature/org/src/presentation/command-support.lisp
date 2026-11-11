@@ -34,22 +34,22 @@
 (defun %org-read-arguments (invocation)
   (list :root (option-value invocation :root)))
 
-(defun %org-run-write (flow ports invocation arguments)
-  (apply #'%run-flow flow ports
+(defun %org-run-write (flow boundaries invocation arguments)
+  (apply #'%run-flow flow boundaries
          (append (list :path (positional-value invocation :path))
                  arguments
                  (%org-write-arguments invocation))))
 
-(defun %org-run-selector-write (flow ports invocation arguments)
-  (apply #'%run-flow flow ports
+(defun %org-run-selector-write (flow boundaries invocation arguments)
+  (apply #'%run-flow flow boundaries
          (append (list :path (positional-value invocation :path)
                        :match (option-value invocation :match))
                  arguments
                  (%org-time-arguments invocation)
                  (%org-write-arguments invocation))))
 
-(defun %org-run-selector-read (flow ports invocation arguments)
-  (apply #'%run-flow flow ports
+(defun %org-run-selector-read (flow boundaries invocation arguments)
+  (apply #'%run-flow flow boundaries
          (append (list :path (positional-value invocation :path)
                        :match (option-value invocation :match))
                  arguments

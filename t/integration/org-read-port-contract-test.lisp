@@ -1,29 +1,47 @@
 (in-package #:aitools.integration.org-dispatch-test)
 
-(defun %org-flow-result (flow ports &rest arguments)
+(defun %org-flow-result (flow boundaries &rest arguments)
   (aitools.protocol.application:call-with-command-result/k
    (lambda (&rest continuations)
-     (apply flow (append (list ports) arguments continuations)))))
+     (apply flow (append (list boundaries) arguments continuations)))))
 
-(defun %empty-org-ports ()
-  (aitools.org.application:make-org-ports :max-input-bytes 0))
+(defun %empty-org-boundaries ()
+  (cl-boundary-kit:make-boundary-context
+ :org-workspace-host nil
+ :org-text-source nil
+ :org-max-input-bytes nil
+ :org-parse nil
+ :org-outline nil
+ :org-query nil
+ :org-export nil
+ :org-open-store nil
+ :org-write nil
+ :org-edit nil
+ :org-agenda nil
+ :org-clock-report nil))
 
-(defun %org-ports-without-operation (missing)
+(defun %org-boundaries-without-operation (missing)
   (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
          (source (aitools.text.infrastructure:make-host-text-source))
-         (production (aitools.org.infrastructure:make-production-org-ports
-                      :workspace-host host :text-source source)))
-    (aitools.org.application:make-org-ports
-     :workspace-host host
-     :text-source source
-     :max-input-bytes (aitools.org.application:org-ports-max-input-bytes production)
-     :parse-org (aitools.org.application:org-ports-parse-org production)
-     :outline-org (unless (eq missing :outline)
-                    (aitools.org.application:org-ports-outline-org production))
-     :query-org (unless (eq missing :query)
-                  (aitools.org.application:org-ports-query-org production))
-     :export-org (unless (eq missing :export)
-                   (aitools.org.application:org-ports-export-org production)))))
+         (production
+           (aitools.org.composition::make-org-dependencies
+            :workspace-host host :text-source source)))
+    (cl-boundary-kit:make-boundary-context
+     :org-workspace-host host
+     :org-text-source source
+     :org-max-input-bytes
+     (cl-boundary-kit:boundary-context-require production :org-max-input-bytes)
+     :org-parse
+     (cl-boundary-kit:boundary-context-require production :org-parse)
+     :org-outline
+     (unless (eq missing :outline)
+       (cl-boundary-kit:boundary-context-require production :org-outline))
+     :org-query
+     (unless (eq missing :query)
+       (cl-boundary-kit:boundary-context-require production :org-query))
+     :org-export
+     (unless (eq missing :export)
+       (cl-boundary-kit:boundary-context-require production :org-export)))))
 
 (defun %expect-org-flow-error (result code message)
   (expect (aitools.protocol.application:command-result-kind result) :to-be :error)
@@ -33,34 +51,34 @@
     fields))
 
 (describe "Org application read flow contracts"
-  (it "validates command arguments before requiring ports or opening a file"
-      (let ((ports (%empty-org-ports)))
+  (it "validates command arguments before requiring boundary capabilities or opening a file"
+      (let ((boundaries (%empty-org-boundaries)))
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+         (%org-flow-result (function aitools.org.application:org-outline/k) boundaries
                            :path nil)
          "argument.invalid" "an Org file path is required")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+         (%org-flow-result (function aitools.org.application:org-outline/k) boundaries
                            :path "")
          "argument.invalid" "an Org file path is required")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-outline/k) ports
+         (%org-flow-result (function aitools.org.application:org-outline/k) boundaries
                            :path "missing.org" :limit -1)
          "argument.invalid" "outline limit must be a non-negative integer")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-query/k) ports
+         (%org-flow-result (function aitools.org.application:org-query/k) boundaries
                            :path "missing.org" :match nil :at "2026-10-19T09:00:00" :tz "UTC")
          "argument.invalid" "--match, --at, and --tz are required")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-query/k) ports
+         (%org-flow-result (function aitools.org.application:org-query/k) boundaries
                            :path "missing.org" :match "" :at "2026-10-19T09:00:00" :tz "UTC")
          "argument.invalid" "--match, --at, and --tz are required")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-query/k) ports
+         (%org-flow-result (function aitools.org.application:org-query/k) boundaries
                            :path "missing.org" :match "TODO" :at "" :tz "UTC")
          "argument.invalid" "--match, --at, and --tz are required")
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-export/k) ports
+         (%org-flow-result (function aitools.org.application:org-export/k) boundaries
                            :path "missing.org" :backend :pdf)
          "argument.invalid" "--backend must be html, gfm, or ascii")))
   (it "accepts all keyword DST policies through the query flow"
@@ -68,11 +86,11 @@
       (declare (ignore state))
       (let* ((path (format nil "~A/query.org" root))
              (source (format nil "#+TODO: TODO | DONE~%* TODO Task~%"))
-             (ports (%org-ports-without-operation :none)))
+             (boundaries (%org-boundaries-without-operation :none)))
         (aitools.test.support:write-text path source)
         (dolist (policy (list :compatible :earlier :later :strict))
           (let* ((result (%org-flow-result
-                         (function aitools.org.application:org-query/k) ports
+                         (function aitools.org.application:org-query/k) boundaries
                          :path "query.org" :root root :match "LEVEL=1"
                          :at "2026-10-19T09:00:00" :tz "UTC" :dst-policy policy))
                  (fields (aitools.protocol.application:command-result-fields result)))
@@ -80,7 +98,7 @@
             (expect (cdr (assoc "count" fields :test (function string=)))
                     :to-be 1)))
         (%expect-org-flow-error
-         (%org-flow-result (function aitools.org.application:org-query/k) ports
+         (%org-flow-result (function aitools.org.application:org-query/k) boundaries
                            :path "query.org" :root root :match "LEVEL=1"
                            :at "2026-10-19T09:00:00" :tz "UTC" :dst-policy :unknown)
          "argument.invalid"
@@ -122,17 +140,19 @@
                             (aitools.org.infrastructure::query-org-document
                              document 7 "2026-10-19T09:00:00" "UTC" "compatible")))))
   (it "returns internal errors for each missing required or operation port"
-    (dolist (ports
-             (list (aitools.org.application:make-org-ports
-                    :workspace-host nil :text-source t :max-input-bytes 0
-                    :parse-org #'identity)
-                   (aitools.org.application:make-org-ports
-                    :workspace-host t :text-source nil :max-input-bytes 0
-                    :parse-org #'identity)
-                   (aitools.org.application:make-org-ports
-                    :workspace-host t :text-source t :max-input-bytes 0)))
+    (dolist (boundaries
+             (list
+              (cl-boundary-kit:make-boundary-context
+               :org-workspace-host nil :org-text-source t
+               :org-max-input-bytes 0 :org-parse (function identity))
+              (cl-boundary-kit:make-boundary-context
+               :org-workspace-host t :org-text-source nil
+               :org-max-input-bytes 0 :org-parse (function identity))
+              (cl-boundary-kit:make-boundary-context
+               :org-workspace-host t :org-text-source t
+               :org-max-input-bytes 0 :org-parse nil)))
       (%expect-org-flow-error
-       (%org-flow-result #'aitools.org.application:org-outline/k ports
+       (%org-flow-result #'aitools.org.application:org-outline/k boundaries
                          :path "missing.org")
        "internal.unexpected" "the org context is missing a required port"))
     (aitools.test.support:with-workspace (root state :chdir t)
@@ -141,7 +161,7 @@
              (source (format nil "* Entry~%")))
         (aitools.test.support:write-text path source)
         (dolist (operation '(:outline :query :export))
-          (let* ((ports (%org-ports-without-operation operation))
+          (let* ((boundaries (%org-boundaries-without-operation operation))
                  (arguments
                    (case operation
                      (:outline (list :path "entry.org" :root root))
@@ -161,7 +181,7 @@
                             (:query "aitools schema org query")
                             (:export "aitools schema org export")))
                  (fields (apply #'%expect-org-flow-error
-                                (apply #'%org-flow-result flow ports arguments)
+                                (apply #'%org-flow-result flow boundaries arguments)
                                 (list "internal.unexpected" message))))
             (expect (getf (first (getf fields :repairs)) :command)
                     :to-equal command)))

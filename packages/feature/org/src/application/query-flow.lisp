@@ -16,7 +16,7 @@
                (%heading-path-json (aitools.org.domain:org-query-match-heading-path match))))
 
 (aitools.kernel.domain:define-flow
-    (org-query/k ports &key path match at tz dst-policy root on-ok on-partial on-error)
+    (org-query/k boundaries &key path match at tz dst-policy root on-ok on-partial on-error)
   (declare (ignore on-partial) (type function on-ok on-error))
   (if (not (and (stringp match) (plusp (length match))
                 (stringp at) (plusp (length at))
@@ -25,9 +25,9 @@
        :on-error "argument.invalid" "--match, --at, and --tz are required"
        :repairs (%schema-repair "org query" "Pass all required query options."))
       (aitools.kernel.domain:flow-call
-          (org-read-document/k ports path root "org query")
+          (org-read-document/k boundaries path root "org query")
         (:on-document (document)
-          (let ((query (org-ports-query-org ports)))
+          (let ((query (cl-boundary-kit:boundary-context-require boundaries :org-query)))
             (if (null query)
                 (aitools.kernel.domain:flow-continue
                  :on-error "internal.unexpected" "the org context has no query port"

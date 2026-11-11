@@ -8,16 +8,16 @@
                "line" (aitools.org.domain:org-outline-entry-line entry)))
 
 (aitools.kernel.domain:define-flow
-    (org-outline/k ports &key path limit root on-ok on-partial on-error)
+    (org-outline/k boundaries &key path limit root on-ok on-partial on-error)
   (declare (ignore on-partial) (type function on-ok on-error))
   (if (and limit (not (typep limit '(integer 0 *))))
       (aitools.kernel.domain:flow-continue
        :on-error "argument.invalid" "outline limit must be a non-negative integer"
        :repairs (%schema-repair "org outline" "Pass --limit with zero or a positive integer."))
       (aitools.kernel.domain:flow-call
-          (org-read-document/k ports path root "org outline")
+          (org-read-document/k boundaries path root "org outline")
         (:on-document (document)
-          (let ((outline (org-ports-outline-org ports)))
+          (let ((outline (cl-boundary-kit:boundary-context-require boundaries :org-outline)))
             (if (null outline)
                 (aitools.kernel.domain:flow-continue
                  :on-error "internal.unexpected" "the org context has no outline port"

@@ -4,14 +4,14 @@
   :description "Org document commands."
   :depends-on ("aitools/core/kernel" "aitools/core/protocol"
                "aitools/core/text" "aitools/core/workspace"
-               "aitools/feature/edit" "cl-org-kit" "cl-date-kit")
+               "aitools/feature/edit" "cl-boundary-kit"
+               "cl-org-kit" "cl-date-kit")
   :pathname "src/"
   :components ((:module "domain"
                 :components ((:file "package")
                              (:file "document")))
                (:module "application"
                 :components ((:file "package")
-                             (:file "ports")
                              (:file "read-flow")
                              (:file "outline-flow")
                              (:file "query-flow")
@@ -31,7 +31,7 @@
                              (:file "org-kit-clock-ports")
                              (:file "org-kit-agenda-ports")
                              (:file "org-kit-write-ports")
-                             (:file "ports")))))
+                             (:file "capabilities")))))
 
 (defsystem "aitools/feature/org/presentation"
   :description "Org document CLI commands."
@@ -61,7 +61,8 @@
        (:file "org-write-edge-test")
        (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
-       (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))))
+       (:file "org-read-port-contract-test" :depends-on ("org-read-contract-test"))
+       (:file "org-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components
       ((:file "org-cases")
