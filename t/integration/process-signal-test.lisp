@@ -1,13 +1,26 @@
 (in-package #:aitools.process.integration-test)
 
 (defun signal-child-script (&key stubborn)
-  (format nil "~:[while :; do sleep 1; done~;trap '' TERM; while :; do sleep 1; done~]"
+  (format nil
+          "~:[while :; do sleep 1; done~;trap '' TERM; : > \"$0\"; while :; do sleep 1; done~]"
           stubborn))
 
 (defun signal-child (root &key stubborn)
   (let* ((token (format nil "aitools-signal-~36R" (random (expt 36 12) (make-random-state t))))
+         (ready-path
+           (merge-pathnames "signal-child.ready"
+                            (uiop:ensure-directory-pathname root)))
          (script (signal-child-script :stubborn stubborn))
-         (supervisor (value (start-bg root "sh" "-c" script token) "pid")))
+         (supervisor
+           (value (start-bg root "sh" "-c" script (namestring ready-path) token)
+                  "pid")))
+    ;; Process-table matching can see the child before its TERM handler is installed.
+    (when (and stubborn
+               (not (loop repeat 500
+                          when (probe-file ready-path) return t
+                          do (sleep 0.02))))
+      (kill-group supervisor)
+      (error "signal child did not install its TERM handler"))
     (values supervisor token)))
 
 (defun signal-child-pattern (token &key stubborn)
@@ -85,56 +98,17 @@ The process-info and signal-process capabilities still use the production bounda
                  (expect (value envelope "error" "code")
                          :to-equal "selection.count-mismatch"))
                (expect (pid-alive-p pid) :to-be t)
-               (let* ((signal-symbol 'aitools.process.infrastructure::%signal-process)
-                      (wait-symbol 'aitools.process.application::%wait-for-exit)
-                      (original-signal (symbol-function signal-symbol))
-                      (original-wait (symbol-function wait-symbol))
-                      (observations (make-hash-table :test #'eq))
-                      (observer (lambda (phase &rest values)
-                                  (setf (gethash phase observations) values)))
-                      (started (get-internal-real-time)))
-                 (cl-weave:with-mocked-functions
-                     (((symbol-function signal-symbol)
-                       (lambda (&rest arguments)
-                         (let ((signal (second arguments)))
-                           (when (member signal '(15 9))
-                             (funcall observer (if (= signal 15) :term-sent :kill-sent)
-                                      (get-internal-real-time)))
-                           (apply original-signal arguments))))
-                      ((symbol-function wait-symbol)
-                       (lambda (&rest arguments)
-                         (let ((decision (apply original-wait arguments)))
-                           (funcall observer :wait-for-exit-decision decision)
-                           decision))))
-                   (multiple-value-bind (code envelope)
-                       (invoke (list "signal" "--pid" (princ-to-string pid)
-                                     "--expect-command" token
-                                     "--grace" "300ms"))
-                     (expect code :to-be 0)
-                     (expect (value envelope "items" 0 "signal") :to-be 9))
-                   (let ((ended (get-internal-real-time)))
-                     (handler-case
-                         (expect (>= (- ended started)
-                                     (* 0.3 internal-time-units-per-second)) :to-be t)
-                       (cl-weave::assertion-failure ()
-                         (let* ((term-values (gethash :term-sent observations))
-                                (term-sent (if term-values (first term-values) :not-recorded))
-                                (kill-values (gethash :kill-sent observations))
-                                (kill-sent (if kill-values (first kill-values) :not-recorded))
-                                (wait-values (gethash :wait-for-exit-decision observations))
-                                (wait-decision (if wait-values (first wait-values) :not-recorded))
-                                (elapsed (- ended started)))
-                           (flet ((relative-ms (timestamp)
-                                    (when (numberp timestamp)
-                                      (float (/ (* 1000 (- timestamp started))
-                                                internal-time-units-per-second)
-                                             1d0))))
-                             (cl-weave:fail
-                              "Grace-duration assertion failed: elapsed=~D ticks (~,3Fms); TERM sent at ~S ticks (~S ms after start); KILL sent at ~S ticks (~S ms after start); %wait-for-exit returned ~S"
-                              elapsed (relative-ms ended)
-                              term-sent (relative-ms term-sent)
-                              kill-sent (relative-ms kill-sent)
-                              wait-decision)))))))))
+               (let ((started (get-internal-real-time)))
+                 (multiple-value-bind (code envelope)
+                     (invoke (list "signal" "--pid" (princ-to-string pid)
+                                   "--expect-command" token
+                                   "--grace" "300ms"))
+                   (expect code :to-be 0)
+                   (expect (value envelope "items" 0 "signal") :to-be 9))
+                 (let ((ended (get-internal-real-time)))
+                   (expect (>= (- ended started)
+                               (* 0.3 internal-time-units-per-second))
+                           :to-be t))))
           (kill-group supervisor)
           (expect (wait-for-group-gone supervisor) :to-be t))))
     :prefix "aitools-process"))
