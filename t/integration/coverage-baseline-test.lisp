@@ -198,10 +198,7 @@
                                  :start (1+ (getf owner :start))
                                  :end (+ 2 (getf owner :start))
                                  :uncovered-count
-                                 (if (or (eq (getf rule :kind) :expression)
-                                         (string-equal (getf rule :symbol)
-                                                       "%REDACT-VALUE"))
-                                     1 2))))))
+                                 (if (eq (getf rule :kind) :expression) 1 2))))))
          (statistics (list :expression-covered 2 :expression-total 10 :branch-covered 12 :branch-total 20))
          (kernel-rules (getf (cl-user::read-coverage-baseline root :kernel) :coverage-exclusions))
          (kernel-definitions
@@ -211,24 +208,21 @@
                  append (cl-user::coverage-source-definitions-for pathname))))
     (multiple-value-bind (adjusted applied)
         (cl-user::coverage-statistics-with-exclusions statistics rules locations)
-      (expect (length rules) :to-equal 6)
-      (expect (length applied) :to-equal 6)
+      (expect (length rules) :to-equal 5)
+      (expect (length applied) :to-equal 5)
       (expect (getf adjusted :expression-total) :to-equal 6)
-      (expect (getf adjusted :branch-total) :to-equal 13)
+      (expect (getf adjusted :branch-total) :to-equal 14)
       (expect
        (and
         (= (loop for entry in applied
                  when (eq (getf entry :kind) :expression)
                    sum (getf entry :excluded-count))
            4)
-        (= (loop for entry in applied
-                 when (eq (getf entry :kind) :branch)
-                   sum (getf entry :excluded-count))
-           7)
+        (= (loop for entry in applied when (eq (getf entry :kind) :branch) sum (getf entry :excluded-count)) 6)
         (equal (mapcar (lambda (state)
                          (cl-user::coverage-uncovered-unit-count-for-state state))
-                       '(2 6 9 10 5 1))
-               '(1 1 1 2 0 0))
+                       '(2 6 9 10 5))
+               '(1 1 1 2 0))
         (not (or (getf baseline :coverage-exclusion-counts)
                  (getf baseline :coverage-uncovered-counts)))
         (consp kernel-rules)
