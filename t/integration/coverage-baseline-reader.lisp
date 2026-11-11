@@ -24,7 +24,8 @@
         (unless (probe-file path)
           (error "Missing coverage baseline for ~S: ~A" context path))
         (with-open-file (stream path)
-          (let* ((*read-eval* nil) (baseline (read stream nil :eof)))
+          (let* ((*read-eval* nil)
+                 (baseline (read stream nil :eof)))
             (unless (and (listp baseline) (evenp (length baseline))
                          (eq (getf baseline :context) context)
                          (eq (getf baseline :state) :measured)
@@ -34,6 +35,13 @@
                               (or (not (eq context :aggregate))
                                   (null (getf baseline :coverage-exclusions)))))
               (error "Invalid coverage baseline for ~S: ~A" context path))
+            (when (and (eq context :store)
+                       (not (every
+                             (lambda (entry)
+                               (getf entry :expected-uncovered-count))
+                             (getf baseline :coverage-exclusions))))
+              (error "Store coverage exclusions require expected counts: ~A"
+                     path))
             (unless (eq (read stream nil :eof) :eof)
               (error "Coverage baseline has trailing data: ~A" path))
             (dolist (metric (list :expression :branch))
@@ -49,27 +57,44 @@
              (loop for entry in entries
                    always
                    (let ((entry-length
-                          (and (listp entry)
-                               (ignore-errors (list-length entry)))))
+                           (and (listp entry)
+                                (ignore-errors (list-length entry)))))
                      (and (integerp entry-length)
-                          (= entry-length 8)
+                          (evenp entry-length)
+                          (member entry-length '(8 10))
                           (let* ((keys (loop for key in entry by (function cddr) collect key))
+                                 (has-expected-count
+                                   (member :expected-uncovered-count keys))
+                                 (allowed-keys
+                                   (if has-expected-count
+                                       (list :kind :package :symbol :reason
+                                             :expected-uncovered-count)
+                                       (list :kind :package :symbol :reason)))
                                  (kind (getf entry :kind))
                                  (package (getf entry :package))
                                  (symbol (getf entry :symbol))
                                  (reason (getf entry :reason))
+                                 (expected-count
+                                   (getf entry :expected-uncovered-count))
                                  (key (list kind
-                                            (and (stringp package) (string-upcase package))
-                                            (and (stringp symbol) (string-upcase symbol)))))
-                            (and (= (length (remove-duplicates keys)) 4)
-                                 (every (lambda (name)
-                                          (member name (list :kind :package :symbol :reason)))
-                                        keys)
+                                            (and (stringp package)
+                                                 (string-upcase package))
+                                            (and (stringp symbol)
+                                                 (string-upcase symbol)))))
+                            (and (= entry-length (if has-expected-count 10 8))
+                                 (= (length (remove-duplicates keys))
+                                    (if has-expected-count 5 4))
+                                 (every (lambda (name) (member name allowed-keys)) keys)
                                  (member kind (list :expression :branch))
                                  (stringp package) (plusp (length package))
                                  (stringp symbol) (plusp (length symbol))
-                                 (stringp reason) (plusp (length (string-trim '(#\Space #\Tab #\Newline #\Return #\Page)
-                                                                              reason)))
+                                 (stringp reason)
+                                 (plusp (length (string-trim
+                                                 '(#\Space #\Tab #\Newline #\Return #\Page)
+                                                 reason)))
+                                 (or (not has-expected-count)
+                                     (and (integerp expected-count)
+                                          (plusp expected-count)))
                                  (not (member key seen :test (function equal)))
                                  (push key seen)))))))))
     (progn

@@ -77,30 +77,44 @@
       (expect (getf result :artifact-exists) :to-be-truthy)
       (expect (getf (getf result :artifact) :schema-version) :to-equal 1))))
 (describe "Coverage exclusion enforcement"
-  (it "subtracts matching uncovered expressions and branch units"
+  (it "subtracts matching uncovered expressions and branch units, and rejects changed exclusion counts"
     (let* ((rules
-             (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
-                         :reason "Synthetic expression reason.")
-                   (list :kind :branch :package "TEST.PACKAGE" :symbol "TARGET"
-                         :reason "Synthetic branch reason.")))
-           (owned-locations
-             (list (list (list :kind :expression)
-                         (list :package "TEST.PACKAGE" :symbol "TARGET"))
-                   (list (list :kind :branch :uncovered-count 1)
-                         (list :package "TEST.PACKAGE" :symbol "TARGET"))
-                   (list (list :kind :branch :uncovered-count 2)
-                         (list :package "TEST.PACKAGE" :symbol "TARGET"))))
-           (statistics
-             (list :expression-covered 2 :expression-total 5
-                   :branch-covered 4 :branch-total 8)))
-      (multiple-value-bind (adjusted applied)
-          (cl-user::coverage-adjust-statistics-for-exclusions
-           statistics rules owned-locations)
-        (expect (getf adjusted :expression-covered) :to-equal 2)
-        (expect (getf adjusted :expression-total) :to-equal 4)
-        (expect (getf adjusted :branch-covered) :to-equal 4)
-        (expect (getf adjusted :branch-total) :to-equal 5)
-        (expect (getf (second applied) :excluded-count) :to-equal 3))))
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "Synthetic expression reason."
+                       :expected-uncovered-count 1)
+                 (list :kind :branch :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "Synthetic branch reason."
+                       :expected-uncovered-count 3)))
+         (owned-locations
+           (list (list (list :kind :expression)
+                       (list :package "TEST.PACKAGE" :symbol "TARGET"))
+                 (list (list :kind :branch :uncovered-count 1)
+                       (list :package "TEST.PACKAGE" :symbol "TARGET"))
+                 (list (list :kind :branch :uncovered-count 2)
+                       (list :package "TEST.PACKAGE" :symbol "TARGET"))))
+         (statistics
+           (list :expression-covered 2 :expression-total 5
+                 :branch-covered 4 :branch-total 8)))
+    (multiple-value-bind (adjusted applied)
+        (cl-user::coverage-adjust-statistics-for-exclusions
+         statistics rules owned-locations)
+      (expect (getf adjusted :expression-covered) :to-equal 2)
+      (expect (getf adjusted :expression-total) :to-equal 4)
+      (expect (getf adjusted :branch-covered) :to-equal 4)
+      (expect (getf adjusted :branch-total) :to-equal 5)
+      (expect (getf (second applied) :excluded-count) :to-equal 3))
+    (let ((failure
+            (handler-case
+                (progn
+                  (cl-user::coverage-adjust-statistics-for-exclusions
+                   statistics
+                   (list (list :kind :branch :package "TEST.PACKAGE"
+                               :symbol "TARGET" :reason "Count drift."
+                               :expected-uncovered-count 2))
+                   owned-locations)
+                  nil)
+              (error (condition) (princ-to-string condition)))))
+      (expect (search "expected 2, measured 3" failure) :to-be-truthy))))
 
   (it "fails when an exclusion no longer matches an uncovered location"
     (let* ((rule
@@ -118,38 +132,48 @@
                (error (condition) (princ-to-string condition)))))
       (expect (search "Stale coverage exclusion" failure) :to-be-truthy)))
 
-  (it "rejects missing or blank reasons, duplicate rules, and aggregate exclusions"
+  (it "rejects malformed, duplicate, aggregate, and unpinned Store exclusions"
     (flet ((invalid-baseline-p (context exclusions)
-             (let ((failure
-                     (%call-with-coverage-baseline-fixture
-                      :measured
-                      (lambda (root)
-                        (handler-case
-                            (progn (cl-user::read-coverage-baseline root context) nil)
-                          (error (condition) (princ-to-string condition))))
-                      :context context :coverage-exclusions exclusions)))
-               (search "Invalid coverage baseline" failure))))
-      (expect
-       (and (invalid-baseline-p
-             :protocol
-             (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET")))
-            (invalid-baseline-p
-             :protocol
-             (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
-                         :reason "   "))))
-       :to-be-truthy)
-      (expect
-       (and (invalid-baseline-p
-             :protocol
-             (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
-                         :reason "First record.")
-                   (list :kind :expression :package "test.package" :symbol "target"
-                         :reason "Duplicate after case folding.")))
-            (invalid-baseline-p
-             :aggregate
-             (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
-                         :reason "Aggregate exclusions are not context-scoped."))))
-       :to-be-truthy)))
+           (let ((failure
+                   (%call-with-coverage-baseline-fixture
+                    :measured
+                    (lambda (root)
+                      (handler-case
+                          (progn (cl-user::read-coverage-baseline root context) nil)
+                        (error (condition) (princ-to-string condition))))
+                    :context context :coverage-exclusions exclusions)))
+             (or (search "Invalid coverage baseline" failure)
+                 (search "Store coverage exclusions require expected counts" failure)))))
+    (expect
+     (and (invalid-baseline-p
+           :protocol
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET")))
+          (invalid-baseline-p
+           :protocol
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "   ")))
+          (invalid-baseline-p
+           :protocol
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "Zero expected count."
+                       :expected-uncovered-count 0)))
+          (invalid-baseline-p
+           :store
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "Store exclusions require counts."))))
+     :to-be-truthy)
+    (expect
+     (and (invalid-baseline-p
+           :protocol
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "First record.")
+                 (list :kind :expression :package "test.package" :symbol "target"
+                       :reason "Duplicate after case folding.")))
+          (invalid-baseline-p
+           :aggregate
+           (list (list :kind :expression :package "TEST.PACKAGE" :symbol "TARGET"
+                       :reason "Aggregate exclusions are not context-scoped."))))
+     :to-be-truthy)))
 
   (it "keeps unknown uncovered locations in the measured total"
     (let* ((rule
@@ -169,7 +193,7 @@
         (expect (getf (first applied) :excluded-count) :to-equal 1))))
 
   (it "applies protocol exclusions and resolves kernel definitions"
-  (let* ((root (asdf:system-source-directory "aitools/test/shared"))
+    (let* ((root (asdf:system-source-directory "aitools/test/shared"))
          (baseline (cl-user::read-coverage-baseline root :protocol))
          (rules (getf baseline :coverage-exclusions))
          (definitions

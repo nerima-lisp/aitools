@@ -154,7 +154,7 @@
                         (function-matches (source-matches functions package symbol))
                         (macro-matches (source-matches macros package symbol))
                         (flow-matches (source-matches flows package symbol)))
-                   (and (= (length exclusion) 8)
+                   (and (= (length exclusion) 10)
                         (or (eq kind :branch) (eq kind :expression))
                         (stringp package)
                         (stringp symbol)

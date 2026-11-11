@@ -186,10 +186,15 @@
                          collect location))
                (count (loop for location in matches
                             sum (getf location :uncovered-count 1)))
-               (metric (if (eq kind :expression) :expression-total :branch-total)))
+               (metric (if (eq kind :expression) :expression-total :branch-total))
+               (expected-count (getf exclusion :expected-uncovered-count)))
           (unless (plusp count)
             (error "Stale coverage exclusion ~A::~A (~A)"
                    (getf exclusion :package) (getf exclusion :symbol) kind))
+          (when (and expected-count (/= count expected-count))
+            (error "Coverage exclusion count differs for ~A::~A (~A): expected ~D, measured ~D"
+                   (getf exclusion :package) (getf exclusion :symbol) kind
+                   expected-count count))
           (unless (and (integerp (getf adjusted metric))
                        (>= (getf adjusted metric) count))
             (error "Coverage exclusion exceeds measured ~A total: ~S" metric count))
