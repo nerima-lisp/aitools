@@ -29,7 +29,7 @@
    (:module "infrastructure"
     :components ((:file "package")
                  (:file "sysctl-mib")
-                 (:file "production-ports")))))
+                 (:file "production-boundaries")))))
 (defsystem "aitools/feature/env/presentation"
   :description "Environment and time CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/env" "cl-cli")
