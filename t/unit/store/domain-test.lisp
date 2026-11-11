@@ -115,6 +115,7 @@
     (expect (nth-value 1 (plan (list (cons "d" (directory-state)) (cons "e" "x")) (list (move-request "e" "d"))))
             :to-equal "refusal.exists")
     (expect (nth-value 1 (plan '() (list (write-file-request "../x" (bytes "y"))))) :to-equal "argument.invalid")
+    (expect (nth-value 1 (plan '() (list (write-file-request "" (bytes "y"))))) :to-equal "argument.invalid")
     (expect (nth-value 1 (plan '() (list (write-file-request "x" (bytes "1")) (write-file-request "x" (bytes "2")))))
             :to-equal "argument.invalid"))
 

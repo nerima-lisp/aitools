@@ -7,31 +7,72 @@
  :branch-total 810
  :coverage-exclusions
  ((:kind :branch :package "AITOOLS.STORE.APPLICATION" :symbol "%ARCHIVE-PREFIX-CURSOR"
-   :reason "These DEFSTRUCT guards are compiler-generated and have no source-mapped SB-COVER branches. No valid cursor state can contain an invalid descriptor or identity; specs verify malformed constructor values are rejected.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.application" :symbol "tx-status"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "change-request"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "change-result"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "conflict"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "entry-state"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "intent-step"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "tx-index"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "tx-meta"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :branch :package "aitools.store.domain" :symbol "tx-op-record"
-   :reason "CLHS DEFSTRUCT: slot :TYPE is not evaluated; any type checking is implementation-dependent.")
-  (:kind :branch :package "aitools.store.domain" :symbol "plan-changes/k"
-   :reason "Empty paths are rejected before planning, and proper ancestors never include the root.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%ARCHIVE-PREFIX-START"
-   :reason "After cursor allocation, only non-failing local assignments remain before STARTED is set; no callback can enter this cleanup except asynchronous interruption.")
-  (:kind :expression :package "aitools.store.domain" :symbol "plan-changes/k"
-   :reason "Valid request paths must be nonempty and path-ancestors never yields the workspace root, so planner state for the empty path is unreachable.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%DIRECTORY-FINALIZATION-STEPS"
-   :reason "Every public completion path checkpoints a created directory identity before finalization; the checkpoint fails first if identity is unavailable.")
-  (:kind :expression :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "%CREATE-FILE" :reason "The compiled SBCL FCHMOD syscall succeeds for a valid descriptor on the writable test filesystem; function-cell fault injection does not reach this inlined call, and a deterministic failure seam would require changing production code solely for the test.")))
+   :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "COLLECT-GARBAGE"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (journal :reread); SBCL evaluates it in generated argument binding rather than the function body.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-TEMP-FILE"
+   :reason "SB-COVER cannot attribute WITH-TEMP-FILE's expansion-time DEFmacro template forms (let and the backquoted flet plus dynamic-extent declaration) to runtime calls; Store specs exercise the expanded form.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "CALL-WITH-TEMP-DIR"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (mode #o700); SBCL evaluates it in generated argument binding rather than CALL-WITH-TEMP-DIR's body.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-TEMP-DIR"
+   :reason "SB-COVER cannot attribute WITH-TEMP-DIR's expansion-time DEFmacro template forms (let and the backquoted flet plus dynamic-extent declaration) to runtime calls; Store specs exercise the expanded form.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "FAULT-POINT"
+   :reason "SB-COVER cannot attribute the WHEN/APPLY body forms of INLINE FAULT-POINT to their source definition after SBCL expands them at call sites; Store specs exercise both NIL and bound hooks.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%IO"
+   :reason "SB-COVER cannot attribute %IO's DEFmacro template for funcall and boundary-context-require to runtime calls; Store specs exercise the macro expansions.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "RECOVER/K"
+   :reason "SB-COVER cannot source-map recover/k's omitted &key initforms for lock-timeout-ms and on-failed; SBCL evaluates them in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-COMMIT/K"
+   :reason "SB-COVER cannot source-map tx-commit/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-DROP/K"
+   :reason "SB-COVER cannot source-map tx-drop/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-REBASE/K"
+   :reason "SB-COVER cannot source-map tx-rebase/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-STAGE/K"
+   :reason "SB-COVER cannot source-map tx-stage/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+) or the rejection lambda's candidates, diagnostics, conflicts, repairs, and path defaults; SBCL evaluates them in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%RUN-UNDER-TX-LOCKS"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (workspace t); SBCL evaluates it in generated argument binding rather than %RUN-UNDER-TX-LOCKS's body.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-BEGIN/K"
+   :reason "SB-COVER cannot source-map tx-begin/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-RECORD-READ/K"
+   :reason "SB-COVER cannot source-map tx-record-read/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-ABORT/K"
+   :reason "SB-COVER cannot source-map tx-abort/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "UNDO-OP/K"
+   :reason "SB-COVER cannot source-map undo-op/k's omitted &key initforms for lock-timeout-ms and rejection continuation fields; SBCL evaluates them in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-PREPARED-INTENT"
+   :reason "SB-COVER cannot attribute WITH-PREPARED-INTENT's expansion-time DEFmacro template forms (let and the backquoted flet/flow-call) to runtime calls; Store specs exercise the expanded form.")
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "COMMIT-CHANGES/K"
+   :reason "SB-COVER cannot source-map commit-changes/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+) or the rejection lambda's candidates, diagnostics, conflicts, repairs, and path defaults; SBCL evaluates them in generated argument binding.")
+  (:kind :expression :package "aitools.store.domain" :symbol "CHANGES->JSON"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (max-diff-lines +default-max-diff-lines+); SBCL evaluates it in generated argument binding rather than CHANGES->JSON's body.")
+  (:kind :expression :package "aitools.store.domain" :symbol "WRITE-RESULT-FIELDS"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (max-diff-lines +default-max-diff-lines+); SBCL evaluates it in generated argument binding rather than WRITE-RESULT-FIELDS's body.")
+  (:kind :expression :package "aitools.store.domain" :symbol "%JSON-FIELD"
+   :reason "SB-COVER cannot source-map %JSON-FIELD's omitted &key initforms (type t) and (required t); SBCL evaluates them in generated argument binding.")
+  (:kind :expression :package "aitools.store.domain" :symbol "%JSON-LIST"
+   :reason "SB-COVER cannot source-map %JSON-LIST's omitted &key initializer (required t); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "aitools.store.domain" :symbol "RETENTION-REMOVALS"
+   :reason "SB-COVER cannot source-map the omitted &key initializer (generations +retained-generations+); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "MAKE-POSIX-STORE-IO"
+   :reason "SB-COVER cannot source-map the :mkdir lambda's omitted &key initializer (mode #o777); SBCL evaluates it in generated argument binding.")
+  (:kind :expression :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "%OPEN-DIRECTORY-AT"
+   :reason "SB-COVER cannot source-map %OPEN-DIRECTORY-AT's omitted &key initializer (follow nil); SBCL evaluates it in generated argument binding.")))

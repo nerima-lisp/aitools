@@ -127,3 +127,18 @@
           :to-be :rejected)
          (expect code :to-equal "environment.io") (expect (intent-files store) :to-equal '())))
      :io nil)))
+
+(describe "Store symlink and path validation coverage"
+  (it "resolves relative symlinks and distinguishes .git paths"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "target.txt" "contents")
+       (sb-posix:symlink "target.txt" (disk-path store "relative-link"))
+       (expect (aitools.store.application::%real-path
+                store (disk-path store "relative-link"))
+               :to-equal (disk-path store "target.txt"))
+       (expect (aitools.store.application::%path-violation store "safe.txt")
+               :to-be nil)
+       (expect (aitools.store.application::%path-violation store ".git/config")
+               :to-equal "is inside a .git directory"))
+     :io nil)))

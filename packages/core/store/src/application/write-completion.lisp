@@ -122,11 +122,7 @@ with half its files."
 (defun %directory-finalization-steps (store intent)
   (loop for step in (reverse (intent-steps intent))
         when (and (eq (intent-step-op step) :mkdir) (intent-step-mode step))
-          collect (let* ((path (%workspace-path store (intent-step-path step)))
-                         (identity (intent-step-identity step)))
-                    (unless identity
-                      (error 'store-io-error :operation "finalize-directory" :path path
-                                             :detail "directory identity unavailable"))
+          collect (let ((identity (intent-step-identity step)))
                     (%check-directory-identity store step)
                     (make-intent-step :op :chmod :path (intent-step-path step)
                                       :mode (intent-step-mode step) :identity identity))))

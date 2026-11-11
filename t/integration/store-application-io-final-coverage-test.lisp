@@ -168,3 +168,44 @@
            (expect (member kept names :test #'string=) :to-be-truthy)
            (expect (member orphan names :test #'string=) :to-be nil))))
      :io nil)))
+
+(describe "Store root and directory checkpoint coverage"
+  (it "rejects empty and non-string roots"
+    (expect (aitools.store.application::%normalize-root "/workspace/")
+            :to-equal "/workspace")
+    (signals error (aitools.store.application::%normalize-root ""))
+    (signals error (aitools.store.application::%normalize-root nil)))
+  (it "checkpoints a created directory with its identity"
+    (call-with-temp-store
+     (lambda (store)
+       (expect (commit store (list (mkdir-request "checkpoint" :mode #o755)))
+               :to-be :committed)
+       (expect (entry-state-kind (workspace-state store "checkpoint"))
+               :to-be :directory)
+       (expect (disk-mode store "checkpoint") :to-be #o755))
+     :io nil)))
+
+(describe "Store directory checkpoint kind coverage"
+  (it "rejects a non-directory checkpoint result"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((path (disk-path plain "not-a-directory"))
+              (state (store-state-directory plain))
+              (state-home (subseq state 0 (position #\/ state :from-end t)))
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 (store-boundaries plain)
+                 :lstat (lambda (candidate)
+                          (declare (ignore candidate))
+                          (values :file #o644 nil nil 1 42))))
+              (store (make-store boundaries (store-root plain) state-home))
+              (step (make-intent-step :op :mkdir :path "not-a-directory" :mode #o755))
+              (condition
+                (handler-case
+                    (progn
+                      (aitools.store.application::%checkpoint-created-directory store nil step)
+                      nil)
+                  (store-io-error (condition) condition))))
+         (expect (store-io-error-operation condition) :to-equal "mkdir")
+         (expect (store-io-error-path condition) :to-equal path)))
+     :io nil)))

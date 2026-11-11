@@ -62,6 +62,11 @@
       ;; would try to flush them again and signal a second stream error.
       (close stream :abort (not written)))))
 
+(defun %set-created-file-mode (fd mode path)
+  (handler-case (sb-posix:fchmod fd mode)
+    (sb-posix:syscall-error (condition)
+      (%io-error "fchmod" path condition))))
+
 (defun %create-file (root path octets &key mode sync)
   (let* ((mode (or mode #o600))
          (fd (%call-with-parent root path
@@ -77,10 +82,10 @@
                                                mode)))))
     ;; open applies the umask; a requested mode (a file `chmod` set) must
     ;; hold exactly.
-    (handler-case (sb-posix:fchmod fd mode)
-      (sb-posix:syscall-error (condition)
-                              (sb-posix:close fd)
-                              (%io-error "fchmod" path condition)))
+    (handler-case (%set-created-file-mode fd mode path)
+      (aitools.store.application:store-io-error (condition)
+        (sb-posix:close fd)
+        (error condition)))
     (%write-and-close path fd octets sync)))
 
 (defun %append-file (root path octets &key sync)

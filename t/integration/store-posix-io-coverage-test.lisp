@@ -139,4 +139,25 @@
                      (when first
                        (funcall unlock first)))))
                :io
-               nil)))
+               nil))
+          (it "maps an fchmod failure from an invalid descriptor"
+              (call-with-temp-store
+               (lambda (store)
+                 (let* ((path (disk-path store "chmod-failure"))
+                        (real-set-file-mode
+                          (symbol-function
+                           'aitools.store.infrastructure::%set-created-file-mode))
+                        (failure
+                         (cl-weave:with-mocked-functions
+                          (((symbol-function
+                             'aitools.store.infrastructure::%set-created-file-mode)
+                            (lambda (fd mode target)
+                              (declare (ignore fd))
+                              (funcall real-set-file-mode -1 mode target))))
+                          (capture-posix-boundary-error
+                           (lambda ()
+                             (aitools.store.infrastructure::%create-file
+                              (store-root store) path (bytes "contents") :mode #o600))))))
+                   (expect (subseq failure 0 4)
+                           :to-equal (list :error "fchmod" path sb-posix:ebadf))))
+               :io nil)))

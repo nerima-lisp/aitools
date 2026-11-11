@@ -139,3 +139,14 @@
                  :to-equal (aitools.kernel.domain:content-hash (bytes "missing-target")))))
      :io nil)))
 
+(describe "Store bounded path hashing"
+  (it "does not hash a disk file outside the view with a byte limit"
+    (call-with-temp-store
+     (lambda (store)
+       (put-file store "../outside" "outside")
+       (let ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
+             (view (disk-view store))
+             (outside (disk-path store "../outside")))
+         (expect (path-hash host (store-root store) view outside :max-bytes 3)
+                 :to-be nil)))
+     :io nil)))
