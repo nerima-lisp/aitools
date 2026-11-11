@@ -185,7 +185,7 @@ fields, the last holding the rest of the line verbatim (the --ws-columns opt-in)
         (parse-json-document/k
          (if negative (concatenate 'string "-" body) body))
       (:on-value (value)
-        (and (numberp value) value))
+        value)
       (:on-error (message line column)
         (declare (ignore message line column))
         nil))))
