@@ -23,4 +23,10 @@
 
   (it "rejects a command name missing from its schema table"
     (signals error
-      (aitools.inspect.presentation::%schema-entry "not-registered" nil))))
+      (aitools.inspect.presentation::%schema-entry "not-registered" nil)))
+  (it "defaults integer option minimum to one"
+    (let ((option
+            (aitools.inspect.presentation::integer-option
+             "count" nil "Number of rows.")))
+      (expect (cl-cli:option-value-min option)
+              :to-be 1))))

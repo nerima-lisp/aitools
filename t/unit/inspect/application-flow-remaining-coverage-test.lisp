@@ -136,7 +136,10 @@
               :workspace-host host)))
       (expect (cl-boundary-kit:boundary-context-require
                boundaries :inspect-workspace-host)
-              :to-be host)))
+              :to-be host)
+      (expect (cl-boundary-kit:boundary-context-require
+               boundaries :inspect-text-context)
+              :to-be nil)))
   (it "classifies the workspace root and an out-of-root target"
     (let* ((context
              (%remaining-flow-context
@@ -160,4 +163,13 @@
   (it "rejects an inspect context tx value outside its declared type"
     (signals type-error
       (aitools.inspect.application::%make-inspect-context
-       :tx (parse-integer "7")))))
+       :tx (parse-integer "7"))))
+  (it "defaults text-view continuation word lists to empty"
+    (let ((options
+            (aitools.inspect.application::make-text-view-options)))
+      (expect (aitools.inspect.application::text-view-options-command-words
+               options)
+              :to-equal nil)
+      (expect (aitools.inspect.application::text-view-options-extra-words
+               options)
+              :to-equal nil))))

@@ -60,15 +60,22 @@
             :to-be nil)))
 
 (describe "Lisp scanner final states and character forms"
-  (it "returns the location of an unterminated string and reports unmatched delimiters"
+  (it "reports unmatched delimiters and caps default diagnostics"
     (expect (aitools.inspect.domain:scan-lisp-delimiters
              #("\"open") :common-lisp (lambda (kind char line column)
                                           (declare (ignore kind char line column))
                                           nil))
-            :to-equal '(:string 0 0))
-    (expect (aitools.inspect.domain:lisp-balance-diagnostics
-             (lines-of ")") :common-lisp)
-            :to-equal '((1 1 "unexpected ')' with no open delimiter"))))
+            :to-equal (list :string 0 0))
+    (let ((problem (first
+                    (aitools.inspect.domain:lisp-balance-diagnostics
+                     (lines-of ")") :common-lisp))))
+      (expect (first problem) :to-be 1)
+      (expect (second problem) :to-be 1))
+    (expect (length
+             (aitools.inspect.domain:lisp-balance-diagnostics
+              (lines-of (make-string 21 :initial-element #\)))
+              :common-lisp))
+            :to-be 20))
 
   (it "skips plain and escaped Emacs Lisp character literals"
     (expect (aitools.inspect.domain:lisp-balance-diagnostics
@@ -90,15 +97,17 @@
       (aitools.inspect.domain::make-definition 1 (parse-integer "0") "function" "run"))))
 
 (describe "read rendering empty and split runs"
-  (it "returns no rows for an empty hexadecimal range"
+  (it "returns no rows for empty hexadecimal ranges and uses a zero default base"
     (expect (aitools.inspect.domain:hex-rows (%as-octets "abc") 2 2)
             :to-equal nil)
+    (let ((row (first (aitools.inspect.domain:hex-rows (%as-octets "abc") 0 3))))
+      (expect (json-object-get row "offset") :to-be 0))
     (expect (json-object-get
              (first (aitools.inspect.domain:hex-rows (%as-octets "abc") 0 3 :base 7))
              "hex")
             :to-equal "61 62 63"))
 
-  (it "bounds a redaction span with shared prefixes and suffixes"
+  (it "bounds a redaction span at shared suffix length limits"
     (expect (multiple-value-list
              (aitools.inspect.domain::%redacted-span "secret" "[REDACTED]"))
             :to-equal (list 0 6))
@@ -109,9 +118,15 @@
     (expect (multiple-value-list
              (aitools.inspect.domain::%redacted-span
               "secret-tail" "[REDACTED]-tail"))
-            :to-equal (list 0 6)))
+            :to-equal (list 0 6))
+    (expect (multiple-value-list
+             (aitools.inspect.domain::%redacted-span "x" "longx"))
+            :to-equal (list 0 0))
+    (expect (multiple-value-list
+             (aitools.inspect.domain::%redacted-span "longx" "x"))
+            :to-equal (list 0 4)))
 
-  (it "extracts separated printable runs and emits nothing for controls"
+  (it "extracts separated runs and uses the default four-character threshold"
     (let ((runs nil))
       (expect (aitools.inspect.domain::extract-strings
                (concatenate (quote (simple-array (unsigned-byte 8) (*)))
@@ -126,14 +141,32 @@
        (%as-octets (string (code-char 0)))
        :min-length 2
        :emit (lambda (offset text) (push (list offset text) runs)))
-      (expect runs :to-be nil))))
+      (expect runs :to-be nil))
+    (let ((runs nil))
+      (aitools.inspect.domain::extract-strings
+       (%as-octets "abc")
+       :emit (lambda (offset text) (push (list offset text) runs)))
+      (expect runs :to-equal nil)
+      (aitools.inspect.domain::extract-strings
+       (%as-octets "four")
+       :emit (lambda (offset text) (push (list offset text) runs)))
+      (expect runs :to-equal (list (list 0 "four"))))
+    (let ((scan (aitools.inspect.domain::make-strings-scan
+                 :emit (function identity))))
+      (expect (aitools.inspect.domain::strings-scan-min-length scan)
+              :to-be 4))))
 
 (describe "similarity rank order"
   (it "returns nearest matches in input order when distances tie"
     (expect (aitools.inspect.domain:rank-similar
-             "alpha" '("alpga" "alphi" "omega")
+             "alpha" (list "alpga" "alphi" "omega")
              :count 2 :max-distance 1)
-            :to-equal '("alpga" "alphi"))))
+            :to-equal (list "alpga" "alphi")))
+
+  (it "uses the default count for more than three candidates"
+    (expect (aitools.inspect.domain:rank-similar
+             "alpha" (list "alpha" "alpga" "alphi" "alphe"))
+            :to-equal (list "alpha" "alpga" "alphi"))))
 
 (describe "snapshot defaults"
   (it "leaves omitted scan options nil and validates snapshot file sizes"

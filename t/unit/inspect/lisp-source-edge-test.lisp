@@ -4,9 +4,11 @@
   (it "recognizes an escaped Emacs Lisp character after a carriage return"
     (let ((source (format nil "(list~C?~C))" #\Return #\\)))
       (expect (lisp-balance-diagnostics (lines-of source) :emacs-lisp) :to-be nil)))
-  (it "skips a plain Emacs Lisp character literal"
+  (it "skips plain and terminal Emacs Lisp character literals"
     (expect (lisp-balance-diagnostics
              (lines-of "(list ?a)") :emacs-lisp)
+            :to-be nil)
+    (expect (lisp-balance-diagnostics (lines-of "?") :emacs-lisp)
             :to-be nil))
 
   (it "does not treat a character introducer inside a token as a character literal"

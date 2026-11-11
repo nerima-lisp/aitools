@@ -51,7 +51,11 @@
               (expect (yaml-unsupported-reason condition)
                       :to-equal "non-finite-float")))))))
 
-  (it "accepts the YAML implicit tag at the write boundary"
+  (it "accepts implicit and non-specific YAML tags through the write parser"
+    (expect (parse-yaml-write-document "plain")
+            :to-equal "plain")
+    (expect (parse-yaml-write-document "!<?> plain")
+            :to-equal "plain")
     (let ((node (first (yaml-kit:compose-all "plain"))))
       (expect (aitools.inspect.domain::%yaml-write-explicit-tag node nil)
               :to-be nil)))
