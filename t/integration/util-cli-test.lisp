@@ -1,8 +1,6 @@
 ;;;;
-;;;; `util` end to end through the composition root: argv parsing, the
-;;;; production ports (OS random source, real file reads), the envelope, and
-;;;; the exit code. Standard input is exercised by pointing file
-;;;; descriptor 0 at a file for the duration of a spec.
+;;;; `util` CLI integration coverage spans dispatch, effects, output envelopes,
+;;;; exit status, and standard input redirected from a file.
 (in-package #:cl-user)
 
 (defpackage #:aitools.integration.util-cli-test
@@ -234,7 +232,10 @@
   (it "passes the workspace and store boundaries to the shared write flow"
   (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
          (store (function identity))
-         (ports (aitools.util.application:make-util-ports :workspace-host host :open-store store))
+         (boundaries (cl-boundary-kit:boundary-context-with
+             (cl-boundary-kit:boundary-context-with (cl-boundary-kit:make-boundary-context)
+                                                    :util-workspace-host host)
+             :util-open-store store))
          (seen nil))
     (cl-weave:with-mocked-functions
         (((symbol-function (quote aitools.edit.application:run-write-command/k))
@@ -243,8 +244,7 @@
             (setf seen (list (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
                              (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)))
             (funcall (getf arguments :on-ok) nil))))
-      (aitools.util.application::%write-decoded
-       ports "hex" "6869" #(104 105) "/out"
+      (aitools.util.application::%write-decoded boundaries "hex" "6869" #(104 105) "/out"
        :on-ok (function identity)
        :on-error (lambda (&rest arguments) (declare (ignore arguments)))))
     (expect seen :to-equal (list host store)))))

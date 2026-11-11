@@ -1,7 +1,7 @@
 (in-package #:aitools.util.application)
 
 (aitools.kernel.domain:define-flow
-    (util-uuid-flow ports kind count &key on-ok on-error)
+    (util-uuid-flow boundaries kind count &key on-ok on-error)
   "KIND is \"v4\" or \"v7\". v7 values from one call are strictly increasing."
   (declare (type function on-ok on-error))
   (cond
@@ -16,7 +16,7 @@
       (list
        (cons "values"
              (loop repeat count
-                   collect (funcall (util-ports-uuid-v4 ports)))))))
+                   collect (funcall (cl-boundary-kit:boundary-context-require boundaries :util-uuid-v4)))))))
     ((string= kind "v7")
      (let ((state (aitools.util.domain:make-uuid-v7-state)))
        (aitools.kernel.domain:flow-continue
@@ -27,8 +27,8 @@
                      collect
                      (aitools.util.domain:next-uuid-v7
                       state
-                      (funcall (util-ports-unix-ms ports))
-                      (funcall (util-ports-random-octets ports)
+                      (funcall (cl-boundary-kit:boundary-context-require boundaries :util-unix-ms))
+                      (funcall (cl-boundary-kit:boundary-context-require boundaries :util-random-octets)
                                aitools.util.domain:+uuid-v7-random-octets+))))))))
     (t
      (aitools.kernel.domain:flow-call
@@ -37,17 +37,17 @@
          (aitools.kernel.domain:flow-continue
           :on-error code message :repairs repairs))))))
 
-(defun %octet-supplier (ports)
+(defun %octet-supplier (boundaries)
   "A closure returning one random octet per call, drawing from the
-RANDOM-OCTETS port in blocks so the port is not called per character."
-  (let ((buffer (funcall (util-ports-random-octets ports) 64)) (index 0))
+:UTIL-RANDOM-OCTETS capability in blocks so it is not called per character."
+  (let ((buffer (funcall (cl-boundary-kit:boundary-context-require boundaries :util-random-octets) 64)) (index 0))
     (lambda ()
       (when (= index (length buffer))
-        (setf buffer (funcall (util-ports-random-octets ports) 64) index 0))
+        (setf buffer (funcall (cl-boundary-kit:boundary-context-require boundaries :util-random-octets) 64) index 0))
       (prog1 (aref buffer index) (incf index)))))
 
 (aitools.kernel.domain:define-flow
-    (util-random-flow ports length alphabet count &key on-ok on-error)
+    (util-random-flow boundaries length alphabet count &key on-ok on-error)
   (declare (type function on-ok on-error))
   (cond
     ((not (<= 1 count +util-max-count+))
@@ -71,7 +71,7 @@ RANDOM-OCTETS port in blocks so the port is not called per character."
          (aitools.kernel.domain:flow-continue
           :on-error code message :repairs repairs))))
     (t
-     (let ((next-octet (%octet-supplier ports)))
+     (let ((next-octet (%octet-supplier boundaries)))
        (aitools.kernel.domain:flow-continue
         :on-ok
         (list

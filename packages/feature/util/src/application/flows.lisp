@@ -31,12 +31,14 @@
    :repairs (list (%schema-repair command))))
 
 (aitools.kernel.domain:define-flow
-    (%write-decoded ports scheme input decoded to
+    (%write-decoded boundaries scheme input decoded to
      &key root lock-timeout dry-run tx display-argv on-ok on-error)
   "Write DECODED to TO as a new file; reject existing targets with the `refusal.exists` error."
   (let ((outcome nil))
     (aitools.edit.application:run-write-command/k
-     (aitools.edit.application:make-edit-write-boundaries (util-ports-workspace-host ports) (util-ports-open-store ports))
+     (aitools.edit.application:make-edit-write-boundaries
+      (cl-boundary-kit:boundary-context-require boundaries :util-workspace-host)
+      (cl-boundary-kit:boundary-context-require boundaries :util-open-store))
      (aitools.edit.application:make-write-plan
       :command "util.decode"
       :targets (list (aitools.edit.application:make-write-target to))

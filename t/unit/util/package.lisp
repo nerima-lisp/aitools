@@ -27,23 +27,38 @@
                  :on-decoded (lambda (octets) (values :decoded octets))
                  :on-invalid (lambda (offset reason) (declare (ignore reason)) (values :invalid offset))))
 
-(defun unused-port (name)
+(defun unused-reader (name)
   (make-mock-function
    (lambda (&rest arguments)
      (declare (ignore arguments))
-     (error "port ~A was called but must not be" name))))
+     (error "reader ~A was called unexpectedly" name))))
 
-(defun test-ports (&key (random-source (cl-boundary-kit:make-deterministic-random-source :seed 7))
-                     (uuid-source (cl-boundary-kit:make-test-uuid-source))
-                     (clock (cl-boundary-kit:make-fake-clock :start 1700000000000))
-                     (read-file-octets (unused-port "read-file-octets"))
-                     (read-stdin-octets (unused-port "read-stdin-octets")))
-  "UTIL-PORTS over deterministic cl-boundary-kit fakes. Input reader ports
-default to fail-fast cl-weave mocks."
-  (aitools.util.infrastructure::make-util-ports-from-boundaries :random-source random-source :uuid-source uuid-source :clock clock
-                                   :read-file-octets read-file-octets :read-stdin-octets read-stdin-octets))
+(defun test-boundaries
+    (&key (random-source (cl-boundary-kit:make-deterministic-random-source :seed 7))
+          (uuid-source (cl-boundary-kit:make-test-uuid-source))
+          (clock (cl-boundary-kit:make-fake-clock :start 1700000000000))
+          (read-file-octets (unused-reader "read-file-octets"))
+          (read-stdin-octets (unused-reader "read-stdin-octets")))
+  (let ((boundaries (cl-boundary-kit:make-boundary-context)))
+    (dolist (capability
+               (list
+                (cons :util-random-octets
+                      (lambda (count)
+                        (cl-boundary-kit:random-source-bytes random-source count)))
+                (cons :util-uuid-v4
+                      (lambda () (cl-boundary-kit:uuid-generate uuid-source)))
+                (cons :util-unix-ms
+                      (lambda () (cl-boundary-kit:clock-now clock)))
+                (cons :util-read-file-octets read-file-octets)
+                (cons :util-read-stdin-octets read-stdin-octets)
+                (cons :util-workspace-host nil)
+                (cons :util-open-store (unused-reader "open-store"))))
+      (setf boundaries
+            (cl-boundary-kit:boundary-context-with
+             boundaries (car capability) (cdr capability))))
+    boundaries))
 
-(defun stdin-port (text)
+(defun stdin-reader (text)
   (make-mock-function
    (lambda (limit)
      (let ((octets (string-bytes text)))

@@ -1,7 +1,7 @@
 (in-package #:aitools.util.application)
 
 (aitools.kernel.domain:define-flow
-    (util-encode-flow ports scheme request &key on-ok on-error)
+    (util-encode-flow boundaries scheme request &key on-ok on-error)
   (cond
     ((not (aitools.util.domain:codec-scheme-p scheme))
      (aitools.kernel.domain:flow-call
@@ -11,7 +11,7 @@
           :on-error code message :repairs repairs))))
     (t
      (aitools.kernel.domain:flow-call
-         (resolve-input ports request (format nil "util encode ~A" scheme))
+         (resolve-input boundaries request (format nil "util encode ~A" scheme))
        (:on-input (octets &key text)
          (declare (ignore text))
          (aitools.kernel.domain:flow-continue
@@ -24,7 +24,7 @@
           :on-error code message :repairs repairs))))))
 
 (aitools.kernel.domain:define-flow
-    (util-decode-flow ports scheme request
+    (util-decode-flow boundaries scheme request
      &key to root lock-timeout dry-run tx display-argv on-ok on-error)
   "Decode to `output` text when the result is valid UTF-8; otherwise return
 `binary:true`, `bytes`, and the decoded bytes in `output_hex`. Text output
@@ -48,7 +48,7 @@ ROOT and LOCK-TIMEOUT are global options; DRY-RUN and TX apply only with TO."
       :repairs (list (%schema-repair "util decode"))))
     (t
      (aitools.kernel.domain:flow-call
-         (resolve-input ports request (format nil "util decode ~A" scheme))
+         (resolve-input boundaries request (format nil "util decode ~A" scheme))
        (:on-input (octets &key text)
          (declare (ignore text))
          (aitools.kernel.domain:flow-call
@@ -56,7 +56,7 @@ ROOT and LOCK-TIMEOUT are global options; DRY-RUN and TX apply only with TO."
            (:on-decoded (decoded)
              (if to
                  (aitools.kernel.domain:flow-call
-                     (%write-decoded ports scheme octets decoded to
+                     (%write-decoded boundaries scheme octets decoded to
                                      :root root :lock-timeout lock-timeout
                                      :dry-run dry-run :tx tx :display-argv display-argv)
                    (:on-ok (fields)
@@ -96,9 +96,9 @@ ROOT and LOCK-TIMEOUT are global options; DRY-RUN and TX apply only with TO."
           :on-error code message :repairs repairs))))))
 
 (aitools.kernel.domain:define-flow
-    (util-redact-flow ports request &key on-ok on-error)
+    (util-redact-flow boundaries request &key on-ok on-error)
   (aitools.kernel.domain:flow-call
-      (resolve-input ports request "util redact")
+      (resolve-input boundaries request "util redact")
     (:on-input (octets &key text)
       (multiple-value-bind (redacted count)
           (aitools.protocol.domain:redact-secrets (%input-text octets text))
@@ -110,9 +110,9 @@ ROOT and LOCK-TIMEOUT are global options; DRY-RUN and TX apply only with TO."
        :on-error code message :repairs repairs))))
 
 (aitools.kernel.domain:define-flow
-    (util-tokens-flow ports request &key on-ok on-error)
+    (util-tokens-flow boundaries request &key on-ok on-error)
   (aitools.kernel.domain:flow-call
-      (resolve-input ports request "util tokens")
+      (resolve-input boundaries request "util tokens")
     (:on-input (octets &key text)
       (aitools.kernel.domain:flow-continue
        :on-ok

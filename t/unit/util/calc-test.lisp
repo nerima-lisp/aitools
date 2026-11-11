@@ -87,7 +87,7 @@
     (let ((spy (cl-weave:spy-on 'aitools.util.domain:evaluate-expression)))
       (unwind-protect
            (multiple-value-bind (kind fields)
-               (run-flow #'util-calc-flow (test-ports) "1 + 2" nil 0)
+               (run-flow #'util-calc-flow (test-boundaries) "1 + 2" nil 0)
              (expect kind :to-be :ok)
              (expect (field fields "result") :to-equal "3")
              (expect (first (first (cl-weave:mock-calls spy))) :to-equal "1 + 2"))

@@ -2,4 +2,4 @@
 
 (defpackage #:aitools.util.infrastructure
   (:use #:cl)
-  (:export #:make-production-util-ports))
+  (:export #:make-production-util-capabilities))

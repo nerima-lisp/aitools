@@ -44,7 +44,7 @@ continuations and return the resulting COMMAND-RESULT."
   (make-positional :name "scheme" :key :scheme :required-p t
                    :choices aitools.util.application:+util-codec-schemes+))
 
-(defun %encode-command (ports)
+(defun %encode-command (boundaries)
   (make-command
    :name "encode"
    :description "Encode bytes as base64, URL percent-encoding, or hex."
@@ -53,10 +53,10 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-encode-flow
-                 ports (positional-value invocation :scheme) (%input-request invocation)
+                 boundaries (positional-value invocation :scheme) (%input-request invocation)
                  :on-ok on-ok :on-error on-error)))))
 
-(defun %decode-command (ports)
+(defun %decode-command (boundaries)
   (make-command
    :name "decode"
    :description "Decode base64, URL percent-encoding, or hex."
@@ -73,7 +73,7 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-decode-flow
-                 ports (positional-value invocation :scheme) (%input-request invocation)
+                 boundaries (positional-value invocation :scheme) (%input-request invocation)
                  :to (option-value invocation :to)
                  :root (option-value invocation :root)
                  :lock-timeout (option-value invocation :lock-timeout)
@@ -82,7 +82,7 @@ continuations and return the resulting COMMAND-RESULT."
                  :display-argv (rest (cl-cli:invocation-raw-argv invocation))
                  :on-ok on-ok :on-error on-error)))))
 
-(defun %redact-command (ports)
+(defun %redact-command (boundaries)
   (make-command
    :name "redact"
    :description "Mask known secret formats in text."
@@ -90,9 +90,9 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-redact-flow
-                 ports (%input-request invocation) :on-ok on-ok :on-error on-error)))))
+                 boundaries (%input-request invocation) :on-ok on-ok :on-error on-error)))))
 
-(defun %tokens-command (ports)
+(defun %tokens-command (boundaries)
   (make-command
    :name "tokens"
    :description "Count characters, bytes, lines, words, and approximate tokens."
@@ -100,9 +100,9 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-tokens-flow
-                 ports (%input-request invocation) :on-ok on-ok :on-error on-error)))))
+                 boundaries (%input-request invocation) :on-ok on-ok :on-error on-error)))))
 
-(defun %calc-command (ports)
+(defun %calc-command (boundaries)
   (make-command
    :name "calc"
    :description "Evaluate an arithmetic expression exactly."
@@ -118,12 +118,12 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-calc-flow
-                 ports (positional-value invocation :expression)
+                 boundaries (positional-value invocation :expression)
                  (and (option-value invocation :stdin) t)
                  (option-value invocation :decimals)
                  :on-ok on-ok :on-error on-error)))))
 
-(defun %uuid-command (ports)
+(defun %uuid-command (boundaries)
   (make-command
    :name "uuid"
    :description "Generate UUIDs (v4 random, v7 time-ordered)."
@@ -139,10 +139,10 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-uuid-flow
-                 ports (option-value invocation :kind) (option-value invocation :count)
+                 boundaries (option-value invocation :kind) (option-value invocation :count)
                  :on-ok on-ok :on-error on-error)))))
 
-(defun %random-command (ports)
+(defun %random-command (boundaries)
   (make-command
    :name "random"
    :description "Generate random strings from the OS cryptographic random source."
@@ -161,14 +161,14 @@ continuations and return the resulting COMMAND-RESULT."
    :handler (lambda (invocation)
               (%with-command-result (on-ok on-error)
                 (aitools.util.application:util-random-flow
-                 ports (option-value invocation :length)
+                 boundaries (option-value invocation :length)
                  (option-value invocation :alphabet)
                  (option-value invocation :count)
                  :on-ok on-ok :on-error on-error)))))
 
-(defun register-util-commands (registry ports)
+(defun register-util-commands (registry boundaries)
   "Register every `util` command on REGISTRY, each running its flow against
-PORTS (an AITOOLS.UTIL.APPLICATION:UTIL-PORTS). Returns REGISTRY."
+BOUNDARIES (the util boundary context). Returns REGISTRY."
   (aitools.protocol.application:register-command-declarations
    registry
    (list
@@ -207,4 +207,4 @@ PORTS (an AITOOLS.UTIL.APPLICATION:UTIL-PORTS). Returns REGISTRY."
      (:group "util"
       :command-builder #'%random-command
       :schema (%schema "random"))))
-   ports))
+   boundaries))

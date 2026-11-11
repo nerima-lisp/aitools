@@ -6,6 +6,9 @@
 ;;;; instead of waiting on a terminal.
 (in-package #:aitools.util.application)
 
+(defconstant +util-max-input-bytes+ (* 64 1024 1024)
+  "Largest `--content-file` or `--stdin` input a util command reads.")
+
 (defstruct (input-request (:constructor make-input-request (&key content content-file stdin))
                           (:copier nil) (:predicate nil))
   (content nil :type (or null string) :read-only t)
@@ -21,7 +24,7 @@
          "pass-stdin" "Read the input text from standard input." (format nil "aitools ~A --stdin" command))))
 
 (aitools.kernel.domain:define-flow
-    (resolve-input ports request command &key on-input on-error)
+    (resolve-input boundaries request command &key on-input on-error)
   "Read REQUEST's one input source. ON-INPUT receives (OCTETS &key TEXT):
 TEXT is present for inline and standard input, and absent for content files.
 ON-ERROR receives the command-result error arguments. COMMAND is the invoked
@@ -50,7 +53,7 @@ command-line prefix used to build repairs."
       ((input-request-content-file request)
        (let ((path (input-request-content-file request)))
          (multiple-value-bind (status payload)
-             (funcall (util-ports-read-file-octets ports)
+             (funcall (cl-boundary-kit:boundary-context-require boundaries :util-read-file-octets)
                       path +util-max-input-bytes+)
            (case status
              (:octets
@@ -73,7 +76,7 @@ command-line prefix used to build repairs."
               (error "Unknown content-file result ~S." status))))))
       (t
        (multiple-value-bind (status payload)
-           (funcall (util-ports-read-stdin-octets ports) +util-max-input-bytes+)
+           (funcall (cl-boundary-kit:boundary-context-require boundaries :util-read-stdin-octets) +util-max-input-bytes+)
          (case status
            (:octets
             (aitools.kernel.domain:flow-call

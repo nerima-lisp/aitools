@@ -21,7 +21,7 @@
        :repairs (list (%schema-repair "util calc"))))))
 
 (aitools.kernel.domain:define-flow
-    (util-calc-flow ports expression stdin decimals &key on-ok on-error)
+    (util-calc-flow boundaries expression stdin decimals &key on-ok on-error)
   "EXPRESSION is the positional expression or NIL; STDIN is `--stdin`.
 Exactly one must be given. DECIMALS bounds the rounded `result`; `exact`
 carries the unrounded rational."
@@ -59,7 +59,7 @@ carries the unrounded rational."
           :on-error code message :repairs repairs))))
     (t
      (aitools.kernel.domain:flow-call
-         (resolve-input ports (make-input-request :stdin t) "util calc")
+         (resolve-input boundaries (make-input-request :stdin t) "util calc")
        (:on-input (octets &key text)
          (declare (ignore octets))
          (aitools.kernel.domain:flow-call

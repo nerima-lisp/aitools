@@ -1,9 +1,4 @@
-;;;;
-;;;; Adapters from cl-boundary-kit ports (random-source, uuid-source, clock)
-;;;; and the host file system to AITOOLS.UTIL.APPLICATION:UTIL-PORTS. The
-;;;; composition root calls MAKE-PRODUCTION-UTIL-PORTS; unit tests call
-;;;; MAKE-UTIL-PORTS-FROM-BOUNDARIES with cl-boundary-kit fakes, so both go
-;;;; through the same adaptation code.
+;;;; Host readers and production capabilities for the util composition context.
 (in-package #:aitools.util.infrastructure)
 
 (defun %unix-ms ()
@@ -54,35 +49,22 @@
               (list :failure (princ-to-string condition))))))
     (values-list outcome)))
 
-(defun make-util-ports-from-boundaries (&key random-source uuid-source clock
-                                          (read-file-octets #'read-file-octets)
-                                          (read-stdin-octets #'read-stdin-octets)
-                                          workspace-host open-store)
-  "Adapt cl-boundary-kit RANDOM-SOURCE, UUID-SOURCE, and CLOCK (whose
-CLOCK-NOW must return Unix milliseconds) plus the two input readers into a
-UTIL-PORTS value. WORKSPACE-HOST and OPEN-STORE pass through unchanged for
-`util decode --to`."
-  (aitools.util.application:make-util-ports
-   :random-octets (lambda (count) (cl-boundary-kit:random-source-bytes random-source count))
-   :uuid-v4 (lambda () (cl-boundary-kit:uuid-generate uuid-source))
-   :unix-ms (lambda () (cl-boundary-kit:clock-now clock))
-   :read-file-octets read-file-octets
-   :read-stdin-octets read-stdin-octets
-   :workspace-host workspace-host
-   :open-store open-store))
-
-(defun make-production-util-ports (&key workspace-host open-store &allow-other-keys)
-  "The production UTIL-PORTS: the OS random source, a cl-boundary-kit UUID
-source whose version-4 generator draws from it, a millisecond wall clock,
-and the composition root's WORKSPACE-HOST and OPEN-STORE. Performs no I/O
-until a port is called."
+(defun make-production-util-capabilities ()
   (let ((random-source (make-os-random-source)))
-    (make-util-ports-from-boundaries
-     :random-source random-source
-     :uuid-source (cl-boundary-kit:make-uuid-source
-                   :generate-fn (lambda ()
-                                  (aitools.util.domain:uuid-v4-from-octets
-                                   (cl-boundary-kit:random-source-bytes random-source 16))))
-     :clock (cl-boundary-kit:make-clock :now-fn #'%unix-ms)
-     :workspace-host workspace-host
-     :open-store open-store)))
+    (list
+     (cons :util-random-octets
+           (lambda (count)
+             (cl-boundary-kit:random-source-bytes random-source count)))
+     (cons :util-uuid-v4
+           (let ((uuid-source
+                   (cl-boundary-kit:make-uuid-source
+                    :generate-fn
+                    (lambda ()
+                      (aitools.util.domain:uuid-v4-from-octets
+                       (cl-boundary-kit:random-source-bytes random-source 16))))))
+             (lambda () (cl-boundary-kit:uuid-generate uuid-source))))
+     (cons :util-unix-ms
+           (let ((clock (cl-boundary-kit:make-clock :now-fn #'%unix-ms)))
+             (lambda () (cl-boundary-kit:clock-now clock))))
+     (cons :util-read-file-octets #'read-file-octets)
+     (cons :util-read-stdin-octets #'read-stdin-octets))))

@@ -2,7 +2,7 @@
 
 (defsystem "aitools/feature/util"
   :description "Utility codecs, calculations, UUIDs, and random strings."
-  :depends-on ("cl-codec-kit" "cl-host-kit")
+  :depends-on ("cl-codec-kit" "cl-host-kit" "cl-boundary-kit")
   :pathname "src/"
   :components
   ((:module "domain" :serial t
@@ -17,7 +17,6 @@
    (:module "application" :depends-on ("domain") :serial t
     :components
     ((:file "package")
-     (:file "ports")
      (:file "input")
      (:file "flows")
      (:file "codec-flows")
@@ -27,7 +26,7 @@
     :components
     ((:file "package")
      (:file "os-random")
-     (:file "ports")))))
+     (:file "boundaries")))))
 (defsystem "aitools/feature/util/presentation"
   :description "Utility CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/util" "cl-cli")
@@ -50,6 +49,8 @@
      (:file "unit/util/flows-test")
      (:file "unit/util/flow-errors-test")
      (:module "integration" :pathname "integration/" :serial t
-      :components ((:file "util-cli-test")))
+      :components
+      ((:file "util-cli-test")
+       (:file "util-boundary-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "process-env-util-cases")))))))

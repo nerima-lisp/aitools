@@ -2,14 +2,14 @@
 ;;;; The cryptographic random source `util` requires (random values come from
 ;;;; the OS cryptographic random source). cl-boundary-kit's own MAKE-RANDOM-SOURCE is
 ;;;; backed by CL:RANDOM (Mersenne Twister) and documents itself as not
-;;;; cryptographic, so this class joins the same port by specializing the
-;;;; exported CL-BOUNDARY-KIT:RANDOM-SOURCE-RANDOM generic on octets read
+;;;; cryptographic, so this class specializes the exported
+;;;; CL-BOUNDARY-KIT:RANDOM-SOURCE-RANDOM generic on octets read
 ;;;; from /dev/urandom (present on both Linux and Darwin, never blocks after
 ;;;; boot). Everything derived from that generic -- RANDOM-SOURCE-BYTES,
 ;;;; RANDOM-SOURCE-ELEMENT -- then draws from the OS source too.
 ;;;;
 ;;;; The device is opened on first use, not at construction, so building the
-;;;; production ports at startup performs no I/O.
+;;;; production context at startup performs no I/O.
 (in-package #:aitools.util.infrastructure)
 
 (defparameter +urandom-path+ "/dev/urandom")
