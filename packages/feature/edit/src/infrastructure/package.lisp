@@ -11,5 +11,5 @@
   (:use #:cl)
   (:export
    #:read-stdin-octets
-   #:unix-now
+   #:universal-now
    #:serialize-document))

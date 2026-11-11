@@ -43,8 +43,7 @@ bytes so the limit bounds the read itself."
     (error (condition)
       (values :failure (princ-to-string condition)))))
 
-(defun unix-now ()
-  (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
+(defun universal-now () (get-universal-time))
 
 (defun %yaml-native-value (value)
   (case (aitools.edit.domain:json-value-kind value)

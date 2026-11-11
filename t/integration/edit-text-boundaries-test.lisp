@@ -75,12 +75,11 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
             :to-be store)
     (expect (cl-boundary-kit:boundary-context-require boundaries :edit-text-source)
             :to-be source)
-    (dolist (key (list :edit-read-stdin-octets :edit-unix-now :edit-serialize-document))
+    (dolist (key (list :edit-read-stdin-octets :edit-universal-now :edit-serialize-document))
       (expect (functionp (cl-boundary-kit:boundary-context-require boundaries key))
               :to-be t))
-    (let ((now (aitools.edit.infrastructure:unix-now)))
-      (expect (<= 0 (- (aitools.kernel.domain:universal-time-to-unix-seconds
-                        (get-universal-time))
+    (let ((now (aitools.edit.infrastructure:universal-now)))
+      (expect (<= 0 (- (get-universal-time)
                        now)
                  1)
               :to-be t))))
@@ -95,7 +94,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
     (expect (functionp (cl-boundary-kit:boundary-context-require
                         boundaries :edit-open-store))
             :to-be t)
-    (dolist (key (list :edit-text-source :edit-read-stdin-octets :edit-unix-now
+    (dolist (key (list :edit-text-source :edit-read-stdin-octets :edit-universal-now
                        :edit-serialize-document))
       (expect (cl-boundary-kit:boundary-context-present-p boundaries key)
               :to-be nil)))))

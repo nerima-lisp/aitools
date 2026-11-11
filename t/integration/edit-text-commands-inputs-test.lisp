@@ -173,7 +173,7 @@
       (sb-posix:utimes (disk "old.txt") 1000 1000)
       (sb-posix:utimes (disk "new.txt") 99000 99000)
       (cl-weave:with-mocked-functions
-          (((symbol-function 'aitools.edit.infrastructure:unix-now) (lambda () 100000)))
+          (((symbol-function 'aitools.edit.infrastructure:universal-now) (lambda () (encode-universal-time 40 46 3 2 1 1970 0))))
         (let ((*boundaries* (make-edit-test-boundaries
                         :edit-workspace-host
                         (cl-boundary-kit:boundary-context-require *boundaries* :edit-workspace-host)
@@ -181,8 +181,8 @@
                         (cl-boundary-kit:boundary-context-require *boundaries* :edit-open-store)
                         :edit-text-source
                         (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
-                        :edit-unix-now
-                        (symbol-function 'aitools.edit.infrastructure:unix-now))))
+                        :edit-universal-now
+                        (symbol-function 'aitools.edit.infrastructure:universal-now))))
           (expect (run "replace" '("v" "w") :newer "1h" :expect-count "1") :to-be :ok)
           (expect (text "old.txt") :to-equal "v")
           (expect (text "new.txt") :to-equal "w"))))))

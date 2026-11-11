@@ -127,7 +127,7 @@ journaled; the returned absolute path is a valid write target inside the workspa
                             (aitools.store.application:store-state-directory store))))
                      (or (aitools.workspace.application:resolve-real-path host path)
                          path)))
-                  (now (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-unix-now))))
+                  (now (aitools.kernel.domain:universal-time-to-unix-seconds (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-universal-now)))))
              (aitools.kernel.domain:flow-call
               (%check-mktemp-area/k host workspace-root store tmp)
               (:on-ok ()

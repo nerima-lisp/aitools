@@ -28,7 +28,7 @@
             :edit-text-source (cl-boundary-kit:boundary-context-require boundaries :edit-text-source)
             :edit-read-stdin-octets
             (cl-boundary-kit:boundary-context-require boundaries :edit-read-stdin-octets)
-            :edit-unix-now (cl-boundary-kit:boundary-context-require boundaries :edit-unix-now)
+            :edit-universal-now (cl-boundary-kit:boundary-context-require boundaries :edit-universal-now)
             :edit-serialize-document
             (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))))
     (funcall function)))

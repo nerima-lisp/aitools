@@ -7,7 +7,7 @@
              :search-workspace-host nil
              :search-text-context nil
              :search-open-store nil
-             :search-unix-now nil
+             :search-universal-now nil
              :search-read-stdin-octets nil)))
       (dolist (flow (list #'code-outline/k #'code-defs/k #'code-refs/k))
         (multiple-value-bind (kind fields) (run-flow flow boundaries)

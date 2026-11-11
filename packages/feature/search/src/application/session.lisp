@@ -97,8 +97,8 @@ below them."
 ;;; Session setup
 
 (defun %now (boundaries)
-  (let ((clock (cl-boundary-kit:boundary-context-require boundaries :search-unix-now)))
-    (if clock (funcall clock) 0)))
+  (let ((clock (cl-boundary-kit:boundary-context-require boundaries :search-universal-now)))
+    (if clock (aitools.kernel.domain:universal-time-to-unix-seconds (funcall clock)) 0)))
 
 ;;; Paths
 

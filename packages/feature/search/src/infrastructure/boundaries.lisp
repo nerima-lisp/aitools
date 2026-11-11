@@ -4,8 +4,7 @@
 
 (in-package #:aitools.search.infrastructure)
 
-(defun %unix-now ()
-  (aitools.kernel.domain:universal-time-to-unix-seconds (get-universal-time)))
+(defun %universal-now () (get-universal-time))
 
 (defun %read-bounded (stream limit)
   "Read STREAM to its end, at most LIMIT octets: one extra octet proves the
@@ -36,5 +35,5 @@ Return (:OCTETS octets), (:TOO-LARGE), or (:FAILURE message)."
     (error (condition) (list :failure (princ-to-string condition)))))
 
 (defun make-production-search-capabilities ()
-  (list (cons :search-unix-now (function %unix-now))
+  (list (cons :search-universal-now (function %universal-now))
         (cons :search-read-stdin-octets (function read-stdin-octets))))

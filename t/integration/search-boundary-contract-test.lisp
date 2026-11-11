@@ -64,7 +64,7 @@
   (it "registers every capability required by application flows"
     (let* ((required-keys (%search-required-boundary-keys))
            (expected-keys (list :search-workspace-host :search-text-context
-                                :search-open-store :search-unix-now
+                                :search-open-store :search-universal-now
                                 :search-read-stdin-octets))
            (workspace-host (cl-boundary-kit:make-boundary-context))
            (text-context
@@ -100,7 +100,7 @@
       (expect (cl-boundary-kit:boundary-context-require
                boundaries :search-open-store)
               :to-equal open-store)
-      (dolist (key (list :search-open-store :search-unix-now
+      (dolist (key (list :search-open-store :search-universal-now
                          :search-read-stdin-octets))
         (expect (functionp
                  (cl-boundary-kit:boundary-context-require boundaries key))

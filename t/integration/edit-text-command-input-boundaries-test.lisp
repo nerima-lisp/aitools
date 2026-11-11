@@ -16,8 +16,8 @@
                  (lambda (limit)
                    (declare (ignore limit))
                    (values :unknown nil))
-                 :edit-unix-now
-                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-unix-now))))
+                 :edit-universal-now
+                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-universal-now))))
           (let ((failure
                   (handler-case
                       (progn (run "edit" (list "a.txt") :stdin t) nil)

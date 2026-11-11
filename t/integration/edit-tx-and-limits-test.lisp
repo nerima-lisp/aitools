@@ -146,7 +146,7 @@
           (declare (ignore kind))
           (let ((old-path (field old "path"))
                 (recent-path (field recent "path"))
-                (eight-days-ago (- (aitools.edit.infrastructure:unix-now) (* 8 24 60 60))))
+                (eight-days-ago (- (aitools.kernel.domain:universal-time-to-unix-seconds (aitools.edit.infrastructure:universal-now)) (* 8 24 60 60))))
             (with-open-file (out (concatenate 'string old-path "/inner") :direction :output) (write-string "x" out))
             (sb-posix:utimes old-path eight-days-ago eight-days-ago)
             (run "mktemp" '())

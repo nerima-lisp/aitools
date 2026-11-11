@@ -72,7 +72,7 @@
               root *home* :temporary (%temporary-area-p root)))
            :edit-text-source (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
            :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
-           :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
+           :edit-universal-now (function aitools.edit.infrastructure:universal-now))))
     (funcall function)))
 
 (describe "aitools mktemp against a racing mktemp area"
@@ -147,7 +147,7 @@
                        :edit-open-store #'open-store
                        :edit-text-source (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                        :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
-                       :edit-unix-now #'aitools.edit.infrastructure:unix-now))
+                       :edit-universal-now #'aitools.edit.infrastructure:universal-now))
              (before (snapshot)))
         (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
         (with-error (code) (run "rm" '("fixture-home") :recursive t :expect-count "2")

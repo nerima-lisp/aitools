@@ -219,7 +219,7 @@
       (expect (error-message fields) :to-equal "workspace root /w/a.txt is not a directory")))
 
   (it "reports internal.unexpected when built without a workspace host, or asked for --tx without a store"
-    (multiple-value-bind (kind fields) (run-flow #'search/k (cl-boundary-kit:make-boundary-context :search-workspace-host nil :search-text-context nil :search-open-store nil :search-unix-now nil :search-read-stdin-octets nil) :patterns '("x"))
+    (multiple-value-bind (kind fields) (run-flow #'search/k (cl-boundary-kit:make-boundary-context :search-workspace-host nil :search-text-context nil :search-open-store nil :search-universal-now nil :search-read-stdin-octets nil) :patterns '("x"))
       (expect kind :to-be :error)
       (expect (error-code fields) :to-equal "internal.unexpected")
       (expect (getf (first (getf fields :repairs)) :command) :to-equal "aitools schema search"))

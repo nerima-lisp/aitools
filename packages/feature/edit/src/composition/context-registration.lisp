@@ -8,8 +8,8 @@
                    (cons :edit-text-source text-source)
                    (cons :edit-read-stdin-octets
                          (function aitools.edit.infrastructure:read-stdin-octets))
-                   (cons :edit-unix-now
-                         (function aitools.edit.infrastructure:unix-now))
+                   (cons :edit-universal-now
+                         (function aitools.edit.infrastructure:universal-now))
                    (cons :edit-serialize-document
                          (function aitools.edit.infrastructure:serialize-document))))
       (setf boundaries

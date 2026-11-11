@@ -17,7 +17,7 @@
         (aitools.workspace.application:user-path-absolute host path))
       :current-time
       (lambda ()
-        (funcall (cl-boundary-kit:boundary-context-require (command-env-boundaries env) :edit-unix-now)))
+        (aitools.kernel.domain:universal-time-to-unix-seconds (funcall (cl-boundary-kit:boundary-context-require (command-env-boundaries env) :edit-universal-now))))
       :language-predicate
       #'aitools.text.domain:language-path-predicate
       :language-names

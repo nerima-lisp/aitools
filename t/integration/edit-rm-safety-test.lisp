@@ -40,7 +40,7 @@
                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                 :edit-read-stdin-octets
                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
-                :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
+                :edit-universal-now (function aitools.edit.infrastructure:universal-now))))
         (with-error (code message)
             (run "rm" (list "small.bin") :max-bytes "2")
           (expect code :to-equal "refusal.too-large")
@@ -73,7 +73,7 @@
                          (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                          :edit-read-stdin-octets
                          (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
-                         :edit-unix-now (function aitools.edit.infrastructure:unix-now)))
+                         :edit-universal-now (function aitools.edit.infrastructure:universal-now)))
                (before (snapshot)))
           (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
           (with-error (code)
@@ -119,7 +119,7 @@
                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                 :edit-read-stdin-octets
                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
-                :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
+                :edit-universal-now (function aitools.edit.infrastructure:universal-now))))
         (with-error (code message)
             (run "rm" (list "tree") :recursive t :expect-count "5")
           (expect swapped :to-be-truthy)

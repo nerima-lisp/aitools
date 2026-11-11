@@ -107,7 +107,7 @@ reader (NIL for none); OPEN-STORE is passed through."
                                  :stop)
                        finally (return t))))))
        :search-open-store open-store
-       :search-unix-now (constantly now)
+       :search-universal-now (constantly (+ (encode-universal-time 0 0 0 1 1 1970 0) now))
        :search-read-stdin-octets
        (if (eq stdin-reader :fake)
            (lambda (limit)

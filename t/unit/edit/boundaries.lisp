@@ -32,7 +32,7 @@
                :edit-text-source (aitools.text.infrastructure:make-host-text-source)
                :edit-read-stdin-octets
                (symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
-               :edit-unix-now (function aitools.edit.infrastructure:unix-now)
+               :edit-universal-now (function aitools.edit.infrastructure:universal-now)
                :edit-serialize-document (function aitools.edit.infrastructure::serialize-document)))))
        (funcall function)))
    :chdir t))

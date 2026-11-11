@@ -211,14 +211,12 @@
     (%with-temp-workspace (root)
       (aitools.test.support:with-stdin-from (root) (expect (%production-stdin 10) :to-equal '(:failure t)))))
 
-  (it "tells the Unix time in seconds"
+  (it "provides raw universal time from its production clock"
     (let* ((boundaries
              (aitools.search.composition::make-search-dependencies))
            (now
              (funcall
               (cl-boundary-kit:boundary-context-require
-               boundaries :search-unix-now)))
-           (expected
-             (aitools.kernel.domain:universal-time-to-unix-seconds
-              (get-universal-time))))
+               boundaries :search-universal-now)))
+           (expected (get-universal-time)))
       (expect (<= (abs (- now expected)) 2) :to-be t))))

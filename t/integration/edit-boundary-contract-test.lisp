@@ -57,7 +57,7 @@
     (let* ((required-keys (%edit-required-boundary-keys))
            (expected-keys
              (list :edit-workspace-host :edit-open-store :edit-text-source
-                   :edit-read-stdin-octets :edit-unix-now :edit-serialize-document))
+                   :edit-read-stdin-octets :edit-universal-now :edit-serialize-document))
            (workspace-host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
            (text-source (aitools.text.infrastructure:make-host-text-source))
            (open-store (function identity))
@@ -95,6 +95,6 @@
       (expect (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
               :to-be open-store)
       (dolist (key (list :edit-text-source :edit-read-stdin-octets
-                         :edit-unix-now :edit-serialize-document))
+                         :edit-universal-now :edit-serialize-document))
         (expect (cl-boundary-kit:boundary-context-present-p boundaries key)
                 :to-be nil)))))
