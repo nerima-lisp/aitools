@@ -21,4 +21,5 @@
   (:kind :expression
    :package "AITOOLS.EDIT.APPLICATION"
    :symbol "WRITE-CONTEXT"
-   :reason "SB-COVER does not record generated DEFSTRUCT slot defaults; pipeline tests assert the empty :PATHS and :HASH-PATHS values used by existing edit commands.")))
+   :reason "SB-COVER does not record generated DEFSTRUCT slot defaults; pipeline tests assert the empty :PATHS and :HASH-PATHS values used by existing edit commands.")
+  (:kind :expression :package "AITOOLS.EDIT.APPLICATION" :symbol "MAKE-EDIT-WRITE-BOUNDARIES" :reason "The macro body runs only during compile-time expansion; SB-COVER cannot record it as a runtime expression, and boundary contract tests execute and verify the generated two-key constructor call.")))
