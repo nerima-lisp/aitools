@@ -242,4 +242,3 @@
            (expect (nreverse calls)
                    :to-equal `((:lstat ,path) (:chmod ,path #o700)))))
        :io nil))))
-

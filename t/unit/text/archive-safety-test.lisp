@@ -243,4 +243,3 @@
                   (logxor (aref bad-crc (1- (length bad-crc))) 1))
             (expect (gzip-reason (lambda () (gzip-member-header bad-crc)))
                     :to-equal (list 'archive-error "gzip header CRC-32 mismatch"))))))))
-
