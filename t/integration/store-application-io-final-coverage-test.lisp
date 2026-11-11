@@ -224,3 +224,23 @@
          (expect (store-io-error-operation condition) :to-equal "mkdir")
          (expect (store-io-error-path condition) :to-equal path)))
      :io nil)))
+(describe "Store temporary-file macro expansion coverage"
+  (it "preserves arguments and body in its expansion"
+    (let* ((body '(list :used path))
+           (expansion
+             (macroexpand-1
+              `(aitools.store.application::with-temp-file
+                   (path store target octets :sync t)
+                 ,body)))
+           (definition (first (second expansion)))
+           (call (cadddr expansion)))
+      (expect (first expansion) :to-be 'flet)
+      (expect (second definition) :to-equal '(path))
+      (expect (cddr definition) :to-equal (list body))
+      (expect (first call) :to-be 'aitools.store.application::call-with-temp-file)
+      (expect (rest call)
+              :to-equal (list 'store 'target 'octets
+                              (list 'function (first definition)) :sync t))
+      (expect (second (third expansion))
+              :to-equal (list 'dynamic-extent
+                              (list 'function (first definition)))))))
