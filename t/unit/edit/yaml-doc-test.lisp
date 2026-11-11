@@ -21,7 +21,7 @@
       (expect (aitools.edit.domain::edit-json-number decimal) :to-equal 1.25d0)
       (expect (edit-refusal-code (yaml-write-value-refusal (make-json-num "1e+")))
               :to-equal "argument.invalid")))
-  (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
+  (it "rejects nonzero values rounded to zero and accepts exponent-form zero"
     (let ((underflow (yaml-write-value-refusal
                       (parse-json-text "{\"value\":1e-9999}")))
           (zero (parse-json-text "{\"value\":0e-9999}")))
@@ -110,7 +110,7 @@
         (expect (length items) :to-be 2)
         (expect (aref items 0) :to-be 1)
         (expect (aref items 1) :to-be t)))))
-  (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
+  (it "rejects nonzero values rounded to zero and accepts exponent-form zero"
     (call-with-edit-workspace (lambda () (put "doc.yaml" (format nil "a: 1~%"))
       (multiple-value-bind (status fields)
           (run "doc.set" '("doc.yaml" "/a" "0e-9999"))

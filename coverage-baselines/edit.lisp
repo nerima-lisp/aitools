@@ -92,31 +92,10 @@
                   :reason
                   "SB-COVER reports the :PATH keyword binding in the FLOW-CALL error continuation as an uncovered expression; the format-read spec asserts the missing-file error.")
            (:kind :expression :package "AITOOLS.EDIT.APPLICATION" :symbol "*PREPARERS*" :reason "SB-COVER does not record the one-time top-level DEFVAR initializer; command-input specs exercise the initialized preparer registry.")
-           (:kind :branch
-                  :package
-                  "AITOOLS.EDIT.APPLICATION"
-                  :symbol
-                  "%WHOLE-FILE-OP"
-                  :reason
-                  "The false arm of the final strip-bom clause accepts only an unknown operation; command validation rejects unknown operations before this function is called.")
            (:kind :branch :package "AITOOLS.EDIT.APPLICATION" :symbol "WRITE-PLAN" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; command specs exercise valid and invalid precommit-check values.")
            (:kind :expression :package "AITOOLS.EDIT.DOMAIN" :symbol "JSON-ADD" :reason "SB-COVER does not attribute the array-mode keyword initializer; JSON specs omit :ARRAY-MODE and assert middle insertion and append behavior.")
            (:kind :expression :package "AITOOLS.EDIT.DOMAIN" :symbol "SIMILAR-WINDOWS" :reason "SB-COVER does not attribute the limit keyword initializer; similarity specs omit :LIMIT and assert the default three-candidate window.")
            (:kind :expression :package "AITOOLS.EDIT.DOMAIN" :symbol "TRANSFORM-LINES" :reason "SB-COVER does not attribute the columns keyword initializer; transform specs omit :COLUMNS and assert wrapping at the default 80-column width.")
            (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "EXTRACT-STEP" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; archive-path specs exercise rejection of an invalid kind.")
            (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "REPLACER" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; regex specs exercise rejection of an invalid seen count.")
-           (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "SPLIT-PIECE" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; split specs exercise invalid start and end values.")
-           (:kind :expression
-                  :package
-                  "AITOOLS.EDIT.DOMAIN"
-                  :symbol
-                  "EDIT-JSON-NUMBER"
-                  :reason
-                  "SB-COVER leaves exceptional reader-conversion forms unmarked; specs assert finite, malformed, overflow, and underflow outcomes, while JSON cannot encode NaN or infinity and reader condition signaling varies by SBCL version.")
-           (:kind :branch
-                  :package
-                  "AITOOLS.EDIT.DOMAIN"
-                  :symbol
-                  "EDIT-JSON-NUMBER"
-                  :reason
-                  "SB-COVER leaves exceptional reader-condition branches unmarked; specs assert finite, malformed, overflow, and underflow outcomes, while JSON cannot encode NaN or infinity and reader condition signaling varies by SBCL version.")))
+           (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "SPLIT-PIECE" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; split specs exercise invalid start and end values.")))

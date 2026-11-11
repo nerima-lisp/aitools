@@ -43,7 +43,7 @@ their number, else FUNCTION runs on each contiguous run."
     ((string= op "eol-crlf") (document-with-eol document +crlf+))
     ((string= op "final-newline") (document-with-final-newline document t))
     ((string= op "no-final-newline") (document-with-final-newline document nil))
-    ((string= op "strip-bom") (document-without-bom document))))
+    (t (document-without-bom document))))
 
 (defun %transform-line-ops (ops lines keywords)
   (dolist (op ops lines)
