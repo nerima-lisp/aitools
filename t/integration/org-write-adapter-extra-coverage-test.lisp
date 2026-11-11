@@ -114,7 +114,7 @@
                           :message "output limit" :limit-name :max-output-length
                           :limit 1 :actual 2)
         (multiple-value-bind (octets failure)
-            (aitools.org.infrastructure:write-org-octets engine)
+            (aitools.org.infrastructure::write-org-octets engine)
           (expect octets :to-be nil)
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :too-large)))
@@ -122,7 +122,7 @@
           org-kit:write-org
           (make-condition (quote org-kit:org-kit-error) :message "writer failed")
         (multiple-value-bind (octets failure)
-            (aitools.org.infrastructure:write-org-octets engine)
+            (aitools.org.infrastructure::write-org-octets engine)
           (expect octets :to-be nil)
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :internal))))))
