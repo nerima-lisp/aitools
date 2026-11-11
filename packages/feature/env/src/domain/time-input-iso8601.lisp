@@ -125,7 +125,7 @@
 (defun %parse-kit-offset-seconds (suffix original)
   (let* ((suffix-length (length suffix))
          (utc-designator-p
-          (and (plusp suffix-length) (char-equal (char suffix 0) #\Z)))
+          (char-equal (char suffix 0) #\Z))
          (offset-end
           (cond
             (utc-designator-p 1)

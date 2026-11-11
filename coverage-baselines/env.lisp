@@ -21,6 +21,4 @@
   (:kind :expression :package "AITOOLS.ENV.APPLICATION" :symbol "TIME-CONVERT/K"
    :reason "SB-COVER does not attribute the :TO lambda-list initform to calls omitting it; time specs assert the default format.")
   (:kind :branch :package "AITOOLS.ENV.DOMAIN" :symbol "TIME-INPUT"
-   :reason "The DEFSTRUCT-generated MEMBER slot checks are declarative metadata without source-mapped SB-COVER counters; command text cannot set the parser-internal kind, and parser specs cover the valid and rejected constructor kinds.")
-  (:kind :branch :package "AITOOLS.ENV.DOMAIN" :symbol "%PARSE-KIT-OFFSET-SECONDS"
-   :reason "The caller passes a suffix beginning at a found offset character, so the suffix is never empty and input cannot reach the zero-length path.")))
+   :reason "The DEFSTRUCT-generated MEMBER slot checks are declarative metadata without source-mapped SB-COVER counters; command text cannot set the parser-internal kind, and parser specs cover the valid and rejected constructor kinds.")))
