@@ -155,6 +155,7 @@
                          :org-workspace-host
                          (aitools.workspace.infrastructure:make-host-workspace-boundaries)
                          :org-text-source (aitools.text.infrastructure:make-host-text-source)
+                         :org-max-input-bytes nil
                          :org-parse (function identity))))
                 (%expect-org-flow-error
                  (%org-flow-result (function aitools.org.application:org-outline/k) boundaries :path "missing.org" :root (namestring (uiop:getcwd)))
