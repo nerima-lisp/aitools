@@ -45,17 +45,16 @@
                                                (list exclusion))
                 :to-be nil))))
 
-  (it "prints at most 200 sites per context and summarizes the remainder"
+  (it "prints all uncovered sites when the context has more than 200"
     (multiple-value-bind (root location)
         (%coverage-gap-report-fixture-location)
       (let* ((record (first (cl-user::coverage-gap-records root :env (list location) nil)))
-             (records (make-list 201 :initial-element record))
+             (records (make-list 401 :initial-element record))
              (output
                (with-output-to-string (stream)
                  (cl-user::report-coverage-gap-records :env records stream))))
-        (expect (count #\Newline output) :to-equal 201)
-        (expect (search "coverage gap ENV: 1 additional uncovered site omitted" output)
-                :to-be-truthy))))
+        (expect (count #\Newline output) :to-equal 401)
+        (expect (search "additional uncovered site" output) :to-be nil))))
 
   (it "names a source file when its owner parse reaches end of file"
     (let ((failure
