@@ -217,6 +217,12 @@
              (%complex-budget-fixture-violations
               5 nil definition-template))
        :to-be-truthy)))
+  (it "counts control nesting through no-op PROGN and empty LET wrappers"
+    (expect
+     (%complex-control-depth
+      '(progn (if t (let () (if t nil nil)) nil))
+      0)
+     :to-equal 2))
   (it "rejects nesting depths above their ratchets"
     (expect
      (some (lambda (violation)
