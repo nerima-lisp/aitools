@@ -17,7 +17,13 @@
                                      (quote ("group" "--value" "x" "leaf"))
                                      "tx-coverage")
               :to-equal
-              (quote ("group" "--value" "x" "leaf" "--tx" "tx-coverage")))))
+              (quote ("group" "--value" "x" "leaf" "--tx" "tx-coverage")))
+
+      (expect (aitools/cli::%with-tx app
+                                     (quote ("group" "--value" "" "leaf"))
+                                     "tx-coverage")
+              :to-equal
+              (quote ("group" "--value" "" "leaf" "--tx" "tx-coverage")))))
   (it "keeps partial trace outcomes from being marked as errors"
     (let ((session (aitools/cli::%make-trace-session)))
       (let ((aitools/cli::*trace-session* session))
