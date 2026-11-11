@@ -184,7 +184,7 @@ as written; NIL for a symlink loop (more than 40 hops, Linux's MAXSYMLINKS)."
                           (progn
                             (when (> (incf hops) 40)
                               (return-from %real-path nil))
-                            (when (and (plusp (length target)) (char= (char target 0) #\/))
+                            (when (char= (char target 0) #\/)
                               (setf resolved ""))
                             (setf pending (append (%path-components target) pending)))
                           (setf resolved candidate))))))))
@@ -213,8 +213,7 @@ nothing in the state directory unless this is the mktemp area's store."
           ((null parent) "cannot be resolved (symlink loop)")
           ((not (%absolute-inside-p root target)) "leads outside the workspace through a symlink")
           ((or (git-metadata-path-p relative)
-               (and (string/= root target)
-                    (git-metadata-path-p (subseq target (if (string= root "/") 1 (1+ (length root)))))))
+               (git-metadata-path-p (subseq target (if (string= root "/") 1 (1+ (length root))))))
            "is inside a .git directory")
           ((and (not (store-temporary store))
                 (let ((state-root (workspace-state-root (store-state-directory store))))

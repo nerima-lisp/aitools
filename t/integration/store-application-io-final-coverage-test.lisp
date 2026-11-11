@@ -107,6 +107,21 @@
          (expect (logand #o777 (sb-posix:stat-mode (sb-posix:lstat state-root))) :to-be #o700)
          (expect (logand #o777 (sb-posix:stat-mode (sb-posix:lstat state))) :to-be #o700)))
      :io nil))
+  (it "leaves a state path unchanged after it becomes a file"
+    (call-with-temp-store
+     (lambda (plain)
+       (let* ((calls nil)
+              (boundaries
+                (cl-boundary-kit:boundary-context-with
+                 (store-boundaries plain)
+                 :lstat (lambda (path)
+                          (declare (ignore path))
+                          (values :file #o644 nil nil 1 "replacement"))
+                 :chmod (lambda (&rest arguments) (push arguments calls))))
+              (store (make-store boundaries (store-root plain) (state-home-of plain))))
+         (aitools.store.application::%tighten-directory store (store-state-directory store))
+         (expect calls :to-equal nil)))
+     :io nil))
 
   (it "accepts identity-free legacy deletes and skips utime after the file vanished"
     (call-with-temp-store

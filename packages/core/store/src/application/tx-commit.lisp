@@ -23,10 +23,7 @@
                             ((eq staged-kind :absent) :deleted)
                             ((eq staged-kind :symlink) :linked)
                             ((eq base-kind :absent) :created)
-                            ((and (eq base-kind staged-kind)
-                                  (member base-kind '(:file :directory))
-                                  (equal (entry-state-hash base)
-                                         (entry-state-hash staged)))
+                            ((and (eq base-kind staged-kind) (equal (entry-state-hash base) (entry-state-hash staged)))
                              (if (and (eq staged-kind :file)
                                       (entry-state-mtime staged))
                                  :modified
