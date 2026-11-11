@@ -35,9 +35,7 @@ so operands containing spaces remain one argument."
   (let* ((tokens (rest argv))
          (group-tokens (uiop:split-string group :separator "."))
          (pos (position name tokens :test #'string=))
-         (rebuilt (if pos
-                      (append (subseq tokens 0 pos) group-tokens (subseq tokens pos))
-                      (append group-tokens tokens))))
+         (rebuilt (append (subseq tokens 0 pos) group-tokens (subseq tokens pos))))
     (format nil "aitools ~A" (aitools.protocol.domain:command-line rebuilt))))
 
 (defun %group-subcommand-repairs (registry argv name)

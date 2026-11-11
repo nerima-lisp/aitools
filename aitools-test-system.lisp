@@ -140,7 +140,8 @@
                                                                  :depends-on ("structure-budget-complexity-test"))
                                                           (:file "structure-budget-complexity-fixture-test"
                                                                  :depends-on ("structure-budget-complexity-test"))
-                                                          (:file "context-registration-test")))
+                                                          (:file "context-registration-test")
+                                                          (:file "composition-coverage-test")))
                                     ;; Keep the correspondence meta-test last so its cases see earlier rows.
                                     (:module "e2e" :pathname "e2e/" :serial t
                                              :components ((:file "process-env-host-cases")
