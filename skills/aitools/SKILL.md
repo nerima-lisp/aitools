@@ -1,17 +1,18 @@
 ---
 name: aitools
-description: Use when the aitools binary is available for workspace file and text operations, guarded edits and transactions, or running external programs with JSON exit status and bounded output. Prefer built-in commands for structured inspection and journaled writes; use run for installed programs whose exact behavior is needed. External programs are not sandboxed and their writes are not journaled.
+description: Use when aitools is available for file and text operations, structured documents and Markdown, host inspection, HTTP requests, DNS lookups, guarded edits, transactions, or running installed programs with `run`.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # aitools
 
 ## Purpose
 
-Use `aitools` built-ins for structured file and text work, or `run` for arbitrary installed programs.
-Every call prints one JSON object. Guarded edits state the expected file content, hash, or match count;
-journaled writes return an operation that `aitools undo` can revert. External-program writes have neither protection.
+Use built-in commands for files, text, structured documents, Markdown, host inspection, HTTP, and DNS. Use
+`run` for arbitrary installed programs. Every call prints one JSON object. Guarded edits state the expected
+file content, hash, or match count; journaled writes return an operation that `aitools undo` can revert.
+External program writes have neither protection.
 
 ## Overview
 
@@ -211,6 +212,23 @@ it; omitting it removes that heading.
 
 For a direct journaled write, omit `--tx` and skip `tx begin` and `tx commit`.
 
+### HTTP and DNS
+
+Use `net get` and `net head` for HTTP(S) requests, or `net resolve` for DNS A and AAAA records. These commands
+do not expose CNAME chains or other DNS record types. HTTP commands require an absolute HTTP or HTTPS URL,
+verify TLS certificates, follow at most five redirects, and refuse HTTPS-to-HTTP downgrade. They do not accept
+authentication headers. Response bodies are limited to 16 MiB; `net get` returns at most 80 lines by default
+and uses `status:"partial"` with `next_commands` when the displayed body is cut.
+Set `AITOOLS_URL` to an absolute HTTP(S) URL and `AITOOLS_HOST` to a DNS name before running these examples.
+
+```sh
+aitools net resolve "$AITOOLS_HOST"
+aitools net head "$AITOOLS_URL"
+aitools net get "$AITOOLS_URL" --max-lines 40
+```
+
+Read the net command reference for address and redirect policy details.
+
 ### Archives and snapshots
 
 tar/zip/gz without shelling out. Every entry is validated before extraction; entries that
@@ -384,10 +402,10 @@ aitools bg status
 aitools bg stop bg-1 --grace 10s
 ```
 
-### Git commands
+### Version control tools
 
-Use `run` to invoke Git as an external program. `run` does not impose a
-read-only restriction; obtain authorization before a write.
+Use `run` to invoke Git, jj, or GitHub CLI (`gh`) as external programs. They are not built-in command groups.
+`run` does not impose a read-only restriction or provide a sandbox; obtain authorization before a write.
 
 ### Host, time, and utilities
 
@@ -566,7 +584,7 @@ aitools run -- git diff --stat
 | mktemp | `aitools mktemp` |
 | jq | `aitools doc get`, `select`, `diff` to read; `doc set`, `delete`, `merge`, `patch`, `fmt` to write |
 | tar, unzip, zcat, gzip, zip | `aitools archive list`, `read`, `extract`, `create` |
-| git | `aitools run -- git ...` |
+| git, jj, gh | `aitools run -- PROGRAM ARG...` |
 | uname, whoami, hostname, nproc | `aitools sys info` |
 | env | `aitools sys env` (secret-named values masked) |
 | which plus version probes | `aitools sys tools NAME...` (executes the programs) |

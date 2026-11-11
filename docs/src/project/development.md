@@ -202,8 +202,8 @@ files are:
   are checked by the shared `t/spec-count-baselines/loader.lisp`.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
-store, then feature search, inspect, journal, edit, process, org, env, util,
-and net. A context loads after every context whose application package it
+store, then feature search, inspect, journal, edit, process, org, env, md,
+util, and net. A context loads after every context whose application package it
 calls: journal before edit (edit registers its `tx rebase` replayers with
 journal), inspect before edit and edit before util.
 
@@ -242,20 +242,20 @@ in `aitools-test-system.lisp`.
    `packages/feature/<ctx>/src/composition/context-registration.lisp`. Pass the
    context name, `register-<context>-commands`, and the constructor. Existing
    contexts use their own registration file; update the constructor when a
-   command needs new effects. Each context owns its constructor and dependency
-   value. Ports expose effects to application flows as plain functions, such as
-   an HTTP requester. Boundary objects group related operations behind an
-   interface. As a context migrates, it can change the dependency value from
-   ports to boundary objects without changing the registration macro contract.
-   The macro stores the constructor without inspecting it or its result; the
-   composition root passes the result to the registration function unchanged.
+   command needs new effects. Each dependency constructor returns a
+   `cl-boundary-kit` boundary context and attaches capabilities with
+   `boundary-context-with`. Infrastructure supplies production adapters;
+   application flows retrieve capabilities with `boundary-context-require`,
+   and tests provide fakes under the same keys. The registration macro stores
+   the constructor without inspecting it or its result; the composition root
+   passes the returned context to the registration function unchanged.
 4. Each command builder returns a cl-cli command with a handler. The handler
    returns a command result for dispatch by calling the application flow through
    `aitools.protocol.application:call-with-command-result/k`. That function
    returns the command result produced by the flow's one continuation. If the
-   flow needs a new effect, add the boundary value or fake it needs to the
-   context dependency value. Production constructors assemble production
-   boundaries; tests supply fakes through a context-owned value.
+   flow needs a new effect, add the capability it needs to the boundary
+   context. Production constructors assemble production boundaries; tests
+   provide fakes for the same capabilities.
 5. Put static tables shared across files or consumed by reference generation
    in `data/<layer>/<context>/*-data.lisp`. Keep computed values and behavior
    in their owning layer.

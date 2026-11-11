@@ -1,9 +1,9 @@
 # aitools
 
-aitools is a command-line tool for AI agents with built-in file and text
-operations and a runner for installed programs (`awk`, `sed`, `grep`, and
-others). People are not its audience: it has no color, prompts, or shell
-completion.
+aitools is a command-line tool for AI agents. Built-in commands handle files,
+text, structured documents, Markdown, host inspection, HTTP requests, and DNS
+lookups. The `run` command invokes installed programs such as `awk`, `sed`, and
+`grep`. aitools has no color, prompts, or shell completion.
 
 - **One JSON object per call.** Success goes to standard output, errors go to
   standard error. Exit code 0 marks success; 2 marks a precondition failure,
@@ -37,9 +37,9 @@ aitools is written in Common Lisp for SBCL and built with Nix.
 - [Using aitools from an agent](guide/agents.md): the call loop, guards,
   transactions, and the shell-command correspondence table.
 - [Commands](reference/commands/index.md): every command's arguments and output.
-- [Architecture](reference/architecture.md): contexts, layers, ports, and the
-  CPS audit.
+- [Architecture](reference/architecture.md): contexts, layers, boundary objects,
+  and the CPS audit.
 
-These pages are the specification of aitools's behavior.
-[Commands](reference/commands/index.md#not-provided) lists the options and
-commands that are not provided.
+These pages are the specification of aitools's behavior. The
+[session migration guide](guide/session-migration.md) identifies operations
+that remain external to aitools.

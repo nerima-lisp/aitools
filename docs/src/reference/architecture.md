@@ -15,12 +15,14 @@ infrastructure, and presentation layers. Shared types and services live in
 | core/store | domain, application, infrastructure | State directory, locks, the write protocol and recovery, the journal, blobs, the tx overlay. |
 | feature/search | domain, application, infrastructure, presentation, composition | `search`, `find`, `code outline`, `code defs`, `code refs`, `overview` |
 | feature/inspect | domain, application, infrastructure, presentation, composition | `read`, `info`, `check`, `diff`, `doc get/select/diff`, `table read/agg`, `archive list/read`, `snapshot create/diff` |
-| feature/edit | domain, application, infrastructure, presentation, composition | Every write command, `edit` through `archive create` in the [command index](commands/index.md#command-index) |
+| feature/edit | domain, application, infrastructure, presentation, composition | The `edit` context's write commands, from `edit` through `archive create` in the [command index](commands/index.md#command-index) |
 | feature/journal | domain, application, infrastructure, presentation, composition | `history`, `undo`, the `tx` group |
-| feature/process | domain, application, infrastructure, presentation, composition | `run`, `wait`, the `bg` group |
+| feature/process | domain, application, infrastructure, presentation, composition | `run`, `wait`, `signal`, the `bg` group |
 | feature/org | domain, application, infrastructure, presentation, composition | Org outline, query, export, agenda and clock reports; TODO, property, planning, clock, and table updates |
 | feature/env | domain, application, infrastructure, presentation, composition | The `sys` and `time` groups |
+| feature/md | domain, application, infrastructure, presentation, composition | `md headings`, `md read`, `md replace` |
 | feature/util | domain, application, infrastructure, presentation, composition | The `util` group |
+| feature/net | domain, application, infrastructure, presentation, composition | `net get`, `net head`, `net resolve` |
 
 `schema` and `batch` read or run commands of every context, so they belong to
 no context; they live in the composition root, `src/schema.lisp` and
@@ -32,9 +34,10 @@ ownership and dependency boundaries.
 
 ### Placement decisions
 
-A port is a structure of function slots for side-effect operations.
-Application flows call these functions, and infrastructure supplies their
-production implementations.
+A `cl-boundary-kit` boundary context groups effect capabilities under names.
+Application flows retrieve a capability with `boundary-context-require`.
+Composition assembles the context, and infrastructure supplies production
+adapters.
 
 - **Byte codecs in core/text.** `archive list` and `archive read` (inspect)
   and `archive extract` and `archive create` (edit) all need deflate, gzip,
@@ -52,8 +55,8 @@ production implementations.
 - **core/text has an application layer.** `call-with-sniffed-octets/k` and
   `call-with-text-file/k`
   (`packages/core/text/src/application/source.lisp`) give every context one
-  way to read a file's bytes through a port, deciding text or binary from
-  the first bytes over a single open.
+  way to read a file's bytes through the text boundary context, deciding text
+  or binary from the first bytes over a single open.
 - **The streaming JSON writer in protocol infrastructure calls json-kit.**
   json-kit is otherwise a domain-layer kit, but writing an envelope directly
   to the output stream, rather than building the whole document as a string
@@ -61,9 +64,10 @@ production implementations.
   (`packages/core/protocol/src/infrastructure/json-writer.lisp`).
 - **Org parsing and export live in feature/org.** The infrastructure adapter
   calls `cl-org-kit` and `cl-date-kit`; application flows reach these APIs
-  through ports. The structure test allows only the adapter's used kit symbols
-  for this context. File reads go through text and workspace ports. Export
-  supports HTTP, HTTPS, and mailto links; it rejects other link types.
+  through boundary contexts. The structure test allows only the adapter's used
+  kit symbols for this context. File reads go through text and workspace
+  boundary contexts. Export supports HTTP, HTTPS, and mailto links; it rejects
+  other link types.
 
 ## Layers and dependency direction
 
@@ -71,7 +75,7 @@ production implementations.
 |---|---|---|
 | domain | Values, rules, pure functions; no I/O | Its own domain, every core context's domain, and pure APIs from kits (deterministic functions without I/O), including `cl-regex-kit`, `json-kit`, `cl-codec-kit`, `cl-crypto-kit`, `cl-date-kit`, and `cl-deflate-kit` |
 | application | Use cases and continuation-based flow | Its own domain and application, core domains and applications, and (feature contexts only) other feature contexts' applications; `cl-boundary-kit` boundary objects and fakes; in Store, the pure `resilience-kit:make-retry-policy` constructor |
-| infrastructure | Port implementations (adapters) | Its own domain and application, `host-kit`, `process-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
+| infrastructure | Production adapters and host effects | Its own domain and application, `host-kit`, `process-kit`, `cl-concurrent-kit`, `cl-boundary-kit`, `sb-posix`, and `json-kit`; in Store, `resilience-kit:call-with-retry` and `resilience-kit:retry-exhausted` |
 | presentation | cl-cli command definitions, argument conversion | Its own application, `aitools.protocol.domain`, `aitools.protocol.application`, `cl-cli` |
 | composition | Context registration and dependency construction | That context's presentation and infrastructure, `aitools/cli` |
 
@@ -89,9 +93,9 @@ domain and application flows can share the DSL without reversing the dependency
 direction.
 
 Store application uses `resilience-kit:make-retry-policy` only to describe
-lock retry behavior. Its infrastructure adapter wraps the monotonic-clock and
-sleep callbacks from `store-io` with `cl-boundary-kit` boundaries, invokes
-`resilience-kit:call-with-retry`, and maps
+lock retry behavior. The POSIX Store boundary context supplies the clock and
+sleeper; its infrastructure adapter implements `call-with-retry` through
+`resilience-kit:call-with-retry` and maps
 `resilience-kit:retry-exhausted` to `NIL`. Store application then calls its
 timeout continuation when no lock was acquired. In other words, `NIL` means
 that lock acquisition timed out.
@@ -132,16 +136,15 @@ reference every layer.
 
 ## Context dependencies and registration
 
-Some existing application flows still use context-specific port structures,
-such as `search-ports`
-(`packages/feature/search/src/application/ports.lisp`) and Store's `store-io`
-(`packages/core/store/src/application/port.lisp`). The project is migrating
-these dependencies to `cl-boundary-kit` values assembled by infrastructure;
-tests supply fakes through each context's dependency value. See steps 3 and 4
-of [Adding a command](../project/development.md#adding-a-command) for the
-migration procedure. Contexts that still use ports expose an infrastructure
-constructor such as `make-production-<context>-ports (&key ...
-&allow-other-keys)` that builds the production value without doing I/O.
+Feature dependency constructors provide `cl-boundary-kit` boundary contexts.
+They either assemble capabilities in composition or use production adapters
+from infrastructure. Application flows retrieve capabilities with
+`boundary-context-require`; tests provide fakes through the same contexts.
+The structure test permits `make-boundary-context` and
+`boundary-context-with` in composition, application, and infrastructure, and
+rejects them in domain. See steps 3 and 4 of
+[Adding a command](../project/development.md#adding-a-command) for the
+registration flow.
 
 Context-owned feature registration modules live under
 `packages/feature/<ctx>/src/composition/context-registration.lisp`.
@@ -153,17 +156,11 @@ runtime dependencies and passes the result unchanged to the registrar. The
 order follows `aitools/cli`'s feature presentation dependencies, which an
 integration test checks.
 
-Infrastructure builds production boundaries, while application flows may
-receive those objects directly with fakes supplied by tests. Store retains a
-separate port for lower-level filesystem operations because
-cl-boundary-kit's filesystem boundary cannot express the write protocol's
-exclusive creation with fsync, separately synced append, `lstat` without
-following symlinks, `chmod`, symlink creation, and `flock`. The store defines
-its own port with one closure per primitive.
-
-Existing port-based unit tests build those structures from fakes.
-`with-text-boundaries` and `with-workspace-boundaries` install the text source
-and workspace host in a cl-boundary-kit boundary context for tests.
+Store's filesystem boundary context includes operations that the general
+`cl-boundary-kit` filesystem boundary does not provide: exclusive creation
+with fsync, separately synced append, `lstat` without following symlinks,
+`chmod`, symlink creation, and `flock`. Infrastructure builds the production
+context, and tests provide fakes through boundary contexts.
 
 ## Command handler contract
 
@@ -232,7 +229,9 @@ released on every exit (a `call-with-X` function, with a `with-X` macro as
 sugar). The tables list the applied sites per context, found with:
 
 ```sh
-rg -n '^\(def(un|macro) +([a-z0-9%-]*/k|call-with-[a-z0-9-]*|with-[a-z0-9-]*)\b' packages src
+rg -n -U -uuu \
+  '^\s*\(def(un|macro)\s+([a-z0-9%-]*/k|call-with-[a-z0-9-]*|with-[a-z0-9-]*)\b|define-flow\s+\(\s*[a-z0-9%-]*/k\b' \
+  packages src
 ```
 
 Names starting with `%` are internal helpers of the listed functions and are
@@ -242,19 +241,25 @@ omitted.
 
 | Context | `/k` functions (multiple exits) | `call-with-X` resources |
 |---|---|---|
-| kernel | `apply-hunks/k` (hunk applied, conflict) | none |
+| kernel | `apply-hunks/k`, `json-model-resolve/k` | none |
 | protocol | none | `call-with-command-result/k` (ok, partial, error; returns the command result) |
-| workspace | `call-with-resolved-root/k`, `call-with-workspace-boundary/k` (inside, outside), `resolve-user-path/k` (inside, outside) | `call-with-workspace-scan/k` (emit per entry), `call-with-ordered-mapper` (worker pool), `with-workspace-boundaries` |
-| text | `decode-utf8-strict/k`, `decode-octets/k`, `encode-string/k` | `call-with-sniffed-octets/k` (text, binary, missing, unreadable, too large), `call-with-text-file/k`, `with-text-boundaries` |
+| workspace | `call-with-resolved-root/k`, `call-with-workspace-boundary/k` (inside, outside), `call-with-scan-options/k`, `resolve-user-path/k` (inside, outside) | `call-with-workspace-scan/k` (emit per entry), `call-with-ordered-mapper` (worker pool) |
+| text | `decode-utf8-strict/k`, `decode-octets/k`, `encode-string/k` | `call-with-sniffed-octets/k` (text, binary, missing, unreadable, too large), `call-with-text-file/k` |
 | store | `plan-changes/k`, `commit-changes/k`, `recover/k` (rolled forward, discarded, none, busy), `undo-op/k`, `tx-begin/k`, `tx-status/k`, `tx-stage/k`, `tx-record-read/k`, `tx-drop/k`, `tx-rebase/k`, `tx-diff/k`, `tx-commit/k`, `tx-abort/k` | `call-with-workspace-lock/k` and `with-workspace-lock`, `call-with-tx-lock/k` and `with-tx-lock` (acquired, timeout), `call-with-tx-view/k`, `call-with-prepared-intent/k` and `with-prepared-intent` (intent record and write temp files), `call-with-temp-file` and `with-temp-file`, `call-with-temp-dir` and `with-temp-dir` |
 | search | `build-matcher/k`, `search/k`, `find/k`, `code-outline/k`, `code-defs/k`, `code-refs/k`, `overview/k`, `scan-options/k` | `call-with-session/k`, `call-with-regex-budget/k` |
-| inspect | `parse-selector-options/k`, `resolve-selector/k`, `resolve-line-selector/k`, `text-view/k`, `record-read/k`, `compile-pattern/k`, `resolve-json-pointer/k`, `make-comparison/k`, `parse-json-document/k`, `decode-charset-lines/k`, `parse-table/k`, `table-comparison/k`, `open-archive/k`, `archive-item-content/k`, `decode-snapshot/k`, `call-with-regex-limit/k` (result, step limit) | `call-with-readable-file/k`, `call-with-inspect-file/k`, `call-with-target-text/k`, `call-with-archive/k` |
+| inspect | `parse-selector-options/k`, `resolve-selector/k`, `resolve-line-selector/k`, `text-view/k`, `record-read/k`, `compile-pattern/k`, `resolve-json-pointer/k`, `make-comparison/k`, `parse-json-document/k`, `parse-yaml-write-document/k`, `parse-toml-write-document/k`, `decode-charset-lines/k`, `parse-table/k`, `table-comparison/k`, `open-archive/k`, `archive-item-content/k`, `decode-snapshot/k`, `call-with-regex-limit/k` (result, step limit) | `call-with-readable-file/k`, `call-with-inspect-file/k`, `call-with-target-text/k`, `call-with-archive/k` |
 | edit | `run-write-command/k`, `check-expect-count/k`, `require-expect-hash/k`, `resolve-extra-path/k`, `read-stdin/k`, `read-stdin-text/k`, `read-stdin-json/k`, `read-input-file/k`, `read-content/k`, `read-content-text/k`, `read-file-octets/k`, `read-document/k`, `parse-selector/k`, `resolve-lines/k`, `scan-files/k`, `compile-pattern/k`, `decode-text-document/k`, `parse-json-text/k`, `find-old/k`, `compile-search-pattern/k` | `call-with-regex-refusals` |
 | journal | none of its own; its flows call the store's `/k` functions | none |
-| process | `run-command/k`, `wait-until/k`, `wait-command/k`, `bg-start/k`, `bg-logs/k`, `bg-status/k`, `bg-stop/k` | `call-with-bg-log` and `with-bg-log` |
-| env | `resolve-zone/k`, `time-now/k`, `time-convert/k`, `time-diff/k`, `sys-info/k`, `sys-env/k`, `sys-tools/k`, `sys-procs/k`, `sys-ports/k` | none |
-| util | `resolve-input/k`, `evaluate-expression/k`, `decode-text/k` | none |
+| process | `run-command/k`, `wait-until/k`, `wait-command/k`, `bg-start/k`, `bg-logs/k`, `bg-status/k`, `bg-stop/k`, `signal-command/k` | `call-with-bg-log` and `with-bg-log` |
+| org | `org-read-document/k`, `org-outline/k`, `org-query/k`, `org-export/k`, `org-agenda/k`, `org-clock-report/k`, `org-todo-set/k`, `org-property-set/k`, `org-property-delete/k`, `org-planning-set/k`, `org-planning-delete/k`, `org-clock-in/k`, `org-clock-out/k`, `org-table-align/k`, `org-table-sort/k`, `org-table-recalculate/k` | none |
+| env | `resolve-zone/k`, `time-now/k`, `time-convert/k`, `time-diff/k`, `sys-info/k`, `sys-env/k`, `sys-tools/k`, `sys-procs/k`, `sys-metrics/k`, `sys-snapshot/k`, `sys-network/k`, `sys-disk/k`, `sys-ports/k` | none |
+| md | `md-headings/k`, `md-read/k`, `md-replace/k` | none |
+| util | none | none |
+| net | `get/k`, `head/k`, `resolve/k` | none |
 | composition root | `call-with-invocation-workspace/k` (ready, busy, invalid timeout) | none |
+
+The util flows `resolve-input`, `evaluate-expression`, and `decode-text` use
+continuations without the `/k` suffix.
 
 ### Resources
 
@@ -343,5 +348,5 @@ compiler. See [Development](../project/development.md#building-the-binary).
 
 `aitools.asd` loads each context's ASD in order: core kernel, protocol,
 workspace, text, store, then feature search, inspect, journal, edit, process,
-org, env, util. See
+org, env, md, util, net. See
 [Development](../project/development.md#the-component-lists).

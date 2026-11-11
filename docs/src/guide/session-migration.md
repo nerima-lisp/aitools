@@ -46,8 +46,8 @@ need external execution.
 | `git` | `run -- git ...`: run the external Git command under the caller's execution policy. |
 | `date` | `time now`, `time convert`, `time diff`. |
 | `sleep` | [`wait --duration`](../reference/commands/process.md#wait): JSON output; `--duration` sets the requested delay, while `--timeout` limits the wait (default 60 seconds). Set a timeout longer than the duration for longer delays. |
-| `kill` | `bg stop`: managed job IDs only, not arbitrary PIDs or signals. |
-| `curl WebFetch` | `net get URL` (GET) and `net head URL` (HEAD): HTTP/HTTPS only, a 30-second default deadline, and at most five redirects. HTTPS-to-HTTP redirects are refused. A refused redirect returns its 3xx response without requesting the target; exposed response headers omit `Location`. Initial URLs may target non-public addresses. Redirect policy follows the initial DNS answers for the entire chain: if they contain no public address, redirects to public or non-public addresses are allowed; if they contain any public address, only public initial answers are used and each redirect target must resolve entirely to public addresses. Known IPv4-embedding IPv6 forms (`64:ff9b::/96`, `::ffff:0:0/96`, `::/96`, `2002::/16`, and `2001:0::/32`) are classified by their embedded IPv4; non-public embedded addresses are non-public for redirect checks. Teredo addresses (`2001:0::/32`) embed client and server IPv4 addresses. The final 32 bits encode the bitwise complement of the client IPv4; the classifier uses that client address and does not classify the server IPv4. `64:ff9b:1::/48` is non-public, and public native IPv6 is allowed. Network-specific NAT64 prefixes ([RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html)) encode IPv4 addresses inside IPv6 addresses. RFC 7050 discovery of the network's Pref64 (the NAT64 translation prefix) is not implemented, so a non-public IPv4 embedded in a synthesized IPv6 address may be missed and treated as public during an initial or redirect check. This is a residual risk. GET keeps bodies in memory with a 16 MiB limit. See [`net get`](../reference/commands/net.md#net-get) for address and secret masking rules. No authentication-header or arbitrary-method option; use `run -- curl` for those. |
+| `kill` | [`signal`](../reference/commands/process.md#signal) targets same-UID processes. A PID needs `--expect-command` or `--expect-start`; a pattern needs `--expect-count`. Supported signals are TERM, KILL, HUP, INT, USR1, USR2, and QUIT. Use [`bg stop`](../reference/commands/process.md#bg-stop) for managed jobs. |
+| `curl WebFetch` | [`net get`](../reference/commands/net.md#net-get) (GET) and [`net head`](../reference/commands/net.md#net-head) (HEAD): HTTP/HTTPS only, a 30-second default deadline, and at most five redirects. HTTPS-to-HTTP redirects are refused. A refused redirect returns its 3xx response without requesting the target; exposed response headers omit `Location`. Initial URLs may target non-public addresses. If all initial DNS answers are non-public, redirects to public or non-public addresses are allowed. If any initial answer is public, the initial request uses only public answers, and every redirect target must resolve entirely to public addresses. See [`net get`](../reference/commands/net.md#net-get) for IPv4-embedded IPv6 classification and the NAT64/Teredo limitations; [`net head`](../reference/commands/net.md#net-head) uses the same address and redirect policy. GET keeps bodies in memory with a 16 MiB limit. Authentication headers and arbitrary methods are unsupported; use `run -- curl` for those. |
 | `dig nslookup` | `net resolve HOST`: A and AAAA address results from the operating system resolver. It does not return CNAME records or chains, other record types, or DNS response codes; use `run -- dig` or `run -- nslookup` for those. |
 
 ## External argv
@@ -80,6 +80,14 @@ exceeding `run --grep-limit` can produce wrapper partial exit 3, distinct from
 the child's exit status. Output limits, masking, and ANSI stripping also mean
 the JSON result is not a byte-preserving pipeline stage.
 
+## Operations outside aitools
+
+aitools does not implement the GitHub API, containers, service management,
+databases, arbitrary remote operations, general-purpose interpreters, ICMP
+ping, hard-link creation, or block-device listings. It has no native Git, jj,
+or gh commands. Use `run` for an installed external program when the caller's
+execution policy permits it.
+
 ## Shell-dependent operations
 
 These detected names can depend on the calling shell's state:
@@ -101,6 +109,9 @@ shell cannot modify its caller's state. Executable names such as `time` and
 
 File-tool operations such as Read, Write, Edit, Glob, and Grep have native
 file-operation candidates, but tool-specific edit formats and state differ.
+For Markdown files, `md headings` lists headings, `md read` reads a section,
+and `md replace` replaces one. Replacement requires `--stdin` and
+`--expect-hash`, and preserves the bytes outside the selected section.
 Agent delegation, approvals, conversation state, notebooks, browser actions,
 Web/MCP connectors, and existing interactive-session input are not replaced
 by launching a CLI command.
@@ -118,7 +129,7 @@ IDs are collapsed under the assumption that they identify the same call.
 Remaining native gaps include
 general open-file queries, disk I/O and device/mount inventories, DNS
 record queries beyond `net resolve` A/AAAA results (including CNAME records and chains),
-connectivity checks, arbitrary signal selection and jq/awk/sed/yq programs,
-hardlinks, version-control writes, and service/container/database operations.
+connectivity checks, signal selection beyond the values supported by `signal`,
+and arbitrary jq/awk/sed/yq programs.
 See [State inspection](state-inspection.md) for observation boundaries and
 partial or unavailable results.

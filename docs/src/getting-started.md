@@ -10,10 +10,6 @@ nix build                    # -> ./result/bin/aitools
 export PATH="$PWD/result/bin:$PATH"
 ```
 
-```json
-{"schema_version":2,"status":"ok","command":"version","name":"aitools","version":"0.3.0"}
-```
-
 `nix run . -- --version` runs it without creating the `result` link. The
 `export` above makes the built binary available as `aitools` for the examples
 below; alternatively, prefix each command with `./result/bin/` or use
@@ -29,9 +25,31 @@ returns `{"schema_version":2,"status":"ok","command":"schema","commands":[...]}`
 with a `{name, summary}` entry per command. `aitools schema <command>` returns
 the command's arguments, output fields, and error codes.
 
+## Inspect Markdown and make network requests
+
+Set `AITOOLS_URL` to an absolute HTTP(S) URL and `AITOOLS_HOST` to a DNS name
+before running the network examples.
+
+```sh
+aitools md headings README.md
+aitools md read README.md 2
+aitools net head "$AITOOLS_URL"
+aitools net get "$AITOOLS_URL" --max-lines 20
+aitools net resolve "$AITOOLS_HOST"
+```
+
+`md headings` lists numbered sections; pass a section number to `md read`.
+`net get` and `net head` accept HTTP or HTTPS URLs and always verify TLS
+certificates. `net resolve` returns A and AAAA records. A body cut by `net get`
+returns a partial result with commands for reading the remaining lines.
+
 ## Read a file
 
 ```console
+$ cat > hello.lisp <<'EOF'
+(defun greet (name)
+  (format t "Hello, ~a" name))
+EOF
 $ aitools read hello.lisp
 {"schema_version":2,"status":"ok","command":"read","mode":"text","path":"hello.lisp","start_line":1,"lines":["(defun greet (name)","  (format t \"Hello, ~a\" name))"],"total_lines":2,"hash":"de2187a50599282d3a6bbf334e5a804108cf30e2005767255053ba7e94512c71","truncated":false,"encoding_errors":0,"approx_tokens":13}
 ```
@@ -39,7 +57,7 @@ $ aitools read hello.lisp
 `hash` identifies the file content; a write that selects lines by number
 must pass it back as `--expect-hash`.
 
-## Edit it, and undo the edit
+## Edit it and preview undo
 
 ```console
 $ aitools edit hello.lisp --old 'Hello' --new 'Hi'
@@ -49,11 +67,11 @@ $ aitools history
 {"schema_version":2,"status":"ok","command":"history","items":[{"op_id":"op-20260926T011541Z-4a125e73","command":"aitools edit --old Hello --new Hi hello.lisp","paths":["hello.lisp"],"time":"2026-09-26T01:15:41Z"}],"total":1,"truncated":false}
 
 $ aitools undo op-20260926T011541Z-4a125e73 --dry-run
-{"schema_version":2,"status":"ok","command":"undo","changes":[{"path":"hello.lisp","action":"modified", ...}],"dry_run":true,"undoes":"op-20260926T011541Z-4a125e73"}
 ```
 
-Hashes are shortened here. Without `--dry-run`, `undo` writes the change
-and records it as a new operation.
+Hashes are shortened here. `--dry-run` shows the inverse change without
+writing it. Run `aitools undo op-20260926T011541Z-4a125e73` to restore the file;
+that restore is recorded as a new operation.
 
 ## When something goes wrong
 

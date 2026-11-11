@@ -4,9 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-MkDocs%20Material-0a7a5a)](https://nerima-lisp.github.io/aitools/)
 
-A command-line tool for AI agents with built-in file and text operations and
-an external-program runner. Use the built-ins instead of `cat`, `grep`, `sed`,
-`find`, `jq`, or `tar`, or invoke installed programs through `aitools run`.
+A command-line tool for AI agents. Built-in commands handle files, text,
+structured documents, Markdown, host inspection, HTTP requests, and DNS
+lookups. Use them instead of `cat`, `grep`, `sed`, `find`, `jq`, or `tar`;
+`aitools run` invokes other installed programs.
 Every call prints one JSON object. File reads support bounded windows and
 continuation. Text and position-based edits can use expected text, file hashes,
 or match counts as guards; journaled writes support crash recovery and guarded
@@ -17,12 +18,18 @@ completion). Written in Common Lisp for SBCL.
 
 ## Quick Start
 
+Set `AITOOLS_URL` to an absolute HTTP(S) URL and `AITOOLS_HOST` to a DNS name
+before running the network examples.
+
 ```sh
 # After `nix build` in the Install section below:
 export PATH="$PWD/result/bin:$PATH"
 aitools schema                                 # every command with a summary
 aitools read src/app.lisp --range 1:40         # lines 1-40, with the file hash
 aitools search 'defun build-' src              # grouped matches with context
+aitools md headings README.md                  # numbered Markdown sections
+aitools net get "$AITOOLS_URL" --max-lines 10 # bounded HTTP response body
+aitools net resolve "$AITOOLS_HOST"           # A and AAAA records
 aitools run -- awk 'END { print NR }' README.md # an external program, JSON result
 aitools sys metrics --limit 10                # CPU, memory, and busiest processes
 ```
