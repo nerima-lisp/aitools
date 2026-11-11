@@ -93,8 +93,9 @@
           (run-flow #'read-flow boundaries "hits.txt" :match "hit" :max-lines 1)
         (expect kind :to-be :partial)
         (expect (field fields "line_numbers") :to-equal '(1))
-        (expect (search "--invert" (first (field fields "next_commands")))
-                :to-be nil))))
+        (let ((continuation (first (field fields "next_commands"))))
+          (expect continuation :to-be-truthy)
+          (expect (search "--invert" continuation) :to-be nil)))))
 
   (it "finishes a strings scan when the last chunk ends with a delimiter"
     (multiple-value-bind (kind fields)

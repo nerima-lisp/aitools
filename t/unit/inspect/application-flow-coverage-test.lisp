@@ -51,24 +51,27 @@
         (expect (length (field fields "lines")) :to-be 80)
         (expect (field fields "total_lines") :to-be 81))))
 
-  (it "reports an unresolved non-file target without stat metadata"
-    (let* ((target
-             (aitools.inspect.application::%make-file-target
-              :argument "special" :absolute "/work/special"
-              :real nil :relative nil :kind :other))
+  (it "reports metadata for a host target that is neither a file nor a directory"
+    (let* ((root-entry
+             (aitools.workspace.application:make-workspace-entry
+              :name "work" :kind :directory))
+           (entry
+             (aitools.workspace.application:make-workspace-entry
+              :name "special" :kind :other :size 1 :mtime 1700000000 :mode #o600))
            (boundaries (make-test-boundaries)))
       (cl-weave:with-mocked-functions
           (((symbol-function
-             (quote aitools.inspect.application::probe-target))
-            (lambda (context path)
-              (declare (ignore context path))
-              target)))
+             (quote aitools.workspace.application:host-stat))
+            (lambda (host path)
+              (declare (ignore host))
+              (cond ((string= path "/work") root-entry)
+                    ((string= path "/work/special") entry)))))
         (multiple-value-bind (kind fields)
             (run-flow #'info-flow boundaries "special")
           (expect kind :to-be :ok)
           (expect (field fields "kind") :to-equal "other")
-          (expect (field fields "size") :to-be 0)
-          (expect (json-null-value-p (field fields "mode")) :to-be t)))))
+          (expect (field fields "size") :to-be 1)
+          (expect (json-null-value-p (field fields "mode")) :to-be nil)))))
 
   (it "renders an op diff when the before and after blobs are available"
     (let* ((context

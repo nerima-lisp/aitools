@@ -12,7 +12,7 @@
   (it "uses disk state at the workspace root and staged directory state below it"
     (let* ((context
              (%application-edge-inspect-context
-              (make-test-boundaries :directories '("/work/sub"))
+              (make-test-boundaries :files '(("/work/sub" . "disk-file")))
               :view :mock))
            (root-target
              (aitools.inspect.application::probe-target context "."))
