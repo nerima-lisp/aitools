@@ -21,6 +21,7 @@
 (describe "Context test source attribution"
   (it "matches edit and environment tests loaded from a different root"
     (let* ((source-files (%context-test-source-files))
+           (source-index (%make-test-context-source-index source-files))
            (paths '("t/unit/edit/domain-test.lisp"
                     "t/integration/env-sysctl-test.lisp")))
       (aitools.test.support:call-with-temporary-directory
@@ -40,8 +41,7 @@
                                   (format nil "nix-store/source/t/~A" relative)
                                   directory)))
                  (aitools.test.support:write-text (namestring alternate) "")
-                 (expect (%test-context-from-source-file
-                          (namestring alternate) source-files)
+                 (expect (%test-context-from-source-file (namestring alternate) source-index)
                          :to-equal context))))))
        :prefix "aitools-context-source-alias"))))
 
@@ -179,7 +179,6 @@
        :to-be :quit)
       (expect dispatch-arguments :to-equal (list app registry argv))
       (expect quit-code :to-equal 23)))
-
   (it "covers child process and owner error trace paths"
     (expect (aitools/cli::%trace-kind-name :child_process)
             :to-equal "child_process")
