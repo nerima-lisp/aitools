@@ -155,7 +155,10 @@
                    (:file "table-domain-coverage-test")
                    (:file "application-flow-uncovered-coverage-test")
                    (:file "domain-read-uncovered-coverage-test")
-                   (:file "domain-table-format-uncovered-coverage-test")))
+                   (:file "domain-table-format-uncovered-coverage-test")
+                   (:file "application-flow-remaining-coverage-test")
+                   (:file "domain-read-remaining-coverage-test")
+                   (:file "domain-format-remaining-coverage-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "read-search-cases")
                    (:file "format-cases")
