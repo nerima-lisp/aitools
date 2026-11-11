@@ -9,7 +9,7 @@
 
 (defstruct (org-failure (:constructor make-org-failure
                            (&key kind message line column offset))
-                        (:copier nil))
+                        (:copier nil) (:predicate nil))
   (kind nil :read-only t)
   (message "Org operation failed" :type string :read-only t)
   (line nil :type (or null integer) :read-only t)
