@@ -45,6 +45,7 @@
      (:file "unit/util/codec-test")
      (:file "unit/util/data-tables-test")
      (:file "unit/util/calc-test")
+     (:file "unit/util/macro-expansion-coverage-test")
      (:file "unit/util/uuid-random-test")
      (:file "unit/util/flows-test")
      (:file "unit/util/flow-errors-test")
