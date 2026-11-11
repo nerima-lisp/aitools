@@ -89,7 +89,7 @@
            (expect (getf (third outcome) :path) :to-equal "a.txt")))
        :io nil))
 
-    (it "distinguishes content, mtime, and mode changes in tx diff"
+    (it "distinguishes content, mtime, mode, and entry-kind changes in tx diff"
       (call-with-temp-store
        (lambda (store)
          (put-file store "a.txt" "same")
@@ -98,17 +98,25 @@
            (expect (tx-diff/k store tx :on-diff (lambda (results)
                                                   (mapcar #'change-result-action results))
                              :on-not-found (constantly :not-found))
-                   :to-equal '(:mode-changed))
+                   :to-equal (list :mode-changed))
            (stage store tx (list (mtime-request "a.txt" 1577934245)))
            (expect (tx-diff/k store tx :on-diff (lambda (results)
                                                   (mapcar #'change-result-action results))
                              :on-not-found (constantly :not-found))
-                   :to-equal '(:modified))
+                   :to-equal (list :modified))
            (stage store tx (list (write-file-request "a.txt" (bytes "different"))))
            (expect (tx-diff/k store tx :on-diff (lambda (results)
                                                   (mapcar #'change-result-action results))
                              :on-not-found (constantly :not-found))
-                   :to-equal '(:modified))))
+                   :to-equal (list :modified))
+           (stage store tx (list (delete-request "a.txt")))
+           (expect (tx-view-text store tx "a.txt") :to-be :absent)
+           (stage store tx (list (mkdir-request "a.txt" :mode #o755)))
+           (expect (tx-view-text store tx "a.txt") :to-be :directory)
+           (expect (tx-diff/k store tx :on-diff (lambda (results)
+                                                  (mapcar #'change-result-action results))
+                             :on-not-found (constantly :not-found))
+                   :to-equal (list :modified))))
        :io nil))
 
     (it "replays drifted ops, preserves clean ops, and reports only drifted conflict paths"
