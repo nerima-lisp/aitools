@@ -33,7 +33,7 @@
                (< (1+ start) length)
                (= (aref octets (1+ start)) 114))
       (incf prefix))
-    (unless (and (< prefix length) (= (aref octets prefix) 114))
+    (unless (= (aref octets prefix) 114)
       (return-from %rust-raw-string-end nil))
     (incf prefix)
     (let ((hashes 0))

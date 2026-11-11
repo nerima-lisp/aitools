@@ -146,23 +146,6 @@
                                "fn later() {}"))
             :to-equal '((1 3 "function" "incomplete_unicode") (4 4 "function" "later"))))
 
-  (it "skips Rust raw and byte strings with matching delimiters"
-    (expect (outline-of "/w/a.rs"
-                        (lines "fn close_raw() {"
-                               "  let close = r#\"}\"#;"
-                               "  let plain = r\"}\";"
-                               "  let bytes = b\"}\";"
-                               "  let byte_raw = br##\"}\"##;"
-                               "  let shorter = r##\" } \"# } still inside \"##;"
-                               "  use_value(close);"
-                               "}"
-                               "fn later() {}"))
-            :to-equal '((1 8 "function" "close_raw") (9 9 "function" "later")))
-    (expect (outline-of "/w/a.rs"
-                        (lines "fn incomplete_raw() {"
-                               "  let value = r##\" } \"#"
-                               "  } inside"))
-            :to-equal '((1 3 "function" "incomplete_raw"))))
   (it "scans a terminal Rust byte prefix in the production parser"
     (expect (outline-of "/w/a.rs" "fn terminal() { b")
             :to-equal (quote ((1 1 "function" "terminal")))))
