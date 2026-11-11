@@ -224,3 +224,10 @@
       (multiple-value-bind (document count) (replace-document (doc (format nil "a~%")) replacer nil t)
         (expect (doc-string document) :to-equal (format nil "a~%"))
         (expect count :to-be 0)))))
+
+(describe "aitools.edit.domain empty matching helpers"
+  (it "returns no whitespace windows for an empty needle"
+    (expect (aitools.edit.domain::%whitespace-windows #("line") (list)) :to-equal (list)))
+  (it "omits a literal when the compiled regex is invalid"
+    (expect (replacer-required-literal (make-replacer nil (literal-replacement "x")))
+            :to-be nil)))

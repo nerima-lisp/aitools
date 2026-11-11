@@ -48,7 +48,14 @@
         (expect read-count :to-be 1)
         (expect read-limit :to-be 2)
         (expect (kind "small.bin") :to-be :file)
-        (expect (text "small.bin") :to-equal "x"))))))
+        (expect (text "small.bin") :to-equal "x")))))
+  (it "refuses a file whose stat size exceeds max-bytes"
+    (call-with-edit-workspace (lambda () (put "large.bin" "large")
+      (with-error (code message)
+          (run "rm" (list "large.bin") :max-bytes "2")
+        (expect code :to-equal "refusal.too-large")
+        (expect message :to-equal "rm exceeds --max-bytes"))
+      (expect (text "large.bin") :to-equal "large")))))
 
 (describe "aitools rm protected roots and recovery"
   (it "refuses the injected home directory without touching its children"

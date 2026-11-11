@@ -181,3 +181,15 @@
         (declare (ignore message keys))
         (expect status :to-be :error)
         (expect code :to-equal "input.not-found"))))))
+
+(describe "aitools.edit.domain JSON number reader conditions"
+  (it "maps a reader error to argument.invalid"
+    (expect (edit-refusal-code
+             (yaml-write-value-refusal
+               (make-json-num "#.(+ 1 2)")))
+            :to-equal "argument.invalid"))
+  (it "rejects NaN and infinite YAML numbers"
+    (let ((nan (sb-kernel:make-double-float #x7ff80000 0))
+          (infinity (sb-kernel:make-double-float #x7ff00000 0)))
+      (expect (aitools.edit.domain::%yaml-finite-float-p nan) :to-be nil)
+      (expect (aitools.edit.domain::%yaml-finite-float-p infinity) :to-be nil))))

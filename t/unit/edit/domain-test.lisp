@@ -181,3 +181,9 @@
       (expect (parse-recorded-argv argv :on-parsed (function list)
                                          :on-invalid (function identity))
               :to-equal (list "edit" (list path) (list :old old :new new))))))
+
+(describe "aitools.edit.domain empty-EOL replacement"
+  (it "preserves the empty EOL when inserting into an empty document"
+    (let ((document (make-text-document "" :eol "")))
+      (expect (doc-string (document-replace-lines document 0 0 (list "line")))
+              :to-equal "line"))))

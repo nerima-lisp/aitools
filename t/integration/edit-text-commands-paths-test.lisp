@@ -191,7 +191,11 @@
                                                               (format nil "b.lisp=~A" (hash "b.lisp"))))
               :to-be :ok)
       (expect (text "b.lisp") :to-equal (format nil "1~%(defun f ()~%  1)~%"))
-      (expect (text "a.txt") :to-equal "")))))
+      (expect (text "a.txt") :to-equal ""))))
+  (it "comments a Lisp file with its line marker"
+    (call-with-edit-workspace (lambda () (put "source.lisp" (format nil "(form)~%"))
+      (expect (run "transform" (list "source.lisp") :op (list "comment")) :to-be :ok)
+      (expect (text "source.lisp") :to-equal (format nil "; (form)~%"))))))
 
 (describe "aitools replace and apply: files without matches and short paths"
   (it "counts only the files with a match, scanning below subdirectories"
