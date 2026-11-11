@@ -1,4 +1,6 @@
 (in-package #:aitools.org.test)
+(defun %call-org-record-constructor (constructor initargs)
+  (apply constructor initargs))
 
 (describe "aitools.org infrastructure parser and source codec"
           (it-property "preserves generated UTF-8 paragraph bytes"
@@ -90,13 +92,21 @@
       (expect (aitools.org.domain:org-failure-offset failure) :to-be 18)))
   (cl-weave:it "rejects invalid failure field types"
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-failure :message 9))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-failure
+       '(:message 9)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-failure :line "3"))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-failure
+       '(:line "3")))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-failure :column "4"))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-failure
+       '(:column "4")))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-failure :offset "18")))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-failure
+       '(:offset "18"))))
   (cl-weave:it "constructs outline entries with defaults and supplied fields"
     (let ((default (aitools.org.domain:make-org-outline-entry))
           (entry
@@ -113,11 +123,17 @@
       (expect (aitools.org.domain:org-outline-entry-line entry) :to-be 5)))
   (cl-weave:it "enforces outline entry field types"
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-outline-entry :name nil))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-outline-entry
+       '(:name nil)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-outline-entry :level "2"))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-outline-entry
+       '(:level "2")))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-outline-entry :line nil)))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-outline-entry
+       '(:line nil))))
   (cl-weave:it "constructs heading path entries with defaults and supplied fields"
     (let ((default (aitools.org.domain:make-org-heading-path-entry))
           (entry
@@ -133,9 +149,13 @@
               :to-be 2)))
   (cl-weave:it "enforces heading path entry field types"
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-heading-path-entry :title nil))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-heading-path-entry
+       '(:title nil)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-heading-path-entry :index nil)))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-heading-path-entry
+       '(:index nil))))
   (cl-weave:it "constructs query matches with defaults and supplied fields"
     (let ((default (aitools.org.domain:make-org-query-match))
           (match
@@ -159,14 +179,26 @@
               :to-equal '("Root" "Task"))))
   (cl-weave:it "enforces query match field types"
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :line nil))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:line nil)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :level nil))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:level nil)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :title nil))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:title nil)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :todo 1))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:todo 1)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :tags :not-a-list))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:tags :not-a-list)))
     (cl-weave:signals type-error
-      (aitools.org.domain:make-org-query-match :heading-path :not-a-list))))
+      (%call-org-record-constructor
+       #'aitools.org.domain:make-org-query-match
+       '(:heading-path :not-a-list)))))
