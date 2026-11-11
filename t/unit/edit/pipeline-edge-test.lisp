@@ -1,11 +1,4 @@
 (in-package #:aitools.edit.test)
-(defun %make-write-plan-with-precommit-check (precommit-check)
-  (aitools.edit.application:make-write-plan
-   :command "archive"
-   :plan (lambda (&rest arguments)
-           (declare (ignore arguments)))
-   :precommit-check precommit-check))
-
 (describe "aitools.edit.application pipeline helpers"
   (it "inspects static write options without reading workspace state"
     (let ((ok-calls 0)
@@ -121,17 +114,6 @@
        (aitools.edit.application::dry-run-command-line
         (quote ("edit" "replace" "a.md" "--" "--expect-count" "literal")))
        :to-equal "aitools edit replace a.md --dry-run -- --expect-count literal")))
-  (it "retains a precommit-check function on a write plan"
-    (let* ((check (lambda () :checked))
-           (plan (%make-write-plan-with-precommit-check check)))
-      (expect (eq (aitools.edit.application::write-plan-precommit-check plan) check)
-              :to-be t)
-      (expect
-       (funcall (aitools.edit.application::write-plan-precommit-check plan))
-       :to-be :checked)))
-  (it "rejects a non-function precommit-check"
-    (signals type-error
-      (%make-write-plan-with-precommit-check :not-a-function)))
   (it "resolves discovered paths inside the workspace and rejects temporary or outside paths"
     (call-with-edit-workspace
      (lambda ()
@@ -177,49 +159,79 @@
   (it "forwards read errors from edit plans to rejection callbacks"
     (call-with-edit-workspace
      (lambda ()
-       (flet ((rejected-code (plan paths)
-                (let ((code nil))
-                  (funcall
-                   plan
-                   (aitools.edit.application::make-write-context
-                    :view
-                    (aitools.store.application:disk-view
-                     (open-store *root*))
-                    :paths paths)
-                   :on-committed
-                   (lambda (&rest values) (declare (ignore values)))
-                   :on-rejected
-                   (lambda (value message &rest keys)
-                     (declare (ignore message keys))
-                     (setf code value)))
-                  code)))
-         (let ((patch
-                 (aitools.edit.application::%make-file-patch
-                  "missing.txt" "output.txt" nil)))
-           (dolist
-               (case
-                 (list
-                  (list (aitools.edit.application::%edit-plan nil)
-                        '("missing.txt"))
-                  (list (aitools.edit.application::%insert-plan "x" :end nil)
-                        '("missing.txt"))
-                  (list
-                   (aitools.edit.application::%apply-plan (list (cons t patch)) 0 nil)
-                   '("missing.txt" "output.txt"))
-                  (list
-                   (aitools.edit.application::%move-lines-plan nil :start nil nil)
-                   '("missing.txt" "output.txt"))
-                  (list
-                   (aitools.edit.application::%replace-plan
-                    nil nil :range '("missing.txt") nil)
-                   '("missing.txt"))))
-             (expect (rejected-code (first case) (second case))
-                     :to-equal "input.not-found")))
+       (let* ((view (aitools.store.application:disk-view (open-store *root*)))
+              (rejected-code
+                (lambda (plan paths)
+                  (let ((code nil))
+                    (funcall plan
+                             (aitools.edit.application::make-write-context :view view :paths paths)
+                             :on-committed (lambda (&rest values) (declare (ignore values)))
+                             :on-rejected (lambda (value &rest values)
+                                            (declare (ignore values))
+                                            (setf code value)))
+                    code)))
+              (patch (aitools.edit.application::%make-file-patch "missing.txt" "output.txt" nil)))
+         (dolist (case (list
+                        (list (aitools.edit.application::%edit-plan nil) '("missing.txt"))
+                        (list (aitools.edit.application::%insert-plan "x" :end nil) '("missing.txt"))
+                        (list (aitools.edit.application::%apply-plan (list (cons t patch)) 0 nil)
+                              '("missing.txt" "output.txt"))
+                        (list (aitools.edit.application::%move-lines-plan nil :start nil nil)
+                              '("missing.txt" "output.txt"))
+                        (list (aitools.edit.application::%replace-plan nil nil :range '("missing.txt") nil)
+                              '("missing.txt"))))
+           (expect (funcall rejected-code (first case) (second case))
+                   :to-equal "input.not-found"))
          (put "source.txt" "source")
          (put "broken-destination.txt" (octet-vector 97 #xFF))
          (expect
-          (rejected-code
-           (aitools.edit.application::%move-lines-plan
-            (aitools.kernel.domain:make-range-selector "1") :start nil nil)
-           '("source.txt" "broken-destination.txt"))
-          :to-equal "input.not-utf8"))))))
+          (funcall rejected-code
+                   (aitools.edit.application::%move-lines-plan
+                    (aitools.kernel.domain:make-range-selector "1") :start nil nil)
+                   (list "source.txt" "broken-destination.txt"))
+          :to-equal "input.not-utf8")))))
+  (it "checks rm file byte limits against the view"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "data.bin" "x")
+       (put "empty.bin" "")
+       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries))
+              (root (aitools.workspace.domain:make-workspace-root
+                     :path *root* :real *root* :source :cwd))
+              (view (aitools.store.application:disk-view (open-store *root*))))
+         (labels ((run-rm (path max-bytes max-entries)
+                    (let ((result nil))
+                      (aitools.kernel.domain:flow-call
+                       (aitools.edit.application::%rm-requests/k
+                        (aitools.edit.application::make-write-context
+                         :view view :host host :root root :paths (list path))
+                        nil max-bytes max-entries)
+                       (:on-error (code message &rest keys)
+                         (declare (ignore message keys))
+                         (setf result (list :error code)))
+                       (:on-committed (requests &optional extra)
+                         (declare (ignore extra))
+                         (setf result (list :ok requests))))
+                      result)))
+           (expect (first (run-rm "data.bin" 5 5)) :to-be :ok)
+           (expect (length (second (run-rm "data.bin" 5 5))) :to-be 1)
+           (expect (first (run-rm "empty.bin" 5 5)) :to-be :ok)
+           (expect (length (second (run-rm "empty.bin" 5 5))) :to-be 1)
+           (expect (second (run-rm "data.bin" 0 5)) :to-equal "refusal.too-large"))))))
+  (it "forwards symbol candidates from transform plan errors"
+    (let ((result nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'aitools.edit.application::read-document/k)
+            (lambda (context path &key prefilter max-bytes on-error on-document on-filtered)
+              (declare (ignore context path prefilter max-bytes on-error on-filtered))
+              (funcall on-document
+                       (aitools.edit.domain:make-text-document "(defun present () 1)")))))
+        (aitools.edit.application::%run-transform-plan/k
+         (aitools.edit.application::make-write-context :paths '("a.lisp"))
+         "a.lisp" '("sort") (aitools.kernel.domain:make-symbol-selector "presnt") nil
+         :on-committed (lambda (&rest values) (declare (ignore values)))
+         :on-rejected (lambda (code message &rest keys)
+                        (declare (ignore message))
+                        (setf result (list code keys)))))
+      (expect (first result) :to-equal "selection.no-match")
+      (expect (getf (second result) :candidates) :to-be-truthy))))

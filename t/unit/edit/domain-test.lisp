@@ -201,3 +201,10 @@
                 (progn (funcall (symbol-function (quote aitools.edit.domain::make-split-piece)) 0 -1 1 0) nil)
               (type-error () t))
             :to-be t)))
+
+(describe "aitools.edit.domain transform default columns"
+  (it "wraps at 80 columns when columns is omitted"
+    (let ((left (make-string 40 :initial-element #\a))
+          (right (make-string 40 :initial-element #\b)))
+      (expect (transform-lines "wrap" (list (format nil "~A ~A" left right)))
+              :to-equal (list left right)))))

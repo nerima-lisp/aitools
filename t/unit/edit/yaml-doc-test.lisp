@@ -17,6 +17,8 @@
       (expect (eq (validate-yaml-write-value integer) integer) :to-be t)
       (expect (eq (validate-yaml-write-value decimal) decimal) :to-be t)
       (expect (eq (validate-yaml-write-value zero) zero) :to-be t)
+      (expect (aitools.edit.domain::edit-json-number (make-json-num "-12")) :to-be -12)
+      (expect (aitools.edit.domain::edit-json-number decimal) :to-equal 1.25d0)
       (expect (edit-refusal-code (yaml-write-value-refusal (make-json-num "1e+")))
               :to-equal "argument.invalid")))
   (it "rejects nonzero mantissa underflow and accepts exponent-form zero"
@@ -182,19 +184,5 @@
         (expect status :to-be :error)
         (expect code :to-equal "input.not-found"))))))
 
-(describe "aitools.edit.domain JSON number reader conditions"
-  (it "maps a reader error to argument.invalid"
-    (expect (edit-refusal-code
-             (yaml-write-value-refusal
-               (make-json-num "#.(+ 1 2)")))
-            :to-equal "argument.invalid"))
-  (it "rejects NaN and infinite YAML numbers"
-    (let ((nan (sb-kernel:make-double-float #x7ff80000 0))
-          (infinity (sb-kernel:make-double-float #x7ff00000 0)))
-      (expect (aitools.edit.domain::%yaml-finite-float-p nan) :to-be nil)
-      (expect (aitools.edit.domain::%yaml-finite-float-p infinity) :to-be nil))))
+(describe "aitools.edit.domain JSON number reader conditions" (it "maps a reader error to argument.invalid" (expect (edit-refusal-code (yaml-write-value-refusal (make-json-num "#.(+ 1 2)"))) :to-equal "argument.invalid")) (it "rejects NaN and both infinite YAML numbers" (let ((nan (sb-kernel:make-double-float #x7ff80000 0)) (positive-infinity (sb-kernel:make-double-float #x7ff00000 0)) (negative-infinity (sb-kernel:make-double-float #xfff00000 0))) (expect (aitools.edit.domain::%yaml-finite-float-p nan) :to-be nil) (expect (aitools.edit.domain::%yaml-finite-float-p positive-infinity) :to-be nil) (expect (aitools.edit.domain::%yaml-finite-float-p negative-infinity) :to-be nil))) (it "rejects NaN when invalid-operation traps are masked" (let ((nan (sb-kernel:make-double-float #x7ff80000 0))) (sb-int:with-float-traps-masked (:invalid) (expect (aitools.edit.domain::%yaml-finite-float-p nan) :to-be nil)))))
 
-(describe "aitools.edit.domain JSON number representation"
-  (it "returns finite integer and float values from JSON number text"
-    (expect (aitools.edit.domain::edit-json-number (make-json-num "-12")) :to-be -12)
-    (expect (aitools.edit.domain::edit-json-number (make-json-num "1.25")) :to-equal 1.25d0)))

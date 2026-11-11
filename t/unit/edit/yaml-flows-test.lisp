@@ -158,4 +158,39 @@
            (expect status :to-be :error)
            (expect code :to-equal "environment.io")
            (expect message :to-equal "serializer rejected")
-           (expect (snapshot) :to-equal before)))))))
+           (expect (snapshot) :to-equal before))))))
+  (it "forwards missing format reads through the plan error continuation"
+    (call-with-edit-workspace
+     (lambda ()
+       (let ((result nil)
+             (context
+               (aitools.edit.application::make-write-context
+                :view (aitools.store.application:disk-view (open-store *root*))
+                :paths '("missing.yaml"))))
+         (aitools.kernel.domain:flow-call
+          (aitools.edit.application::%read-format/k "yaml" "doc.fmt" context "missing.yaml")
+          (:on-error (code message &rest keys)
+            (declare (ignore message keys))
+            (setf result code))
+          (:on-json (value document comment-count)
+            (declare (ignore value document comment-count))))
+         (expect result :to-equal "input.not-found")))))
+  (it "builds JSON repairs with the path from the read error"
+    (let ((result nil))
+      (funcall
+       (aitools.edit.application::%json-plan
+        (function identity)
+        :reader
+        (lambda (context path &key on-error on-json)
+          (declare (ignore context on-json))
+          (funcall on-error "input.unsupported-format" "broken JSON" :path path)))
+       (aitools.edit.application::make-write-context :paths '("broken.json"))
+       :on-committed (lambda (&rest values) (declare (ignore values)))
+       :on-rejected (lambda (code message &rest keys)
+                      (declare (ignore message))
+                      (setf result (list code keys))))
+      (expect (first result) :to-equal "input.unsupported-format")
+      (expect
+       (search "broken.json"
+               (getf (first (getf (second result) :repairs)) :command))
+       :to-be-truthy))))
