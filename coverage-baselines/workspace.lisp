@@ -2,11 +2,7 @@
  :expression-covered 3759 :expression-total 3963
  :branch-covered 500 :branch-total 578
  :coverage-exclusions
- ((:kind :branch
-   :package "AITOOLS.WORKSPACE.INFRASTRUCTURE"
-   :symbol "PROCESSOR-COUNT"
-   :reason "This measured Linux CI arm requires sysconf(_SC_NPROCESSORS_ONLN) to fail. The call does not fail on supported Darwin/Linux hosts, and no spec can force this libc failure without patching libc.")
-  (:kind :expression
+ ((:kind :expression
    :package "AITOOLS.WORKSPACE.APPLICATION"
    :symbol "IGNORE-CONTEXT"
    :reason "This is the BASE-STACK DEFSTRUCT initform. The default constructor is exercised, but SB-COVER does not mark generated DEFSTRUCT declaration-site defaults.")

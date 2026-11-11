@@ -32,6 +32,11 @@
        (host-call-with-ordered-mapper
         boundaries (lambda (mapper) (funcall mapper #'1+ '(1 2))))
        :to-equal '(2 3))))
+  (it "falls back to one for nil or non-positive processor counts"
+    (expect (aitools.workspace.infrastructure::%processor-count-or-one nil) :to-be 1)
+    (expect (aitools.workspace.infrastructure::%processor-count-or-one 0) :to-be 1)
+    (expect (aitools.workspace.infrastructure::%processor-count-or-one -1) :to-be 1)
+    (expect (aitools.workspace.infrastructure::%processor-count-or-one 4) :to-be 4))
   (it "maps inline when the processor count is one"
     (let* ((scan-thread (cl-concurrent-kit:current-thread))
            (processor-count-calls 0)
