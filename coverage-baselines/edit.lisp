@@ -8,9 +8,9 @@
           :expression-total
           13960
           :branch-covered
-          1503
+          1502
           :branch-total
-          1503
+          1502
           :coverage-exclusions
           ((:kind :expression
                   :package
@@ -119,11 +119,4 @@
                   :symbol
                   "EDIT-JSON-NUMBER"
                   :reason
-                  "SB-COVER leaves exceptional reader-condition branches unmarked; specs assert finite, malformed, overflow, and underflow outcomes, while JSON cannot encode NaN or infinity and reader condition signaling varies by SBCL version.")
-           (:kind :branch
-                  :package
-                  "AITOOLS.EDIT.APPLICATION"
-                  :symbol
-                  "%RM-REQUESTS/K"
-                  :reason
-                  "The false arm follows SETF FILE-BYTES to LENGTH, which returns a nonnegative integer; 0 is non-NIL in Common Lisp. Files exceeding MAX-BYTES are rejected by the preceding stat check, so this branch is unreachable.")))
+                  "SB-COVER leaves exceptional reader-condition branches unmarked; specs assert finite, malformed, overflow, and underflow outcomes, while JSON cannot encode NaN or infinity and reader condition signaling varies by SBCL version.")))
