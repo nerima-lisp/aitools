@@ -66,4 +66,5 @@
                  (:file "unit/net/commands-test")
                  (:file "integration/net-boundary-contract-test")
                  (:file "integration/net-http-transport-test")
-                 (:file "integration/net-decoded-body-limit-test")))))
+                 (:file "integration/net-decoded-body-limit-test")
+                 (:file "unit/net/http-flow-expansion-coverage-test")))))
