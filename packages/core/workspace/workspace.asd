@@ -38,6 +38,7 @@
                (:file "unit/workspace/root-boundary-unresolvable-git-dir-test")
                (:file "unit/workspace/root-boundary-common-metadata-test")
                (:file "unit/workspace/workspace-values-test")
+               (:file "unit/workspace/coverage-edge-test")
                (:file "unit/workspace/real-path-test")
                (:file "unit/workspace/git-data-test")
                (:file "unit/workspace/scan-test")

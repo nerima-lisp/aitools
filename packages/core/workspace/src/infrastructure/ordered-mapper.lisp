@@ -7,15 +7,23 @@
 ;;;; bindings, so per-file work must not rely on specials bound by the caller.
 (in-package #:aitools.workspace.infrastructure)
 
+(defun %sysconf-online-processors ()
+  #+darwin
+  (sb-alien:alien-funcall
+   (sb-alien:extern-alien "sysconf" (function sb-alien:long sb-alien:int))
+   58)
+  #+linux
+  (sb-alien:alien-funcall
+   (sb-alien:extern-alien "sysconf" (function sb-alien:long sb-alien:int))
+   84)
+  #-(or darwin linux)
+  0)
+
 (defun processor-count ()
   "Online CPUs from sysconf(_SC_NPROCESSORS_ONLN), at least 1."
-  (let ((name #+darwin 58 #+linux 84 #-(or darwin linux) nil))
-    (or (and name
-             (let ((count (sb-alien:alien-funcall
-                           (sb-alien:extern-alien "sysconf" (function sb-alien:long sb-alien:int))
-                           name)))
-               (and (plusp count) count)))
-        1)))
+  (declare (notinline %sysconf-online-processors))
+  (let ((count (%sysconf-online-processors)))
+    (or (and (plusp count) count) 1)))
 
 (defun call-with-ordered-mapper (thunk)
   "Call THUNK with an ordered mapper, creating a worker pool only on the
