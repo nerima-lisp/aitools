@@ -62,7 +62,7 @@
             :to-equal '(0 6)))
 
   (it "does not emit strings when a chunk contains only controls"
-    (let ((emissions 0)
+    (let* ((emissions 0)
           (scan (aitools.inspect.domain::make-strings-scan
                  :min-length 2
                  :emit (lambda (offset text cut-offset)
