@@ -16,6 +16,4 @@
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "DOCUMENT-SOURCE" "preserve parser source text")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-RESOURCE-LIMIT-ERROR" "map parser resource limits")
          ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-KIT-ERROR-MESSAGE" "preserve parser error detail")
-         ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-KIT-ERROR" "map Markdown parser errors")
-         ("md" (:composition) "CL-BOUNDARY-KIT" "MAKE-BOUNDARY-CONTEXT" "Creates the md boundary context for feature capabilities.")
-         ("md" (:composition) "CL-BOUNDARY-KIT" "BOUNDARY-CONTEXT-WITH" "Registers md capabilities in the composition boundary context."))))
+         ("md" (:infrastructure) "CL-MARKDOWN-KIT" "MARKDOWN-KIT-ERROR" "map Markdown parser errors"))))

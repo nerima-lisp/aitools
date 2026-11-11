@@ -40,15 +40,14 @@
     "SB-POSIX" "SB-ALIEN" "SB-BSD-SOCKETS" "SB-EXT" "SB-INT" "SB-SYS"
     "SB-GRAY" "SB-UNIX" "UIOP"))
 (defparameter *application-effectful-boundary-constructors*
-  ;; These defaults bind application code to real host state or actions.
+  ;; Host adapter defaults belong in composition; application contexts only narrow caller capabilities.
   (list "MAKE-ARGS" "MAKE-CLOCK" "MAKE-CONSOLE" "MAKE-ENVIRONMENT"
         "MAKE-FILESYSTEM" "MAKE-HOST-INFO" "MAKE-PROCESS-BOUNDARY"
         "MAKE-RANDOM-SOURCE" "MAKE-SLEEPER" "MAKE-SYSTEM-BOUNDARY"
         "MAKE-TEMP-PATH-SOURCE" "MAKE-UUID-SOURCE" "MAKE-WORKING-DIRECTORY"))
 
 (defparameter *symbol-allowances*
-  ;; (layers package symbol reason): single SBCL symbols a pure layer may
-  ;; use although their package is not on its list.
+  ;; (layers package symbol reason): a layer may use named symbols outside its package list.
   '(((:domain :application) "SB-EXT" "STRING-TO-OCTETS"
      "pure UTF-8 encoding; no portable equivalent in CL")
     ((:domain :application) "SB-EXT" "OCTETS-TO-STRING"
@@ -56,7 +55,13 @@
     ((:application) "SB-INT" "CHARACTER-DECODING-ERROR"
      "the condition OCTETS-TO-STRING signals on invalid UTF-8")
     ((:domain) "SB-UNICODE" "NORMALIZE-STRING"
-     "pure Unicode normalization")))
+     "pure Unicode normalization")
+    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT"
+     "MAKE-BOUNDARY-CONTEXT"
+     "infrastructure bundles production adapters into boundary contexts; application may repackage caller-held capabilities for narrower callees; composition owns production wiring; domain receives values and stays free of capabilities")
+    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT"
+     "BOUNDARY-CONTEXT-WITH"
+     "infrastructure bundles production adapters into boundary contexts; application may repackage caller-held capabilities for narrower callees; composition owns production wiring; domain receives values and stays free of capabilities")))
 
 (defvar *context-symbol-allowances*)
 
@@ -195,7 +200,45 @@ is in neither context list)."
             :to-equal '("packages/core/store/src/infrastructure/bad.lisp:5: JSON-KIT:PARSE, which store/infrastructure may not depend on")))
 
   (it "passes on a domain file using only what its layer allows"
-    (expect (fixture-violations "clean-domain") :to-equal nil)))
+    (expect (fixture-violations "clean-domain") :to-equal nil))
+  (it "allows boundary constructors in composition, application, and infrastructure only"
+    (let* ((composition-relative
+             "packages/feature/edit/src/composition/context-registration.lisp")
+           (application-relative
+             "packages/feature/edit/src/application/write-plan.lisp")
+           (infrastructure-relative
+             "packages/core/text/src/infrastructure/host-source.lisp")
+           (composition-path
+             (merge-pathnames composition-relative (repository-root)))
+           (application-path
+             (merge-pathnames application-relative (repository-root)))
+           (infrastructure-path
+             (merge-pathnames infrastructure-relative (repository-root)))
+           (constructors
+             (quote ("MAKE-BOUNDARY-CONTEXT" "BOUNDARY-CONTEXT-WITH"))))
+      (expect (scan-file composition-path composition-relative
+                         "edit" :composition :feature nil)
+              :to-equal nil)
+      (expect (scan-file application-path application-relative
+                         "edit" :application :feature nil)
+              :to-equal nil)
+      (expect (scan-file infrastructure-path infrastructure-relative
+                         "text" :infrastructure :core nil)
+              :to-equal nil)
+      (dolist (symbol constructors)
+        (dolist (layer (quote (:composition :application :infrastructure)))
+          (expect (symbol-allowed-p "edit" layer "CL-BOUNDARY-KIT" symbol)
+                  :to-be-truthy))
+        (let* ((reference (format nil "CL-BOUNDARY-KIT:~A" symbol))
+               (expected
+                 (format nil "~A, which edit/domain may not depend on" reference))
+               (violations
+                 (scan-file composition-path composition-relative
+                            "edit" :domain :feature nil)))
+          (expect (not (symbol-allowed-p "edit" :domain "CL-BOUNDARY-KIT" symbol))
+                  :to-be-truthy)
+          (expect (some (lambda (violation) (search expected violation)) violations)
+                  :to-be-truthy))))))
 
 (defun dead-code-fixture-scan (name)
   (let* ((root (merge-pathnames

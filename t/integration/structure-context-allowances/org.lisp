@@ -102,7 +102,5 @@
           ("org" (:infrastructure) "ORG-KIT" "TRANSITION-RESULT-NEW-STATE" "report the new TODO state")
           ("org" (:infrastructure) "ORG-KIT" "TRANSITION-RESULT-PREVIOUS-STATE" "report the previous TODO state")
           ("org" (:infrastructure) "ORG-KIT" "WRITE-ORG" "serialize Org documents as exact octets")
-          ("org" (:composition) "CL-BOUNDARY-KIT" "MAKE-BOUNDARY-CONTEXT" "Build the Org capability boundary context in composition.")
-          ("org" (:composition) "CL-BOUNDARY-KIT" "BOUNDARY-CONTEXT-WITH" "Register Org capabilities in the composition boundary context.")
-        )
+          )
 ))

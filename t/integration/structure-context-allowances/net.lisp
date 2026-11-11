@@ -4,10 +4,6 @@
       '(:context "net"
         :symbol-allowances
         (
-          ("net" (:composition) "CL-BOUNDARY-KIT" "BOUNDARY-CONTEXT-WITH"
-               "Registers net capabilities in the composition boundary context.")
-          ("net" (:composition) "CL-BOUNDARY-KIT" "MAKE-BOUNDARY-CONTEXT"
-               "Creates the boundary context for net capabilities.")
           ("net" (:infrastructure) "HTTP-KIT" "HTTP-HEADER-CONTENT"
                "Reads response header values through cl-http-kit 0.5.0.")
           ("net" (:infrastructure) "HTTP-KIT" "HTTP-HEADER-NAME"
