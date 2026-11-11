@@ -29,5 +29,4 @@ GIT-REPOSITORY containing the root, or NIL."
          (prefix "gitdir:"))
     (when (and (> (length line) (length prefix))
                (string= prefix line :end2 (length prefix)))
-      (let ((path (string-trim '(#\Space #\Tab) (subseq line (length prefix)))))
-        (and (plusp (length path)) path)))))
+      (string-trim '(#\Space #\Tab) (subseq line (length prefix))))))

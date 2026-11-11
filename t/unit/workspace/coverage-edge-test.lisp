@@ -55,7 +55,17 @@
             (expect
              (aitools.workspace.application::workspace-overlay-read-octets default-overlay)
              :to-be nil)))
-        (expect actual :to-equalp bytes)))))
+        (expect actual :to-equalp bytes)))
+    (signals type-error (make-workspace-entry :kind (read-from-string ":unknown")))
+    (signals type-error (make-workspace-entry :size (read-from-string "-1")))
+    (signals type-error (make-workspace-entry :mode (read-from-string "4096")))
+    (signals type-error
+      (aitools.workspace.application::make-ignore-context :source (read-from-string ":unknown")))
+    (signals type-error
+      (aitools.workspace.application:make-workspace-overlay
+       :list-directory (read-from-string ":invalid")))
+    (signals type-error
+      (aitools.workspace.domain:make-workspace-root :source (read-from-string ":unknown")))))
 
 (describe "workspace Git boundary predicates"
   (it "matches .git path components and metadata path prefixes"
@@ -184,6 +194,8 @@
         (aitools.workspace.domain:parse-git-index-paths one-entry-index)
         'list)
        :to-equal '("a")))
+    (signals aitools.workspace.domain:git-index-error
+      (aitools.workspace.domain:parse-git-index-paths #(0)))
     (let ((lines
             (apply #'aitools.workspace.domain:parse-ignore-lines
                    (list '("skip.tmp"))))

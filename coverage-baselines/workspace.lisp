@@ -5,5 +5,21 @@
  ((:kind :branch
    :package "AITOOLS.WORKSPACE.INFRASTRUCTURE"
    :symbol "PROCESSOR-COUNT"
-   :reason "This measured Linux CI arm requires sysconf(_SC_NPROCESSORS_ONLN) to fail. The call does not fail on supported Darwin/Linux hosts, and no spec can force this libc failure without patching libc.")))
+   :reason "This measured Linux CI arm requires sysconf(_SC_NPROCESSORS_ONLN) to fail. The call does not fail on supported Darwin/Linux hosts, and no spec can force this libc failure without patching libc.")
+  (:kind :expression
+   :package "AITOOLS.WORKSPACE.APPLICATION"
+   :symbol "IGNORE-CONTEXT"
+   :reason "This is the BASE-STACK DEFSTRUCT initform. The default constructor is exercised, but SB-COVER does not mark generated DEFSTRUCT declaration-site defaults.")
+  (:kind :expression
+   :package "AITOOLS.WORKSPACE.APPLICATION"
+   :symbol "CALL-WITH-WORKSPACE-SCAN/K"
+   :reason "This is the SKIP-LARGER-THAN keyword default, exercised by omitting the keyword; SB-COVER does not mark default expressions in the function lambda list.")
+  (:kind :expression
+   :package "AITOOLS.WORKSPACE.DOMAIN"
+   :symbol "PARSE-IGNORE-LINES"
+   :reason "This is the BASE keyword default, exercised by omitting the keyword; SB-COVER does not mark default expressions in the function lambda list.")
+  (:kind :expression
+   :package "AITOOLS.WORKSPACE.DOMAIN"
+   :symbol "PARSE-IGNORE-OCTETS"
+   :reason "This is the BASE keyword default, exercised by omitting the keyword; SB-COVER does not mark default expressions in the function lambda list.")))
 
