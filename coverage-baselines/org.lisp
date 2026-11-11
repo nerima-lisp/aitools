@@ -1,6 +1,6 @@
 (:context :org :state :measured :source :linux-ci
- :expression-covered 3884 :expression-total 4281
- :branch-covered 253 :branch-total 324
+ :expression-covered 4305 :expression-total 4305
+ :branch-covered 308 :branch-total 308
  :coverage-exclusions
  ((:kind :expression
    :package "AITOOLS.ORG.DOMAIN"
