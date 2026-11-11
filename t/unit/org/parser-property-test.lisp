@@ -73,7 +73,6 @@
               :to-be t)))
   (cl-weave:it "constructs failures with the default message and absent locations"
     (let ((failure (aitools.org.domain:make-org-failure)))
-      (expect (aitools.org.domain:org-failure-p failure) :to-be t)
       (expect (aitools.org.domain:org-failure-kind failure) :to-be nil)
       (expect (aitools.org.domain:org-failure-message failure)
               :to-equal "Org operation failed")

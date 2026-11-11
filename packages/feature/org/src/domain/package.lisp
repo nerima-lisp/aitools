@@ -8,7 +8,6 @@
    #:org-document-engine-value
    #:make-org-failure
    #:org-failure
-   #:org-failure-p
    #:org-failure-kind
    #:org-failure-message
    #:org-failure-line
