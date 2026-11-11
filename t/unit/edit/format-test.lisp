@@ -187,3 +187,8 @@
     (expect (aitools.edit.domain::json-equal (j "false") (j "null")) :to-be nil)
     (expect (aitools.edit.domain::json-equal (j "null") (j "null")) :to-be t)
     (expect (aitools.edit.domain::json-equal (j "null") (j "0")) :to-be nil)))
+
+(describe "aitools.edit.domain JSON add middle insertion"
+  (it "inserts at an array index by default"
+    (expect (js (json-add (j "[1,2]") (parse-json-pointer "/1") (j "9")))
+            :to-equal "[1,9,2]")))

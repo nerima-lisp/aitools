@@ -231,3 +231,16 @@
   (it "omits a literal when the compiled regex is invalid"
     (expect (replacer-required-literal (make-replacer nil (literal-replacement "x")))
             :to-be nil)))
+
+(describe "aitools.edit.domain ranking and generated type guards"
+  (it "ranks equally similar windows by their original line"
+    (expect (similar-windows #("cat" "cab" "can") '("cap") :limit 2)
+            :to-equal '((1 . "cat") (2 . "cab"))))
+  (it "rejects a negative replacement match count"
+    (let ((replacer (make-replacer
+                     (compile-search-pattern/k "x" :on-regex #'identity :on-invalid #'error)
+                     (literal-replacement "y"))))
+      (expect (handler-case
+                  (progn (funcall (fdefinition (quote (setf aitools.edit.domain::replacer-seen))) -1 replacer) nil)
+                (type-error () t))
+              :to-be t))))

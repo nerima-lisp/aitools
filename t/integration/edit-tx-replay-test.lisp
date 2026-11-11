@@ -3,15 +3,26 @@
   (it "archives staged additions and replacements and omits staged deletions"
     (call-with-edit-workspace
      (lambda ()
-       (put "src/replaced.txt" "old")
-       (put "src/deleted.txt" "delete")
+       (progn
+         ;; The scan reads staged .gitignore files only in a repository.
+         (sb-posix:mkdir (disk ".git") #o755)
+         (sb-posix:mkdir (disk ".git/objects") #o755)
+         (sb-posix:mkdir (disk ".git/refs") #o755)
+         (put ".git/HEAD" (format nil "ref: refs/heads/main~%"))
+         (put ".git/config" (format nil "[core]~%  excludesFile = /dev/null~%"))
+         (put "src/replaced.txt" "old"))
+       (progn
+         (put "src/deleted.txt" "delete")
+         (put "src/hidden.txt" "hidden"))
        (let ((tx (begin-tx)))
          (expect
           (run-in tx "write" '("src/replaced.txt") :content '("new") :overwrite t
                   :expect-hash (list (format nil "src/replaced.txt=~A"
                                              (hash "src/replaced.txt"))))
           :to-be :ok)
-         (expect (run-in tx "write" '("src/added.txt") :content '("added")) :to-be :ok)
+         (progn
+           (expect (run-in tx "write" '("src/added.txt") :content '("added")) :to-be :ok)
+           (expect (run-in tx "write" '(".gitignore") :content '("src/hidden.txt")) :to-be :ok))
          (expect (run-in tx "rm" '("src/deleted.txt")) :to-be :ok)
          (expect (run-in tx "archive.create" '("snapshot.tar" "src") :format "tar")
                  :to-be :ok)
@@ -28,7 +39,9 @@
          (expect (kind "src/deleted.txt") :to-be :absent)
          (expect (text "unpacked/src/replaced.txt") :to-equal "new")
          (expect (text "unpacked/src/added.txt") :to-equal "added")
-         (expect (kind "unpacked/src/deleted.txt") :to-be :absent))))))
+         (progn
+           (expect (kind "unpacked/src/deleted.txt") :to-be :absent)
+           (expect (kind "unpacked/src/hidden.txt") :to-be :absent)))))))
 (describe "aitools archive create member kinds and host-read fallback"
   (it "preserves directories and symlinks when a view read falls back to the host"
     (call-with-edit-workspace

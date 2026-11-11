@@ -173,4 +173,53 @@
           (:on-outside (message)
             (setf result (list :outside message))))
          (expect (first result) :to-be :outside)
-         (expect (search "outside the root" (second result)) :to-be-truthy))))))
+         (expect (search "outside the root" (second result)) :to-be-truthy)))))
+  (it "forwards read errors from edit plans to rejection callbacks"
+    (call-with-edit-workspace
+     (lambda ()
+       (flet ((rejected-code (plan paths)
+                (let ((code nil))
+                  (funcall
+                   plan
+                   (aitools.edit.application::make-write-context
+                    :view
+                    (aitools.store.application:disk-view
+                     (open-store *root*))
+                    :paths paths)
+                   :on-committed
+                   (lambda (&rest values) (declare (ignore values)))
+                   :on-rejected
+                   (lambda (value message &rest keys)
+                     (declare (ignore message keys))
+                     (setf code value)))
+                  code)))
+         (let ((patch
+                 (aitools.edit.application::%make-file-patch
+                  "missing.txt" "output.txt" nil)))
+           (dolist
+               (case
+                 (list
+                  (list (aitools.edit.application::%edit-plan nil)
+                        '("missing.txt"))
+                  (list (aitools.edit.application::%insert-plan "x" :end nil)
+                        '("missing.txt"))
+                  (list
+                   (aitools.edit.application::%apply-plan (list (cons t patch)) 0 nil)
+                   '("missing.txt" "output.txt"))
+                  (list
+                   (aitools.edit.application::%move-lines-plan nil :start nil nil)
+                   '("missing.txt" "output.txt"))
+                  (list
+                   (aitools.edit.application::%replace-plan
+                    nil nil :range '("missing.txt") nil)
+                   '("missing.txt"))))
+             (expect (rejected-code (first case) (second case))
+                     :to-equal "input.not-found")))
+         (put "source.txt" "source")
+         (put "broken-destination.txt" (octet-vector 97 #xFF))
+         (expect
+          (rejected-code
+           (aitools.edit.application::%move-lines-plan
+            (aitools.kernel.domain:make-range-selector "1") :start nil nil)
+           '("source.txt" "broken-destination.txt"))
+          :to-equal "input.not-utf8"))))))

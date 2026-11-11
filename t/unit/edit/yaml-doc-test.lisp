@@ -193,3 +193,8 @@
           (infinity (sb-kernel:make-double-float #x7ff00000 0)))
       (expect (aitools.edit.domain::%yaml-finite-float-p nan) :to-be nil)
       (expect (aitools.edit.domain::%yaml-finite-float-p infinity) :to-be nil))))
+
+(describe "aitools.edit.domain JSON number representation"
+  (it "returns finite integer and float values from JSON number text"
+    (expect (aitools.edit.domain::edit-json-number (make-json-num "-12")) :to-be -12)
+    (expect (aitools.edit.domain::edit-json-number (make-json-num "1.25")) :to-equal 1.25d0)))

@@ -130,7 +130,7 @@
     (call-with-edit-workspace
      (lambda ()
        (multiple-value-bind (status code message keys)
-           (run "doc.fmt" (list "missing.yaml") :dry-run t)
+           (run "doc.fmt" (list "missing.yaml"))
          (declare (ignore message))
          (expect status :to-be :error)
          (expect code :to-equal "input.not-found")

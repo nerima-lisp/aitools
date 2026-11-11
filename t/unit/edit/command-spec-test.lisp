@@ -85,14 +85,21 @@
     (let* ((precommit-check (lambda (context) context))
            (default-plan
              (aitools.edit.application:make-write-plan :plan (function identity)))
+           (nil-plan
+             (aitools.edit.application:make-write-plan
+              :plan (function identity) :precommit-check nil))
            (checked-plan
              (aitools.edit.application:make-write-plan
               :plan (function identity) :precommit-check precommit-check)))
       (expect (null (aitools.edit.application::write-plan-precommit-check default-plan))
               :to-be t)
+      (expect (null (aitools.edit.application::write-plan-precommit-check nil-plan))
+              :to-be t)
       (expect (eq (aitools.edit.application::write-plan-precommit-check checked-plan)
                   precommit-check)
-              :to-be t)))
+              :to-be t)
+      (signals type-error
+        (funcall (symbol-function (quote aitools.edit.application:make-write-plan)) :plan (function identity) :precommit-check :invalid))))
   (it "forwards both format plan and error continuations"
     (let* ((*package* (find-package "AITOOLS.EDIT.APPLICATION"))
            (expanded

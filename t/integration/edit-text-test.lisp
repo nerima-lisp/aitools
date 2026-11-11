@@ -201,3 +201,21 @@
       (with-error (code) (run "edit" '("bin.dat") :old "a" :new "b") (expect code :to-equal "refusal.not-a-file"))
       (expect (run "copy" '("bad.txt" "bad2.txt")) :to-be :ok)
       (expect (octets-of "bad2.txt") :to-equalp (octet-vector 97 #xFF 10))))))
+(describe "aitools transform comment marker validation"
+  (it "refuses languages with neither comment marker"
+    (call-with-edit-workspace
+     (lambda ()
+       (put "a.txt" "(form)")
+       (let ((before (snapshot))
+             (language
+               (aitools.text.domain::make-language
+                :name "empty"
+                :line-comment nil
+                :block-comment nil)))
+         (cl-weave:with-mocked-functions
+             (((symbol-function 'aitools.text.domain:language-for-path)
+               (lambda (path) (declare (ignore path)) language)))
+           (with-error (code)
+               (run "transform" '("a.txt") :op '("comment"))
+             (expect code :to-equal "input.unsupported-language")))
+         (expect-unchanged before))))))

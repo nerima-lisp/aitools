@@ -228,3 +228,13 @@
               (expect (field fields "skipped") :to-equal nil)
               (expect (text "a.txt") :to-equal (format nil "bar~%"))))
         (sb-posix:chmod (disk "locked") #o700))))))
+(describe "aitools edit and insert missing targets"
+  (it "forwards missing target read failures through both commands"
+    (call-with-edit-workspace
+     (lambda ()
+       (with-error (code)
+           (run "edit" '("missing.txt") :old "old" :new "new")
+         (expect code :to-equal "input.not-found"))
+       (with-error (code)
+           (run "insert" '("missing.txt") :at "end" :content "new")
+         (expect code :to-equal "input.not-found"))))))

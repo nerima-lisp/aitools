@@ -187,3 +187,17 @@
     (let ((document (make-text-document "" :eol "")))
       (expect (doc-string (document-replace-lines document 0 0 (list "line")))
               :to-equal "line"))))
+
+(describe "aitools.edit.domain empty transforms and split type guards"
+  (it "keeps empty line selections empty"
+    (expect (transform-lines "upper" '()) :to-equal '())
+    (expect (transform-lines "unique" '()) :to-equal '()))
+  (it "rejects negative split byte offsets"
+    (expect (handler-case
+                (progn (funcall (symbol-function (quote aitools.edit.domain::make-split-piece)) -1 0 1 0) nil)
+              (type-error () t))
+            :to-be t)
+    (expect (handler-case
+                (progn (funcall (symbol-function (quote aitools.edit.domain::make-split-piece)) 0 -1 1 0) nil)
+              (type-error () t))
+            :to-be t)))
