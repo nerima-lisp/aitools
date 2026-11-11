@@ -6,12 +6,35 @@
     (expect (aitools.org.infrastructure::%timestamp-content-tokens
              "< 2026-10-19   +1d >")
             :to-equal (list "2026-10-19" "+1d"))
+    (dolist (case (list (list "<2026-10-19>" 1)
+                        (list "<2026-10-19 09:00>" 2)
+                        (list "<2026-10-19 +1d>" 2)
+                        (list "<2026-10-19 -2d>" 2)))
+      (multiple-value-bind (view failure)
+          (aitools.org.infrastructure::validate-planning-timestamp
+           "scheduled" (first case))
+        (expect failure :to-be nil)
+        (expect (aitools.org.infrastructure::%timestamp-component-count view)
+                :to-be (second case)))))
+  (it "parses one timestamp and maps malformed timestamp documents"
+    (multiple-value-bind (node failure)
+        (aitools.org.infrastructure::%planning-timestamp-node "<2026-10-19>")
+      (expect (org-kit:node-type node) :to-be :timestamp)
+      (expect failure :to-be nil))
     (expect
      (aitools.org.domain:org-failure-kind
       (nth-value 1
        (aitools.org.infrastructure::%planning-timestamp-node
         "<2026-10-19> <2026-10-20>")))
      :to-be :argument)
+    (dolist (timestamp (list "tomorrow" "#+TODO:"
+                             (format nil "bad~C" (code-char 0))))
+      (expect
+       (aitools.org.domain:org-failure-kind
+        (nth-value 1
+         (aitools.org.infrastructure::%planning-timestamp-node timestamp)))
+       :to-be :argument)))
+  (it "validates timestamp shape, kind, and date ranges"
     (dolist (timestamp (list "<2026-10-19>"
                              "<2026-10-19 09:00-10:00>"
                              "<2026-10-19 +1d>"
@@ -24,28 +47,24 @@
     (expect
      (nth-value 0
       (aitools.org.infrastructure::validate-planning-timestamp
+       "scheduled" "<2026-10-19 09:00>--<2026-10-19 10:00>"))
+     :to-be-truthy)
+    (expect
+     (nth-value 0
+      (aitools.org.infrastructure::validate-planning-timestamp
        "closed" "[2026-10-19]"))
-     :to-be-truthy))
-  (it "rejects invalid timestamp shapes, kinds, and cross-date ranges"
-    (expect
-     (aitools.org.domain:org-failure-kind
-      (nth-value 1
-       (aitools.org.infrastructure::validate-planning-timestamp
-        "scheduled" "<2026-10-19 23:00>--<2026-10-20 01:00>")))
-     :to-be :argument)
-    (expect
-     (aitools.org.domain:org-failure-kind
-      (nth-value 1
-       (aitools.org.infrastructure::validate-planning-timestamp
-        "scheduled" "[2026-10-19]")))
-     :to-be :argument)
+     :to-be-truthy)
     (dolist (case (list (list "invalid" "<2026-10-19>")
+                        (list "scheduled" "[2026-10-19]")
+                        (list "closed" "<2026-10-19>")
+                        (list "scheduled" "<2026-10-19 23:00>--<2026-10-20 01:00>")
                         (list "scheduled" "<2026-02-30>")
                         (list "scheduled" nil)
                         (list "scheduled" 7)
                         (list "scheduled" "")
                         (list "scheduled" (format nil "<2026-10-19>~%"))
-                        (list "scheduled" (format nil "<2026-10-19>~C>" #\Return))))
+                        (list "scheduled"
+                              (format nil "<2026-10-19>~C>" #\Return))))
       (expect
        (aitools.org.domain:org-failure-kind
         (nth-value 1
@@ -69,3 +88,5 @@
          (aitools.org.infrastructure::%planning-marker-count
           engine heading "SCHEDULED:")
          :to-be (second case))))))
+
+
