@@ -88,3 +88,32 @@
         (expect (functionp
                  (cl-boundary-kit:boundary-context-require boundaries key))
                 :to-be t)))))
+
+(describe "aitools.util.infrastructure os-random-source"
+  (it "serves the cl-boundary-kit random-source protocol from the OS source"
+    (let ((source (aitools.util.infrastructure::make-os-random-source)))
+      (expect (length (cl-boundary-kit:random-source-bytes source 32)) :to-be 32)
+      (expect (loop repeat 200 always (< (cl-boundary-kit:random-source-random source 62) 62)) :to-be-truthy)
+      (expect (cl-boundary-kit:random-source-random source 1) :to-be 0)
+      (expect (loop repeat 20 always (< (cl-boundary-kit:random-source-random source (expt 2 100)) (expt 2 100)))
+              :to-be-truthy)))
+
+  (it "does not repeat 16-byte draws"
+    (let ((source (aitools.util.infrastructure::make-os-random-source)))
+      (expect (equalp (cl-boundary-kit:random-source-bytes source 16) (cl-boundary-kit:random-source-bytes source 16))
+              :to-be nil))))
+
+(describe "aitools.util.infrastructure os-random-source errors"
+  (it "reports a short read when its source reaches EOF"
+    (let* ((aitools.util.infrastructure::+urandom-path+ "/dev/null")
+           (source (aitools.util.infrastructure::make-os-random-source)))
+      (unwind-protect
+           (expect
+            (handler-case
+                (progn
+                  (cl-boundary-kit:random-source-random source 2)
+                  "no error")
+              (error (condition) (princ-to-string condition)))
+            :to-contain "short read from /dev/null")
+        (when (aitools.util.infrastructure::%os-random-stream source)
+          (close (aitools.util.infrastructure::%os-random-stream source)))))))
