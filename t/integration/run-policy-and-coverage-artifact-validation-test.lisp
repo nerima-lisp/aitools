@@ -95,7 +95,7 @@
         (expect (%minimum-executed-specs-for-context nil) :to-equal aggregate)
         (expect aggregate :to-equal *all-minimum-executed-specs*)
         (multiple-value-bind (problems executed context-counts)
-            (%policy-problems full-events nil)
+            (%policy-problems full-events nil source-files)
           (expect (list executed (null problems) (mapcar (function car) context-counts))
                   :to-equal (list aggregate t (mapcar (function car) context-entries))))
         (dolist (underfilled-context context-entries)
@@ -110,7 +110,7 @@
                                 (car entry)
                                 source-files))))
             (multiple-value-bind (problems executed context-counts)
-                (%policy-problems events nil)
+                (%policy-problems events nil source-files)
               (expect (list executed (cdr (assoc context context-counts)))
                       :to-equal (list (1- aggregate) (1- (getf (cdr underfilled-context) :minimum-executed-specs))))
               (expect

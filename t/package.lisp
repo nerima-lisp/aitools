@@ -90,24 +90,43 @@ the reported path."
     (when marker (subseq file (+ marker 3)))))
 
 ;; Host events can name the Nix source copy while ASDF lists checkout paths.
-(defun %test-context-from-source-file (file source-files)
-  (let* ((source (when (and (stringp file) (probe-file file))
-                   (namestring (truename file))))
-         (source-key (when source (%test-source-path-key source)))
-         (contexts
-           (when source
-             (remove-duplicates
-              (loop for entry in source-files
-                    for candidate = (cdr entry)
-                    for candidate-key = (%test-source-path-key candidate)
-                    when (or (string= source candidate)
-                             (and source-key candidate-key
-                                  (string= source-key candidate-key)))
-                      collect (car entry))
-              :test #'eq))))
-    (when (cdr contexts)
-      (error "Test source file belongs to multiple contexts: ~A" file))
-    (car contexts)))
+(defun %test-context-from-source-file (file source-files &optional source-index)
+  (if source-index
+      (let ((event-cache (aref source-index 2)))
+        (multiple-value-bind (context cached-p) (gethash file event-cache)
+          (if cached-p
+              context
+              (let* ((source (when (and (stringp file) (probe-file file))
+                               (namestring (truename file))))
+                     (source-key (when source (%test-source-path-key source)))
+                     (contexts
+                       (when source
+                         (remove-duplicates
+                          (append (gethash source (aref source-index 0))
+                                  (when source-key
+                                    (gethash source-key (aref source-index 1))))
+                          :test #'eq))))
+                (when (cdr contexts)
+                  (error "Test source file belongs to multiple contexts: ~A" file))
+                (setf (gethash file event-cache) (car contexts))
+                (car contexts)))))
+      (let* ((source (when (and (stringp file) (probe-file file))
+                       (namestring (truename file))))
+             (source-key (when source (%test-source-path-key source)))
+             (contexts
+               (when source
+                 (remove-duplicates
+                  (loop for entry in source-files
+                        for candidate = (cdr entry)
+                        for candidate-key = (%test-source-path-key candidate)
+                        when (or (string= source candidate)
+                                 (and source-key candidate-key
+                                      (string= source-key candidate-key)))
+                          collect (car entry))
+                  :test #'eq))))
+        (when (cdr contexts)
+          (error "Test source file belongs to multiple contexts: ~A" file))
+        (car contexts))))
 (defun %context-test-source-files ()
   (loop for context in (mapcar #'car *context-spec-count-baselines*)
         for system-name = (format nil "aitools/test/~A"
@@ -117,6 +136,18 @@ the reported path."
               (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
                                 system-name :include-dependencies nil)
               collect (cons context (namestring (truename pathname))))))
+(defun %make-test-context-source-index (source-files)
+  (let ((by-path (make-hash-table :test #'equal))
+        (by-path-key (make-hash-table :test #'equal))
+        (by-event-file (make-hash-table :test #'equal)))
+    (dolist (entry source-files)
+      (let* ((context (car entry))
+             (candidate (cdr entry))
+             (candidate-key (%test-source-path-key candidate)))
+        (push context (gethash candidate by-path))
+        (when candidate-key
+          (push context (gethash candidate-key by-path-key)))))
+    (vector by-path by-path-key by-event-file)))
 
 (defun %allowed-unrun-p (event)
   (let ((status (if (string= (%event-field event "status") "skip") :skip :todo))
@@ -135,7 +166,7 @@ the reported path."
                         (not (and env-var (uiop:getenv env-var)))))))
              *allowed-unrun-specs*)))
 
-(defun %policy-problems (events &optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
+(defun %policy-problems (events &optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")) source-files)
   "Why the run fails even though no spec failed, as a list of strings."
   (let* ((minimum (%minimum-executed-specs-for-context context))
          (executed-events
@@ -152,7 +183,9 @@ the reported path."
                     executed minimum (or context "the full suite"))
             problems))
     (when (null context)
-      (let ((source-files (%context-test-source-files))
+      (let ((source-index
+              (%make-test-context-source-index
+               (or source-files (%context-test-source-files))))
             (counts (make-hash-table :test #'eq)))
         (dolist (entry *context-spec-count-baselines*)
           (setf (gethash (car entry) counts) 0))
@@ -160,7 +193,7 @@ the reported path."
           (let* ((location (%event-field event "location"))
                  (file (and (hash-table-p location)
                             (%event-field location "file")))
-                 (owner (%test-context-from-source-file file source-files)))
+                 (owner (%test-context-from-source-file file nil source-index)))
             (if owner
                 (incf (gethash owner counts))
               (push (format nil "executed spec ~A has no matching context source file ~S"
