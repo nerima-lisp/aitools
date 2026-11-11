@@ -28,8 +28,6 @@
    :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "COLLECT-GARBAGE"
    :reason "SB-COVER cannot source-map the omitted &key initializer (journal :reread); SBCL evaluates it in generated argument binding rather than the function body.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-TEMP-FILE"
-   :reason "SB-COVER cannot attribute WITH-TEMP-FILE's expansion-time DEFmacro template forms (let and the backquoted flet plus dynamic-extent declaration) to runtime calls; Store specs exercise the expanded form.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "CALL-WITH-TEMP-DIR"
    :reason "SB-COVER cannot source-map the omitted &key initializer (mode #o700); SBCL evaluates it in generated argument binding rather than CALL-WITH-TEMP-DIR's body.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-TEMP-DIR"
