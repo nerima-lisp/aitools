@@ -25,7 +25,7 @@
                  (functionp open-entry)
                  (functionp close-directory))
       (error 'store-io-error :operation "open" :path boundary
-                             :detail "directory cursor ports are unavailable"))
+                             :detail "directory cursor capabilities are unavailable"))
     (when index
       (loop for entry being the hash-values of (tx-index-paths index)
             for path = (tx-path-path entry)

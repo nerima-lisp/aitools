@@ -7,8 +7,9 @@
         glob lang no-ignore skip-larger-than newer overlay on-options on-error)
   "Parse common scan options and call ON-OPTIONS with workspace scan keywords.
 ON-ERROR receives an error kind and offending value; unknown-language also
-receives the known language names. PATH-ABSOLUTE and CURRENT-TIME are ports
-so the same normalization works for each feature context."
+receives the known language names. PATH-ABSOLUTE and CURRENT-TIME are callable
+functions supplied by each feature context, so this normalization works across
+contexts."
   (let ((error-kind nil)
         (error-value nil)
         (error-names nil))

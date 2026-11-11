@@ -78,7 +78,7 @@
 
 (defvar *root* nil "The current test workspace's real root path.")
 (defvar *home* nil "Its state home.")
-(defvar *ports* nil)
+(defvar *boundaries* nil)
 (defvar *stdin* nil "Bytes returned by the cl-weave stdin mock, or NIL to fail loudly.")
 
 (defvar *stdin-outcome* nil)
@@ -162,7 +162,7 @@ a string (UTF-8) or octets."
   "Run edit command NAME as presentation would. Returns (values :ok fields)
 or (values :error code message plist)."
   (let ((result nil))
-    (run-edit-command *ports* name positionals options
+    (run-edit-command *boundaries* name positionals options
                       :root *root*
                       :on-ok (lambda (fields) (setf result (list :ok fields)))
                       :on-error (lambda (code message &rest keys)

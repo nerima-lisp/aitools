@@ -2,8 +2,8 @@
 ;;;; The text-editing commands against a real temporary workspace through the write pipeline: `edit`,
 ;;;; guards, inputs, output shape, and the workspace boundary and text
 ;;;; layout rules. The write-pipeline checks are in
-;;;; edit-text-pipeline-test.lisp, the production ports and lock rechecks in
-;;;; edit-text-ports-test.lisp, and the later commands in
+;;;; edit-text-pipeline-test.lisp, the production boundary and lock rechecks in
+;;;; edit-text-boundaries-test.lisp, and the later commands in
 ;;;; edit-text-commands-test.lisp; all of them use the helpers defined here.
 (in-package #:aitools.edit.test)
 

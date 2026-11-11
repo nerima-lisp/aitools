@@ -1,5 +1,5 @@
 ;;;; These tests exercise `bg` through real cl-cli dispatch with production
-;;;; ports and child processes. The first describe group requires process-kit's
+;;;; production boundary capabilities and child processes. The first describe group requires process-kit's
 ;;;; native spawn trampoline and is skipped when unavailable; the no-state-
 ;;;; directory case below runs without it. Helpers `invoke`, `value`, and
 ;;;; `program-on-path` are in t/integration/process-test.lisp.
@@ -76,9 +76,9 @@ child reads aitools's package-qualified symbols only after loading them."
                             ',asdf/output-translations:*output-translations-parameter*)))
                      (asdf:load-system "aitools/cli")))
            (start `(let* ((registry (aitools.protocol.application:make-command-registry))
-                          (ports (aitools.process.composition::make-process-dependencies :state-directory-function (lambda () ,(namestring (state-directory root)))))
+                          (boundaries (aitools.process.composition::make-process-dependencies :state-directory-function (lambda () ,(namestring (state-directory root)))))
                           (stdout (make-string-output-stream)))
-                     (aitools.process.presentation:register-process-commands registry ports)
+                     (aitools.process.presentation:register-process-commands registry boundaries)
                      (let ((code (aitools/cli:dispatch
                                   (cl-cli:make-app :name "aitools"
                                                    :commands (aitools/cli:finalize-app-commands registry))

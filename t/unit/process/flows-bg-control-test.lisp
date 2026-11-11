@@ -142,7 +142,7 @@
     (let ((world (make-fake-world)))
       (bg-start world)
       (let* ((base (make-fake-process-boundaries world))
-             (ports (make-test-process-boundaries :process-bg-directory (cl-boundary-kit:boundary-context-require base :process-bg-directory)
+             (boundaries (make-test-process-boundaries :process-bg-directory (cl-boundary-kit:boundary-context-require base :process-bg-directory)
                      :process-read-file-text (cl-boundary-kit:boundary-context-require base :process-read-file-text)
                      :process-list-directory
                      (lambda (directory)
@@ -150,7 +150,7 @@
                                        directory)
                          (remhash (namestring (bg-path "bg-1.json")) (fake-world-files world)))))))
         (multiple-value-bind (kind fields)
-            (run-flow #'aitools.process.application:bg-status/k ports nil)
+            (run-flow #'aitools.process.application:bg-status/k boundaries nil)
           (expect kind :to-be :partial)
           (expect (field fields "items") :to-equal '())
           (expect (field fields "total") :to-be 0)

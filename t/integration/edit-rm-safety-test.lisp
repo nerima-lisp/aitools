@@ -16,7 +16,7 @@
       (let* ((target (disk "small.bin"))
              (read-count 0)
              (read-limit nil)
-             (*ports*
+             (*boundaries*
                (make-edit-test-boundaries
                 :edit-workspace-host
                 (aitools.workspace.infrastructure:make-host-workspace-boundaries)
@@ -37,9 +37,9 @@
                     (aitools.store.application:make-store
                      test-io root *home* :temporary (%temporary-area-p root))))
                 :edit-text-source
-                (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                 :edit-read-stdin-octets
-                (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
                 :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
         (with-error (code message)
             (run "rm" (list "small.bin") :max-bytes "2")
@@ -66,13 +66,13 @@
             (lambda () (disk "fixture-home"))))
         (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries :home-directory
                       (symbol-function 'aitools.workspace.infrastructure::%home-directory)))
-               (*ports* (make-edit-test-boundaries
+               (*boundaries* (make-edit-test-boundaries
                          :edit-workspace-host host
                          :edit-open-store (function open-store)
                          :edit-text-source
-                         (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                         (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                          :edit-read-stdin-octets
-                         (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                         (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
                          :edit-unix-now (function aitools.edit.infrastructure:unix-now)))
                (before (snapshot)))
           (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)
@@ -111,14 +111,14 @@
                   (aitools.workspace.application:host-home-directory base-host))
                 :working-directory
                 (cl-boundary-kit:boundary-context-require base-host :working-directory)))
-             (*ports*
+             (*boundaries*
                (make-edit-test-boundaries
                 :edit-workspace-host host
                 :edit-open-store (function open-store)
                 :edit-text-source
-                (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                 :edit-read-stdin-octets
-                (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
                 :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
         (with-error (code message)
             (run "rm" (list "tree") :recursive t :expect-count "5")

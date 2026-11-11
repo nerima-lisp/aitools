@@ -40,7 +40,7 @@
       (expect (application-effectful-boundary-symbol-p
                "store" :application "CL-BOUNDARY-KIT" symbol)
               :to-be-truthy))
-    (let* ((relative "packages/feature/env/src/infrastructure/production-ports.lisp")
+    (let* ((relative "packages/feature/env/src/infrastructure/production-boundaries.lisp")
            (pathname (merge-pathnames relative (repository-root)))
            (violations (scan-file pathname relative "store" :application :core nil)))
       (dolist (symbol (list "MAKE-CLOCK" "MAKE-ENVIRONMENT"

@@ -33,7 +33,7 @@
                                                        (list (disk "file") "argument.invalid" "is not a directory")))
                                      (destructuring-bind (root code fragment) case
                                        (let ((result nil))
-                                         (run-edit-command *ports* "write" '("a.txt") '(:content ("x")) :root root
+                                         (run-edit-command *boundaries* "write" '("a.txt") '(:content ("x")) :root root
                                                            :on-ok (lambda (fields) (setf result fields))
                                                            :on-error (lambda (code message &key repairs &allow-other-keys)
                                                                        (setf result (list code message (getf (first repairs) :command))))

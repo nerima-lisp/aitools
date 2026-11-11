@@ -205,7 +205,7 @@
   (it "records archive positionals through the direct write pipeline"
     (call-with-edit-workspace (lambda () (put "src/a.txt" (format nil "alpha~%"))
       (let ((result nil)
-            (host (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)))
+            (host (cl-boundary-kit:boundary-context-require *boundaries* :edit-workspace-host)))
         (aitools.workspace.application:call-with-resolved-root/k
          host
          :root *root*
@@ -216,8 +216,8 @@
          (lambda (workspace-root)
            (funcall
             (gethash "archive.create" aitools.edit.application::*preparers*)
-            *ports*
-            (aitools.edit.application::make-command-env host workspace-root *ports*)
+            *boundaries*
+            (aitools.edit.application::make-command-env host workspace-root *boundaries*)
             (list "a.tar" "src")
             nil
             :on-error (lambda (code message &rest keys)
@@ -231,7 +231,7 @@
                :to-equal
                (list "a.tar" "src"))
               (aitools.edit.application:run-write-command/k
-               *ports* plan
+               *boundaries* plan
                :root *root*
                :on-ok (lambda (fields)
                         (setf result (list :ok fields)))

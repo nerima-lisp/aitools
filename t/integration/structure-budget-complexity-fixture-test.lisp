@@ -92,7 +92,7 @@
   (it "tracks write-command nesting with generated names"
     (let ((definition-template
             "(define-write-command \"fixture.command\"
-  (ports env positionals options &key on-plan on-error) ~A)~%"))
+  (boundaries env positionals options &key on-plan on-error) ~A)~%"))
       (expect
        (%complex-budget-fixture-violations
         5

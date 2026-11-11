@@ -1,13 +1,13 @@
 ;;;;
-;;;; The --stdin and file-input production ports, the boundary rechecked
+;;;; The --stdin and file-input production boundary callbacks, the boundary rechecked
 ;;;; under the store lock, and the remaining write-guard cases (secret redaction
 ;;;; markers and the workspace boundary).
 (in-package #:aitools.edit.test)
 
 (defun call-with-file-octets (octets function)
   "Call FUNCTION with the native path of a fresh file holding OCTETS."
-  (let ((path (disk "port-input.bin")))
-    (put "port-input.bin" octets)
+  (let ((path (disk "stdin-input.bin")))
+    (put "stdin-input.bin" octets)
     (funcall function path)))
 
 (defun call-with-standard-input-from (path function)
@@ -29,7 +29,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
               (stringp payload)
               payload))))
 
-(describe "aitools edit production ports"
+(describe "aitools edit production boundary callbacks"
   (it-each (("an empty stream" 0 10 :ok)
             ("a stream exactly at the limit" 5 5 :ok)
             ("a stream one byte over the limit" 6 5 :too-large)
@@ -197,7 +197,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
     (call-with-edit-workspace (lambda () (put "file" "x")
       (let ((result nil))
         (aitools.edit.application:run-write-command/k
-         *ports*
+         *boundaries*
          (aitools.edit.application:make-write-plan
           :command "write" :targets (list (aitools.edit.application:make-write-target "a.txt"))
           :plan (lambda (context &key on-committed on-rejected)
@@ -211,7 +211,7 @@ standard input afterwards: the production adapter reads descriptor 0 itself."
   (it "refuses a bad --root when another context drives the pipeline directly"
     (call-with-edit-workspace (lambda () (let ((result nil))
         (aitools.edit.application:run-write-command/k
-         *ports*
+         *boundaries*
          (aitools.edit.application:make-write-plan
           :command "write"
           :targets (list (aitools.edit.application:make-write-target "a.txt"))

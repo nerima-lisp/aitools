@@ -35,7 +35,7 @@
   (it "maps a bg-log read port error to environment.io"
     (let* ((world (world-with-log "line"))
            (base (make-fake-process-boundaries world))
-           (ports (make-test-process-boundaries :process-bg-directory (cl-boundary-kit:boundary-context-require base :process-bg-directory)
+           (boundaries (make-test-process-boundaries :process-bg-directory (cl-boundary-kit:boundary-context-require base :process-bg-directory)
                    :process-list-directory (cl-boundary-kit:boundary-context-require base :process-list-directory)
                    :process-read-file-text (cl-boundary-kit:boundary-context-require base :process-read-file-text)
                    :process-read-file-octets
@@ -45,7 +45,7 @@
                    :process-file-size (cl-boundary-kit:boundary-context-require base :process-file-size)
                    :process-group-alive-p (cl-boundary-kit:boundary-context-require base :process-group-alive-p))))
       (multiple-value-bind (kind fields)
-          (run-flow #'aitools.process.application:bg-logs/k ports "bg-1")
+          (run-flow #'aitools.process.application:bg-logs/k boundaries "bg-1")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "environment.io")
         (expect (search "read failed" (field fields :message)) :to-be-truthy)))))
@@ -57,7 +57,7 @@
             ((:pattern "sleep" :expect-count 1 :expect-command "sleep") "argument.invalid")
             ((:signal "NOT-A-SIGNAL") "argument.invalid")
             ((:signal "KILL" :grace "1s") "argument.invalid"))
-      "rejects ~S with ~A before contacting process ports"
+      "rejects ~S with ~A before contacting process boundaries"
       (arguments code)
     (let ((world (make-fake-world)))
       (multiple-value-bind (kind fields)
@@ -91,7 +91,7 @@
     (let ((world (make-fake-world))
           (exit-reads 0))
       (bg-start world)
-      (let ((ports
+      (let ((boundaries
               (make-test-process-boundaries
                :process-bg-directory (lambda () #p"/state/ws/bg/")
                :process-read-file-text
@@ -101,7 +101,7 @@
                      (fake-file world path)))
                :process-group-alive-p (lambda (pid) (declare (ignore pid)) nil))))
         (multiple-value-bind (kind fields)
-            (run-flow (function aitools.process.application:bg-status/k) ports "bg-1")
+            (run-flow (function aitools.process.application:bg-status/k) boundaries "bg-1")
           (expect kind :to-be :ok)
           (let ((item (first (field fields "items"))))
             (expect (json-alist-value item "exit_code") :to-be 7)

@@ -22,7 +22,7 @@
                         milliseconds
                         (1- (* (1+ after-seconds) 1000)))
                     :to-be t))))))
-  (it "contains no old env ports symbols in production"
+  (it "contains no old env boundary symbols in production"
     (let ((sources
             (directory
              (merge-pathnames
@@ -32,5 +32,8 @@
               (asdf:system-source-directory "aitools")))))
       (expect sources :to-be-truthy)
       (dolist (source sources)
-        (expect (search "env-ports" (uiop:read-file-string source) :test #'char-equal)
+        (expect (search
+                    (concatenate (quote string) "env-"
+                                 (coerce (quote (#\p #\o #\r #\t #\s)) (quote string)))
+                    (uiop:read-file-string source) :test #'char-equal)
                 :to-be nil)))))

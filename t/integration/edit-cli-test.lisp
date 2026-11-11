@@ -1,7 +1,7 @@
 ;;;;
 ;;;; The edit commands end to end through the composition root: cl-cli
 ;;;; parsing of the options built from the command table, the production
-;;;; ports, the envelope, and exit codes. XDG_STATE_HOME points at a
+;;;; boundary context, the envelope, and exit codes. XDG_STATE_HOME points at a
 ;;;; temporary directory so the journal never lands in the user's state.
 (in-package #:aitools.edit.test)
 

@@ -28,7 +28,7 @@
 
 (defun invoke-signal-with-pid-only (pid argv)
   "Run a signal command while its production PID list names only PID.
-The process-info and signal-process ports remain the production ports."
+The process-info and signal-process capabilities still use the production boundary context."
   (let ((name 'aitools.process.infrastructure::%host-list-pids))
     (cl-weave:with-mocked-functions
         (((symbol-function name) (lambda () (list pid))))

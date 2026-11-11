@@ -27,7 +27,7 @@
           (it "refuses a --root that is a file for mktemp"
               (call-with-edit-workspace (lambda () (put "a.txt" "a")
                                    (let ((result nil))
-                                     (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
+                                     (run-edit-command *boundaries* "mktemp" '() '() :root (disk "a.txt")
                                                        :on-ok (lambda (fields) (setf result fields))
                                                        :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message)))
                                                        :on-partial #'identity)

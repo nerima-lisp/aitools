@@ -27,7 +27,7 @@
   (it "refuses a --root that is a file for mktemp"
     (with-edit-workspace () (put "a.txt" "a")
       (let ((result nil))
-        (run-edit-command *ports* "mktemp" '() '() :root (disk "a.txt")
+        (run-edit-command *boundaries* "mktemp" '() '() :root (disk "a.txt")
                           :on-partial #'identity
                           :on-ok (lambda (fields) (setf result fields))
                           :on-error (lambda (code message &rest keys) (declare (ignore keys)) (setf result (list code message))))
@@ -59,10 +59,10 @@
         (expect (kind "out.bin") :to-be :absent)))))
 
 (defun call-with-store-boundaries (overrides function)
-  "Call FUNCTION with *PORTS* opening stores whose boundary context is the production one with OVERRIDES in place."
-  (let ((*ports*
+  "Call FUNCTION with *BOUNDARIES* opening stores whose context is the production one with OVERRIDES in place."
+  (let ((*boundaries*
           (make-edit-test-boundaries
-           :edit-workspace-host (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)
+           :edit-workspace-host (cl-boundary-kit:boundary-context-require *boundaries* :edit-workspace-host)
            :edit-open-store
            (lambda (root)
              (aitools.store.application:make-store
@@ -70,8 +70,8 @@
                      (aitools.store.infrastructure:make-posix-store-io :root *root*)
                      overrides)
               root *home* :temporary (%temporary-area-p root)))
-           :edit-text-source (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
-           :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+           :edit-text-source (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
+           :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
            :edit-unix-now (function aitools.edit.infrastructure:unix-now))))
     (funcall function)))
 
@@ -117,7 +117,7 @@
          (write-text (aitools.workspace.domain:join-path git-dir "commondir") "../..") (write-text dot-git (format nil "gitdir: ~A" git-dir))
          (let ((*home* common))
            (dolist (root (list nil *root*))
-             (run-edit-command *ports* "mktemp" nil nil :root root
+             (run-edit-command *boundaries* "mktemp" nil nil :root root
                                :on-ok (lambda (fields) (setf result (list :ok fields)))
                                :on-error (lambda (code message &rest keys)
                                            (declare (ignore message keys))
@@ -142,11 +142,11 @@
       (put "ordinary/keep" "ordinary")
       (let* ((host (aitools.workspace.infrastructure:make-host-workspace-boundaries
                     :home-directory (lambda () (disk "fixture-home"))))
-             (*ports* (make-edit-test-boundaries
+             (*boundaries* (make-edit-test-boundaries
                        :edit-workspace-host host
                        :edit-open-store #'open-store
-                       :edit-text-source (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
-                       :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *ports* :edit-read-stdin-octets)
+                       :edit-text-source (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
+                       :edit-read-stdin-octets (cl-boundary-kit:boundary-context-require *boundaries* :edit-read-stdin-octets)
                        :edit-unix-now #'aitools.edit.infrastructure:unix-now))
              (before (snapshot)))
         (expect (run "rm" '("ordinary") :recursive t :dry-run t) :to-be :ok)

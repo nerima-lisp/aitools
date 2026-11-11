@@ -24,7 +24,7 @@
               (quote
                (aitools.edit.application::define-write-command
                 "doc.set"
-                (ports env positionals options &key on-plan on-error)
+                (boundaries env positionals options &key on-plan on-error)
                 (declare (ignore env))
                 nil))))
            (write-flow (second write-expansion))
@@ -49,7 +49,7 @@
   (it "rejects invalid write command declarations"
     (let* ((*package* (find-package "AITOOLS.EDIT.APPLICATION"))
            (macro (find-symbol "DEFINE-WRITE-COMMAND" *package*))
-           (normal (list (find-symbol "PORTS" *package*)
+           (normal (list (find-symbol "BOUNDARIES" *package*)
                          (find-symbol "ENV" *package*)
                          (find-symbol "POSITIONALS" *package*)
                          (find-symbol "OPTIONS" *package*)

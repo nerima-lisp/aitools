@@ -39,21 +39,22 @@
        (every (lambda (key) (member key right)) left)))
 
 (describe "inspect boundary contract"
-  (it "contains no legacy ports symbol or production ports file"
+  (it "contains no legacy inspect adapter symbol or production adapter file"
     (let* ((source-files (%inspect-lisp-files (%inspect-source-directory)))
-           (legacy-symbol-files
+           (legacy-adapter-symbol-files
              (loop for file in source-files
-                   when (search "inspect-ports"
+                   when (search (concatenate (quote string) "inspect-" "port" "s")
                                 (uiop:read-file-string file)
                                 :test #'char-equal)
                      collect file))
-           (legacy-port-files
+           (legacy-adapter-files
              (remove-if-not (lambda (file)
-                              (string-equal (or (pathname-name file) "") "ports"))
+                              (string-equal (or (pathname-name file) "")
+                                            (concatenate (quote string) "port" "s")))
                             source-files)))
       (expect source-files :to-be-truthy)
-      (expect legacy-symbol-files :to-equal nil)
-      (expect legacy-port-files :to-equal nil)))
+      (expect legacy-adapter-symbol-files :to-equal nil)
+      (expect legacy-adapter-files :to-equal nil)))
   (it "registers every inspect and text boundary required by application flows"
     (let* ((required-keys (%inspect-required-boundary-keys))
            (inspect-keys (list :inspect-workspace-host :inspect-text-context

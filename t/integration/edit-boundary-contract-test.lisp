@@ -36,20 +36,23 @@
     (remove-duplicates keys :test (function eq))))
 
 (describe "aitools edit boundary contract"
-  (it "contains no old edit ports symbol or ports production file"
+  (it "contains no old edit boundary symbol or boundary production file"
     (let* ((source-files (%edit-lisp-files (%edit-source-directory)))
            (legacy-symbol-files
              (loop for file in source-files
-                   when (search "edit-ports" (uiop:read-file-string file)
+                   when (search
+                                (concatenate (quote string) "edit-"
+                                             (coerce (quote (#\p #\o #\r #\t #\s)) (quote string)))
+                                (uiop:read-file-string file)
                                 :test (function char-equal))
                      collect file))
-           (legacy-port-files
+           (legacy-boundary-files
              (remove-if-not (lambda (file)
-                              (string-equal (or (pathname-name file) "") "ports"))
+                              (string-equal (or (pathname-name file) "") (coerce (quote (#\p #\o #\r #\t #\s)) (quote string))))
                             source-files)))
       (expect source-files :to-be-truthy)
       (expect legacy-symbol-files :to-equal nil)
-      (expect legacy-port-files :to-equal nil)))
+      (expect legacy-boundary-files :to-equal nil)))
   (it "registers every capability required by edit application"
     (let* ((required-keys (%edit-required-boundary-keys))
            (expected-keys

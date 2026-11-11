@@ -174,7 +174,7 @@
                                          (%md-read-boundaries root :outcome :missing) "guide.md" 1 :root root))
                       :code)
                 :to-equal "input.not-found"))))
-  (it "preserves document errors for paths, ports, roots, sources, and parser offsets"
+  (it "preserves document errors for paths, required capabilities, roots, sources, and parser offsets"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
       (let* ((boundaries (%md-read-boundaries root))

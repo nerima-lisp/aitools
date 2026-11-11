@@ -1,23 +1,23 @@
 (in-package #:aitools.edit.test)
 
-(describe "aitools edit input ports and recorded options"
-  (it "raises when an injected stdin port returns an unknown result"
+(describe "aitools edit input callbacks and recorded options"
+  (it "raises when an injected stdin callback returns an unknown result"
     (call-with-edit-workspace (lambda () (put "a.txt" (format nil "keep~%"))
       (let ((before (snapshot)))
-        (let ((*ports*
+        (let ((*boundaries*
                 (make-edit-test-boundaries
                  :edit-workspace-host
-                 (cl-boundary-kit:boundary-context-require *ports* :edit-workspace-host)
+                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-workspace-host)
                  :edit-open-store
-                 (cl-boundary-kit:boundary-context-require *ports* :edit-open-store)
+                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-open-store)
                  :edit-text-source
-                 (cl-boundary-kit:boundary-context-require *ports* :edit-text-source)
+                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-text-source)
                  :edit-read-stdin-octets
                  (lambda (limit)
                    (declare (ignore limit))
                    (values :unknown nil))
                  :edit-unix-now
-                 (cl-boundary-kit:boundary-context-require *ports* :edit-unix-now))))
+                 (cl-boundary-kit:boundary-context-require *boundaries* :edit-unix-now))))
           (let ((failure
                   (handler-case
                       (progn (run "edit" (list "a.txt") :stdin t) nil)

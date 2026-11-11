@@ -15,9 +15,9 @@
                (expect (search temporary-root path) :to-equal 0)
                (expect (probe-file path) :to-be-truthy)))))))))
 (defun call-with-mktemp-boundaries (overrides function)
-  (let* ((ports *ports*)
-         (*ports*
-           (make-edit-test-boundaries :edit-workspace-host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host)
+  (let* ((boundaries *boundaries*)
+         (*boundaries*
+           (make-edit-test-boundaries :edit-workspace-host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)
             :edit-open-store
             (lambda (root)
               (aitools.store.application:make-store
@@ -25,12 +25,12 @@
                       (aitools.store.infrastructure:make-posix-store-io :root root)
                       overrides)
                root *home* :temporary (%temporary-area-p root)))
-            :edit-text-source (cl-boundary-kit:boundary-context-require ports :edit-text-source)
+            :edit-text-source (cl-boundary-kit:boundary-context-require boundaries :edit-text-source)
             :edit-read-stdin-octets
-            (cl-boundary-kit:boundary-context-require ports :edit-read-stdin-octets)
-            :edit-unix-now (cl-boundary-kit:boundary-context-require ports :edit-unix-now)
+            (cl-boundary-kit:boundary-context-require boundaries :edit-read-stdin-octets)
+            :edit-unix-now (cl-boundary-kit:boundary-context-require boundaries :edit-unix-now)
             :edit-serialize-document
-            (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))))
+            (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))))
     (funcall function)))
 
 (describe "aitools mktemp against a racing mktemp area"

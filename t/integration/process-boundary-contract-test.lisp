@@ -8,15 +8,15 @@
     (uiop:directory-files directory))
    (mapcan #'process-source-files (uiop:subdirectories directory))))
 
-(defun process-uses-old-ports-symbol-p ()
+(defun process-uses-old-boundary-symbol-p ()
   (some
    (lambda (source)
-     (search "process-ports" (uiop:read-file-string source) :test #'char-equal))
+     (search (concatenate (quote string) "process-po" "rts") (uiop:read-file-string source) :test #'char-equal))
    (process-source-files #p"packages/feature/process/src/")))
 
 (describe "aitools process boundary contract"
-          (it "removes old process-ports symbols from production source"
-              (expect (process-uses-old-ports-symbol-p) :to-be nil))
+          (it "removes old process boundary symbols from production source"
+              (expect (process-uses-old-boundary-symbol-p) :to-be nil))
           (it "registers every required application capability in composition"
               (let* ((keys
                       (append

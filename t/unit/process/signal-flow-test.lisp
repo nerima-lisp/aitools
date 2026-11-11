@@ -45,8 +45,8 @@
      (lambda () (reverse sent))
      (lambda () clock))))
 
-(defun signal-flow (ports &rest args)
-  (apply #'run-flow #'aitools.process.application:signal-command/k ports args))
+(defun signal-flow (boundaries &rest args)
+  (apply #'run-flow #'aitools.process.application:signal-command/k boundaries args))
 
 (defun call-with-fake-signal-process-info (target function)
   (let* ((name 'aitools.process.infrastructure::%safe-process-info)
@@ -63,45 +63,45 @@
 
 (describe "aitools signal flow guards"
   (it "refuses PID without a guard and unsafe PID before sending"
-    (multiple-value-bind (ports sent) (signal-fixture)
+    (multiple-value-bind (boundaries sent) (signal-fixture)
       (dolist (case '(((:pid 2101) "argument.invalid")
                       ((:pid 0 :expect-command "sleep") "refusal.target-changed")
                       ((:pid 1 :expect-command "sleep") "refusal.target-changed")
                       ((:pid 2101 :expect-command "wrong") "refusal.target-changed")
                       ((:pid 2101 :expect-start "wrong") "refusal.target-changed")))
         (destructuring-bind (args expected-code) case
-          (multiple-value-bind (kind fields) (apply #'signal-flow ports args)
+          (multiple-value-bind (kind fields) (apply #'signal-flow boundaries args)
             (expect kind :to-be :error)
             (expect (field fields :code) :to-equal expected-code))))
       (expect (funcall sent) :to-equal '())))
   (it "rejects an expected count for a PID target"
-    (multiple-value-bind (ports sent) (signal-fixture)
+    (multiple-value-bind (boundaries sent) (signal-fixture)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pid 2101 :expect-command "sleep" :expect-count 1)
+          (signal-flow boundaries :pid 2101 :expect-command "sleep" :expect-count 1)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "argument.invalid"))
       (expect (funcall sent) :to-equal nil)))
 
   (it "accepts a zero-count pattern without sending"
-    (multiple-value-bind (ports sent) (signal-fixture)
+    (multiple-value-bind (boundaries sent) (signal-fixture)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "absent" :expect-count 0)
+          (signal-flow boundaries :pattern "absent" :expect-count 0)
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 0))
       (expect (funcall sent) :to-equal '())))
 
   (it "rechecks identity at the signal port after flow preflight"
-    (multiple-value-bind (ports sent) (signal-fixture :count 1 :change-on-send t)
+    (multiple-value-bind (boundaries sent) (signal-fixture :count 1 :change-on-send t)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pid 2101 :expect-command "fixture-2101")
+          (signal-flow boundaries :pid 2101 :expect-command "fixture-2101")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal '())))
 
   (it "rejects a target when the signal port reports no send"
-    (multiple-value-bind (ports sent) (signal-fixture :count 1 :disappear-on-send t)
+    (multiple-value-bind (boundaries sent) (signal-fixture :count 1 :disappear-on-send t)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pid 2101 :expect-command "fixture-2101")
+          (signal-flow boundaries :pid 2101 :expect-command "fixture-2101")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal '())))
@@ -149,23 +149,23 @@
            (call-signal-port target))))))
 
   (it "checks pattern count after filtering unsafe candidates before the first send"
-    (multiple-value-bind (ports sent) (signal-fixture)
+    (multiple-value-bind (boundaries sent) (signal-fixture)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 3)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 3)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "selection.count-mismatch"))
       (expect (funcall sent) :to-equal '()))
-    (multiple-value-bind (ports sent) (signal-fixture :unsafe 2102)
+    (multiple-value-bind (boundaries sent) (signal-fixture :unsafe 2102)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 2)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 2)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "selection.count-mismatch"))
       (expect (funcall sent) :to-equal '())))
 
   (it "skips a PID that disappears and signals the surviving expected-count candidates"
-    (multiple-value-bind (ports sent) (signal-fixture :missing-info 2102)
+    (multiple-value-bind (boundaries sent) (signal-fixture :missing-info 2102)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 1)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 1)
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 1)
         (let ((item (elt (field fields "items") 0)))
@@ -174,27 +174,27 @@
       (expect (funcall sent) :to-equal '((2101 . 15)))))
 
   (it "rejects a pattern candidate whose same-UID argv cannot be read"
-    (multiple-value-bind (ports sent) (signal-fixture :nil-command-line 2102)
+    (multiple-value-bind (boundaries sent) (signal-fixture :nil-command-line 2102)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 1)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 1)
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed")
         (expect (search "2102" (field fields :message)) :to-be-truthy))
       (expect (funcall sent) :to-equal '())))
 
   (it "reports every signalled pattern target in the total"
-    (multiple-value-bind (ports sent) (signal-fixture)
+    (multiple-value-bind (boundaries sent) (signal-fixture)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 2)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 2)
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 2)
         (expect (length (field fields "items")) :to-be 2))
       (expect (length (funcall sent)) :to-be 2)))
 
   (it "sends TERM then KILL only after grace to a surviving target"
-    (multiple-value-bind (ports sent clock) (signal-fixture :count 1 :ignore-term t)
+    (multiple-value-bind (boundaries sent clock) (signal-fixture :count 1 :ignore-term t)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pid 2101 :expect-command "fixture-2101" :grace "300ms")
+          (signal-flow boundaries :pid 2101 :expect-command "fixture-2101" :grace "300ms")
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 1))
       (expect (funcall sent) :to-equal '((2101 . 15) (2101 . 9)))
@@ -215,10 +215,10 @@
     (expect (aitools.process.domain:signal-number "USR2")
             :to-be #+darwin 31 #+linux 12))
   (it "reports both matched processes and the first completed send when the second send fails"
-    (multiple-value-bind (ports sent)
+    (multiple-value-bind (boundaries sent)
         (signal-fixture :port-error-on-send 2102)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pattern "fixture-" :expect-count 2)
+          (signal-flow boundaries :pattern "fixture-" :expect-count 2)
         (expect kind :to-be :partial)
         (expect (field fields "total") :to-be 2)
         (expect (mapcar (lambda (item) (json-alist-value item "pid"))
@@ -226,10 +226,10 @@
                 :to-equal '(2101)))
       (expect (funcall sent) :to-equal '((2101 . 15)))))
   (it "reports environment.io when the first signal port fails"
-    (multiple-value-bind (ports sent)
+    (multiple-value-bind (boundaries sent)
         (signal-fixture :count 1 :port-error-on-send 2101)
       (multiple-value-bind (kind fields)
-          (signal-flow ports :pid 2101 :expect-command "fixture-2101")
+          (signal-flow boundaries :pid 2101 :expect-command "fixture-2101")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "environment.io")
         (expect (field fields :message) :to-equal "signal port failed"))

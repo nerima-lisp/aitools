@@ -1,6 +1,6 @@
 (in-package #:aitools.integration.md-write-test)
 (describe "Markdown replacement edge routes"
-  (it "handles input failures, missing write ports, and plan race outcomes"
+  (it "handles input failures, missing write callbacks, and plan race outcomes"
     (labels ((ready-boundaries (&key workspace-host open-store)
                (%make-md-test-boundaries :workspace-host workspace-host
                 :open-store open-store

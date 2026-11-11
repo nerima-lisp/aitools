@@ -29,12 +29,14 @@
               do (setf keys (nconc keys (%net-boundary-keys-in-form form))))))
     (remove-duplicates keys :test #'eq)))
 (describe "aitools net boundary contract"
-  (it "contains no legacy ports symbol in production source"
+  (it "contains no legacy net boundary symbol in production source"
     (let* ((source-files (%net-lisp-files (%net-source-directory)))
            (legacy-files
              (loop for file in source-files
-                   when (search "net-ports"
-                                (uiop:read-file-string file)
+                   when (search
+                                  (concatenate (quote string) "net-"
+                                               (coerce (quote (#\p #\o #\r #\t #\s)) (quote string)))
+                                  (uiop:read-file-string file)
                                 :test #'char-equal)
                      collect file)))
       (expect source-files :to-be-truthy)

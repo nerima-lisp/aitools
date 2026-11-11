@@ -7,7 +7,7 @@
              (decoded (octet-vector 0 97 0 255))
              (result nil))
         (aitools.edit.application:run-write-command/k
-         *ports*
+         *boundaries*
          (aitools.edit.application:make-write-plan
           :command "util.decode"
           :targets (list (aitools.edit.application:make-write-target destination))
@@ -42,7 +42,7 @@
        (let ((before (snapshot))
              (result nil))
          (aitools.edit.application:run-write-command/k
-          *ports*
+          *boundaries*
           (aitools.edit.application:make-write-plan
            :command "md.replace"
            :targets (list
@@ -70,7 +70,7 @@
        (let ((before (snapshot))
              (result nil))
          (aitools.edit.application:run-write-command/k
-          *ports*
+          *boundaries*
           (aitools.edit.application:make-write-plan
            :command "md.replace"
            :targets (list

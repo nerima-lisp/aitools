@@ -1,5 +1,5 @@
 ;;;; `run` and `wait`, driven through the real cl-cli
-;;;; dispatch with production ports and real child processes (sh, sleep,
+;;;; dispatch with production boundary context and real child processes (sh, sleep,
 ;;;; printf) in temporary directories. Package setup is in
 ;;;; t/support/process-test-support.lisp; shared temporary-directory and
 ;;;; workspace helpers are in t/support/workspace.lisp.
@@ -9,7 +9,7 @@
 
 (defun invoke (argv &key state-directory cwd)
   "Dispatch `aitools ARGV` against the process commands with production
-ports. CWD, when given, wires in a production workspace host whose working
+boundary context. CWD, when given, wires in a production workspace host whose working
 directory is CWD. Returns (VALUES EXIT-CODE ENVELOPE), ENVELOPE parsed from
 whichever stream the command wrote."
   (let ((registry (aitools.protocol.application:make-command-registry)))
@@ -110,7 +110,7 @@ argv[0] preserves the command name for multi-call executables."
         (expect (uiop:read-file-string target) :to-equal "ok")))))
 
   ;; `--root` is a global option the full aitools app adds, so the flow is
-  ;; called directly, with the production ports this suite's INVOKE wires.
+  ;; called directly, with the production boundary context this suite's INVOKE wires.
   (it "fails with environment.io, running nothing, when --root names a missing directory"
     (call-with-process-workspace (lambda (root state)
       (declare (ignorable state))

@@ -25,8 +25,8 @@
     (setf (fake-file world #p"/state/ws/bg/bg-1.log") text)
     world))
 
-(defun flow-coverage-signal (ports &rest options)
-  (apply #'run-flow #'aitools.process.application:signal-command/k ports options))
+(defun flow-coverage-signal (boundaries &rest options)
+  (apply #'run-flow #'aitools.process.application:signal-command/k boundaries options))
 
 (defun flow-coverage-duration-result (text &key (allow-zero t))
   (let ((result nil))
@@ -116,7 +116,7 @@
   (it "maps a target change during background log access to a refusal"
     (let* ((world (flow-coverage-bg-world "line"))
            (base (make-fake-process-boundaries world))
-           (ports
+           (boundaries
              (cl-boundary-kit:boundary-context-with
               base :process-file-size
               (lambda (path)
@@ -124,7 +124,7 @@
                 (error 'aitools.process.application::process-target-changed
                        :message "changed")))))
       (multiple-value-bind (kind fields)
-          (run-flow #'aitools.process.application:bg-logs/k ports "bg-1")
+          (run-flow #'aitools.process.application:bg-logs/k boundaries "bg-1")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed")
         (expect (field fields :message) :to-equal "changed"))))
@@ -166,17 +166,17 @@
         (expect (field fields :code) :to-equal "environment.unavailable"))))
 
   (it "reports disappeared and unsafe PID targets without signalling"
-    (multiple-value-bind (ports sent)
+    (multiple-value-bind (boundaries sent)
         (signal-fixture :count 1 :missing-info 2101)
       (multiple-value-bind (kind fields)
-          (flow-coverage-signal ports :pid 2101 :expect-command "fixture-2101")
+          (flow-coverage-signal boundaries :pid 2101 :expect-command "fixture-2101")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal nil))
-    (multiple-value-bind (ports sent)
+    (multiple-value-bind (boundaries sent)
         (signal-fixture :count 1 :unsafe 2101)
       (multiple-value-bind (kind fields)
-          (flow-coverage-signal ports :pid 2101 :expect-command "fixture-2101")
+          (flow-coverage-signal boundaries :pid 2101 :expect-command "fixture-2101")
         (expect kind :to-be :error)
         (expect (field fields :code) :to-equal "refusal.target-changed"))
       (expect (funcall sent) :to-equal nil)))
@@ -190,7 +190,7 @@
                  :command-line (format nil "worker ~D" pid)))
               '(2101 2102)))
            (sent nil)
-           (ports
+           (boundaries
              (make-test-process-boundaries
               :process-list-pids (lambda () '(2101 2102))
               :process-process-info
@@ -210,7 +210,7 @@
                              :message "target changed")
                       (progn (push (cons pid number) sent) t)))))))
       (multiple-value-bind (kind fields)
-          (flow-coverage-signal ports :pattern "worker" :expect-count 2)
+          (flow-coverage-signal boundaries :pattern "worker" :expect-count 2)
         (expect kind :to-be :partial)
         (expect (field fields "total") :to-be 2)
         (expect (mapcar (lambda (item) (json-alist-value item "pid"))
@@ -219,16 +219,16 @@
       (expect (reverse sent) :to-equal '((2101 . 15)))))
 
   (it "checks TERM grace and the default signal through the public flow"
-    (multiple-value-bind (ports sent) (signal-fixture :count 1)
+    (multiple-value-bind (boundaries sent) (signal-fixture :count 1)
       (multiple-value-bind (kind fields)
-          (flow-coverage-signal ports :pid 2101
+          (flow-coverage-signal boundaries :pid 2101
                                 :expect-command "fixture-2101" :grace "1ms")
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 1))
       (expect (funcall sent) :to-equal '((2101 . 15))))
-    (multiple-value-bind (ports sent) (signal-fixture :count 0)
+    (multiple-value-bind (boundaries sent) (signal-fixture :count 0)
       (multiple-value-bind (kind fields)
-          (flow-coverage-signal ports :pattern "absent" :expect-count 0 :grace "0ms")
+          (flow-coverage-signal boundaries :pattern "absent" :expect-count 0 :grace "0ms")
         (expect kind :to-be :ok)
         (expect (field fields "total") :to-be 0))
       (expect (funcall sent) :to-equal nil)))

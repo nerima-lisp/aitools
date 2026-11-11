@@ -1,13 +1,13 @@
 (in-package #:aitools.process.integration-test)
 
 ;;;;
-;;;; These tests exercise production PROCESS-PORTS adapters on the real
+;;;; These tests exercise production process boundary capabilities on the real
 ;;;; filesystem, signals, and sockets, including failures surfaced as
 ;;;; PROCESS-PORT-ERROR. Package setup is in
 ;;;; t/support/process-test-support.lisp; directory helpers are in
 ;;;; t/support/workspace.lisp. `invoke` and `call-with-listener` are in
-;;;; t/integration/process-test.lisp; shared port helpers are in
-;;;; t/integration/process-ports-test.lisp.
+;;;; t/integration/process-test.lisp; shared boundary helpers are in
+;;;; t/integration/process-boundaries-test.lisp.
 
 (defun call-with-mode (path mode function)
   "Call FUNCTION with PATH's permission bits set to MODE, restoring 0700 (a
@@ -18,7 +18,7 @@ directory) or 0600 after, so the temporary tree can always be deleted."
       (sb-posix:chmod native (if (uiop:directory-pathname-p path) #o700 #o600)))))
 
 (describe-skip-if (zerop (sb-posix:geteuid))
-    "aitools process production ports: permission failures (integration; skipped as root)"
+    "aitools process production boundaries: permission failures (integration; skipped as root)"
   (it "reports an unreadable bg directory as a port error instead of listing nothing"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let ((bg (merge-pathnames "bg/" directory)))
@@ -45,13 +45,13 @@ directory) or 0600 after, so the temporary tree can always be deleted."
 
   (it "reports port errors when it cannot inspect a log or remove a file"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
-      (let ((ports (production-boundaries))
+      (let ((boundaries (production-boundaries))
             (log (write-file (merge-pathnames "bg-1.log" directory) "x"))
             (locked (merge-pathnames "locked/" directory)))
         (call-with-mode log 0 (lambda ()
           (expect (starts-with-p (format nil "inspecting ~A failed: " log)
                                  (boundary-error-message
-                                  (lambda () (call-capability ports :process-file-size log))))
+                                  (lambda () (call-capability boundaries :process-file-size log))))
                   :to-be t)))
         (ensure-directories-exist locked)
         (let ((inside (write-file (merge-pathnames "bg-1.exit" locked) "0")))
@@ -59,24 +59,24 @@ directory) or 0600 after, so the temporary tree can always be deleted."
           (expect (starts-with-p (format nil "removing ~A failed: " inside)
                                    (boundary-error-message
                                     (lambda ()
-                                      (call-capability ports :process-remove-file inside))))
+                                      (call-capability boundaries :process-remove-file inside))))
                     :to-be t)))
           (expect (uiop:read-file-string inside) :to-equal "0"))))
     :prefix "aitools-process")))
 
-(describe "aitools process production ports: state directory (integration)"
+(describe "aitools process production boundaries: state directory (integration)"
   (it "has no bg or temporary directory without a state directory"
-    (let ((ports (production-boundaries)))
-      (expect (call-capability ports :process-bg-directory) :to-be nil)
-      (expect (call-capability ports :process-temporary-directory) :to-be nil)))
+    (let ((boundaries (production-boundaries)))
+      (expect (call-capability boundaries :process-bg-directory) :to-be nil)
+      (expect (call-capability boundaries :process-temporary-directory) :to-be nil)))
 
   (it "creates bg/ on first use and names the mktemp area without a trailing slash"
     (aitools.test.support:call-with-temporary-directory (lambda (state)
-      (let* ((ports (production-boundaries state))
-             (bg (call-capability ports :process-bg-directory)))
+      (let* ((boundaries (production-boundaries state))
+             (bg (call-capability boundaries :process-bg-directory)))
         (expect (namestring bg) :to-equal (namestring (merge-pathnames "bg/" state)))
         (expect (uiop:directory-exists-p bg) :not :to-be nil)
-        (expect (call-capability ports :process-temporary-directory)
+        (expect (call-capability boundaries :process-temporary-directory)
                 :to-equal (concatenate 'string (uiop:native-namestring state) "tmp"))))
     :prefix "aitools-process"))
 
@@ -90,7 +90,7 @@ directory) or 0600 after, so the temporary tree can always be deleted."
                 :to-be t)))
     :prefix "aitools-process")))
 
-(describe "aitools process production ports: sockets and clock (integration)"
+(describe "aitools process production boundaries: sockets and clock (integration)"
   (it "treats a socket that cannot be created as not connectable"
     (expect (aitools.process.infrastructure::%connectable-p
              (lambda () (error 'sb-bsd-sockets:socket-error :errno 24 :syscall "socket"))
@@ -103,8 +103,8 @@ directory) or 0600 after, so the temporary tree can always be deleted."
               :to-be nil)))
 
   (it "measures at least the requested duration with the monotonic clock"
-    (let* ((ports (production-boundaries))
-           (before (call-capability ports :process-monotonic-ms)))
-      (call-capability ports :process-sleep-ms 30)
-      (expect (>= (- (call-capability ports :process-monotonic-ms) before) 30)
+    (let* ((boundaries (production-boundaries))
+           (before (call-capability boundaries :process-monotonic-ms)))
+      (call-capability boundaries :process-sleep-ms 30)
+      (expect (>= (- (call-capability boundaries :process-monotonic-ms) before) 30)
               :to-be t))))

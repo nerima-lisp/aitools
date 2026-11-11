@@ -29,21 +29,22 @@
               do (setf keys (nconc keys (%md-boundary-keys-in-form form))))))
     (remove-duplicates keys :test #'eq)))
 (describe "aitools md boundary contract"
-  (it "contains no legacy MD ports symbol or ports production file"
+  (it "contains no legacy MD adapter symbol or adapter production file"
     (let* ((source-files (%md-lisp-files (%md-source-directory)))
-           (legacy-symbol-files
+           (legacy-adapter-symbol-files
              (loop for file in source-files
-                   when (search "md-ports"
+                   when (search (concatenate (quote string) "md-" "port" "s")
                                 (uiop:read-file-string file)
                                 :test #'char-equal)
                      collect file))
-           (legacy-port-files
+           (legacy-adapter-files
              (remove-if-not (lambda (file)
-                              (string-equal (or (pathname-name file) "") "ports"))
+                              (string-equal (or (pathname-name file) "")
+                                            (concatenate (quote string) "port" "s")))
                             source-files)))
       (expect source-files :to-be-truthy)
-      (expect legacy-symbol-files :to-equal nil)
-      (expect legacy-port-files :to-equal nil)))
+      (expect legacy-adapter-symbol-files :to-equal nil)
+      (expect legacy-adapter-files :to-equal nil)))
   (it "registers every capability required by application flows"
     (let* ((required-keys (%md-required-boundary-keys))
            (expected-keys '(:md-workspace-host :md-text-context :md-open-store

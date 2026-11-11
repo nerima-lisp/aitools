@@ -14,7 +14,7 @@
            (*home* home)
            (*stdin* nil)
            (*stdin-outcome* nil)
-           (*ports*
+           (*boundaries*
             (cl-weave:with-mocked-functions
                 (((symbol-function (quote aitools.edit.infrastructure:read-stdin-octets))
                   (lambda (limit)

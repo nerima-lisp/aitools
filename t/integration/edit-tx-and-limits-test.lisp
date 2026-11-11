@@ -85,7 +85,7 @@
           (it "rejects malformed durations and sizes"
               (call-with-edit-workspace (lambda () (put "a.txt" "a")
                                    (let ((result nil))
-                                     (run-edit-command *ports* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "-1s"
+                                     (run-edit-command *boundaries* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "-1s"
                                                        :on-ok (lambda (fields) (setf result fields))
                                                        :on-error (lambda (code &rest rest) (declare (ignore rest)) (setf result code))
                                                        :on-partial #'identity)
@@ -97,7 +97,7 @@
               (call-with-edit-workspace (lambda () (put "a.txt" "a")
                                    (let ((result nil))
                                      ;; The store's lock is reentrant within one dynamic extent, so hold
-                                     ;; the flock through the port directly, as another process would.
+                                     ;; the flock through the lock callback directly, as another process would.
                                      (let* ((store (open-store *root*))
                                             (io (aitools.store.application:store-boundaries store))
                                             (path (aitools.store.domain:lock-file-path (aitools.store.application:store-state-directory store))))
@@ -105,7 +105,7 @@
                                                                                              :on-timeout (lambda () nil))
                                        (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
                                          (unwind-protect
-                                             (run-edit-command *ports* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "20ms"
+                                             (run-edit-command *boundaries* "edit" '("a.txt") '(:old "a" :new "b") :root *root* :lock-timeout "20ms"
                                                                :display-argv '("edit" "a.txt" "--old" "a" "--new" "b")
                                                                :on-ok (lambda (fields) (setf result fields))
                                                                :on-error (lambda (code message &key repairs &allow-other-keys)

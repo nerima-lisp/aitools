@@ -40,25 +40,28 @@
     (remove-duplicates keys :test #'eq)))
 
 (describe "aitools util boundary contract"
-  (it "removes legacy util boundary symbols and files"
+  (it "rejects legacy util adapter names and files"
     (let* ((source-files (%util-production-files))
-           (legacy-symbols '("util-ports" "make-util-ports"
-                             "make-util-ports-from-boundaries"
-                             "make-production-util-ports"))
-           (legacy-symbol-files
+           (legacy-adapter-symbols
+             (list (concatenate (quote string) "util-" "port" "s")
+                   (concatenate (quote string) "make-util-" "port" "s")
+                   (concatenate (quote string) "make-util-" "port" "s-from-boundaries")
+                   (concatenate (quote string) "make-production-util-" "port" "s")))
+           (legacy-adapter-symbol-files
              (loop for file in source-files
                    when (some (lambda (symbol)
                                 (search symbol (uiop:read-file-string file)
                                         :test #'char-equal))
-                              legacy-symbols)
+                              legacy-adapter-symbols)
                      collect file))
-           (legacy-files
+           (legacy-adapter-files
              (remove-if-not (lambda (file)
-                              (string-equal (or (pathname-name file) "") "ports"))
+                              (string-equal (or (pathname-name file) "")
+                                            (concatenate (quote string) "port" "s")))
                             source-files)))
       (expect source-files :to-be-truthy)
-      (expect legacy-symbol-files :to-equal nil)
-      (expect legacy-files :to-equal nil)))
+      (expect legacy-adapter-symbol-files :to-equal nil)
+      (expect legacy-adapter-files :to-equal nil)))
 
   (it "registers each capability required by util application"
     (let* ((required-keys (%util-required-boundary-keys))

@@ -123,7 +123,7 @@
                                        (with-error (code) (run "mktemp" '())
                                                    (expect code :to-equal "environment.io"))))
                                    (let ((result nil))
-                                     (run-edit-command *ports* "mktemp" '() '() :root (disk "missing")
+                                     (run-edit-command *boundaries* "mktemp" '() '() :root (disk "missing")
                                                        :on-ok (lambda (fields) (setf result fields))
                                                        :on-error (lambda (code message &key repairs &allow-other-keys)
                                                                    (declare (ignore message))

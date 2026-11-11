@@ -1,5 +1,5 @@
 ;;;;
-;;;; In-memory PROCESS-PORTS for the application flows: a file table keyed by
+;;;; In-memory process boundary context for the application flows: a file table keyed by
 ;;;; namestring, a clock that only moves when a flow sleeps, and a process
 ;;;; table whose members react to signals the way a scenario says.
 (in-package #:aitools.process.test)

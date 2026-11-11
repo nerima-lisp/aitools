@@ -4,7 +4,7 @@
   (it "preserves unavailable launcher results and assigns the fixed span outcome"
     (aitools.test.support:call-with-temporary-directory (lambda (directory)
       (let* ((observed nil)
-             (ports
+             (boundaries
                (aitools.process.composition::make-process-dependencies :with-span
                 (lambda (kind name operation arguments &key outcome-function)
                   (let* ((values (multiple-value-list (apply operation arguments)))
@@ -18,7 +18,7 @@
          directory
          (lambda ()
            (multiple-value-bind (status message program)
-               (call-capability ports :process-launch-detached (list sleep-path "30") log exit)
+               (call-capability boundaries :process-launch-detached (list sleep-path "30") log exit)
              (expect status :to-be :unavailable)
              (expect (starts-with-p "bg start needs the cl-process-kit-spawn helper" message) :to-be t)
              (expect program :to-equal "cl-process-kit-spawn")))

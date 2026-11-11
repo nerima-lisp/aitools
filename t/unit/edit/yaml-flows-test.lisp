@@ -142,9 +142,9 @@
      (lambda ()
        (put "serializer.yaml" (format nil "value: old~%"))
        (let* ((before (snapshot))
-              (*ports*
+              (*boundaries*
                 (cl-boundary-kit:boundary-context-with
-                 *ports* :edit-serialize-document
+                 *boundaries* :edit-serialize-document
                  (lambda (format value)
                    (declare (ignore format value))
                    (error

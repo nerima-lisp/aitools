@@ -143,20 +143,20 @@
     (expect
      (%fixture-violations
       "(define-write-command \"clean.command\"
-  (ports env positionals options &key on-plan on-error)
+  (boundaries env positionals options &key on-plan on-error)
   nil)")
      :to-equal nil)
     (expect
      (%fixture-violations
       "(define-write-command \"bad.command\"
-  (ports env positionals options &key on-plan on-error)
+  (boundaries env positionals options &key on-plan on-error)
   (helper on-plan))")
      :to-equal
      (list (list "fixture.lisp" "PREPARE-BAD-COMMAND/K" :positional-continuation)))
     (expect
      (%fixture-violations
       "(define-write-command \"bad.return\"
-  (ports env positionals options &key on-plan on-error)
+  (boundaries env positionals options &key on-plan on-error)
   (return-from prepare-bad-return/k nil))")
      :to-equal
      (list (list "fixture.lisp" "PREPARE-BAD-RETURN/K" :return-from))))

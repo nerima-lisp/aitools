@@ -12,7 +12,7 @@
         ;; when another process holds the lock.
         (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
           (unwind-protect
-              (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b" :tx tx)
+              (run-edit-command *boundaries* "edit" (list "a.txt") (list :old "a" :new "b" :tx tx)
                                 :root *root* :lock-timeout "20ms"
                                 :on-partial #'identity
                                 :on-ok (lambda (fields) (setf result fields))
@@ -60,7 +60,7 @@
                                                                           :on-timeout (lambda () nil))
           (let ((handle (funcall (cl-boundary-kit:boundary-context-require io :try-lock) path :create t)))
             (unwind-protect
-                 (run-edit-command *ports* "edit" (list "a.txt") (list :old "a" :new "b")
+                 (run-edit-command *boundaries* "edit" (list "a.txt") (list :old "a" :new "b")
                                    :root *root* :lock-timeout "20ms"
                                    :display-argv (list "edit" "a.txt" "--old" "a" "--new" "b")
                                    :on-partial #'identity
