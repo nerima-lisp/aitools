@@ -98,25 +98,29 @@
              "hex")
             :to-equal "61 62 63"))
 
-  (it "bounds a redaction span with no shared prefix or suffix"
+  (it "bounds a redaction span with shared prefixes and suffixes"
     (expect (multiple-value-list
              (aitools.inspect.domain::%redacted-span "secret" "[REDACTED]"))
-            :to-equal '(0 6))
+            :to-equal (list 0 6))
     (expect (multiple-value-list
              (aitools.inspect.domain::%redacted-span
               "left secret" "left [REDACTED]"))
-            :to-equal '(5 11)))
+            :to-equal (list 5 11))
+    (expect (multiple-value-list
+             (aitools.inspect.domain::%redacted-span
+              "secret-tail" "[REDACTED]-tail"))
+            :to-equal (list 0 6)))
 
   (it "extracts separated printable runs and emits nothing for controls"
     (let ((runs nil))
       (expect (aitools.inspect.domain::extract-strings
-               (concatenate '(simple-array (unsigned-byte 8) (*))
+               (concatenate (quote (simple-array (unsigned-byte 8) (*)))
                             (%as-octets "abc") #(0) (%as-octets "def"))
                :min-length 3
                :emit (lambda (offset text)
                        (push (list offset text) runs)))
               :to-be nil)
-      (expect (nreverse runs) :to-equal '((0 "abc") (4 "def"))))
+      (expect (nreverse runs) :to-equal (list (list 0 "abc") (list 4 "def"))))
     (let ((runs nil))
       (aitools.inspect.domain::extract-strings
        (%as-octets (string (code-char 0)))
@@ -144,3 +148,10 @@
             :to-be-truthy)
     (signals type-error
       (aitools.inspect.domain::make-snapshot-file "entry" (parse-integer "-1") 0 "hash"))))
+(describe "table number normalization"
+  (it "returns valid signed integers and decimal values"
+    (expect (aitools.inspect.domain::%number-value "12") :to-be 12)
+    (expect (aitools.inspect.domain::%number-value "-12.5")
+            :to-be-close-to -12.5d0)
+    (expect (aitools.inspect.domain::%number-value "-3.5e2")
+            :to-be-close-to -350d0)))

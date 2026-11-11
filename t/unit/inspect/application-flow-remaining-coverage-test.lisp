@@ -136,4 +136,28 @@
               :workspace-host host)))
       (expect (cl-boundary-kit:boundary-context-require
                boundaries :inspect-workspace-host)
-              :to-be host))))
+              :to-be host)))
+  (it "classifies the workspace root and an out-of-root target"
+    (let* ((context
+             (%remaining-flow-context
+              (make-test-boundaries
+               :files (list (cons "/else/outside.txt" "outside")))))
+           (root-target
+             (aitools.inspect.application::probe-target context "."))
+           (target
+             (aitools.inspect.application::probe-target
+              context "/else/outside.txt")))
+      (expect (aitools.inspect.application::file-target-kind root-target)
+              :to-be :directory)
+      (expect (aitools.inspect.application::file-target-relative root-target)
+              :to-equal "")
+      (expect (aitools.inspect.application::file-target-kind target)
+              :to-be :file)
+      (expect (aitools.inspect.application::file-target-relative target)
+              :to-be nil)
+      (expect (aitools.inspect.application::target-display-path target)
+              :to-equal "/else/outside.txt")))
+  (it "rejects an inspect context tx value outside its declared type"
+    (signals type-error
+      (aitools.inspect.application::%make-inspect-context
+       :tx (parse-integer "7")))))
