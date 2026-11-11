@@ -155,9 +155,7 @@ rule, so the value is the one --expect-hash compares), else nothing."
                           :on-error code message :repairs repairs))))
                      (t
                       (let ((entry
-       (and (file-target-real target)
-            (host-stat (context-host context)
-                       (file-target-real target)))))
+       (host-stat (context-host context) (file-target-real target))))
   ;; hash follows mode and mtime, as it does for a file.
   (report-ok
    (append
