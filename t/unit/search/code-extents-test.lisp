@@ -163,6 +163,9 @@
                                "  let value = r##\" } \"#"
                                "  } inside"))
             :to-equal '((1 3 "function" "incomplete_raw"))))
+  (it "scans a terminal Rust byte prefix in the production parser"
+    (expect (outline-of "/w/a.rs" "fn terminal() { b")
+            :to-equal (quote ((1 1 "function" "terminal")))))
 
   (it "skips nested Common Lisp and Scheme block comments"
     (expect (outline-of "/w/a.lisp"

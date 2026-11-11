@@ -94,9 +94,8 @@ case-sensitively are searched for ASCII-case-insensitively instead."
     (cond
       (literals (values (%literal-octets (first literals)) nil))
       (ignore-case
-       (let* ((sensitive (handler-case (%compile source nil multiline)
-                           (cl-regex-kit:cl-regex-kit-error () nil)))
-              (folded (and sensitive (%fold-literal (cl-regex-kit:regex-required-literals sensitive)))))
+       (let* ((sensitive (%compile source nil multiline))
+              (folded (%fold-literal (cl-regex-kit:regex-required-literals sensitive))))
          (values folded (and folded t))))
       (t (values nil nil)))))
 
