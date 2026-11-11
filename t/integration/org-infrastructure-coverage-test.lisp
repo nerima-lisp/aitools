@@ -138,7 +138,7 @@
         (expect fields :to-be-truthy)))
     (let ((document
             (%org-coverage-document
-             (format nil "| Name | Count |~%|------+-------|~%| pear | 2 |~%| apple | 1 |~%"))))
+             (format nil "| pear | 2 |~%| apple | 1 |~%"))))
       (let ((engine (aitools.org.domain:org-document-engine-value document)))
         (multiple-value-bind (sorted fields failure)
             (aitools.org.infrastructure::edit-org-table-document
