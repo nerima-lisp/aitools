@@ -141,4 +141,16 @@
                :to-be nil)
        (expect (aitools.store.application::%path-violation store ".git/config")
                :to-equal "is inside a .git directory"))
+     :io nil))
+  (it "accepts a workspace-root alias through a parent symlink"
+    (call-with-temp-store
+     (lambda (store)
+       (let* ((root (store-root store))
+              (root-name (subseq root (1+ (position #\/ root :from-end t))))
+              (up (disk-path store "up")))
+         (sb-posix:symlink ".." up)
+         (expect (aitools.store.application::%real-path store (join-path up root-name))
+                 :to-equal root)
+         (expect (aitools.store.application::%path-violation store (format nil "up/~A" root-name))
+                 :to-be nil)))
      :io nil)))

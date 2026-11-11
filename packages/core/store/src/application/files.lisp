@@ -213,7 +213,9 @@ nothing in the state directory unless this is the mktemp area's store."
           ((null parent) "cannot be resolved (symlink loop)")
           ((not (%absolute-inside-p root target)) "leads outside the workspace through a symlink")
           ((or (git-metadata-path-p relative)
-               (git-metadata-path-p (subseq target (if (string= root "/") 1 (1+ (length root))))))
+               (and (string/= root target)
+               (git-metadata-path-p
+                (subseq target (if (string= root "/") 1 (1+ (length root)))))))
            "is inside a .git directory")
           ((and (not (store-temporary store))
                 (let ((state-root (workspace-state-root (store-state-directory store))))
