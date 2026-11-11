@@ -99,71 +99,107 @@ rule, so the value is the one --expect-hash compares), else nothing."
     (when hash
       (list (cons "hash" hash)))))
 
+(defun %info-stat-fields (context target fields)
+  (multiple-value-bind (mode mtime) (%stat-fields context target)
+    (append fields
+            (list
+             (cons "mode" (json-or-null (and mode (format-file-mode mode))))
+             (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime))))))))
+
 (aitools.kernel.domain:define-flow
-    (info-flow boundaries path &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
-  "`info`. Calls ON-OK (fields) or ON-ERROR."
-  (declare (ignore on-partial) (type function on-ok on-error))
-  (labels ((report-ok (fields)
-             (aitools.kernel.domain:flow-continue :on-ok fields)))
-    (aitools.kernel.domain:flow-call
-     (inspect-context-flow boundaries :root root :tx tx :lock-timeout lock-timeout)
-     (:on-ready (context)
-       (let* ((target (probe-target context path))
-                      (path-fields (list* (cons "path" (target-display-path target)) (%path-fields context target))))
-                 (flet ((with-stat (fields)
-                          (multiple-value-bind (mode mtime) (%stat-fields context target)
-                            (append fields
-                                    (list (cons "mode" (json-or-null (and mode (format-file-mode mode))))
-                                          (cons "mtime" (json-or-null (and mtime (iso8601-from-unix mtime)))))))))
-                   (case (file-target-kind target)
-                     (:absent
-                      (if allow-missing
-                          (report-ok (append path-fields (%link-hash-fields context target)))
-                          (aitools.kernel.domain:flow-call
-                           (%read-target-error/k context target nil)
-                           (:on-error (code message &key candidates diagnostics conflicts repairs)
-                             (aitools.kernel.domain:flow-continue
-                              :on-error code message
-                              :candidates candidates
-                              :diagnostics diagnostics
-                              :conflicts conflicts
-                              :repairs repairs)))))
-                     (:file
-                      (aitools.kernel.domain:flow-call
-                       (record-read/k context target)
-                       (:on-recorded ()
-                         (multiple-value-bind (octets problem)
-                             (read-target-octets context target)
-                           (if octets
-                               (let* ((content (%content-fields octets target digest))
-                                      (hash-tail (member "hash" content :key #'car :test #'string=)))
-                                 ;; Keep mode and mtime between layout fields and hash.
-                                 (report-ok (append path-fields
-                                                    (with-stat (ldiff content hash-tail))
-                                                    hash-tail)))
-                               (aitools.kernel.domain:flow-call
-                                (%read-target-error/k context target problem)
-                                (:on-error (code message &key candidates diagnostics conflicts repairs)
-                                  (aitools.kernel.domain:flow-continue
-                                   :on-error code message
-                                   :candidates candidates
-                                   :diagnostics diagnostics
-                                   :conflicts conflicts
-                                   :repairs repairs))))))
-                       (:on-error (code message &key repairs)
-                         (aitools.kernel.domain:flow-continue
-                          :on-error code message :repairs repairs))))
-                     (t
-                      (let ((entry
-       (host-stat (context-host context) (file-target-real target))))
-  ;; hash follows mode and mtime, as it does for a file.
-  (report-ok
-   (append
-    (with-stat
-     (append path-fields
-             (list
-              (cons "size"
-                    (if entry (workspace-entry-size entry) 0)))))
-    (%link-hash-fields context target)))))))))
-     (:on-error (code message &key repairs)
-       (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs)))))
+ (%info-file/k context target path-fields digest
+               &key on-ok on-read-error on-target-error)
+ (aitools.kernel.domain:flow-call
+  (record-read/k context target)
+  (:on-recorded ()
+                (multiple-value-bind (octets problem)
+                    (read-target-octets context target)
+                  (if octets
+                      (let* ((content (%content-fields octets target digest))
+                             (hash-tail (member "hash" content :key #'car :test #'string=)))
+                        ;; Keep mode and mtime between layout fields and hash.
+                        (aitools.kernel.domain:flow-continue
+                         :on-ok
+                         (append path-fields
+                                 (%info-stat-fields context target (ldiff content hash-tail))
+                                 hash-tail)))
+                    (aitools.kernel.domain:flow-call
+                     (%read-target-error/k context target problem)
+                     (:on-error (code message &key candidates diagnostics conflicts repairs)
+                                (aitools.kernel.domain:flow-continue
+                                 :on-target-error code message
+                                 :candidates candidates
+                                 :diagnostics diagnostics
+                                 :conflicts conflicts
+                                 :repairs repairs))))))
+  (:on-error (code message &key repairs)
+             (aitools.kernel.domain:flow-continue
+              :on-read-error code message :repairs repairs))))
+
+(aitools.kernel.domain:define-flow
+ (%info-other/k context target path-fields &key on-ok)
+ (let ((entry (host-stat (context-host context) (file-target-real target))))
+   (aitools.kernel.domain:flow-continue :on-ok
+                                        (append
+                                         (%info-stat-fields context
+                                                            target
+                                                            (append path-fields
+                                                                    (list
+                                                                     (cons
+                                                                      "size"
+                                                                      (if entry
+                                                                          (workspace-entry-size
+                                                                           entry)
+                                                                          0)))))
+                                         (%link-hash-fields context target)))))
+
+(aitools.kernel.domain:define-flow
+ (info-flow boundaries path
+            &key root tx lock-timeout digest allow-missing on-ok on-partial on-error)
+ "`info`. Calls ON-OK (fields) or ON-ERROR."
+ (declare (ignore on-partial) (type function on-ok on-error))
+ (aitools.kernel.domain:flow-call
+  (inspect-context-flow boundaries :root root :tx tx :lock-timeout lock-timeout)
+  (:on-ready (context)
+             (let* ((target (probe-target context path))
+                    (path-fields (list* (cons "path" (target-display-path target))
+                                        (%path-fields context target))))
+               (case (file-target-kind target)
+                 (:absent
+                  (if allow-missing
+                      (aitools.kernel.domain:flow-continue
+                       :on-ok (append path-fields (%link-hash-fields context target)))
+                    (aitools.kernel.domain:flow-call
+                     (%read-target-error/k context target nil)
+                     (:on-error (code message &key candidates diagnostics conflicts repairs)
+                                (aitools.kernel.domain:flow-continue
+                                 :on-error code message
+                                 :candidates candidates
+                                 :diagnostics diagnostics
+                                 :conflicts conflicts
+                                 :repairs repairs)))))
+                 (:file
+                  (aitools.kernel.domain:flow-call
+                   (%info-file/k context target path-fields digest)
+                   (:on-ok (fields)
+                           (aitools.kernel.domain:flow-continue :on-ok fields))
+                   (:on-read-error (code message &key repairs)
+                                   (aitools.kernel.domain:flow-continue
+                                    :on-error code message :repairs repairs))
+                   (:on-target-error (code message &key candidates diagnostics conflicts repairs)
+                                     (aitools.kernel.domain:flow-continue
+                                      :on-error code message
+                                      :candidates candidates
+                                      :diagnostics diagnostics
+                                      :conflicts conflicts
+                                      :repairs repairs))))
+                 (t
+                  ;; PROBE-TARGET classifies NIL real paths as :ABSENT before this arm.
+                  ;; Every target reaching this arm therefore has a resolved real path.
+                  (aitools.kernel.domain:flow-call
+                   (%info-other/k context target path-fields)
+                   (:on-ok (fields)
+                           (aitools.kernel.domain:flow-continue :on-ok fields)))))))
+  (:on-error (code message &key repairs)
+             (aitools.kernel.domain:flow-continue
+              :on-error code message :repairs repairs))))
