@@ -97,4 +97,21 @@
       (expect (second expansion) :to-equal '(marker))
       (expect (first (third expansion)) :to-be :on-ok)
       (expect (first (fourth expansion)) :to-be :on-partial)
-      (expect (first (fifth expansion)) :to-be :on-error))))
+      (expect (first (fifth expansion)) :to-be :on-error)))
+  (it "expands text-view output forwarding"
+    (let ((expansion
+            (macroexpand-1
+             '(aitools.inspect.application::%call-text-view-output-flow
+               (marker)))))
+      (expect (first expansion) :to-be 'aitools.kernel.domain:flow-call)
+      (expect (second expansion) :to-equal '(marker))
+      (expect (first (third expansion)) :to-be :on-ok)
+      (expect (first (fourth expansion)) :to-be :on-partial)
+      (expect (third (third expansion))
+              :to-equal
+              '(aitools.kernel.domain:flow-continue
+                :on-ok aitools.inspect.application::fields))
+      (expect (third (fourth expansion))
+              :to-equal
+              '(aitools.kernel.domain:flow-continue
+                :on-partial aitools.inspect.application::fields)))))

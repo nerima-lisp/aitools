@@ -4,9 +4,9 @@
           :source
           :linux-ci
           :expression-covered
-          13315
+          13316
           :expression-total
-          13315
+          13316
           :branch-covered
           1280
           :branch-total
@@ -51,5 +51,4 @@
            (:kind :branch :package "AITOOLS.INSPECT.DOMAIN" :symbol "DEFINITION" :reason "SB-COVER cannot mark the generated DEFSTRUCT type guard.")
            (:kind :branch :package "AITOOLS.INSPECT.DOMAIN" :symbol "SNAPSHOT-FILE" :reason "SB-COVER cannot mark the generated DEFSTRUCT type guard.")
            (:kind :expression :package "AITOOLS.INSPECT.PRESENTATION" :symbol "*INSPECT-COMMANDS*" :reason "SB-COVER cannot mark the one-time DEFVAR initializer.")
-           (:kind :expression :package "AITOOLS.INSPECT.PRESENTATION" :symbol "INTEGER-OPTION" :reason "SB-COVER cannot mark the omitted keyword default.")
-           (:kind :expression :package "AITOOLS.INSPECT.APPLICATION" :symbol "%CALL-TEXT-VIEW-OUTPUT-FLOW" :reason "SB-COVER cannot mark the compile-time macro expansion template.")))
+           (:kind :expression :package "AITOOLS.INSPECT.PRESENTATION" :symbol "INTEGER-OPTION" :reason "SB-COVER cannot mark the omitted keyword default.")))
