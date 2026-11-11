@@ -7,8 +7,6 @@
    :reason "The DEFVAR initializer runs during initial system loading before counters reset; flow registration behavior is covered by flow specs.")
   (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "JSON-MODEL-ADD"
    :reason "The ARRAY-MODE keyword initializer is exercised by calls that omit the keyword; SB-COVER does not attribute lambda-list initialization forms.")
-  (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "DEFINE-SELECTOR-CONSTRUCTOR"
-   :reason "The macro template is expanded during source loading before runtime counters reset; generated public constructors are covered by selector specs.")
   (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "GENERATE-DIFF-HUNKS"
    :reason "The CONTEXT and FINAL-NEWLINE-A/B defaults are exercised by default-option specs; SB-COVER does not attribute lambda-list initialization forms.")
   (:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "GENERATE-UNIFIED-DIFF"

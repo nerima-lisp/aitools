@@ -34,6 +34,7 @@
                (:file "unit/kernel/flow-test")
                (:file "unit/kernel/path-test")
                (:file "unit/kernel/selector-test")
+               (:file "unit/kernel/selector-expansion-coverage-test")
                (:file "unit/kernel/guard-test")
                (:file "unit/kernel/duration-test")
                (:file "unit/kernel/size-test")
