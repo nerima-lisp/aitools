@@ -117,4 +117,27 @@
         (setf fields (aitools.inspect.application::%op-change context change)))
       (expect (json-object-get fields "diff") :to-be nil)
       (expect (json-object-get fields "content_available") :to-be nil)))
+  (it "scans empty staged file content in strings mode"
+    (let* ((context
+             (%application-edge-inspect-context
+              (make-test-boundaries) :view :mock))
+           (target
+             (aitools.inspect.application::%make-file-target
+              :argument "empty.bin" :absolute "/work/empty.bin"
+              :real "/work/empty.bin" :relative "empty.bin" :kind :file))
+           (empty (%as-octets "")))
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.store.application:view-read-file))
+            (lambda (view path)
+              (declare (ignore view))
+              (expect path :to-equal "empty.bin")
+              empty)))
+        (multiple-value-bind (kind fields)
+            (run-flow #'aitools.inspect.application::%strings-view
+                      context target 4 10)
+          (expect kind :to-be :ok)
+          (expect (field fields "size") :to-be 0)
+          (expect (field fields "strings") :to-be nil)
+          (expect (field fields "total") :to-be 0)))))
 )
