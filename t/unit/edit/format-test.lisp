@@ -140,7 +140,7 @@
             :to-equal "[1,2]")
     (expect (js (json-add (j "[1,2]") (parse-json-pointer "/1") (j "9")))
             :to-equal "[1,9,2]")
-    (expect (json-string-literal (format nil "a~Cb" #\\Newline))
+    (expect (json-string-literal (format nil "a~Cb" #\Newline))
             :to-equal "\"a\\nb\""))
 
   (it-each (("a missing parent below an array" "/a/9/b" "input.not-found")
