@@ -31,23 +31,35 @@
       (dolist (match (list nil "" 7))
         (multiple-value-bind (heading at context failure)
             (aitools.org.infrastructure::%org-selected-heading
-             engine (append options (list :match match)))
+             engine (list :match match :at "2026-10-19T09:00:00"
+                          :tz "UTC" :dst-policy "compatible"))
           (declare (ignore heading at context))
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :argument)))
-      (dolist (invalid-time
-                (list (list :at "bad")
-                      (list :tz "No/Such_Zone")
-                      (list :dst-policy "unknown")))
+      (dolist (invalid-options
+                (list (list :match "/TODO" :at "bad" :tz "UTC"
+                            :dst-policy "compatible")
+                      (list :match "/TODO" :at "2026-10-19T09:00:00"
+                            :tz "No/Such_Zone" :dst-policy "compatible")
+                      (list :match "/TODO" :at "2026-10-19T09:00:00"
+                            :tz "UTC" :dst-policy "unknown")))
         (multiple-value-bind (heading at context failure)
             (aitools.org.infrastructure::%org-selected-heading
-             engine (append options invalid-time))
+             engine invalid-options)
           (declare (ignore heading at context))
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :argument)))
       (multiple-value-bind (heading at context failure)
           (aitools.org.infrastructure::%org-selected-heading
-           engine (append options (list :match "/DONE")))
+           engine (list :match "/TODO" :tz "UTC"
+                        :dst-policy "compatible"))
+        (declare (ignore heading at context))
+        (expect (aitools.org.domain:org-failure-kind failure)
+                :to-be :argument))
+      (multiple-value-bind (heading at context failure)
+          (aitools.org.infrastructure::%org-selected-heading
+           engine (list :match "/DONE" :at "2026-10-19T09:00:00"
+                        :tz "UTC" :dst-policy "compatible"))
         (declare (ignore heading at context))
         (expect (aitools.org.domain:org-failure-kind failure)
                 :to-be :selection-no-match)))
@@ -75,7 +87,7 @@
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :too-large)))))
   (it "uses fresh documents for successful, invalid, and unmatched TODO edits"
-    (let ((source (format nil "#+TODO: TODO | DONE~%* TODO Task~%SCHEDULED: <2026-10-20>~%"))
+    (let ((source (format nil "#+TODO: TODO(t!) | DONE(d@)~%* TODO Task~%SCHEDULED: <2026-10-20>~%"))
           (options (list :match "/TODO" :at "2026-10-19T09:00:00"
                          :tz "UTC" :dst-policy "compatible")))
       (labels ((fresh-engine ()
@@ -108,7 +120,9 @@
         (let ((engine (fresh-engine)))
           (multiple-value-bind (updated fields failure)
               (aitools.org.infrastructure::%org-todo-edit
-               engine (append options (list :match "/ABSENT" :state "DONE")))
+               engine (list :match "/ABSENT" :state "DONE"
+                            :at "2026-10-19T09:00:00"
+                            :tz "UTC" :dst-policy "compatible"))
             (expect updated :to-be nil)
             (expect fields :to-be nil)
             (expect (aitools.org.domain:org-failure-kind failure)
@@ -142,5 +156,34 @@
           (expect fields :to-be nil)
           (expect (aitools.org.domain:org-failure-kind failure)
                   :to-be :too-large))))))
+(describe "Org TODO adapter boundary failures"
+  (it "maps transition time and generic failures"
+    (let* ((document
+             (%org-coverage-document
+              (format nil "#+TODO: TODO | DONE~%* TODO Task~%")))
+           (engine (aitools.org.domain:org-document-engine-value document))
+           (options (list :match "/TODO" :state "DONE"
+                          :at "2026-10-19T09:00:00"
+                          :tz "UTC" :dst-policy "compatible"))
+           (condition-to-signal nil))
+      (cl-weave:with-mocked-functions
+          (((symbol-function 'org-kit:transition-heading-todo)
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              (error condition-to-signal))))
+        (dolist (case
+                  (list (list (make-condition 'org-kit:org-time-error
+                                              :message "transition time")
+                              :argument)
+                        (list (make-condition 'org-kit:org-kit-error
+                                              :message "transition failed")
+                              :internal)))
+          (setf condition-to-signal (first case))
+          (multiple-value-bind (updated fields failure)
+              (aitools.org.infrastructure::%org-todo-edit engine options)
+            (expect updated :to-be nil)
+            (expect fields :to-be nil)
+            (expect (aitools.org.domain:org-failure-kind failure)
+                    :to-be (second case))))))))
 
 

@@ -17,6 +17,8 @@
     (expect (aitools.org.infrastructure::%agenda-repeat-mode "none")
             :to-be :none)
     (expect (aitools.org.infrastructure::%agenda-repeat-mode "sometimes")
+            :to-be nil)
+    (expect (aitools.org.infrastructure::%agenda-repeat-mode 7)
             :to-be nil))
   (it "maps agenda engine conditions"
     (let ((document (%org-coverage-document "* TODO Work")))
