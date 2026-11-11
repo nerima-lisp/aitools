@@ -30,12 +30,6 @@
    :reason "SB-COVER cannot source-map the omitted &key initializer (journal :reread); SBCL evaluates it in generated argument binding rather than the function body.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "CALL-WITH-TEMP-DIR"
    :reason "SB-COVER cannot source-map the omitted &key initializer (mode #o700); SBCL evaluates it in generated argument binding rather than CALL-WITH-TEMP-DIR's body.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-TEMP-DIR"
-   :reason "SB-COVER cannot attribute WITH-TEMP-DIR's expansion-time DEFmacro template forms (let and the backquoted flet plus dynamic-extent declaration) to runtime calls; Store specs exercise the expanded form.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "FAULT-POINT"
-   :reason "SB-COVER cannot attribute the WHEN/APPLY body forms of INLINE FAULT-POINT to their source definition after SBCL expands them at call sites; Store specs exercise both NIL and bound hooks.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%IO"
-   :reason "SB-COVER cannot attribute %IO's DEFmacro template for funcall and boundary-context-require to runtime calls; Store specs exercise the macro expansions.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "RECOVER/K"
    :reason "SB-COVER cannot source-map recover/k's omitted &key initforms for lock-timeout-ms and on-failed; SBCL evaluates them in generated argument binding.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "TX-COMMIT/K"
@@ -56,8 +50,6 @@
    :reason "SB-COVER cannot source-map tx-abort/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+); SBCL evaluates it in generated argument binding.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "UNDO-OP/K"
    :reason "SB-COVER cannot source-map undo-op/k's omitted &key initforms for lock-timeout-ms and rejection continuation fields; SBCL evaluates them in generated argument binding.")
-  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "WITH-PREPARED-INTENT"
-   :reason "SB-COVER cannot attribute WITH-PREPARED-INTENT's expansion-time DEFmacro template forms (let and the backquoted flet/flow-call) to runtime calls; Store specs exercise the expanded form.")
   (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "COMMIT-CHANGES/K"
    :reason "SB-COVER cannot source-map commit-changes/k's omitted &key initializer (lock-timeout-ms +default-lock-timeout-ms+) or the rejection lambda's candidates, diagnostics, conflicts, repairs, and path defaults; SBCL evaluates them in generated argument binding.")
   (:kind :expression :package "aitools.store.domain" :symbol "CHANGES->JSON"

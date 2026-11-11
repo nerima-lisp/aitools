@@ -62,6 +62,7 @@
                         (:file "integration/store-write-coverage-test")
                         (:file "integration/store-write-completion-coverage-test")
                         (:file "integration/store-application-io-final-coverage-test")
+                        (:file "integration/store-macro-expansion-coverage-test")
                         (:file "integration/store-case-collision-test")
                         (:file "integration/store-journal-undo-test")
                         (:file "integration/store-undo-coverage-test")
