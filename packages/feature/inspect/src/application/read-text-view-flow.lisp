@@ -12,23 +12,18 @@ selection fails."
        (path (text-view-options-path options))
        (hash (content-hash octets)))
    (labels ((emit (first shown truncated total errors next &key line-numbers cuts)
-              (aitools.kernel.domain:flow-call
-               (%text-view-emit options
-                                context
-                                hash
-                                escape
-                                first
-                                shown
-                                truncated
-                                total
-                                errors
-                                next
-                                :line-numbers line-numbers
-                                :cuts cuts)
-               (:on-ok (fields)
-                 (aitools.kernel.domain:flow-continue :on-ok fields))
-               (:on-partial (fields)
-                 (aitools.kernel.domain:flow-continue :on-partial fields))))
+              (aitools.kernel.domain:flow-continue
+               :on-ok
+               (%text-view-fields first
+                                  (%text-view-present shown escape)
+                                  line-numbers
+                                  cuts
+                                  total
+                                  hash
+                                  truncated
+                                  errors
+                                  options
+                                  next)))
             (contiguous (lines total start end errors tail)
               (aitools.kernel.domain:flow-call
                (%text-view-contiguous octets

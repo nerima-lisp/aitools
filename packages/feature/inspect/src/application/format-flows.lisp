@@ -23,7 +23,14 @@
      (%yaml-document context target action)))
    ((string= format "toml")
     (%call-document-reader
-     (%toml-document context target action)))))
+     (%toml-document context target action)))
+   (t
+    (aitools.kernel.domain:flow-continue
+     :on-error
+     "argument.invalid"
+     (format nil
+             "Unsupported document format ~S; expected json, yaml, or toml."
+             format)))))
 
 (aitools.kernel.domain:define-flow
  (%call-with-format-file boundaries path format action

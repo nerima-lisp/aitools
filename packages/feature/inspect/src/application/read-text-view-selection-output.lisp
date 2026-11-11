@@ -50,21 +50,18 @@
             (aitools.kernel.domain:flow-continue :on-partial fields)))))
    (destructuring-bind ((start . end)) ranges
      (if (> start end)
-         (aitools.kernel.domain:flow-call
-          (%text-view-emit options
-                           context
-                           hash
-                           escape
-                           start
-                           (vector)
-                           nil
-                           total
-                           errors
-                           nil)
-          (:on-ok (fields)
-            (aitools.kernel.domain:flow-continue :on-ok fields))
-          (:on-partial (fields)
-            (aitools.kernel.domain:flow-continue :on-partial fields)))
+         (aitools.kernel.domain:flow-continue
+          :on-ok
+          (%text-view-fields start
+                             (%text-view-present (vector) escape)
+                             nil
+                             nil
+                             total
+                             hash
+                             nil
+                             errors
+                             options
+                             nil))
        (aitools.kernel.domain:flow-call
         (%text-view-contiguous octets
                                options

@@ -76,7 +76,7 @@
            (push (cons key (%yaml-to-json (cdr pair) (append tokens (list key))))
                  pairs)))
        (json-object-from-pairs (nreverse pairs))))
-    ((and (vectorp value) (not (stringp value)))
+    ((vectorp value)
      (coerce
       (loop for item across value
             for index from 0
@@ -153,7 +153,7 @@
                    child
                    (append tokens (list (princ-to-string index)))
                    visited depth max-depth)))
-        ((yaml-kit:mapping-node-p node)
+        (t
          (let ((seen (make-hash-table :test (function equal))))
            (dolist (pair (yaml-kit:mapping-node-pairs node))
              (let ((key (%yaml-write-key-value (car pair) tokens)))

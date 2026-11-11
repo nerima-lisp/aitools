@@ -73,7 +73,7 @@
           (push (cons key (%toml-to-json item (append tokens (list key)))) pairs))
         value)
        (json-object-from-pairs (nreverse pairs))))
-    ((and (vectorp value) (not (stringp value)))
+    ((vectorp value)
      (coerce
       (loop for item across value for index from 0
             collect (%toml-to-json

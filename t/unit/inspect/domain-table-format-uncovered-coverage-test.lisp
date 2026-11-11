@@ -45,7 +45,13 @@
       (expect (aitools.inspect.domain:table-group-min second-group) :to-be 2)
       (expect (aitools.inspect.domain:table-group-max second-group) :to-be 2)
       (expect (aitools.inspect.domain:table-group-distinct-count first-group) :to-be 1)
-      (expect (aitools.inspect.domain:table-group-distinct-count second-group) :to-be 0))))
+      (expect (aitools.inspect.domain:table-group-distinct-count second-group) :to-be 0)))
+  (it "preserves overlong decimal cells rejected by the JSON reader"
+    (let* ((text (concatenate (quote string) "0." (make-string 1023 :initial-element #\1)))
+           (table (aitools.inspect.domain::%text-table :csv (list (list text)) t))
+           (row (first (aitools.inspect.domain:table-rows table))))
+      (expect (aitools.inspect.domain:table-types table) :to-equal (list "number"))
+      (expect (svref row 0) :to-equal text))))
 
 (describe "remaining TOML and YAML conversion paths"
   (it "converts finite floats and nested vectors in TOML helpers"

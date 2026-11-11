@@ -5,6 +5,25 @@
       (map 'list #'escape-invisible lines)
       (coerce lines 'list)))
 
+(defun %text-view-fields (first texts line-numbers cuts total hash truncated errors options next)
+  (append
+   (list (cons "start_line" first) (cons "lines" texts))
+   (when line-numbers
+     (list (cons "line_numbers" line-numbers)))
+   (when cuts
+     (list (cons "cut_lines" (mapcar #'car cuts))))
+   (list (cons "total_lines" total)
+         (cons "hash" hash)
+         (cons "truncated" (json-bool truncated))
+         (cons "encoding_errors" errors))
+   (when (text-view-options-encoding options)
+     (list
+      (cons "encoding"
+            (encoding-name (text-view-options-encoding options)))))
+   (list (cons "approx_tokens" (%text-approx-tokens texts)))
+   (when next
+     (list (cons "next_commands" next)))))
+
 (aitools.kernel.domain:define-flow
  (%text-view-emit options context
                   hash
@@ -32,22 +51,7 @@
                     (command-line context
                                   (funcall hex-words offset (+ offset 256)))))))
         (fields
-         (append (list (cons "start_line" first) (cons "lines" texts))
-                 (when line-numbers
-                   (list (cons "line_numbers" line-numbers)))
-                 (when cuts
-                   (list (cons "cut_lines" (mapcar #'car cuts))))
-                 (list (cons "total_lines" total)
-                       (cons "hash" hash)
-                       (cons "truncated" (json-bool truncated))
-                       (cons "encoding_errors" errors))
-                 (when (text-view-options-encoding options)
-                   (list
-                    (cons "encoding"
-                          (encoding-name (text-view-options-encoding options)))))
-                 (list (cons "approx_tokens" (%text-approx-tokens texts)))
-                 (when next
-                   (list (cons "next_commands" next))))))
+         (%text-view-fields first texts line-numbers cuts total hash truncated errors options next)))
    (if truncated
        (aitools.kernel.domain:flow-continue :on-partial fields)
      (aitools.kernel.domain:flow-continue :on-ok fields))))

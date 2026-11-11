@@ -89,4 +89,41 @@
               (%as-octets "same text"))))
         (setf fields (aitools.inspect.application::%op-change context change)))
       (expect (json-object-get fields "diff") :to-equal "")
-      (expect (json-object-get fields "content_available") :to-be nil))))
+      (expect (json-object-get fields "content_available") :to-be nil)))
+  (it "preserves classified metadata when a host target disappears during stat collection"
+    (let* ((root-entry
+             (aitools.workspace.application:make-workspace-entry
+              :name "work" :kind :directory))
+           (entry
+             (aitools.workspace.application:make-workspace-entry
+              :name "special" :kind :other :size 4 :mtime 1700000000 :mode #o600))
+           (target-stat-count 0)
+           (boundaries (make-test-boundaries)))
+      (cl-weave:with-mocked-functions
+          (((symbol-function
+             (quote aitools.workspace.application:host-stat))
+            (lambda (host path)
+              (declare (ignore host))
+              (cond ((string= path "/work") root-entry)
+                    ((string= path "/work/special")
+                     (when (<= (incf target-stat-count) 2)
+                       entry))))))
+        (multiple-value-bind (kind fields)
+            (run-flow #'info-flow boundaries "special")
+          (expect kind :to-be :ok)
+          (expect (field fields "kind") :to-equal "other")
+          (expect (json-false-value-p (field fields "exists")) :to-be nil)
+          (expect (field fields "size") :to-be 0)
+          (expect (json-null-value-p (field fields "mode")) :to-be t)
+          (expect (json-null-value-p (field fields "mtime")) :to-be t)))))
+  (it "rejects a document format outside the supported set"
+    (multiple-value-bind (kind fields)
+        (run-flow #'json-get-flow
+                  (make-test-boundaries
+                   :files '(("/work/document.json" . "{\"name\":\"Ada\"}")))
+                  "document.json" "/name" :format "xml")
+      (expect kind :to-be :error)
+      (expect (error-code fields) :to-equal "argument.invalid")
+      (expect (getf fields :message)
+              :to-equal
+              "Unsupported document format \"xml\"; expected json, yaml, or toml."))))
