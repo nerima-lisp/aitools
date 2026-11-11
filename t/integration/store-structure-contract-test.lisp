@@ -80,7 +80,6 @@
                (:branch "aitools.store.domain" "tx-meta")
                (:branch "aitools.store.domain" "tx-op-record")
                (:expression "AITOOLS.STORE.APPLICATION" "COLLECT-GARBAGE")
-               (:expression "AITOOLS.STORE.APPLICATION" "WITH-TEMP-FILE")
                (:expression "AITOOLS.STORE.APPLICATION" "CALL-WITH-TEMP-DIR")
                (:expression "AITOOLS.STORE.APPLICATION" "WITH-TEMP-DIR")
                (:expression "AITOOLS.STORE.APPLICATION" "FAULT-POINT")
