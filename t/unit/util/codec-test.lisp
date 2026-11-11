@@ -17,6 +17,22 @@
   (it "writes lowercase hex pairs and rejects unsupported schemes"
     (expect (encode-octets "hex" (octets 0 15 16 255)) :to-equal "000f10ff")
     (signals type-error (encode-octets "rot13" (octets 97)))))
+(describe "aitools.util.domain codec predicates"
+  (it "covers ASCII whitespace and URL unreserved octets"
+    (let ((whitespace
+            (symbol-function (quote aitools.util.domain::%ascii-whitespace-octet-p)))
+          (unreserved
+            (symbol-function (quote aitools.util.domain::%url-unreserved-p))))
+      (dolist (octet (quote (9 10 13 32)))
+        (expect (funcall whitespace octet) :to-be-truthy))
+      (expect (funcall whitespace 65) :to-be nil)
+      (dolist (octet (quote (65 97 48 45 46 95 126)))
+        (expect (funcall unreserved octet) :to-be-truthy))
+      (expect (funcall unreserved 47) :to-be nil)))
+  (it "covers an unsupported hex digit"
+    (let ((digit-value
+            (symbol-function (quote aitools.util.domain::%hex-digit-value))))
+      (expect (funcall digit-value 103) :to-be nil))))
 
 (describe "aitools.util.domain decode-text"
   (it-property "round-trips generated octet vectors through every codec"

@@ -51,6 +51,7 @@
      (:module "integration" :pathname "integration/" :serial t
       :components
       ((:file "util-cli-test")
-       (:file "util-boundary-contract-test")))
+       (:file "util-boundary-contract-test")
+       (:file "util-presentation-contract-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components ((:file "process-env-util-cases")))))))
