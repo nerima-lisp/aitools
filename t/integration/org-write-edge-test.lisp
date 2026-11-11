@@ -151,3 +151,34 @@
                                     (expect (octets-of "table.org")
                                             :to-equalp
                                             before)))))))
+(describe "Org table sort arguments"
+          (it
+           "rejects an unknown sort type through the application flow without changing the table"
+           (call-with-edit-workspace (lambda () (let* ((boundaries (make-org-write-flow-boundaries))
+                                       (source
+                                        (format nil
+                                                "| A | B |~%|---+---|~%| 1 | 2 |~%")))
+                                  (put "table.org" source)
+                                  (let ((before (octets-of "table.org")))
+                                    (expect
+                                     (org-flow-error-code
+                                      (function
+                                       aitools.org.application:org-table-sort/k)
+                                      boundaries
+                                      :path
+                                      "table.org"
+                                      :table
+                                      1
+                                      :column
+                                      1
+                                      :type
+                                      "unknown"
+                                      :order
+                                      "ascending"
+                                      :root
+                                      *root*)
+                                     :to-equal
+                                     "argument.invalid")
+                                    (expect (octets-of "table.org")
+                                            :to-equalp
+                                            before)))))))

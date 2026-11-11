@@ -54,6 +54,9 @@
      (:module "integration" :pathname "integration/" :serial t
       :components
       ((:file "org-write-flow-test")
+       (:file "org-read-flow-coverage-test")
+       (:file "org-infrastructure-coverage-test")
+       (:file "org-application-coverage-test")
        (:file "org-adapter-validation-test")
        (:file "org-adapter-flow-edge-test")
        (:file "org-dispatch-test")
