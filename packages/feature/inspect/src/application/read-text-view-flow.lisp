@@ -1,4 +1,11 @@
 (in-package #:aitools.inspect.application)
+(defmacro %call-text-view-output-flow (call)
+  `(aitools.kernel.domain:flow-call
+     ,call
+     (:on-ok (fields)
+       (aitools.kernel.domain:flow-continue :on-ok fields))
+     (:on-partial (fields)
+       (aitools.kernel.domain:flow-continue :on-partial fields))))
 
 (aitools.kernel.domain:define-flow
  (text-view/k context octets options &key on-ok on-partial on-error)
@@ -25,7 +32,7 @@ selection fails."
                                   options
                                   next)))
             (contiguous (lines total start end errors tail)
-              (aitools.kernel.domain:flow-call
+              (%call-text-view-output-flow
                (%text-view-contiguous octets
                                       options
                                       max-lines
@@ -37,13 +44,9 @@ selection fails."
                                       start
                                       end
                                       errors
-                                      tail)
-               (:on-ok (fields)
-                 (aitools.kernel.domain:flow-continue :on-ok fields))
-               (:on-partial (fields)
-                 (aitools.kernel.domain:flow-continue :on-partial fields))))
+                                      tail)))
             (selected (lines total ranges errors)
-              (aitools.kernel.domain:flow-call
+              (%call-text-view-output-flow
                (%text-view-selected octets
                                     options
                                     max-lines
@@ -54,13 +57,9 @@ selection fails."
                                     lines
                                     total
                                     ranges
-                                    errors)
-               (:on-ok (fields)
-                 (aitools.kernel.domain:flow-continue :on-ok fields))
-               (:on-partial (fields)
-                 (aitools.kernel.domain:flow-continue :on-partial fields))))
+                                    errors)))
             (window (index total start end tail)
-              (aitools.kernel.domain:flow-call
+              (%call-text-view-output-flow
                (%text-view-indexed-window octets
                                            index
                                            options
@@ -71,11 +70,7 @@ selection fails."
                                            total
                                            start
                                            end
-                                           tail)
-               (:on-ok (fields)
-                 (aitools.kernel.domain:flow-continue :on-ok fields))
-               (:on-partial (fields)
-                 (aitools.kernel.domain:flow-continue :on-partial fields)))))
+                                           tail))))
      (if (or (and selector (not (eq (selector-kind selector) :range)))
              (text-view-options-encoding options)
              escape)
