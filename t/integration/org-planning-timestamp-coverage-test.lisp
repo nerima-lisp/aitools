@@ -38,10 +38,16 @@
   (it "compares calendar dates and accepts one-node time ranges"
     (let ((start (org-kit:make-org-time-value "2026-10-19T09:00:00"))
           (same-day (org-kit:make-org-time-value "2026-10-19T10:00:00"))
-          (next-day (org-kit:make-org-time-value "2026-10-20T09:00:00")))
+          (next-day (org-kit:make-org-time-value "2026-10-20T09:00:00"))
+          (next-month (org-kit:make-org-time-value "2026-11-19T09:00:00"))
+          (next-year (org-kit:make-org-time-value "2027-10-19T09:00:00")))
       (expect (aitools.org.infrastructure::%same-calendar-date-p start same-day)
               :to-be t)
       (expect (aitools.org.infrastructure::%same-calendar-date-p start next-day)
+              :to-be nil)
+      (expect (aitools.org.infrastructure::%same-calendar-date-p start next-month)
+              :to-be nil)
+      (expect (aitools.org.infrastructure::%same-calendar-date-p start next-year)
               :to-be nil))
     (dolist (case (list (list "scheduled" "<2026-10-19 09:00-10:00>")
                         (list "closed" "[2026-10-19 09:00-10:00]")))
@@ -103,5 +109,30 @@
          (aitools.org.infrastructure::%planning-marker-count
           engine heading "SCHEDULED:")
          :to-be (second case))))))
+(describe "Org planning timestamp endpoint kind validation"
+  (it "rejects non-string kinds with a valid timestamp"
+    (multiple-value-bind (view failure)
+        (aitools.org.infrastructure::validate-planning-timestamp
+         7 "<2026-10-19>")
+      (expect view :to-be nil)
+      (expect (aitools.org.domain:org-failure-kind failure)
+              :to-be :argument)))
+  (it "rejects a one-node date range with date endpoints"
+    (let ((timestamp "<2026-10-12 Mon>--<2026-10-14 Wed>"))
+      (multiple-value-bind (node node-failure)
+          (aitools.org.infrastructure::%planning-timestamp-node timestamp)
+        (expect (org-kit:node-type node) :to-be :timestamp)
+        (expect node-failure :to-be nil)
+        (let* ((view (org-kit:timestamp-view node))
+               (start (org-kit:org-timestamp-view-start view))
+               (end (org-kit:org-timestamp-view-end view)))
+          (expect (org-kit:org-time-value-kind start) :to-be :date)
+          (expect (org-kit:org-time-value-kind end) :to-be :date)))
+      (expect
+       (aitools.org.domain:org-failure-kind
+        (nth-value 1
+         (aitools.org.infrastructure::validate-planning-timestamp
+          "scheduled" timestamp)))
+       :to-be :argument))))
 
 
