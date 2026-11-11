@@ -18,21 +18,9 @@
                          (zerop number)
                          (mantissa-nonzero-p))
                 (refuse "argument.invalid" "JSON number cannot be represented."))
-              (when (and (floatp number)
-                         (not (%yaml-finite-float-p number)))
-                (refuse "argument.invalid" "JSON number cannot be represented."))
               number))
         (reader-error ()
           (refuse "argument.invalid" "JSON number cannot be represented."))))))
-
-(defun %yaml-finite-float-p (value)
-  (handler-case
-      (and (= value value)
-           (<= (- most-positive-double-float)
-               value
-               most-positive-double-float))
-    (floating-point-invalid-operation ()
-      nil)))
 
 (defun validate-yaml-write-value (value)
   (labels ((validate (item)
