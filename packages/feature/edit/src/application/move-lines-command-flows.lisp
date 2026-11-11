@@ -1,6 +1,6 @@
 (in-package #:aitools.edit.application)
 
-(define-write-command "move-lines" (ports env positionals options &key on-plan on-error)
+(define-write-command "move-lines" (boundaries env positionals options &key on-plan on-error)
   (let ((source (first positionals))
         (destination (or (getf options :to) (first positionals))))
     (multiple-value-bind (kind argument) (%parse-to-position (or (getf options :to-position) "end"))

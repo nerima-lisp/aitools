@@ -1,7 +1,7 @@
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow
- (run-write-command/k ports
+ (run-write-command/k boundaries
                       write-plan
                       &key
                       root
@@ -23,7 +23,7 @@ the user typed after the program name (for repair commands; defaults to the
 recorded argv). A --dry-run writes nothing, so it needs no --expect-count:
 it reports the count it selected as `expect_count` instead."
  (let* ((command (write-plan-command write-plan))
-        (host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
+        (host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host))
         (first-target (first (write-plan-targets write-plan)))
         (display-path (and first-target (write-target-path first-target)))
         (argv
@@ -74,7 +74,7 @@ it reports the count it selected as `expect_count` instead."
                                                                          (workspace-root)
                                                                        (aitools.kernel.domain:flow-call
                                                                         (%run-resolved
-                                                                         ports
+                                                                         boundaries
                                                                          write-plan
                                                                          workspace-root
                                                                          hash-entries

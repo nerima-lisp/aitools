@@ -101,12 +101,12 @@
                                                                        lexical))))))
 
 (aitools.kernel.domain:define-flow
-    (mktemp-flow ports options &key root on-ok on-error)
+    (mktemp-flow boundaries options &key root on-ok on-error)
   "Create a file (or with --dir a directory) in the workspace's
 tmp/ area, after removing entries there older than 7 days. Not
 journaled; the returned absolute path is a valid write target inside the workspace boundary."
   (let ((suffix (or (getf options :suffix) ""))
-        (host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host)))
+        (host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)))
     (if (or (find #\/ suffix) (find (code-char 0) suffix))
         (aitools.kernel.domain:flow-continue
          :on-error "argument.invalid" "--suffix must not contain / or NUL")
@@ -119,7 +119,7 @@ journaled; the returned absolute path is a valid write target inside the workspa
                       (format nil "workspace root ~A is not a usable directory" path)))
          :on-resolved
          (lambda (workspace-root)
-           (let* ((store (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store)
+           (let* ((store (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
                                   (aitools.workspace.application:workspace-root-real workspace-root)))
                   (tmp
                    (let ((path
@@ -127,7 +127,7 @@ journaled; the returned absolute path is a valid write target inside the workspa
                             (aitools.store.application:store-state-directory store))))
                      (or (aitools.workspace.application:resolve-real-path host path)
                          path)))
-                  (now (funcall (cl-boundary-kit:boundary-context-require ports :edit-unix-now))))
+                  (now (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-unix-now))))
              (aitools.kernel.domain:flow-call
               (%check-mktemp-area/k host workspace-root store tmp)
               (:on-ok ()

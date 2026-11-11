@@ -1,7 +1,7 @@
 (in-package #:aitools.edit.application)
 
 (define-write-command "replace"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       ;; A refusal without its own :PATH is about the first file searched, not the
                       ;; first positional (the pattern), so its default repair names a file.
                       (flet
@@ -96,7 +96,7 @@
                           (if (or (getf options :stdin)
                                   (getf options :stdin-data))
                               (aitools.kernel.domain:flow-call
-                               (read-stdin-json/k ports options)
+                               (read-stdin-json/k boundaries options)
                                (:on-error (code message)
                                           (flow-continue :on-error code message))
                                (:on-json (value text)

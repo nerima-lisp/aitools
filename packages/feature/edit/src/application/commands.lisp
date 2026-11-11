@@ -2,7 +2,7 @@
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow
- (run-edit-command ports name positionals options &key root lock-timeout display-argv on-ok on-partial on-error)
+ (run-edit-command boundaries name positionals options &key root lock-timeout display-argv on-ok on-partial on-error)
  "Run edit command NAME (a dispatch name) and call ON-OK (fields) or
 ON-ERROR (code message &key candidates diagnostics conflicts repairs).
 POSITIONALS are strings; OPTIONS a plist keyed by the spec's option keys
@@ -32,7 +32,7 @@ commands."
               (or repairs (default-repairs code name argv path)))))
      (if (string= name "mktemp")
          (aitools.kernel.domain:flow-call
-           (mktemp-flow ports options :root root)
+           (mktemp-flow boundaries options :root root)
            (:on-ok (fields)
                    (aitools.kernel.domain:flow-continue
                      :on-ok
@@ -48,7 +48,7 @@ commands."
                             conflicts
                             :repairs
                             repairs)))
-         (let ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host)))
+         (let ((host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host)))
            (aitools.workspace.application:call-with-resolved-root/k
              host
              :root
@@ -70,15 +70,15 @@ commands."
              :on-resolved
              (lambda (workspace-root)
                (funcall (gethash name *preparers*)
-                        ports
-                        (make-command-env host workspace-root ports)
+                        boundaries
+                        (make-command-env host workspace-root boundaries)
                         positionals
                         options
                         :on-plan
                         (lambda (plan)
                           (aitools.kernel.domain:flow-call
                             (run-write-command/k
-                              ports
+                              boundaries
                               plan
                               :root
                               root

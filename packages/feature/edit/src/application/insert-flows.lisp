@@ -80,7 +80,7 @@
                                      collect (+ position 1 (* index (length lines))))))))))))))
         (:on-filtered ())))))
 
-(define-write-command "insert" (ports env positionals options &key on-plan on-error)
+(define-write-command "insert" (boundaries env positionals options &key on-plan on-error)
   (let* ((path (first positionals))
          (at (getf options :at))
          (modes
@@ -98,7 +98,7 @@
                         at)))
       (t
        (aitools.kernel.domain:flow-call
-         (read-content-text/k ports options)
+         (read-content-text/k boundaries options)
          (:on-error (code message)
            (flow-continue :on-error code message))
          (:on-text (text)

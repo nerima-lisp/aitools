@@ -27,7 +27,7 @@
       (concatenate 'string to (subseq path (length from)))))
 
 (define-write-command "rm"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (let ((max-entries
                              (parse-count
                               (or (getf options :max-entries) "1000")))
@@ -117,7 +117,7 @@
                                                              paths)))))))
 
 (define-write-command "mkdir"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (if (/= (length positionals) 1)
                           (flow-continue :on-error
                                          "argument.invalid"

@@ -15,7 +15,7 @@ tool creates would be a privilege-escalation surface)."
              value
              :high-bits))))
 (define-write-command "chmod"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (let ((given (remove nil (list (and (getf options :exec) :exec) (and
                                                                                        (getf options :no-exec) :no-exec)
                                                      (and (getf options :mode) :mode)))))
@@ -83,7 +83,7 @@ tool creates would be a privilege-escalation surface)."
                                                    :record-positionals (lambda (paths) paths)))))))
 
 (define-write-command "link"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (if (/= (length positionals) 2)
                           (flow-continue :on-error "argument.invalid" "link takes TARGET and LINK")
                           (let ((target (first positionals)))
@@ -172,8 +172,8 @@ tool creates would be a privilege-escalation surface)."
                                                               (list target (first paths))))))))
 
 (define-write-command "touch"
-                      (ports env positionals options &key on-plan on-error)
-                      (let* ((now (funcall (cl-boundary-kit:boundary-context-require ports :edit-unix-now)))
+                      (boundaries env positionals options &key on-plan on-error)
+                      (let* ((now (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-unix-now)))
                              (mtime
                               (if (getf options :mtime)
                                   (parse-mtime (getf options :mtime))

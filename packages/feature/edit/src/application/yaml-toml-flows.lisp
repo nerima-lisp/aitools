@@ -166,7 +166,7 @@
                            (lambda (paths) (list (first paths))))))
 
 
-(aitools.kernel.domain:define-flow (%format-fmt/k format command ports positionals options &key on-plan on-error)
+(aitools.kernel.domain:define-flow (%format-fmt/k format command boundaries positionals options &key on-plan on-error)
   (let* ((path (first positionals))
          (indent (getf options :indent))
          (indent-width (and indent (ignore-errors (parse-integer indent))))
@@ -196,7 +196,7 @@
          :on-plan
          (%format-plan
           format command path (function identity) options
-          :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
+          :serializer (and boundaries (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))
           :indent-function
           (when (string= format "json")
             (cond

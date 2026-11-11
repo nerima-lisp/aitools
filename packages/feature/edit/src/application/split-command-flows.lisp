@@ -1,6 +1,6 @@
 (in-package #:aitools.edit.application)
 
-(define-write-command "split" (ports env positionals options &key on-plan on-error)
+(define-write-command "split" (boundaries env positionals options &key on-plan on-error)
   (let* ((path (first positionals))
          (methods
           (remove nil

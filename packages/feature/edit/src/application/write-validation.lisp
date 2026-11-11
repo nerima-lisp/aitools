@@ -2,7 +2,7 @@
 
 (aitools.kernel.domain:define-flow
   (%validate-write/k view
-                     ports
+                     boundaries
                      write-plan
                      workspace-root
                      workspace-store
@@ -17,7 +17,7 @@
                      &key
                      on-committed
                      on-rejected)
-  (let* ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
+  (let* ((host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host))
          (targets (write-plan-targets write-plan))
          (command (write-plan-command write-plan))
          (failure-code nil)
@@ -30,7 +30,7 @@
                    view
                    (aitools.store.application:disk-view
                     (if (eq entry-area :temporary)
-                        (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store) temporary-root)
+                        (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-open-store) temporary-root)
                         workspace-store)))))
       (aitools.kernel.domain:flow-call
         (%resolve-targets host workspace-root targets temporary-root)
@@ -167,7 +167,7 @@
 (aitools.kernel.domain:define-flow
   (%dry-run-in-tx/k store
                     tx-id
-                    ports
+                    boundaries
                     write-plan
                     workspace-root
                     workspace-store
@@ -188,7 +188,7 @@
     (:on-view (view)
       (aitools.kernel.domain:flow-call
         (%validate-write/k view
-                           ports
+                           boundaries
                            write-plan
                            workspace-root
                            workspace-store

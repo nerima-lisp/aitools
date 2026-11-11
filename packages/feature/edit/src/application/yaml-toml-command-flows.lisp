@@ -1,7 +1,7 @@
 ;;;; Document write command preparation using the shared JSON operations.
 (in-package #:aitools.edit.application)
 
-(aitools.kernel.domain:define-flow (%format-set/k format command ports positionals options &key on-plan on-error)
+(aitools.kernel.domain:define-flow (%format-set/k format command boundaries positionals options &key on-plan on-error)
   (let ((path (first positionals)))
     (labels ((plan (pointer value saved-options saved-positionals inputs)
                (multiple-value-bind (tokens refusal)
@@ -18,7 +18,7 @@
                         (lambda (document)
                           (json-add document tokens value :array-mode :replace))
                         options
-                        :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
+                        :serializer (and boundaries (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))
                         :repair-pointer tokens
                         :record-options saved-options
                         :record-positionals
@@ -32,7 +32,7 @@
                :on-error "argument.invalid"
                (format nil "~A --stdin reads {\"pointer\",\"value\"}; pass only PATH" (command-display-name command)))
              (aitools.kernel.domain:flow-call
-               (read-stdin-json/k ports options)
+               (read-stdin-json/k boundaries options)
                (:on-error (code message
                    &key candidates diagnostics conflicts repairs path)
                  (aitools.kernel.domain:flow-continue
@@ -73,7 +73,7 @@
                  (format nil "VALUE ~S is not JSON; a string needs JSON quotes"
                          text))))))))))
 
-(aitools.kernel.domain:define-flow (%format-delete/k format command ports positionals options &key on-plan on-error)
+(aitools.kernel.domain:define-flow (%format-delete/k format command boundaries positionals options &key on-plan on-error)
   (if (/= (length positionals) 2)
       (aitools.kernel.domain:flow-continue
         :on-error "argument.invalid"
@@ -89,14 +89,14 @@
               (%format-plan format command (first positionals)
                             (lambda (document) (json-remove document tokens))
                             options
-                            :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
+                            :serializer (and boundaries (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))
                             :repair-pointer tokens
                             :record-positionals
                             (lambda (paths)
                               (list (first paths) (second positionals)))))))))
 
 (aitools.kernel.domain:define-flow
-  (%format-stdin-command format command ports positionals options transform-for
+  (%format-stdin-command format command boundaries positionals options transform-for
                          &key on-plan on-error)
   "Read a JSON merge patch or JSON Patch document from --stdin."
   (cond
@@ -111,7 +111,7 @@
                (command-display-name command))))
     (t
      (aitools.kernel.domain:flow-call
-       (read-stdin-json/k ports options)
+       (read-stdin-json/k boundaries options)
        (:on-error (code message
                    &key candidates diagnostics conflicts repairs path)
                  (aitools.kernel.domain:flow-continue
@@ -127,7 +127,7 @@
            (%format-plan format command (first positionals)
                          (funcall transform-for patch)
                          options
-                         :serializer (and ports (cl-boundary-kit:boundary-context-require ports :edit-serialize-document))
+                         :serializer (and boundaries (cl-boundary-kit:boundary-context-require boundaries :edit-serialize-document))
                          :record-options (inline-stdin-options options text)
                          :record-positionals (lambda (paths) (list (first paths)))
                          :inputs (list text))))))))
@@ -148,35 +148,35 @@
                 :path path))))
 
 (aitools.kernel.domain:define-flow
- (%format-command/k format verb ports positionals options &key on-plan on-error)
+ (%format-command/k format verb boundaries positionals options &key on-plan on-error)
  (let ((command (format nil "doc.~A" verb)))
    (cond
     ((string= verb "set")
      (%with-plan-continuations
-      (%format-set/k format command ports positionals options)))
+      (%format-set/k format command boundaries positionals options)))
     ((string= verb "delete")
      (%with-plan-continuations
-      (%format-delete/k format command ports positionals options)))
+      (%format-delete/k format command boundaries positionals options)))
     ((string= verb "merge")
      (%with-plan-continuations
       (%format-stdin-command
-       format command ports positionals options
+       format command boundaries positionals options
        (lambda (patch)
          (lambda (document)
            (json-merge-patch document patch))))))
     ((string= verb "patch")
      (%with-plan-continuations
       (%format-stdin-command
-       format command ports positionals options
+       format command boundaries positionals options
        (lambda (operations)
          (lambda (document)
            (json-apply-patch document operations))))))
     (t
      (%with-plan-continuations
-      (%format-fmt/k format command ports positionals options))))))
+      (%format-fmt/k format command boundaries positionals options))))))
 
 (aitools.kernel.domain:define-flow
- (%prepare-doc-command/k verb ports positionals options &key on-plan on-error)
+ (%prepare-doc-command/k verb boundaries positionals options &key on-plan on-error)
  (let ((path (first positionals)))
    (cond
     ((null path)
@@ -187,7 +187,7 @@
      (let ((format (document-format path (getf options :format))))
        (if format
            (%with-plan-continuations
-            (%format-command/k format verb ports positionals options))
+            (%format-command/k format verb boundaries positionals options))
          (aitools.kernel.domain:flow-continue
           :on-error "argument.invalid"
           (format nil
@@ -200,10 +200,10 @@
      ,@(loop for verb in (list "set" "delete" "merge" "patch" "fmt")
              collect
              `(define-write-command ,(format nil "doc.~A" verb)
-                                    (ports env positionals options &key on-plan on-error)
+                                    (boundaries env positionals options &key on-plan on-error)
                                     (declare (ignore env))
                                     (aitools.kernel.domain:flow-call
-                                     (%prepare-doc-command/k ,verb ports positionals options)
+                                     (%prepare-doc-command/k ,verb boundaries positionals options)
                                      (:on-plan (plan)
                                                (aitools.kernel.domain:flow-continue :on-plan plan))
                                      (:on-error (code message

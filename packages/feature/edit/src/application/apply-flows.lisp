@@ -3,7 +3,7 @@
 ;;;; against the current files before the store writes any.
 (in-package #:aitools.edit.application)
 
-(define-write-command "apply" (ports env positionals options &key on-plan on-error)
+(define-write-command "apply" (boundaries env positionals options &key on-plan on-error)
                       (cond
                        (positionals (flow-continue :on-error "argument.invalid"
                                                    "apply takes no positional arguments; the diff comes from --stdin"))
@@ -30,7 +30,7 @@
                                                                                 (getf options :strip))))
                            (t
                             (aitools.kernel.domain:flow-call
-                             (read-stdin-text/k ports options)
+                             (read-stdin-text/k boundaries options)
                              (:on-error (code message &key candidates diagnostics conflicts repairs path)
                                         (flow-continue :on-error code message
                                                        :candidates candidates :diagnostics diagnostics

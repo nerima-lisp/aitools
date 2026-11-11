@@ -39,7 +39,7 @@
                                                  (aitools.store.application:view-path-state view path)))))))
 
 
-(define-write-command "archive.create" (ports env positionals options &key on-plan on-error)
+(define-write-command "archive.create" (boundaries env positionals options &key on-plan on-error)
   (let* ((path (first positionals))
          (sources (rest positionals))
          (format

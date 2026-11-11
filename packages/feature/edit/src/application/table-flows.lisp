@@ -1,7 +1,7 @@
 (in-package #:aitools.edit.application)
 
 (define-write-command "table.set"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (let ((path (first positionals)))
                         (flet ((plan (row column value record-options inputs)
                                  (let ((delimiter
@@ -133,7 +133,7 @@
                             ((or (getf options :stdin)
                                  (getf options :stdin-data))
                              (aitools.kernel.domain:flow-call
-                              (read-stdin-json/k ports options)
+                              (read-stdin-json/k boundaries options)
                               (:on-error (code message)
                                          (flow-continue :on-error code message))
                               (:on-json (input text)

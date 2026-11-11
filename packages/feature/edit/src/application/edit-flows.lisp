@@ -80,7 +80,7 @@ by NEW-LINES; an empty range (end = start - 1) inserts before START."
         (:on-filtered ())))))
 
 (define-write-command "edit"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (let ((path (first positionals)))
                         (flet ((plan (edits &key selector record-options inputs)
                                  (flow-continue :on-plan
@@ -122,7 +122,7 @@ by NEW-LINES; an empty range (end = start - 1) inserts before START."
                                                              "--stdin carries old/new or edits[]; do not "
                                                              "combine it with --old, --new or a selector"))
                                                                   (aitools.kernel.domain:flow-call
-                                   (read-stdin-json/k ports options)
+                                   (read-stdin-json/k boundaries options)
                                    (:on-json (value text)
                                      (aitools.kernel.domain:flow-call
                                        (%stdin-edits/k value)

@@ -1,7 +1,7 @@
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow
-  (%run-write-operation/k ports
+  (%run-write-operation/k boundaries
                           store
                           write-plan
                           workspace-root
@@ -62,7 +62,7 @@
            (aitools.kernel.domain:flow-call
              (%dry-run-in-tx/k store
                                tx
-                               ports
+                               boundaries
                                write-plan
                                workspace-root
                                workspace-store
@@ -94,7 +94,7 @@
                (lambda (view commit reject)
                  (aitools.kernel.domain:flow-call
                    (%validate-write/k view
-                                      ports
+                                      boundaries
                                       write-plan
                                       workspace-root
                                       workspace-store
@@ -140,7 +140,7 @@
                  (aitools.kernel.domain:flow-call
                    (%validate-write/k
                      (aitools.store.application:disk-view store)
-                     ports
+                     boundaries
                      write-plan
                      workspace-root
                      workspace-store

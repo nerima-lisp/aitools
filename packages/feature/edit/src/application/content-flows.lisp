@@ -16,7 +16,7 @@
         (incf offset (length piece))))))
 
 (aitools.kernel.domain:define-flow
-  (%write-inputs/k ports options &key on-error on-octets)
+  (%write-inputs/k boundaries options &key on-error on-octets)
   "`write` content: every --content (strings), every --content-file
 (bytes), or --stdin, joined by --separator. ON-OCTETS receives inputs."
   (declare (type function on-error on-octets))
@@ -47,7 +47,7 @@
              (failure nil))
          (dolist (file files)
            (unless failure
-             (read-input-file/k ports
+             (read-input-file/k boundaries
                                 file
                                 :on-octets (lambda (octets) (push octets parts))
                                 :on-error (lambda (code message)
@@ -61,7 +61,7 @@
                  parts)))))
       (t
        (aitools.kernel.domain:flow-call
-         (read-stdin/k ports options)
+         (read-stdin/k boundaries options)
          (:on-octets (octets)
            (aitools.kernel.domain:flow-continue
              :on-octets
@@ -73,7 +73,7 @@
              code
              message)))))))
 
-(define-write-command "write" (ports env positionals options &key on-plan on-error)
+(define-write-command "write" (boundaries env positionals options &key on-plan on-error)
   (let ((path (first positionals)))
     (if (or (null path) (rest positionals))
         (flow-continue
@@ -81,7 +81,7 @@
           "argument.invalid"
           "write takes exactly one path")
         (aitools.kernel.domain:flow-call
-          (%write-inputs/k ports options)
+          (%write-inputs/k boundaries options)
           (:on-octets (octets inputs)
                       (flow-continue
                         :on-plan

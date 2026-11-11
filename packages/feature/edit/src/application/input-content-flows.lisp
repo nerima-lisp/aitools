@@ -1,11 +1,11 @@
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow
-  (read-input-file/k ports path &key on-octets on-error)
+  (read-input-file/k boundaries path &key on-octets on-error)
   "--content-file PATH (relative to the working directory, outside the
 workspace allowed: reads are not bounded by the workspace boundary) as bytes."
-  (let ((source (cl-boundary-kit:boundary-context-require ports :edit-text-source))
-        (absolute (%absolute-input-path ports path)))
+  (let ((source (cl-boundary-kit:boundary-context-require boundaries :edit-text-source))
+        (absolute (%absolute-input-path boundaries path)))
     (multiple-value-bind (size problem) (funcall (cl-boundary-kit:boundary-context-require source :text-file-size) absolute)
       (cond
         ((eq problem :unreadable)
@@ -48,7 +48,7 @@ workspace allowed: reads are not bounded by the workspace boundary) as bytes."
                    path)))))))))
 
 (aitools.kernel.domain:define-flow
-  (read-content/k ports options &key on-content on-error)
+  (read-content/k boundaries options &key on-content on-error)
   "The single content input: exactly one of --content, --content-file,
 --stdin (or --stdin-data). ON-CONTENT (octets source) where SOURCE is
 :CONTENT, :CONTENT-FILE or :STDIN."
@@ -77,7 +77,7 @@ workspace allowed: reads are not bounded by the workspace boundary) as bytes."
             :content))
          (:content-file
           (aitools.kernel.domain:flow-call
-            (read-input-file/k ports (getf options :content-file))
+            (read-input-file/k boundaries (getf options :content-file))
             (:on-octets (octets)
               (aitools.kernel.domain:flow-continue
                 :on-content
@@ -90,7 +90,7 @@ workspace allowed: reads are not bounded by the workspace boundary) as bytes."
                 message))))
          (:stdin
           (aitools.kernel.domain:flow-call
-            (read-stdin/k ports options)
+            (read-stdin/k boundaries options)
             (:on-octets (octets)
               (aitools.kernel.domain:flow-continue
                 :on-content
@@ -103,10 +103,10 @@ workspace allowed: reads are not bounded by the workspace boundary) as bytes."
                 message)))))))))
 
 (aitools.kernel.domain:define-flow
-  (read-content-text/k ports options &key on-text on-error)
+  (read-content-text/k boundaries options &key on-text on-error)
   "READ-CONTENT/K decoded as UTF-8 text (text commands)."
   (aitools.kernel.domain:flow-call
-    (read-content/k ports options)
+    (read-content/k boundaries options)
     (:on-content (octets source)
       (aitools.kernel.domain:flow-call
         (%utf8-text/k octets)

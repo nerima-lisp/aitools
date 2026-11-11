@@ -1,6 +1,6 @@
 (in-package #:aitools.edit.application)
 
-(define-write-command "transform" (ports env positionals options &key on-plan on-error)
+(define-write-command "transform" (boundaries env positionals options &key on-plan on-error)
   (let ((path (first positionals))
         (ops (getf options :op)))
     (let ((invalid-option nil))

@@ -1,7 +1,7 @@
 (in-package #:aitools.edit.application)
 
 (aitools.kernel.domain:define-flow
- (%run-resolved ports
+ (%run-resolved boundaries
                 write-plan
                 workspace-root
                 hash-entries
@@ -13,9 +13,9 @@
                 &key
                 on-ok
                 on-error)
- (let* ((host (cl-boundary-kit:boundary-context-require ports :edit-workspace-host))
+ (let* ((host (cl-boundary-kit:boundary-context-require boundaries :edit-workspace-host))
         (workspace-store
-         (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store)
+         (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-open-store)
                   (aitools.workspace.application:workspace-root-real workspace-root)))
         (temporary-root
          (let ((tmp
@@ -36,7 +36,7 @@
         (t
          (let* ((store
                  (if (eq area :temporary)
-                     (funcall (cl-boundary-kit:boundary-context-require ports :edit-open-store) temporary-root)
+                     (funcall (cl-boundary-kit:boundary-context-require boundaries :edit-open-store) temporary-root)
                      workspace-store))
                 (paths
                  (if (eq area :temporary)
@@ -51,7 +51,7 @@
                                (%record-options write-plan paths)))
                 (extra '()))
            (aitools.kernel.domain:flow-call
-            (%run-write-operation/k ports
+            (%run-write-operation/k boundaries
                                     store
                                     write-plan
                                     workspace-root

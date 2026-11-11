@@ -1,6 +1,6 @@
 (in-package #:aitools.edit.application)
 
-(define-write-command "copy" (ports env positionals options &key on-plan on-error)
+(define-write-command "copy" (boundaries env positionals options &key on-plan on-error)
   (let ((max-bytes
          (handler-case (aitools.kernel.domain:size-bytes
                         (aitools.kernel.domain:parse-size (or (getf options :max-bytes) "1GiB")))

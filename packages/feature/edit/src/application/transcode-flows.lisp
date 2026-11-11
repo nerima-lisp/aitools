@@ -117,7 +117,7 @@
                 (decode-text octets encoding))))))))
 
 (define-write-command "transcode"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (let* ((path (first positionals))
                              (from-name (getf options :from))
                              (to-name (or (getf options :to) "utf-8"))

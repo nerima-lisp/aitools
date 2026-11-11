@@ -95,7 +95,7 @@ root) is refused rather than written. Calls ON-OK after every step is inside."
   (:symlink (aitools.store.domain:symlink-request
              (extract-step-path step) (extract-step-target step)))))
 
-(define-write-command "archive.extract" (ports env positionals options &key on-plan on-error)
+(define-write-command "archive.extract" (boundaries env positionals options &key on-plan on-error)
   (let* ((path (first positionals))
          (destination (getf options :to))
          (max-bytes

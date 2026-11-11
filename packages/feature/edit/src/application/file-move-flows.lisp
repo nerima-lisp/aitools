@@ -31,7 +31,7 @@ entry below DESTINATION, then delete the originals, children first."
     (append (nreverse creates) deletes)))
 
 (define-write-command "move"
-                      (ports env positionals options &key on-plan on-error)
+                      (boundaries env positionals options &key on-plan on-error)
                       (if (/= (length positionals) 2)
                           (flow-continue :on-error
                                          "argument.invalid"

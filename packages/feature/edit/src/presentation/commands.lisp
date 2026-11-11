@@ -93,19 +93,19 @@
                 for value = (option-value invocation (getf option :key))
                 when value append (list (getf option :key) value))))
 
-(defun %handler (spec ports)
+(defun %handler (spec boundaries)
   (lambda (invocation)
     (multiple-value-bind (positionals options) (%invocation-arguments spec invocation)
       (aitools.protocol.application:call-with-command-result/k
        (lambda (&key on-ok on-partial on-error)
          (aitools.edit.application:run-edit-command
-          ports (getf spec :name) positionals options
+          boundaries (getf spec :name) positionals options
           :root (option-value invocation :root)
           :lock-timeout (option-value invocation :lock-timeout)
           :display-argv (rest (cl-cli:invocation-raw-argv invocation))
           :on-ok on-ok :on-partial on-partial :on-error on-error))))))
 
-(defun register-edit-commands (registry ports)
+(defun register-edit-commands (registry boundaries)
   "Register every edit command on REGISTRY using its boundary context."
   (aitools.protocol.application:register-command-declarations
    registry
@@ -118,14 +118,14 @@
                 name
                 (:group group
                  :command-builder
-                 (lambda (command-ports)
+                 (lambda (command-boundaries)
                    (make-command
                     :name cli-name
                     :description (getf spec :summary)
                     :positionals
                     (mapcar (function %cli-positional) (getf spec :positionals))
                     :options (mapcar (function %cli-option) (getf spec :options))
-                    :handler (%handler spec command-ports)))
+                    :handler (%handler spec command-boundaries)))
                  :schema (%schema spec)))))
            (aitools.edit.application:edit-command-specs))
-   ports))
+   boundaries))
