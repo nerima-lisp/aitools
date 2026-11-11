@@ -195,6 +195,4 @@
                                       type
                                       order
                                       start
-                                      end))))
-        (otherwise
-         (values nil nil (%failure :internal "Unknown Org table operation")))))))
+                                      end))))))))

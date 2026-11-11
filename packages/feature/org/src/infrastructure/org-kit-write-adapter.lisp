@@ -16,5 +16,4 @@
     (:planning-delete (%org-planning-edit engine options t))
     (:clock-in (%org-clock-edit engine options :in))
     (:clock-out (%org-clock-edit engine options :out))
-    ((:table-align :table-sort :table-recalculate) (edit-org-table-document engine operation options))
-    (otherwise (values nil nil (%failure :internal "Unknown Org edit operation")))))
+    ((:table-align :table-sort :table-recalculate) (edit-org-table-document engine operation options))))
