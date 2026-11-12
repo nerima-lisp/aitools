@@ -72,25 +72,43 @@
         (aitools.store.application::make-%archive-prefix-cursor :current-identity invalid-identity)))))
 
 (describe "archive prefix cursor handoff cleanup"
-  (it "closes the opened directory when startup unwinds after transfer"
-    (let ((closed nil)
-          (tag (gensym "ARCHIVE-INTERRUPTED"))
-          (template (aitools.store.application::make-%archive-prefix-cursor
-                     :current-fd 9
-                     :current-identity "root")))
-      (let ((aitools.store.application::*fault-hook*
-              (lambda (point &rest details)
-                (declare (ignore details))
-                (when (eq point :archive-prefix-handoff)
-                  (throw tag :interrupted)))))
-        (expect
-         (catch tag
-           (aitools.store.application::%archive-prefix-start
-            template
-            (lambda (&rest arguments)
-              (declare (ignore arguments))
-              (values :directory 17 "root"))
-            (lambda (fd) (push fd closed)))
-           :returned)
-         :to-be :interrupted))
-      (expect closed :to-equal (list 17)))))
+  (it "closes a tracked cursor when startup unwinds after handoff"
+    (call-with-temp-store
+     (lambda (store)
+       (let* ((io (store-boundaries store))
+              (opened 0)
+              (closed 0)
+              (tag (gensym "ARCHIVE-INTERRUPTED"))
+              (tracked-io
+                (cl-boundary-kit:boundary-context-with io
+                 :open-search-root
+                 (lambda (path)
+                   (multiple-value-bind (fd identity)
+                       (funcall (store-operation io :open-search-root) path)
+                     (when fd (incf opened))
+                     (values fd identity)))
+                 :open-search-entry
+                 (lambda (dirfd name path)
+                   (multiple-value-bind (kind fd identity)
+                       (funcall (store-operation io :open-search-entry)
+                                dirfd name path)
+                     (when fd (incf opened))
+                     (values kind fd identity)))
+                 :close-search-directory
+                 (lambda (fd)
+                   (incf closed)
+                   (funcall (store-operation io :close-search-directory) fd))))
+              (tracked-store (make-store tracked-io (store-root store) "/tmp")))
+         (let ((aitools.store.application::*fault-hook*
+                 (lambda (point &rest details)
+                   (declare (ignore details))
+                   (when (eq point :archive-prefix-handoff)
+                     (throw tag :interrupted)))))
+           (expect
+            (catch tag
+              (aitools.store.application:recheck-archive-symlink-targets
+               tracked-store '(("link" . "target")))
+              :returned)
+            :to-be :interrupted))
+         (expect opened :to-be closed)))
+     :io nil)))

@@ -20,6 +20,7 @@
          (root-identity nil)
          (template-fd nil)
          (template nil)
+         (started-cursors nil)
          (ready nil))
     (unless (and (functionp open-root)
                  (functionp open-entry)
@@ -70,10 +71,20 @@
                (lambda (action &optional cursor component)
                  (ecase action
                    (:start
-                    (%archive-prefix-start template open-entry close-directory))
+                    (%archive-prefix-start
+                     template open-entry close-directory
+                     (lambda (started) (push started started-cursors))))
                    (:finish
-                    (%archive-prefix-finish-cursor (or cursor template)
-                                                   close-directory))
+                    (cond
+                      (cursor
+                       (setf started-cursors
+                             (delete cursor started-cursors :test #'eq))
+                       (%archive-prefix-finish-cursor cursor close-directory))
+                      (t
+                       (dolist (started started-cursors)
+                         (%archive-prefix-finish-cursor started close-directory))
+                       (setf started-cursors nil)
+                       (%archive-prefix-finish-cursor template close-directory))))
                    (:enter
                     (%archive-prefix-enter cursor component open-entry
                                            close-directory deletions-visible))

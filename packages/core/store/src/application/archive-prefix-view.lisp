@@ -10,7 +10,7 @@
               (%archive-prefix-cursor-stack cursor) nil
               (%archive-prefix-cursor-finished-p cursor) t))))
   nil)
-(defun %archive-prefix-start (template open-entry close-directory)
+(defun %archive-prefix-start (template open-entry close-directory register-cursor)
   (let ((fd nil)
         (cursor nil)
         (started nil))
@@ -33,8 +33,9 @@
                     :disk-live-p (%archive-prefix-cursor-disk-live-p template)
                     :stack (%archive-prefix-cursor-stack template)))
              (setf fd nil)
-             (fault-point :archive-prefix-handoff)
-             (setf started t))
+             (funcall register-cursor cursor)
+             (setf started t)
+             (fault-point :archive-prefix-handoff))
            cursor)
       (unless started
         (if cursor
