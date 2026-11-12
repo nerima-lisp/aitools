@@ -1,5 +1,4 @@
 (in-package #:aitools.e2e.test)
-
 (defvar *net-e2e-binary* nil)
 (defparameter +net-e2e-timeout-seconds+ 1)
 (defparameter +net-e2e-timeout-margin-seconds+ 1)

@@ -20,11 +20,24 @@
   (declare (ignore timeout))
   (cond
     ((string= method "GET")
-     (list :status 200
-           :headers '(("Content-Type" . "text/plain"))
-           :body (sb-ext:string-to-octets (format nil "fixture response~%")
-                                          :external-format :utf-8)
-           :url uri))
+     (let ((response-mode
+             (or (uiop:getenv "AITOOLS_E2E_NET_RESPONSE_MODE") "")))
+       (list :status 200
+             :headers '(("Content-Type" . "text/plain"))
+             :body
+             (sb-ext:string-to-octets
+              (cond
+                ((string= response-mode "lines")
+                 (format nil "first~%second~%"))
+                ((string= response-mode "long-line")
+                 (concatenate
+                  'string
+                  (make-string 16385 :initial-element #\x)
+                  (string #\Newline)))
+                (t
+                 (format nil "fixture response~%")))
+              :external-format :utf-8)
+             :url uri)))
     ((string= method "HEAD")
      (list :status 200
            :headers '(("Content-Type" . "text/plain"))
@@ -34,7 +47,7 @@
      (error "Unexpected net HTTP method ~S." method))))
 
 (defun net-e2e-lookup (host)
-  (let ((mode (uiop:getenv "AITOOLS_E2E_NET_LOOKUP_MODE")))
+  (let ((mode (or (uiop:getenv "AITOOLS_E2E_NET_LOOKUP_MODE") "")))
     (cond
       ((string= mode "stall")
        (unless (string= host "stall.fixture.invalid")
@@ -63,6 +76,10 @@
              (close stream))
            (sb-bsd-sockets:socket-close socket))
          nil))
+      ((string= mode "loopback")
+       (unless (string= host "stall.fixture.invalid")
+         (error "Unexpected loopback resolver host ~S." host))
+       (list (cons :inet #(127 0 0 1))))
       ((string= mode "resolved")
        (unless (string= host "fixture.example")
          (error "Unexpected fixture resolver host ~S." host))
@@ -73,13 +90,19 @@
 
 (defun net-e2e-dependencies (&rest arguments)
   (declare (ignore arguments))
-  (let* ((boundaries (cl-boundary-kit:make-boundary-context))
+  (let* ((http-mode
+           (or (uiop:getenv "AITOOLS_E2E_NET_HTTP_MODE") "fixture"))
+         (boundaries (cl-boundary-kit:make-boundary-context))
          (resolver
            (aitools.net.infrastructure:make-os-resolver
-            :lookup-function #'net-e2e-lookup)))
+            :lookup-function #'net-e2e-lookup))
+         (http-send
+           (if (member http-mode '("transport" "unavailable") :test #'string=)
+               (aitools.net.infrastructure:make-http-requester resolver)
+             #'net-e2e-http-send)))
     (setf boundaries
           (cl-boundary-kit:boundary-context-with
-           boundaries :net-http-send #'net-e2e-http-send))
+           boundaries :net-http-send http-send))
     (cl-boundary-kit:boundary-context-with
      boundaries :net-resolve resolver)))
 
@@ -91,7 +114,16 @@
     (setf (third registration) (function net-e2e-dependencies)))
   (setf aitools/cli::*application*
         (multiple-value-list (aitools/cli::build-app)))
-  (aitools/cli::image-entry-point))
+  (if (string= (or (uiop:getenv "AITOOLS_E2E_NET_HTTP_MODE") "") "unavailable")
+      (let ((aitools.net.infrastructure::*http-client-send-function*
+              (lambda (&rest arguments)
+                (declare (ignore arguments))
+                (error
+                 (make-condition 'http-kit:http-unsupported-feature
+                                 :message "fixture feature unavailable"
+                                 :feature :fixture)))))
+        (aitools/cli::image-entry-point))
+    (aitools/cli::image-entry-point)))
 
 (defmethod asdf:output-files :around
     ((operation asdf:program-op)

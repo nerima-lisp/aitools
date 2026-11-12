@@ -143,11 +143,13 @@
                                                           (:file "composition-coverage-test")))
                                     ;; Keep the correspondence meta-test last so its cases see earlier rows.
                                     (:module "e2e" :pathname "e2e/" :serial t
-                                             :components ((:file "process-env-host-cases")
+                                             :components ((:file "process-env-host-cases") (:file "sys-source-cases")
                                                          (:file "trace-byte-parity-cases")
                                                          (:file "byte-gate-test")
                                                          (:file "byte-gate-inventory-test" :depends-on ("byte-gate-test"))
-                                                         (:file "net-cases") (:file "meta-test"))))))))
+                                                         (:file "net-cases")
+                                                         (:file "net-http-cases")
+                                                         (:file "retired-command-cases") (:file "meta-test"))))))))
 (defsystem "aitools/test"
            :description "Run shared tests or dynamically discovered context tests."
            :depends-on ("aitools/test/base")

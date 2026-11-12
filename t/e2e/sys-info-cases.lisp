@@ -1,5 +1,4 @@
 (in-package #:aitools.e2e.test)
-
 ;;;; Correspondence table row 41: system and host information, including env query tracing.
 
 (define-row-case (41 "lsof -i's listener is sys ports" :foreign ("lsof")) (ws)
@@ -63,7 +62,11 @@
            (expect (jget item "command") :to-equal "sleep")
            (expect (>= (jget item "rss_bytes") 0) :to-be t)
            (expect (<= 0 (jget envelope "cpu" "busy_percent") 100) :to-be t)
-           (expect (jget envelope "sample_interval_ms") :to-be 1000))
+           (expect (jget envelope "sample_interval_ms") :to-be 1000)
+           (dolist (name '("one_minute" "five_minutes" "fifteen_minutes"))
+              (let ((value (jget envelope "load_average" name)))
+                (expect (realp value) :to-be t)
+                (expect (>= value 0) :to-be t))))
       (sb-ext:process-kill process 9)
       (sb-ext:process-wait process)
       (sb-ext:process-close process))))
@@ -129,3 +132,71 @@
        (let ((result (aitools ws '("--trace" "sys" "tools" "sh") :expect-trace t)))
          (expect (aitools-exit-code result) :to-be 0)
          (expect-child-process-span (aitools-envelope result) "env.system-query" "ok"))))))
+(describe "aitools sys metrics source handling (e2e)"
+  (it "returns unavailable without load averages when the process source is missing"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "host-source specs require the delivered binary"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((missing-ps (native (ws-path ws "missing-ps")))
+              (environment
+                #+linux (list (cons "PATH" (native (workspace-root ws))))
+                #+darwin (list (cons "AITOOLS_DARWIN_PS" missing-ps))
+                #-(or linux darwin) nil)
+              (result (aitools ws '("sys" "metrics") :env environment))
+              (envelope (aitools-envelope result)))
+         (expect (aitools-exit-code result) :to-be 1)
+         (expect (jget envelope "status") :to-equal "error")
+         (expect (jget envelope "error" "code") :to-equal "environment.unavailable")
+         (expect (nth-value 1 (gethash "load_average" envelope)) :to-be nil)))))
+
+  (it "returns unavailable when the process metrics probe exceeds its timeout"
+    (:timeout-ms 90000)
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "host-source specs require the delivered binary"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((marker (native (ws-path ws "ps-started")))
+              (script
+                (format nil "#!/bin/sh~%printf started > ~A~%exec /bin/sleep 62~%"
+                        (aitools.protocol.domain:shell-quote marker)))
+              (ps (put ws "bin/ps" script :mode #o755))
+              (environment
+                #+linux (list (cons "PATH" (native (ws-path ws "bin/"))))
+                #+darwin (list (cons "AITOOLS_DARWIN_PS" (native ps)))
+                #-(or linux darwin) nil)
+              (result (aitools ws '("sys" "metrics") :env environment))
+              (envelope (aitools-envelope result)))
+         (expect (probe-file marker) :to-be-truthy)
+         (expect (aitools-exit-code result) :to-be 1)
+         (expect (jget envelope "status") :to-equal "error")
+         (expect (jget envelope "error" "code") :to-equal "environment.unavailable")
+         (expect (nth-value 1 (gethash "load_average" envelope)) :to-be nil)))))
+
+  (it "returns a continuation command when the process list is limited"
+    (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
+            (and directory (plusp (length directory))))
+      (cl-weave:skip "host-source specs require the delivered binary"))
+    (aitools-binary)
+    (call-with-workspace
+     (lambda (ws)
+       (let* ((script
+                (format nil "#!/bin/sh~%printf '%s\\n' '10 1.0 100 worker-a' '20 2.0 200 worker-b'~%"))
+              (ps (put ws "bin/ps" script :mode #o755))
+              (environment
+                #+linux (list (cons "PATH" (native (ws-path ws "bin/"))))
+                #+darwin (list (cons "AITOOLS_DARWIN_PS" (native ps)))
+                #-(or linux darwin) nil)
+              (result (aitools ws '("sys" "metrics" "--limit" "1") :env environment))
+              (envelope (aitools-envelope result)))
+         (expect (aitools-exit-code result) :to-be 3)
+         (expect (jget envelope "status") :to-equal "partial")
+         (expect (jget envelope "total") :to-be 2)
+         (expect (length (jlist (jget envelope "items"))) :to-be 1)
+         (expect (jget envelope "truncated") :to-be t)
+         (expect (jlist (jget envelope "next_commands"))
+                 :to-equal (list "aitools sys metrics --limit 2")))))))
