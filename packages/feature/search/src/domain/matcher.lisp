@@ -86,7 +86,7 @@ maps KELVIN SIGN to `k` and LONG S to `s`."
   (cl-regex-kit:compile-byte-regex source :case-insensitive ignore-case :multi-line t :crlf t
                                           :never-newline (not multiline)))
 
-(defun %program-literal (regex source ignore-case multiline)
+(defun %program-literal (regex source ignore-case multiline compile)
   "(VALUES literal fold) for a compiled pattern. Under `--ignore-case` the
 kit derives no literal, so the literals of the same pattern compiled
 case-sensitively are searched for ASCII-case-insensitively instead."
@@ -94,9 +94,14 @@ case-sensitively are searched for ASCII-case-insensitively instead."
     (cond
       (literals (values (%literal-octets (first literals)) nil))
       (ignore-case
-       (let* ((sensitive (%compile source nil multiline))
-              (folded (%fold-literal (cl-regex-kit:regex-required-literals sensitive))))
-         (values folded (and folded t))))
+       (handler-case
+           (let* ((sensitive (funcall compile source nil multiline))
+                  (folded
+                    (%fold-literal
+                     (cl-regex-kit:regex-required-literals sensitive))))
+             (values folded (and folded t)))
+         (cl-regex-kit:cl-regex-kit-error ()
+           (values nil nil))))
       (t (values nil nil)))))
 
 (aitools.kernel.domain:define-flow
@@ -122,7 +127,7 @@ pattern cl-regex-kit rejects."
                                      failure-message (princ-to-string condition))
                                nil))))
                (unless failed-p
-                 (multiple-value-bind (literal fold) (%program-literal regex source ignore-case multiline)
+                 (multiple-value-bind (literal fold) (%program-literal regex source ignore-case multiline #'%compile)
                    (push (%make-program regex literal fold
                                         (coerce (cl-regex-kit:regex-capture-names regex) 'simple-vector)
                                         (cl-regex-kit:regex-group-count regex))

@@ -143,12 +143,14 @@
       (expect (aref (aitools.search.domain::program-names named) 1) :to-equal "name")
       (multiple-value-bind (literal fold)
           (funcall (symbol-function 'aitools.search.domain::%program-literal)
-                   (aitools.search.domain::program-regex direct) "needle" nil nil)
+                   (aitools.search.domain::program-regex direct) "needle" nil nil
+                   #'aitools.search.domain::%compile)
         (expect (equalp literal (%bytes "needle")) :to-be t)
         (expect fold :to-be nil))
       (multiple-value-bind (literal fold)
           (funcall (symbol-function 'aitools.search.domain::%program-literal)
-                   (aitools.search.domain::program-regex folded) "SKIP_THIS" t nil)
+                   (aitools.search.domain::program-regex folded) "SKIP_THIS" t nil
+                   #'aitools.search.domain::%compile)
         (expect (equalp literal (%bytes "ip_thi")) :to-be t)
         (expect fold :to-be t)))
     (let ((aitools.search.domain:*regex-run-deadline* nil))
@@ -206,5 +208,16 @@
     (signals type-error
       (aitools.search.domain::%make-program nil (read-from-string "\"literal\"") nil #() 0))
     (signals type-error
-      (aitools.search.domain::%make-file-outcome (read-from-string "\"octets\"") '() 0 0 '()))))
+      (aitools.search.domain::%make-file-outcome (read-from-string "\"octets\"") '() 0 0 '())))
+  (it "returns no prefilter when case-sensitive recompilation fails"
+    (let* ((program (svref (matcher-programs (matcher '("a*") :ignore-case t)) 0))
+           (regex (aitools.search.domain::program-regex program)))
+      (multiple-value-bind (literal fold)
+          (funcall (symbol-function 'aitools.search.domain::%program-literal)
+                   regex "a*" t nil
+                   (lambda (&rest arguments)
+                     (declare (ignore arguments))
+                     (error 'cl-regex-kit:cl-regex-kit-error)))
+        (expect literal :to-be nil)
+        (expect fold :to-be nil)))))
 
