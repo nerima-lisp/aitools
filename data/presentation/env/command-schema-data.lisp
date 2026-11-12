@@ -113,7 +113,7 @@
                      (:name "items" :description "[{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU.")
                      (:name "total" :description "Process count before --limit.")
                      (:name "truncated" :description "Present and true when processes were cut at --limit."))
-     :error-codes ("environment.unavailable" "internal.unexpected"))
+     :error-codes ("argument.invalid" "environment.unavailable" "internal.unexpected"))
     (:name "sys.ports"
      :summary "List TCP sockets in LISTEN state with the owning process."
      :description "Linux reads /proc/net/tcp and tcp6 and maps socket inodes through /proc/<pid>/fd (other users' processes stay null without privileges); Darwin runs lsof. One missing Linux family source returns partial (exit 3), even with no observed listeners; both missing returns environment.unavailable. Missing does not distinguish disabled support from permission or read failure. The wildcard address is 0.0.0.0 or ::."

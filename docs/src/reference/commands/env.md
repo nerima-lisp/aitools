@@ -101,7 +101,7 @@ CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes 
 | `total` | Process count before --limit. |
 | `truncated` | Present and true when processes were cut at --limit. |
 
-Errors: `environment.unavailable`, `internal.unexpected`.
+Errors: `argument.invalid`, `environment.unavailable`, `internal.unexpected`.
 
 ### `sys network` {#sys-network}
 
