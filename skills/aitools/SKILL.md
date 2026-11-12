@@ -2,7 +2,7 @@
 name: aitools
 description: Use when aitools is available for file and text operations, structured documents and Markdown, host inspection, HTTP requests, DNS lookups, guarded edits, transactions, or running installed programs with `run`.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # aitools
