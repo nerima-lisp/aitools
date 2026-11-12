@@ -119,9 +119,11 @@ would turn load into environment.unavailable.")
   (cond ((string-equal sysname "Linux") :linux)
         ((string-equal sysname "Darwin") :darwin)))
 
-(defun %run-output (boundaries program arguments)
+(defun %run-output (boundaries program arguments
+                    &optional (timeout-seconds *source-timeout-seconds*))
   "STDOUT of PROGRAM when it ran and exited 0, else NIL."
-  (multiple-value-bind (status exit-code stdout) (%run boundaries program arguments *source-timeout-seconds*)
+  (multiple-value-bind (status exit-code stdout)
+      (%run boundaries program arguments timeout-seconds)
     (and (eq status :exited) (eql exit-code 0) stdout)))
 
 (aitools.kernel.domain:define-flow
@@ -137,24 +139,25 @@ would turn load into environment.unavailable.")
 
 ;;; ---------------------------------------------------------------- sys info
 
-(defun %cpus-and-memory (boundaries os &key strict)
+(defun %cpus-and-memory (boundaries os &key strict
+                                             (timeout-seconds *source-timeout-seconds*))
   "(VALUES CPUS MEMORY-TOTAL MEMORY-AVAILABLE), each NIL when unknown."
   (case os
     (:linux
      (let ((cpuinfo (%read-text boundaries "/proc/cpuinfo"))
            (meminfo (%read-text boundaries "/proc/meminfo")))
        (multiple-value-bind (total available)
-         (if meminfo
-             (aitools.env.domain:parse-meminfo meminfo :strict strict)
-             (values nil nil))
+           (if meminfo
+               (aitools.env.domain:parse-meminfo meminfo :strict strict)
+               (values nil nil))
          (values (and cpuinfo
                       (let ((count (aitools.env.domain:count-cpuinfo-processors cpuinfo)))
                         (and (plusp count) count)))
                  total available))))
     (:darwin
-     (let* ((sysctl (%run-output boundaries (%darwin-program :sysctl) '("-n" "hw.ncpu" "hw.memsize")))
+     (let* ((sysctl (%run-output boundaries (%darwin-program :sysctl) '("-n" "hw.ncpu" "hw.memsize") timeout-seconds))
             (lines (and sysctl (aitools.env.domain:parse-sysctl-values sysctl)))
-            (vm-stat (%run-output boundaries (%darwin-program :vm-stat) '())))
+            (vm-stat (%run-output boundaries (%darwin-program :vm-stat) '() timeout-seconds)))
        (flet ((integer-at (index)
                 (let ((text (nth index lines)))
                   (and text (aitools.env.domain:ascii-digits-p text) (parse-integer text)))))

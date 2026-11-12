@@ -37,6 +37,8 @@
   one-, five-, and fifteen-minute load averages, and returns
   `environment.unavailable` when a CPU, load-average, memory, or process source
   is missing or malformed.
+- Add `sys metrics --timeout` with a 60-second default per subprocess source,
+  including process listing.
 - Command timeouts are scoped: `run` defaults to `120s`, `wait` to `60s`, and
   `net get`, `net head`, and `net resolve` to `30s`; see the [process reference](docs/src/reference/commands/process.md)
   and [net reference](docs/src/reference/commands/net.md) for options and values.

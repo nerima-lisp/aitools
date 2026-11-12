@@ -140,39 +140,52 @@ userspace tick (USER_HZ) at 100."
   nil)
 
 (aitools.kernel.domain:define-flow
-    (sys-metrics/k boundaries &key (limit 20) on-ok on-partial on-error)
-  (let* ((os (%os-kind (nth-value 0 (%system-identity boundaries))))
-         (cpu (%metrics-cpu boundaries os))
-         (load-average (%load-average boundaries os)))
-    (multiple-value-bind (cpus total available)
-        (%cpus-and-memory boundaries os :strict t)
-      (let* ((program
-               (progn
-                 #+linux
-                 (and (eq os :linux) (find-executable boundaries "ps"))
-                 #+darwin
-                 (and (eq os :darwin) (%darwin-program :ps boundaries))
-                 #-(or linux darwin)
-                 nil))
-             (records
-               (and program
-                    (aitools.env.domain:parse-process-metrics
-                     (%run-output boundaries program '("-ax" "-o" "pid=,pcpu=,rss=,comm="))))))
-        (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
-                      available (<= 0 available total) records))
-            (aitools.kernel.domain:flow-continue
-             :on-error
-             "environment.unavailable"
-             "CPU, load average, memory, or process metrics source is unavailable or malformed")
-            (let* ((sorted
+ (sys-metrics/k boundaries &key (limit 20) (timeout "60s") on-ok on-partial on-error)
+ (let* ((timeout-seconds (%snapshot-timeout-seconds timeout)))
+   (if (null timeout-seconds)
+       (aitools.kernel.domain:flow-continue
+        :on-error
+        "argument.invalid"
+        (format nil "--timeout: not a positive finite duration: ~S" timeout)
+        :repairs
+        (list (repair "fix-duration"
+                      "Durations are positive <number>ms|s|m|h|d."
+                      "aitools sys metrics --timeout 60s")))
+     (let* ((os (%os-kind (nth-value 0 (%system-identity boundaries))))
+            (cpu (%metrics-cpu boundaries os))
+            (load-average (%load-average boundaries os)))
+       (multiple-value-bind (cpus total available)
+           (%cpus-and-memory boundaries os :strict t :timeout-seconds timeout-seconds)
+         (let* ((program
+                 (progn
+                   #+linux
+                   (and (eq os :linux) (find-executable boundaries "ps"))
+                   #+darwin
+                   (and (eq os :darwin) (%darwin-program :ps boundaries))
+                   #-(or linux darwin)
+                   nil))
+                (records
+                 (and program
+                      (aitools.env.domain:parse-process-metrics
+                       (%run-output boundaries
+                                    program
+                                    '("-ax" "-o" "pid=,pcpu=,rss=,comm=")
+                                    timeout-seconds)))))
+           (if (not (and cpu load-average cpus (plusp cpus) total (plusp total)
+                         available (<= 0 available total) records))
+               (aitools.kernel.domain:flow-continue
+                :on-error
+                "environment.unavailable"
+                "CPU, load average, memory, or process metrics source is unavailable or malformed")
+             (let* ((sorted
                      (stable-sort
                       records
                       (lambda (a b)
                         (if (= (getf a :cpu-percent) (getf b :cpu-percent))
                             (< (getf a :pid) (getf b :pid))
-                            (> (getf a :cpu-percent) (getf b :cpu-percent))))))
-                   (count (length sorted))
-                   (fields
+                          (> (getf a :cpu-percent) (getf b :cpu-percent))))))
+                    (count (length sorted))
+                    (fields
                      (list
                       (cons "sample_interval_ms" 1000)
                       (cons "cpu"
@@ -205,13 +218,16 @@ userspace tick (USER_HZ) at 100."
                                    (cons "cpu_percent" (getf record :cpu-percent))
                                    (cons "rss_bytes" (getf record :rss-bytes)))))
                       (cons "total" count))))
-              (if (> count limit)
-                  (aitools.kernel.domain:flow-continue
-                   :on-partial
-                   (append
-                    fields
-                    (list
-                     (cons "truncated" t)
-                     (cons "next_commands"
-                           (list (format nil "aitools sys metrics --limit ~D" count))))))
-                  (aitools.kernel.domain:flow-continue :on-ok fields))))))))
+               (if (> count limit)
+                   (aitools.kernel.domain:flow-continue
+                    :on-partial
+                    (append
+                     fields
+                     (list
+                      (cons "truncated" t)
+                      (cons "next_commands"
+                            (list
+                             (format nil "aitools sys metrics --limit ~D --timeout ~A"
+                                     count timeout)))))
+                    (aitools.kernel.domain:flow-continue :on-ok fields))))))))))
+ )

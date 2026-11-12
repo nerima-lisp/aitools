@@ -65,14 +65,19 @@
    (list
     (make-option
      :name "limit" :kind :value :type :integer :min 1 :default 20
-     :description "Maximum processes, ordered by CPU usage."))
+     :description "Maximum processes, ordered by CPU usage.")
+    (make-option
+     :name "timeout" :kind :value :value-name "DURATION" :default "60s"
+     :description "Per-subprocess source time limit."))
    :handler
    (lambda (invocation)
      (%run-flow #'aitools.env.application:sys-metrics/k
                  '(:on-ok :on-partial :on-error)
                  boundaries
                  :limit
-                 (option-value invocation :limit)))))
+                 (option-value invocation :limit)
+                 :timeout
+                 (option-value invocation :timeout)))))
 
 (defun %sys-network-command (boundaries)
   (make-command

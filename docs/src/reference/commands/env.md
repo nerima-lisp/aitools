@@ -83,11 +83,12 @@ Errors: `environment.unavailable`, `internal.unexpected`.
 
 Sample CPU, memory, load average, and process metrics once without an interactive display.
 
-CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach CPU counters, reads vm.loadavg through a sysctl MIB, and runs sysctl and vm_stat for CPU count and memory; both use ps for processes. Each subprocess has a 60-second timeout. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed CPU, load-average, memory, or process source is an error. More processes than --limit give partial, truncated true, exit 3.
+CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes iowait from busy). Linux reads /proc; Darwin samples Mach CPU counters, reads vm.loadavg through a sysctl MIB, and runs sysctl and vm_stat for CPU count and memory; both use ps for processes. Each subprocess has a 60-second timeout by default; --timeout changes this limit. Process CPU uses a different time basis: lifetime average on Linux, decaying average over up to about one minute on Darwin; 100% represents one CPU and values may exceed 100%. Commands are executable names, not argument vectors. Any unavailable or malformed CPU, load-average, memory, or process source is an error. More processes than --limit give partial, truncated true, exit 3.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `--limit` | integer | `20` | Maximum process items (at least 1), sorted by CPU descending then PID ascending. |
+| `--timeout` | duration | `60s` | Per-subprocess source limit; default 60 seconds. |
 
 | Output field | Description |
 |---|---|
