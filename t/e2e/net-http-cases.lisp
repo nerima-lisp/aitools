@@ -114,7 +114,7 @@
                      (aitools
                       ws
                       (list "net" command
-                            "http://stall.fixture.invalid/resource")
+                            "http://stall.fixture.invalid/resource" "--timeout" "1s")
                       :env '(("AITOOLS_E2E_NET_HTTP_MODE" . "unavailable")
                              ("AITOOLS_E2E_NET_LOOKUP_MODE" . "loopback"))))
                    (envelope (aitools-envelope result)))
