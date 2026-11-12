@@ -162,11 +162,14 @@
      (lambda (ws)
        (let* ((marker (native (ws-path ws "ps-started")))
               (script
-                (format nil "#!/bin/sh~%printf started > ~A~%/bin/sleep 10~%printf '4242 0.0 4 worker\\n'~%"
+                (format nil "#!/bin/sh~%printf started > ~A~%sleep 10~%printf '4242 0.0 4 worker\\n'~%"
                         (aitools.protocol.domain:shell-quote marker)))
               (ps (put ws "bin/ps" script :mode #o755))
               (environment
-                #+linux (list (cons "PATH" (native (ws-path ws "bin/"))))
+                #+linux (list (cons "PATH"
+                    (format nil "~A:~A"
+                            (native (ws-path ws "bin/"))
+                            (or (uiop:getenv "PATH") ""))))
                 #+darwin (list (cons "AITOOLS_DARWIN_PS" (native ps)))
                 #-(or linux darwin) nil)
               (result (aitools ws (quote ("sys" "metrics" "--timeout" "1s")) :env environment))
