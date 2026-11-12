@@ -1,8 +1,8 @@
 (:context :store
  :state :measured
  :source :linux-ci
- :expression-covered 8746
- :expression-total 8746
+ :expression-covered 8763
+ :expression-total 8763
  :branch-covered 862
  :branch-total 862
  :coverage-exclusions
@@ -65,4 +65,5 @@
   (:kind :expression :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "MAKE-POSIX-STORE-IO"
    :reason "SB-COVER cannot source-map the :mkdir lambda's omitted &key initializer (mode #o777); SBCL evaluates it in generated argument binding." :expected-uncovered-count 1)
   (:kind :expression :package "AITOOLS.STORE.INFRASTRUCTURE" :symbol "%OPEN-DIRECTORY-AT"
-   :reason "SB-COVER cannot source-map %OPEN-DIRECTORY-AT's omitted &key initializer (follow nil); SBCL evaluates it in generated argument binding." :expected-uncovered-count 1)))
+   :reason "SB-COVER cannot source-map %OPEN-DIRECTORY-AT's omitted &key initializer (follow nil); SBCL evaluates it in generated argument binding." :expected-uncovered-count 1)
+  (:kind :expression :package "AITOOLS.STORE.APPLICATION" :symbol "%ARCHIVE-PREFIX-START" :reason "The spec `closes a tracked cursor when startup unwinds after handoff` drives cleanup through a non-local exit; SB-COVER does not mark the unwind-protect cleanup expressions reached by that exit." :expected-uncovered-count 3)))
