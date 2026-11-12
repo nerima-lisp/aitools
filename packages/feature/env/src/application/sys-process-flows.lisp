@@ -228,6 +228,6 @@ userspace tick (USER_HZ) at 100."
                       (cons "next_commands"
                             (list
                              (format nil "aitools sys metrics --limit ~D --timeout ~A"
-                                     count timeout)))))
-                    (aitools.kernel.domain:flow-continue :on-ok fields))))))))))
+                                     count timeout))))))
+                 (aitools.kernel.domain:flow-continue :on-ok fields)))))))))
  )
