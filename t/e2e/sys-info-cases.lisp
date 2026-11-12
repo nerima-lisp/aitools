@@ -175,9 +175,12 @@
               (result (aitools ws (quote ("sys" "metrics" "--timeout" "1s")) :env environment))
               (envelope (aitools-envelope result)))
          (expect (probe-file marker) :to-be-truthy)
-         (expect (aitools-exit-code result) :to-be 1)
-         (expect (jget envelope "status") :to-equal "error")
-         (expect (jget envelope "error" "code") :to-equal "environment.unavailable")
+         (expect
+           (list (aitools-exit-code result)
+                 (jget envelope "status")
+                 (jget envelope "error" "code"))
+           :to-equal
+           (list 1 "error" "environment.unavailable"))
          (expect (nth-value 1 (gethash "load_average" envelope)) :to-be nil)))))
 
   (it "returns a continuation command when the process list is limited"
