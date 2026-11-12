@@ -87,7 +87,6 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PUSH_BEFORE: ${{ github.event.before }}
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -111,7 +110,24 @@ jobs:
               base_sha="$PUSH_BEFORE"
               ;;
             pull_request)
-              base_sha="$PULL_REQUEST_BASE_SHA"
+              if ! merge_line="$(git rev-list --parents -n 1 "$HEAD_SHA")"; then
+                echo "could not resolve the pull request merge commit's parents." >&2
+                exit 1
+              fi
+
+              merge_sha=''
+              first_parent=''
+              second_parent=''
+              extra_parent=''
+              read -r merge_sha first_parent second_parent extra_parent <<< "$merge_line"
+
+              if [[ "$merge_sha" != "$HEAD_SHA" || -z "$first_parent" || -z "$second_parent" || -n "$extra_parent" ]] ||
+                ! is_commit_sha "$first_parent" || ! is_commit_sha "$second_parent"; then
+                echo "pull request head is not a resolvable two-parent merge commit." >&2
+                exit 1
+              fi
+
+              base_sha="$first_parent"
               ;;
             workflow_dispatch)
               if ! base_sha="$(git merge-base "$HEAD_SHA" refs/remotes/origin/main)"; then

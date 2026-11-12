@@ -121,11 +121,12 @@ and the delivery build before its 30-minute spec timeout begins.
 without building them, then builds the Linux lint, docs, and formatting checks.
 Actions checks out a clean tree, so the check compares the event's commit range
 explicitly. The Linux static job fetches full history and runs the check once.
-Pushes compare the previous ref tip with the pushed commit. Pull requests
-compare the base commit from the event with the PR merge commit. Manual runs
-compare the merge base with `origin/main` to the dispatched commit. The check
-fails if it cannot resolve a base or head commit, including an initial push
-with no previous commit.
+Pushes compare the previous ref tip with the pushed commit. Pull requests use
+the first parent of the event's two-parent merge commit as the base. Manual
+runs compare the merge base with `origin/main` to the dispatched commit. The
+check fails if it cannot resolve a base or head commit, including an initial
+push with no previous commit or a pull request head without exactly two
+resolvable parents.
 The workflow grants only `contents: read`, and checkout does not persist its
 token in `.git/config`. Pull-request runs can pull from Cachix but cannot write;
 only non-pull-request events on `main` can write to the cache.
