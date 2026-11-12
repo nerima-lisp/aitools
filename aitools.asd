@@ -2,9 +2,9 @@
 ;;;; only when it reads this file itself. Other readers use the current
 ;;;; package, so unqualified defsystem can fail; see docs/src/reference/architecture.md.
 (in-package #:asdf-user)
-;; Context systems live in their own ASDF files under packages/.  ASDF's
-;; source registry does not discover this repository's two-level layout, so
-;; the aggregate system registers those definitions before referring to them.
+;; Slash-qualified context system names use "aitools" as their ASDF primary.
+;; ASDF finds their definitions through this primary system file, so preload
+;; the context ASD forms before declaring systems that depend on them.
 (let ((root (make-pathname :name nil :type nil :defaults *load-truename*)))
   (dolist (pathname (directory (merge-pathnames "packages/*/*/*.asd" root)))
     (load pathname)))
