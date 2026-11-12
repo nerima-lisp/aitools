@@ -73,8 +73,8 @@ JSON results appear only after all specs finish. If the run is interrupted,
 use stderr's `[start]` and `[end]` lines to identify the last attempted spec;
 an incomplete run is not a passing gate.
 
-The Linux `checks.x86_64-linux.default` test gate uses
-`timeoutSeconds = 1800`. The host runner uses
+The Linux `checks.x86_64-linux.default` and `checks.x86_64-linux.coverage`
+test gates use `timeoutSeconds = 1800`. The host runner uses
 `timeout -k 30s 1800s`: it sends the timeout signal after 1800 seconds and
 forces termination after another 30 seconds if the process is still running.
 
@@ -90,6 +90,7 @@ by platform:
 | Check | What it runs |
 |---|---|
 | `checks.x86_64-linux.default` | The full Nix test suite against the pinned dependencies. `CL_PROCESS_KIT_SPAWN` is set so the `bg` specs run, and `AITOOLS_E2E_BINARY` points `t/e2e/` at the delivered package. |
+| `checks.x86_64-linux.coverage` | The full suite with `AITOOLS_COVERAGE=1`, using the same delivered package and test dependencies. |
 | `checks.aarch64-darwin.default` | Delivery artifacts: the host test runner and spawn helper must be executable, and the delivered binary's `schema` must return `status: ok` with nonempty, uniquely named commands. It does not run the full suite. |
 | `checks.<system>.paredit-lint` | paredit-cli's structural lint over every Lisp source in the filtered distribution tree: delimiters must balance. It does not check layout. |
 | `checks.<system>.formatting` | treefmt over the Nix sources. |
@@ -100,16 +101,27 @@ mandatory Seatbelt policy. On Darwin, `nix flake check` therefore checks
 delivery artifacts, Lisp syntax, docs, and formatting; run `nix run .#test`
 as well for the full suite on the host against that delivery.
 
-CI (`.github/workflows/ci.yml`) requires both platform jobs:
+CI (`.github/workflows/ci.yml`) splits the suite, static checks, and allocation
+measurements so each has its own job limit:
 
-| Runner | Required gates |
-|---|---|
-| `ubuntu-latest` (`x86_64-linux`) | `nix flake check --print-build-logs`, including the full Nix test suite. |
-| `macos-15` (ARM, `aarch64-darwin`) | `nix flake check --print-build-logs` for delivery, syntax, docs, and formatting, then `nix run .#test --print-build-logs` for every spec on the host against the same flake's delivered binary. |
+| Job | Runner | Gates | Job timeout |
+|---|---|---|---|
+| `check` | `ubuntu-latest` (`x86_64-linux`) | `checks.x86_64-linux.coverage`, the full suite with coverage. | 35 minutes |
+| `check-linux-tests` | `ubuntu-latest` (`x86_64-linux`) | `checks.x86_64-linux.default`, the full suite without coverage. | 35 minutes |
+| `check-linux-static` | `ubuntu-latest` (`x86_64-linux`) | Generated reference check, all-system flake evaluation, `paredit-lint`, docs, formatting, and `git diff --check` for whitespace and conflict markers. | 25 minutes |
+| `check-linux-allocation` | `ubuntu-latest` (`x86_64-linux`) | Cold- and warm-cache allocation measurements. | 10 minutes |
+| `check-darwin-nix` | `macos-15` (`aarch64-darwin`) | Generated reference check and `nix flake check --print-build-logs`. | 30 minutes |
+| `check-darwin-host` | `macos-15` (`aarch64-darwin`) | `nix run .#test --print-build-logs` and cold- and warm-cache allocation measurements. | 40 minutes |
 
-Both jobs also run `git diff --check` and have a 30-minute job timeout.
-This overall limit includes setup and the Nix gate; it does not guarantee
-the host suite a full 1800 seconds.
+The Linux test jobs have five minutes beyond the Nix test timeout, so the
+derivation can report its 30-minute limit before Actions cancels the job.
+The Darwin host job leaves time for setup and the delivery build before its
+30-minute spec timeout begins.
+`check-linux-static` evaluates every check output on both supported systems
+without building them, then builds the Linux lint, docs, and formatting checks.
+The workflow grants only `contents: read`, and checkout does not persist its
+token in `.git/config`. Pull-request runs can pull from Cachix but cannot write;
+only non-pull-request events on `main` can write to the cache.
 
 To include files git does not track yet, use the same `path:` flake reference
 for both gates:
