@@ -59,6 +59,66 @@
         (expect (text "j.txt") :to-equal (format nil "日本語テキスト~%abc~%"))
         (expect (run "transcode" '("j.txt") :from "utf-8" :to encoding) :to-be :ok)
         (expect (octets-of "j.txt") :to-equalp original)))))
+  (flet ((generator-for (encoding)
+           (cl-weave:gen-string
+            :min-length 0
+            :max-length 80
+            :alphabet
+            (case encoding
+              (:utf-8 (format nil "abcéλ日本語テキスト😀~%"))
+              (:shift_jis (format nil "abc日本語テキスト~%"))
+              (:euc-jp (format nil "abc日本語テキスト~%"))
+              (:iso-8859-1 (format nil "abcéÿ~%"))
+              ((:utf-16le :utf-16be)
+               (format nil "abcéλ日本語テキスト😀~%")))))
+         (assert-transcode-round-trip (content encoding)
+           (let* ((name (aitools.text.domain:encoding-name encoding))
+                  (original
+                    (aitools.text.domain:encode-string/k
+                     content
+                     encoding
+                     :on-encoded
+                     (lambda (octets replaced)
+                       (expect replaced :to-be 0)
+                       octets))))
+             (call-with-edit-workspace
+              (lambda ()
+                (put "j.txt" original)
+                (multiple-value-bind (kind fields)
+                    (run "transcode" '("j.txt") :from name)
+                  (expect kind :to-be :ok)
+                  (expect (field fields "to") :to-equal "utf-8"))
+                (expect (text "j.txt") :to-equal content)
+                (multiple-value-bind (kind fields)
+                    (run "transcode" '("j.txt") :from "utf-8" :to name)
+                  (expect kind :to-be :ok)
+                  (expect (field fields "to") :to-equal name))
+                (expect (octets-of "j.txt") :to-equalp original))))))
+    (it-property
+     "round-trips generated UTF-8 text"
+     ((content (generator-for :utf-8)))
+     (assert-transcode-round-trip content :utf-8))
+    (it-property
+     "round-trips generated Shift_JIS text"
+     ((content (generator-for :shift_jis)))
+     (assert-transcode-round-trip content :shift_jis))
+    (it-property
+     "round-trips generated EUC-JP text"
+     ((content (generator-for :euc-jp)))
+     (assert-transcode-round-trip content :euc-jp))
+    (it-property
+     "round-trips generated ISO-8859-1 text"
+     ((content (generator-for :iso-8859-1)))
+     (assert-transcode-round-trip content :iso-8859-1))
+    (it-property
+     "round-trips generated UTF-16LE text"
+     ((content (generator-for :utf-16le)))
+     (assert-transcode-round-trip content :utf-16le))
+    (it-property
+     "round-trips generated UTF-16BE text"
+     ((content (generator-for :utf-16be)))
+     (assert-transcode-round-trip content :utf-16be)))
+
 
   (it "refuses unrepresentable characters unless --replace-unmappable"
     (call-with-edit-workspace (lambda () (put "e.txt" (format nil "caf~C 😀~%" (code-char #xE9)))
