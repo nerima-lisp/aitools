@@ -58,6 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: ./.github/actions/nix-setup
@@ -82,9 +83,53 @@ jobs:
           .#checks.x86_64-linux.formatting
           --max-jobs 1 --no-link --print-build-logs
 
-      # Catches stray conflict markers and whitespace errors that compile fine.
-      - name: Check diff hygiene
-        run: git diff --check
+      - name: Check committed diff hygiene
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          is_commit_sha() {
+            [[ "$1" =~ ^[0-9a-f]{40}$ ]] &&
+              git cat-file -e "$1^{commit}" 2>/dev/null
+          }
+
+          if ! is_commit_sha "$HEAD_SHA"; then
+            echo "diff head is missing or is not a commit." >&2
+            exit 1
+          fi
+
+          case "$EVENT_NAME" in
+            push)
+              if [[ -z "$PUSH_BEFORE" || "$PUSH_BEFORE" =~ ^0+$ ]]; then
+                echo "push event has no previous commit to compare." >&2
+                exit 1
+              fi
+              base_sha="$PUSH_BEFORE"
+              ;;
+            pull_request)
+              base_sha="$PULL_REQUEST_BASE_SHA"
+              ;;
+            workflow_dispatch)
+              if ! base_sha="$(git merge-base "$HEAD_SHA" refs/remotes/origin/main)"; then
+                echo "could not find a merge base with origin/main." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          if ! is_commit_sha "$base_sha"; then
+            echo "diff base is missing or is not a commit." >&2
+            exit 1
+          fi
+          git diff --check "$base_sha" "$HEAD_SHA"
 
   check-linux-allocation:
     runs-on: ubuntu-latest
@@ -140,10 +185,6 @@ jobs:
       - name: Check Nix delivery, syntax, docs and formatting
         run: nix flake check --print-build-logs
 
-      # Catches stray conflict markers and whitespace errors that compile fine.
-      - name: Check diff hygiene
-        run: git diff --check
-
   check-darwin-host:
     runs-on: macos-15
     needs: check-darwin-nix
@@ -181,6 +222,3 @@ jobs:
           XDG_CACHE_HOME: ${{ runner.temp }}/aitools-search-allocation-xdg-cache
           AITOOLS_ALLOCATION_CACHE_STATE: warm
         run: nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
-
-      - name: Check diff hygiene
-        run: git diff --check

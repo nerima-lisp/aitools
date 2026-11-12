@@ -108,7 +108,7 @@ measurements so each has its own job limit:
 |---|---|---|---|
 | `check` | `ubuntu-latest` (`x86_64-linux`) | `checks.x86_64-linux.coverage`, the full suite with coverage. | 35 minutes |
 | `check-linux-tests` | `ubuntu-latest` (`x86_64-linux`) | `checks.x86_64-linux.default`, the full suite without coverage. | 35 minutes |
-| `check-linux-static` | `ubuntu-latest` (`x86_64-linux`) | Generated reference check, all-system flake evaluation, `paredit-lint`, docs, formatting, and `git diff --check` for whitespace and conflict markers. | 25 minutes |
+| `check-linux-static` | `ubuntu-latest` (`x86_64-linux`) | Generated reference check, all-system flake evaluation, `paredit-lint`, docs, formatting, and `git diff --check` across the commits introduced by the workflow event. | 25 minutes |
 | `check-linux-allocation` | `ubuntu-latest` (`x86_64-linux`) | Cold- and warm-cache allocation measurements. | 10 minutes |
 | `check-darwin-nix` | `macos-15` (`aarch64-darwin`) | Generated reference check and `nix flake check --print-build-logs`. | 30 minutes |
 | `check-darwin-host` | `macos-15` (`aarch64-darwin`) | `nix run .#test --print-build-logs` and cold- and warm-cache allocation measurements. | 40 minutes |
@@ -119,6 +119,13 @@ The Darwin host job starts after `check-darwin-nix` and leaves time for setup
 and the delivery build before its 30-minute spec timeout begins.
 `check-linux-static` evaluates every check output on both supported systems
 without building them, then builds the Linux lint, docs, and formatting checks.
+Actions checks out a clean tree, so the check compares the event's commit range
+explicitly. The Linux static job fetches full history and runs the check once.
+Pushes compare the previous ref tip with the pushed commit. Pull requests
+compare the base commit from the event with the PR merge commit. Manual runs
+compare the merge base with `origin/main` to the dispatched commit. The check
+fails if it cannot resolve a base or head commit, including an initial push
+with no previous commit.
 The workflow grants only `contents: read`, and checkout does not persist its
 token in `.git/config`. Pull-request runs can pull from Cachix but cannot write;
 only non-pull-request events on `main` can write to the cache.
