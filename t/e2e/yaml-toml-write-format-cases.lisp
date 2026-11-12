@@ -17,32 +17,36 @@
   (let ((warnings (jget envelope "warnings")))
     (expect (and (vectorp warnings) (zerop (length warnings))) :to-be t)))
 (defun yaml-toml-document-generator ()
-  (let ((scalar-generator
-          (cl-weave:gen-one-of
-           (cl-weave:gen-integer :min -100 :max 100)
-           (cl-weave:gen-string :min-length 0 :max-length 16 :alphabet "abcXYZ09 _-."))))
-    (cl-weave:gen-map
-     (lambda (values)
-       (json-kit:make-json-object
-        (loop for value in values
-              for index from 0
-              collect (cons (format nil "key-~D" index) value))))
-     (cl-weave:gen-list
-      (cl-weave:gen-recursive
-       scalar-generator
-       (lambda (nested-generator)
-         (cl-weave:gen-one-of
-          (cl-weave:gen-vector scalar-generator :min-length 0 :max-length 4)
-          (cl-weave:gen-map
-           (lambda (values)
+  (labels ((generated-object (values)
              (json-kit:make-json-object
               (loop for value in values
                     for index from 0
-                    collect (cons (format nil "key-~D" index) value))))
-           (cl-weave:gen-list nested-generator :min-length 1 :max-length 3))))
-       :max-depth 2)
-      :min-length 1
-      :max-length 3))))
+                    collect (cons (format nil "key-~D" index) value)))))
+    (let ((scalar-generator
+            (cl-weave:gen-one-of
+             (cl-weave:gen-integer :min -100 :max 100)
+             (cl-weave:gen-string :min-length 0 :max-length 16 :alphabet "abcXYZ09 _-.")
+             (cl-weave:gen-map
+              (lambda (value)
+                (if value t json-kit:+json-false+))
+              (cl-weave:gen-boolean))
+             (cl-weave:gen-map
+              (lambda (numerator) (/ (1+ (* 2 numerator)) 4))
+              (cl-weave:gen-integer :min -100 :max 100)))))
+      (cl-weave:gen-map
+       #'generated-object
+       (cl-weave:gen-list
+        (cl-weave:gen-recursive
+         scalar-generator
+         (lambda (nested-generator)
+           (cl-weave:gen-one-of
+            (cl-weave:gen-vector scalar-generator :min-length 0 :max-length 4)
+            (cl-weave:gen-map
+             #'generated-object
+             (cl-weave:gen-list nested-generator :min-length 1 :max-length 3))))
+         :max-depth 2)
+        :min-length 1
+        :max-length 3)))))
 (defun assert-generated-format-idempotent (format value)
   (aitools-binary)
   (call-with-workspace

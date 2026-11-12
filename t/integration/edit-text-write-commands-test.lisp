@@ -1,4 +1,87 @@
 (in-package #:aitools.edit.test)
+(defun transcode-codepoint-alphabet (ranges)
+  (coerce
+   (loop for range in ranges
+         append (loop for codepoint from (first range) to (second range)
+                      for character = (code-char codepoint)
+                      when character collect character))
+   'string))
+(defun transcode-mapping-alphabet (mapping)
+  (coerce
+   (loop for index from 0 below (length mapping) by 3
+         for codepoint = (aref mapping (1+ index))
+         for character = (code-char codepoint)
+         when (and character
+                   (= 1 (aref mapping (+ index 2)))
+                   (>= codepoint #x20)
+                   (not (<= #x7f codepoint #x9f)))
+         collect character)
+   'string))
+(defun transcode-unicode-alphabet ()
+  (transcode-codepoint-alphabet '((#x20 #x7e)
+                                  (#xa0 #x24f)
+                                  (#x370 #x52f)
+                                  (#x1e00 #x1eff)
+                                  (#x3040 #x30ff)
+                                  (#x3400 #x9fff)
+                                  (#xac00 #xd7a3)
+                                  (#x1f300 #x1f64f))))
+(defun transcode-alphabet-for (encoding)
+  (case encoding
+    (:utf-8 (transcode-unicode-alphabet))
+    (:shift_jis (transcode-mapping-alphabet aitools.data:*cp932-mapping*))
+    (:euc-jp (transcode-mapping-alphabet aitools.data:*euc-jp-mapping*))
+    (:iso-8859-1
+     (transcode-codepoint-alphabet '((#x20 #x7e) (#xa0 #xff))))
+    ((:utf-16le :utf-16be) (transcode-unicode-alphabet))))
+(defun transcode-prefix-for (encoding alphabet)
+  (case encoding
+    ((:shift_jis :euc-jp)
+     (coerce (list (aref alphabet 0)
+                   (aref alphabet (1- (length alphabet)))
+                   (code-char #x30bd)
+                   (code-char #x8868))
+             'string))
+    (:iso-8859-1
+     (coerce (list (code-char #x20) (code-char #x7e)
+                   (code-char #xa0) (code-char #xff))
+             'string))
+    ((:utf-8 :utf-16le :utf-16be) (string (code-char #x1f600)))))
+(defun transcode-generator-for (encoding)
+  (let* ((alphabet (transcode-alphabet-for encoding))
+         (prefix (transcode-prefix-for encoding alphabet)))
+    (cl-weave:gen-map
+     (lambda (suffix)
+       (if (zerop (length suffix))
+           suffix
+         (concatenate 'string prefix suffix)))
+     (cl-weave:gen-string
+      :min-length 0
+      :max-length (- 80 (length prefix))
+      :alphabet alphabet))))
+(defun assert-transcode-round-trip (content encoding)
+  (let* ((name (aitools.text.domain:encoding-name encoding))
+         (original
+          (aitools.text.domain:encode-string/k
+           content
+           encoding
+           :on-encoded
+           (lambda (octets replaced)
+             (expect replaced :to-be 0)
+             octets))))
+    (call-with-edit-workspace
+     (lambda ()
+       (put "j.txt" original)
+       (multiple-value-bind (kind fields)
+           (run "transcode" '("j.txt") :from name)
+         (expect kind :to-be :ok)
+         (expect (field fields "to") :to-equal "utf-8"))
+       (expect (text "j.txt") :to-equal content)
+       (multiple-value-bind (kind fields)
+           (run "transcode" '("j.txt") :from "utf-8" :to name)
+         (expect kind :to-be :ok)
+         (expect (field fields "to") :to-equal name))
+       (expect (octets-of "j.txt") :to-equalp original)))))
 
 (describe "aitools write, split and transcode"
   (it "refuses to replace a file without --overwrite and concatenates with --separator"
@@ -59,65 +142,30 @@
         (expect (text "j.txt") :to-equal (format nil "日本語テキスト~%abc~%"))
         (expect (run "transcode" '("j.txt") :from "utf-8" :to encoding) :to-be :ok)
         (expect (octets-of "j.txt") :to-equalp original)))))
-  (flet ((generator-for (encoding)
-           (cl-weave:gen-string
-            :min-length 0
-            :max-length 80
-            :alphabet
-            (case encoding
-              (:utf-8 (format nil "abcéλ日本語テキスト😀~%"))
-              (:shift_jis (format nil "abc日本語テキスト~%"))
-              (:euc-jp (format nil "abc日本語テキスト~%"))
-              (:iso-8859-1 (format nil "abcéÿ~%"))
-              ((:utf-16le :utf-16be)
-               (format nil "abcéλ日本語テキスト😀~%")))))
-         (assert-transcode-round-trip (content encoding)
-           (let* ((name (aitools.text.domain:encoding-name encoding))
-                  (original
-                    (aitools.text.domain:encode-string/k
-                     content
-                     encoding
-                     :on-encoded
-                     (lambda (octets replaced)
-                       (expect replaced :to-be 0)
-                       octets))))
-             (call-with-edit-workspace
-              (lambda ()
-                (put "j.txt" original)
-                (multiple-value-bind (kind fields)
-                    (run "transcode" '("j.txt") :from name)
-                  (expect kind :to-be :ok)
-                  (expect (field fields "to") :to-equal "utf-8"))
-                (expect (text "j.txt") :to-equal content)
-                (multiple-value-bind (kind fields)
-                    (run "transcode" '("j.txt") :from "utf-8" :to name)
-                  (expect kind :to-be :ok)
-                  (expect (field fields "to") :to-equal name))
-                (expect (octets-of "j.txt") :to-equalp original))))))
-    (it-property
-     "round-trips generated UTF-8 text"
-     ((content (generator-for :utf-8)))
-     (assert-transcode-round-trip content :utf-8))
-    (it-property
-     "round-trips generated Shift_JIS text"
-     ((content (generator-for :shift_jis)))
-     (assert-transcode-round-trip content :shift_jis))
-    (it-property
-     "round-trips generated EUC-JP text"
-     ((content (generator-for :euc-jp)))
-     (assert-transcode-round-trip content :euc-jp))
-    (it-property
-     "round-trips generated ISO-8859-1 text"
-     ((content (generator-for :iso-8859-1)))
-     (assert-transcode-round-trip content :iso-8859-1))
-    (it-property
-     "round-trips generated UTF-16LE text"
-     ((content (generator-for :utf-16le)))
-     (assert-transcode-round-trip content :utf-16le))
-    (it-property
-     "round-trips generated UTF-16BE text"
-     ((content (generator-for :utf-16be)))
-     (assert-transcode-round-trip content :utf-16be)))
+  (it-property
+   "round-trips generated UTF-8 text"
+   ((content (transcode-generator-for :utf-8)))
+   (assert-transcode-round-trip content :utf-8))
+  (it-property
+   "round-trips generated Shift_JIS text"
+   ((content (transcode-generator-for :shift_jis)))
+   (assert-transcode-round-trip content :shift_jis))
+  (it-property
+   "round-trips generated EUC-JP text"
+   ((content (transcode-generator-for :euc-jp)))
+   (assert-transcode-round-trip content :euc-jp))
+  (it-property
+   "round-trips generated ISO-8859-1 text"
+   ((content (transcode-generator-for :iso-8859-1)))
+   (assert-transcode-round-trip content :iso-8859-1))
+  (it-property
+   "round-trips generated UTF-16LE text"
+   ((content (transcode-generator-for :utf-16le)))
+   (assert-transcode-round-trip content :utf-16le))
+  (it-property
+   "round-trips generated UTF-16BE text"
+   ((content (transcode-generator-for :utf-16be)))
+   (assert-transcode-round-trip content :utf-16be))
 
 
   (it "refuses unrepresentable characters unless --replace-unmappable"
