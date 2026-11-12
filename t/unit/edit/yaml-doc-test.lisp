@@ -203,5 +203,10 @@
                      (make-json-num "1e400"))
                     nil)
                 (edit-refusal (condition) condition)))))
-      (expect (edit-refusal-code refusal) :to-equal "argument.invalid"))))
+      (expect (edit-refusal-code refusal) :to-equal "argument.invalid")))
+  (it "maps arithmetic reader errors to argument.invalid"
+    (expect
+     (edit-refusal-code
+      (yaml-write-value-refusal (make-json-num "1/0")))
+     :to-equal "argument.invalid")))
 

@@ -54,13 +54,14 @@
      "pure UTF-8 decoding; no portable equivalent in CL")
     ((:application) "SB-INT" "CHARACTER-DECODING-ERROR"
      "the condition OCTETS-TO-STRING signals on invalid UTF-8")
-    ((:domain) "SB-UNICODE" "NORMALIZE-STRING"
-     "pure Unicode normalization")
-    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT"
-     "MAKE-BOUNDARY-CONTEXT"
+    ((:domain) "SB-UNICODE" "NORMALIZE-STRING" "pure Unicode normalization")
+    ((:domain) "SB-EXT" "FLOAT-INFINITY-P"
+     "pure float classification for refusing non-finite JSON numbers")
+    ((:domain) "SB-EXT" "FLOAT-NAN-P"
+     "pure float classification for refusing non-finite JSON numbers")
+    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT" "MAKE-BOUNDARY-CONTEXT"
      "infrastructure bundles production adapters into boundary contexts; application may repackage caller-held capabilities for narrower callees; composition owns production wiring; domain receives values and stays free of capabilities")
-    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT"
-     "BOUNDARY-CONTEXT-WITH"
+    ((:composition :application :infrastructure) "CL-BOUNDARY-KIT" "BOUNDARY-CONTEXT-WITH"
      "infrastructure bundles production adapters into boundary contexts; application may repackage caller-held capabilities for narrower callees; composition owns production wiring; domain receives values and stays free of capabilities")))
 
 (defvar *context-symbol-allowances*)
