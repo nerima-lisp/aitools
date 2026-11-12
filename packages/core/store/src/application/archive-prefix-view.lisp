@@ -12,7 +12,8 @@
   nil)
 (defun %archive-prefix-start (template open-entry close-directory)
   (let ((fd nil)
-        (cursor nil))
+        (cursor nil)
+        (started nil))
     (unwind-protect
          (progn
            (multiple-value-bind (kind opened identity)
@@ -31,9 +32,14 @@
                     :symlink-p (%archive-prefix-cursor-symlink-p template)
                     :disk-live-p (%archive-prefix-cursor-disk-live-p template)
                     :stack (%archive-prefix-cursor-stack template)))
-             (setf fd nil))
+             (setf fd nil)
+             (fault-point :archive-prefix-handoff)
+             (setf started t))
            cursor)
-      (when fd (funcall close-directory fd)))))
+      (unless started
+        (if cursor
+            (%archive-prefix-finish-cursor cursor close-directory)
+            (when fd (funcall close-directory fd)))))))
 (defun %archive-prefix-enter (cursor component open-entry close-directory deletions-visible)
   (let* ((folded-node (%archive-prefix-cursor-folded-node cursor))
          (stage-node (%archive-prefix-cursor-stage-node cursor))

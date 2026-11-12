@@ -70,3 +70,27 @@
         (aitools.store.application::make-%archive-prefix-cursor :current-fd invalid-fd))
       (signals type-error
         (aitools.store.application::make-%archive-prefix-cursor :current-identity invalid-identity)))))
+
+(describe "archive prefix cursor handoff cleanup"
+  (it "closes the opened directory when startup unwinds after transfer"
+    (let ((closed nil)
+          (tag (gensym "ARCHIVE-INTERRUPTED"))
+          (template (aitools.store.application::make-%archive-prefix-cursor
+                     :current-fd 9
+                     :current-identity "root")))
+      (let ((aitools.store.application::*fault-hook*
+              (lambda (point &rest details)
+                (declare (ignore details))
+                (when (eq point :archive-prefix-handoff)
+                  (throw tag :interrupted)))))
+        (expect
+         (catch tag
+           (aitools.store.application::%archive-prefix-start
+            template
+            (lambda (&rest arguments)
+              (declare (ignore arguments))
+              (values :directory 17 "root"))
+            (lambda (fd) (push fd closed)))
+           :returned)
+         :to-be :interrupted))
+      (expect closed :to-equal (list 17)))))
