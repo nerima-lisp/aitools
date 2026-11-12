@@ -17,13 +17,45 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # A hung SBCL test would otherwise hold a runner for the full 6-hour
-    # default. `nix flake check` finishes in a few minutes from a cold cache.
-    timeout-minutes: 30
+    # The Nix test derivation has its own 30-minute limit. Leave five minutes
+    # for Nix setup and for that limit to report before Actions cancels the job.
+    timeout-minutes: 35
     steps:
       # persist-credentials: false. This job runs untrusted PR code via
-      # `nix flake check`, and never needs the token, so don't leave it in
-      # .git/config for that code to read.
+      # the Nix test derivation, and never needs the token, so don't leave it
+      # in .git/config for that code to read.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
+
+      - name: Run Linux coverage suite
+        run: nix build .#checks.x86_64-linux.coverage --max-jobs 1 --no-link --print-build-logs
+
+  check-linux-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
+
+      - name: Run Linux test suite
+        run: nix build .#checks.x86_64-linux.default --max-jobs 1 --no-link --print-build-logs
+
+  check-linux-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -39,12 +71,33 @@ jobs:
           --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU=
           develop --command sbcl --script docs/tools/generate-reference.lisp --check
 
-      # `nix flake check` runs the SBCL test suite, the paredit-lint structural
-      # check, the docs build (checks.docs), and the treefmt formatting gate
-      # (checks.formatting), so unformatted Nix or an unbalanced .lisp file
-      # fails CI here.
-      - name: Check flake
-        run: nix flake check --max-jobs 1 --print-build-logs
+      - name: Evaluate flake checks on both platforms
+        run: nix flake check --no-build --all-systems
+
+      - name: Build Linux static checks
+        run: >-
+          nix build
+          .#checks.x86_64-linux.paredit-lint
+          .#checks.x86_64-linux.docs
+          .#checks.x86_64-linux.formatting
+          --max-jobs 1 --no-link --print-build-logs
+
+      # Catches stray conflict markers and whitespace errors that compile fine.
+      - name: Check diff hygiene
+        run: git diff --check
+
+  check-linux-allocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
 
       - name: Measure search allocation with cold cache (Linux)
         env:
@@ -65,11 +118,7 @@ jobs:
           AITOOLS_ALLOCATION_CACHE_STATE: warm
         run: nix --option extra-substituters https://takeokunn-aitools.cachix.org --option extra-trusted-public-keys takeokunn-aitools.cachix.org-1:3HqAVajpH0kKeM3TJi5Z7rcBj6Y3CO17AbqkXKIuWvU= develop --command sbcl --script t/perf/search-allocation-timing.lisp
 
-      # Catches stray conflict markers and whitespace errors that compile fine.
-      - name: Check diff hygiene
-        run: git diff --check
-
-  check-darwin:
+  check-darwin-nix:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -91,8 +140,25 @@ jobs:
       - name: Check Nix delivery, syntax, docs and formatting
         run: nix flake check --print-build-logs
 
-      # Native ps/top cannot execute in a Darwin Nix build. Both steps are
-      # required: the full suite uses the binary built by the same flake.
+      # Catches stray conflict markers and whitespace errors that compile fine.
+      - name: Check diff hygiene
+        run: git diff --check
+
+  check-darwin-host:
+    runs-on: macos-15
+    # The host runner allows 30 minutes for specs after Nix builds the delivery.
+    # Leave time for setup and the build before the runner starts.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN || '' }}
+
       - name: Run every spec against the delivery on the host
         run: nix run .#test --print-build-logs
 
