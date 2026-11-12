@@ -115,8 +115,8 @@ measurements so each has its own job limit:
 
 The Linux test jobs have five minutes beyond the Nix test timeout, so the
 derivation can report its 30-minute limit before Actions cancels the job.
-The Darwin host job leaves time for setup and the delivery build before its
-30-minute spec timeout begins.
+The Darwin host job starts after `check-darwin-nix` and leaves time for setup
+and the delivery build before its 30-minute spec timeout begins.
 `check-linux-static` evaluates every check output on both supported systems
 without building them, then builds the Linux lint, docs, and formatting checks.
 The workflow grants only `contents: read`, and checkout does not persist its
