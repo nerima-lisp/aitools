@@ -45,7 +45,7 @@
                :workspace-root unused
                :system-identity (lambda () (values "Linux" "test" "generic"))
                :sleep-seconds (lambda (seconds) (push seconds sleeps))
-               :run-program (lambda (program arguments timeout)
+               :run-program (lambda (program arguments &key timeout)
                               (declare (ignore timeout))
                               (incf runs)
                               (expect program :to-equal executable)

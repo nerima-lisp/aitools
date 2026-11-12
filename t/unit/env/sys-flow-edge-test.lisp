@@ -163,7 +163,7 @@
             (cl-boundary-kit:boundary-context-with
              (linux-metrics-boundaries)
              :env-run-program
-             (lambda (program arguments timeout)
+             (lambda (program arguments &key timeout)
                (declare (ignore program arguments timeout))
                (values :exited 0
                        (format nil "10 120.0 100 worker~%11 50.0~%") "")))))

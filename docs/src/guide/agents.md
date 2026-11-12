@@ -231,6 +231,20 @@ Inspect `status` and `reason` for each section. The snapshot is not atomic. See
 [the system command reference](../reference/commands/env.md#sys-snapshot) for
 partial results, limits, and acquisition bounds.
 
+The overall deadline defaults to ten minutes and covers all sections,
+including socket-owner scans. Use `--timeout` to change it. If the deadline
+expires, the active and uncollected sections are unavailable with
+`environment.timeout`, and `deadline_reached` is true. Potentially blocking
+host queries run in external commands; each command gets the smaller of 60
+seconds and the remaining overall budget, and process-kit kills and reaps a
+timed-out child. Bounded local reads check the deadline around each call, while
+`/proc` directory and workspace ancestor walks check between entries.
+
+The 600-second default covers eight sequential 60-second commands and the
+one-second CPU sample (481 seconds), with 119 seconds for bounded local work and
+cleanup. This lets collection use the full ten minutes when sources stall.
+Captured subprocess output has no memory bound.
+
 Use `sys metrics` for a noninteractive, JSON alternative to `top`:
 
 ```sh

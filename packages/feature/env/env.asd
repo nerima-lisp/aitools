@@ -17,6 +17,7 @@
                  (:file "host-values")))
    (:module "application"
     :components ((:file "package")
+                 (:file "sys-snapshot-deadline")
                  (:file "boundaries")
                  (:file "time-zone-flows")
                  (:file "time-input-flows")
@@ -25,6 +26,7 @@
                  (:file "sys-tool-flows")
                  (:file "sys-process-flows")
                  (:file "sys-port-flows")
+                 (:file "sys-snapshot-support")
                  (:file "sys-snapshot-flow")))
    (:module "infrastructure"
     :components ((:file "package")
@@ -59,6 +61,7 @@
      (:file "unit/env/sys-snapshot-flow-test")
      (:file "unit/env/sys-flow-edge-test")
      (:file "unit/env/sys-host-flows-test")
+     (:file "unit/env/sys-snapshot-deadline-test")
      (:file "unit/env/sys-process-flows-test")
      (:file "unit/env/env-commands-test")
      (:file "unit/env/network-test")

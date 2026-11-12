@@ -111,19 +111,26 @@
    :positionals
    (list (make-positional :name "path" :key :path :required-p nil))
    :options
-   (loop
-     for (name default) in
-       '(("process-limit" 20) ("network-limit" 100) ("port-limit" 100))
-     collect
-       (make-option
-        :name name :kind :value :type :integer :min 1 :max 1000 :default default))
+   (append
+    (loop
+      for (name default) in
+        '(("process-limit" 20) ("network-limit" 100) ("port-limit" 100))
+      collect
+        (make-option
+         :name name :kind :value :type :integer :min 1 :max 1000 :default default))
+    (list
+     (make-option
+      :name "timeout" :kind :value :value-name "DURATION" :default "600s"
+      :description "Overall deadline for every section, including socket-owner scans.")))
    :handler
    (lambda (invocation)
-     (%run-flow #'aitools.env.application:sys-snapshot/k '(:on-ok :on-partial :on-error) boundaries
-             :path (positional-value invocation :path)
-             :process-limit (option-value invocation :process-limit)
-             :network-limit (option-value invocation :network-limit)
-             :port-limit (option-value invocation :port-limit)))))
+     (%run-flow #'aitools.env.application:sys-snapshot/k
+                '(:on-ok :on-partial :on-error) boundaries
+                :path (positional-value invocation :path)
+                :timeout (option-value invocation :timeout)
+                :process-limit (option-value invocation :process-limit)
+                :network-limit (option-value invocation :network-limit)
+                :port-limit (option-value invocation :port-limit)))))
 
 (defun %sys-ports-command (boundaries)
   (make-command

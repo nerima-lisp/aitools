@@ -98,6 +98,15 @@
   "Upper bound for one OS source command. Only a hang guard: `ps -axww` was
 observed taking 6-18 s on a heavily loaded Darwin host, so a tight bound
 would turn load into environment.unavailable.")
+(defun %snapshot-user-name (boundaries)
+  (if *snapshot-deadline*
+      (multiple-value-bind (status exit-code stdout)
+          (%run boundaries "/usr/bin/id" '("-un") *source-timeout-seconds*)
+        (when (and (eq status :exited) (eql exit-code 0))
+          (let ((name (string-trim '(#\Space #\Tab #\Return #\Newline)
+                                   (or stdout ""))))
+            (and (plusp (length name)) name))))
+      (%user-name boundaries)))
 
 (defun %darwin-program (key &optional boundaries)
   (or (and (eq key :ps) boundaries (%getenv boundaries "AITOOLS_DARWIN_PS"))
@@ -189,7 +198,7 @@ would turn load into environment.unavailable.")
                 (cons "os_version" release)
                 (cons "arch" machine)
                 (cons "cpus" (%null-if-nil cpus))
-                (cons "user" (%user-name boundaries))
+                (cons "user" (%snapshot-user-name boundaries))
                 (cons "uid" (%user-id boundaries))
                 (cons "hostname" (%host-name boundaries))
                 (cons "uptime_seconds" uptime-seconds)

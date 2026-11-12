@@ -187,10 +187,10 @@ else under $TMPDIR; removed afterwards."
     (let ((sh (aitools.env.application:find-executable (host-boundaries) "sh"))
           (sleep (aitools.env.application:find-executable (host-boundaries) "sleep")))
       (unless (and sh sleep) (cl-weave:skip "sh or sleep is not on PATH"))
-      (expect (multiple-value-list (host-capability :env-run-program sh '("-c" "printf out; printf err >&2; exit 3") 10))
+      (expect (multiple-value-list (host-capability :env-run-program sh '("-c" "printf out; printf err >&2; exit 3") :timeout 10))
               :to-equal '(:exited 3 "out" "err"))
-      (expect (nth-value 0 (host-capability :env-run-program sleep '("5") 1/5)) :to-be :timeout)
-      (expect (multiple-value-list (host-capability :env-run-program "/nonexistent/aitools-no-such-program" '() 1))
+      (expect (nth-value 0 (host-capability :env-run-program sleep '("5") :timeout 1/5)) :to-be :timeout)
+      (expect (multiple-value-list (host-capability :env-run-program "/nonexistent/aitools-no-such-program" '() :timeout 1))
               :to-equal '(:not-started nil nil nil))))
   (it "uses the default child-process adapter when none is supplied"
     (let* ((boundaries
@@ -203,7 +203,7 @@ else under $TMPDIR; removed afterwards."
       (expect (multiple-value-list
                (funcall run-program "/bin/sh"
                         '("-c" "printf out; printf err >&2; exit 3")
-                        10))
+                        :timeout 10))
               :to-equal '(:exited 3 "out" "err"))))
 
   (it "answers NIL for the space of a path that does not exist"

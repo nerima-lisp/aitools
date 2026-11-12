@@ -2,31 +2,41 @@
 
 (defmacro define-env-operation (name key parameters)
   `(defun ,name (boundaries ,@parameters)
-     (funcall
+     (%call-with-env-operation-deadline
+      boundaries ,key
       (cl-boundary-kit:boundary-context-require boundaries ,key)
-      ,@parameters)))
+      (list ,@parameters))))
 
 (defun %now (boundaries)
   (cl-boundary-kit:clock-now
    (cl-boundary-kit:boundary-context-require boundaries :env-clock)))
 
 (defun %getenv (boundaries name)
-  (cl-boundary-kit:environment-get
-   (cl-boundary-kit:boundary-context-require boundaries :env-environment)
-   name))
+  (%call-with-snapshot-deadline
+   boundaries
+   (lambda ()
+     (cl-boundary-kit:environment-get
+      (cl-boundary-kit:boundary-context-require boundaries :env-environment)
+      name))))
 
 (defun %environment-variables (boundaries)
-  (cl-boundary-kit:environment-list
-   (cl-boundary-kit:boundary-context-require boundaries :env-environment)))
+  (%call-with-snapshot-deadline
+   boundaries
+   (lambda ()
+     (cl-boundary-kit:environment-list
+      (cl-boundary-kit:boundary-context-require boundaries :env-environment)))))
 
 (defun %read-file (boundaries path external-format)
-  (let ((filesystem
-          (cl-boundary-kit:boundary-context-require boundaries :env-filesystem)))
-    (when (cl-boundary-kit:filesystem-path-exists-p filesystem path)
-      (handler-case
-          (cl-boundary-kit:filesystem-read-file
-           filesystem path :external-format external-format)
-        (file-error () nil)))))
+  (%call-with-snapshot-deadline
+   boundaries
+   (lambda ()
+     (let ((filesystem
+             (cl-boundary-kit:boundary-context-require boundaries :env-filesystem)))
+       (when (cl-boundary-kit:filesystem-path-exists-p filesystem path)
+         (handler-case
+             (cl-boundary-kit:filesystem-read-file
+              filesystem path :external-format external-format)
+           (file-error () nil)))))))
 
 (defun %read-text (boundaries path)
   (%read-file boundaries path :utf-8))
@@ -36,8 +46,11 @@
     (and text (aitools.env.domain:octets-from-latin-1 text))))
 
 (defun %host-name (boundaries)
-  (cl-boundary-kit:host-info-hostname
-   (cl-boundary-kit:boundary-context-require boundaries :env-host-info)))
+  (%call-with-snapshot-deadline
+   boundaries
+   (lambda ()
+     (cl-boundary-kit:host-info-hostname
+      (cl-boundary-kit:boundary-context-require boundaries :env-host-info)))))
 
 (defun %user-name (boundaries)
   (cl-boundary-kit:host-info-username
@@ -57,7 +70,12 @@
 
 (define-env-operation %executable-p :env-executable-p (path))
 
-(define-env-operation %run :env-run-program (program arguments timeout-seconds))
+(defun %run (boundaries program arguments timeout-seconds)
+  (%call-with-env-operation-deadline
+   boundaries
+   :env-run-program
+   (cl-boundary-kit:boundary-context-require boundaries :env-run-program)
+   (list program arguments :timeout timeout-seconds)))
 
 (define-env-operation %file-system-space :env-file-system-space (path))
 

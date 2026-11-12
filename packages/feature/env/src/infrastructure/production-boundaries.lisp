@@ -34,13 +34,14 @@ bound keeps an unexpected huge file from being read whole.")
                    (error 'file-error :pathname path))
                  (write-string buffer out :end count))))))
 
-(defun %list-directory (path)
-  "Entry names of directory PATH except `.` and `..`, or NIL when it cannot
-be opened."
+(defun %list-directory (path &key check-deadline)
+  "Return directory entry names excluding dot entries. CHECK-DEADLINE runs between readdir calls."
   (handler-case
       (let ((directory (sb-posix:opendir path)))
         (unwind-protect
-             (loop for entry = (sb-posix:readdir directory)
+             (loop for entry = (progn
+                                 (when check-deadline (funcall check-deadline))
+                                 (sb-posix:readdir directory))
                    until (sb-alien:null-alien entry)
                    for name = (sb-posix:dirent-name entry)
                    unless (member name '("." "..") :test #'string=)
@@ -63,10 +64,10 @@ that is a directory (`America`) reads as absent rather than failing to read."
        (handler-case (zerop (sb-posix:access path sb-posix:x-ok))
          (sb-posix:syscall-error () nil))))
 
-(defun %run-program (program arguments timeout-seconds)
+(defun %run-program (program arguments &key timeout)
   (handler-case
       (let ((result (process-kit:run program arguments
-                                     :timeout timeout-seconds :on-timeout :return
+                                     :timeout timeout :on-timeout :return
                                      :output :capture :error :capture)))
         (values (if (process-kit:process-result-timed-out-p result) :timeout :exited)
                 (process-kit:process-result-exit-code result)
@@ -124,12 +125,14 @@ fixed char arrays: 256 bytes each on Darwin, 65 on Linux."
                 (values (field 0) (field 2) (field 4))))))
       (sb-alien:free-alien buffer))))
 
-(defun %workspace-root ()
+(defun %workspace-root (&key check-deadline)
   "The workspace root without --root: the nearest ancestor of the working directory
 holding `.git`, else the working directory. Does not start git."
   (let ((start (namestring (uiop:getcwd))))
     (loop for directory = (pathname start) then (uiop:pathname-parent-directory-pathname directory)
-          for namestring = (namestring directory)
+          for namestring = (progn
+                             (when check-deadline (funcall check-deadline))
+                             (namestring directory))
           when (handler-case (progn (sb-posix:stat (concatenate 'string namestring ".git")) t)
                  (sb-posix:syscall-error () nil))
             return namestring
@@ -207,12 +210,13 @@ holding `.git`, else the working directory. Does not start git."
                (:timeout :timeout)
                (:not-started :unavailable)
                (otherwise :ok)))
-           (instrumented-run-program (program arguments timeout-seconds)
+           (instrumented-run-program (program arguments &key timeout)
              (if with-span
                  (funcall with-span :child_process "env.system-query"
-                          (function %run-program) (list program arguments timeout-seconds)
+                          (function %run-program)
+                          (list program arguments :timeout timeout)
                           :outcome-function (function span-outcome))
-                 (%run-program program arguments timeout-seconds))))
+                 (%run-program program arguments :timeout timeout))))
     (make-env-boundaries
      :clock (cl-boundary-kit:make-clock :now-fn (function %epoch-milliseconds))
      :environment (cl-boundary-kit:make-environment)

@@ -17,11 +17,11 @@
            (run-program (cl-boundary-kit:boundary-context-require boundaries :env-run-program)))
       (unless (and sh sleep) (cl-weave:skip "sh or sleep is not on PATH"))
       (expect (multiple-value-list
-               (funcall run-program sh '("-c" "printf out; printf err >&2; exit 3") 10))
+               (funcall run-program sh '("-c" "printf out; printf err >&2; exit 3") :timeout 10))
               :to-equal '(:exited 3 "out" "err"))
-      (expect (nth-value 0 (funcall run-program sleep '("5") 1/5)) :to-be :timeout)
+      (expect (nth-value 0 (funcall run-program sleep '("5") :timeout 1/5)) :to-be :timeout)
       (expect (multiple-value-list
-               (funcall run-program "/nonexistent/aitools-no-such-program" '() 1))
+               (funcall run-program "/nonexistent/aitools-no-such-program" '() :timeout 1))
               :to-equal '(:not-started nil nil nil))
       (expect (reverse observed)
               :to-equal '((:child_process "env.system-query" :ok)
@@ -36,6 +36,6 @@
       (expect (multiple-value-list
                (funcall run-program sh
                         (list "-c" "printf out; printf err >&2; exit 3")
-                        10))
+                        :timeout 10))
               :to-equal (list :exited 3 "out" "err"))))
 )

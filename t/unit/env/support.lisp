@@ -54,25 +54,33 @@
    :host-info
    (cl-boundary-kit:make-test-host-info :hostname "fake-host" :username "tester")
    :run-program
-   (lambda (program arguments timeout)
+   (lambda (program arguments &key timeout)
      (setf (fake-host-runs host)
            (append (fake-host-runs host) (list (list program arguments))))
      (let ((behaviour
              (cdr (assoc program (fake-host-programs host) :test #'string=))))
-       (if behaviour
-           (funcall behaviour arguments timeout)
-           (values :not-started nil nil nil))))
+       (cond
+         (behaviour (funcall behaviour arguments timeout))
+         ((string= program "/usr/bin/id")
+          (values :exited 0 (format nil "tester~%") ""))
+         (t (values :not-started nil nil nil)))))
    :executable-p (lambda (path) (and (member path executables :test #'string=) t))
    :list-directory
-   (lambda (path)
-     (loop for entry in directories
-           when (and (stringp entry) (string= entry path)) return (list "entry")
-           when (and (consp entry) (string= (car entry) path)) return (cdr entry)))
+   (lambda (path &key check-deadline)
+     (let ((entries
+             (loop for entry in directories
+                   when (and (stringp entry) (string= entry path)) return (list "entry")
+                   when (and (consp entry) (string= (car entry) path)) return (cdr entry))))
+       (when check-deadline
+         (loop repeat (length entries) do (funcall check-deadline)))
+       entries))
    :read-link (lambda (path) (cdr (assoc path links :test #'string=)))
    :file-system-space (lambda (path) (declare (ignore path)) (values-list space))
    :system-identity (lambda () (values-list identity))
    :user-id (lambda () 1000)
-   :workspace-root (lambda () "/work")))
+   :workspace-root (lambda (&key check-deadline)
+     (when check-deadline (funcall check-deadline))
+     "/work")))
 
 (defun exits-with (stdout &key (exit-code 0) (stderr ""))
   (lambda (arguments timeout)

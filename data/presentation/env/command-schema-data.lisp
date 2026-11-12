@@ -33,19 +33,22 @@
      :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.snapshot"
      :summary "Collect host info, metrics, network, disk, and listening TCP ports in one non-atomic response."
-     :description "Sequential host observations, not all system state. Each section retains data and a status (ok, partial, unavailable) with a reason. Missing required info values, unknown socket owners, omitted items, or unavailable sections yield partial (exit 3); all unavailable fails (exit 1). Shell is optional. Existing source commands retain their 60-second per-command timeout; there is no overall deadline or memory bound. Output limits do not bound acquisition: socket owner scans and OS calls have no timeout, and subprocess output is fully captured. Disk covers PATH only, not all mounts or I/O; network counters are cumulative, not connectivity; ports cover TCP LISTEN only. Metrics takes a one-second CPU sample. Unlike batch, this fixed read-only composition continues after unavailable sections."
+     :description "Sequential host observations, not all system state. Each section retains data and a status (ok, partial, unavailable) with a reason. Missing required info values, unknown socket owners, omitted items, unavailable sources, or uncollected sections yield partial (exit 3); all unavailable fails (exit 1). The 600-second default overall monotonic deadline covers every section, including socket-owner scans; --timeout overrides it and allows collection to use the full configured budget. Expiry sets deadline_reached and marks the active and later sections unavailable with reason code environment.timeout. External commands run through process-kit with :timeout capped to the smaller of 60 seconds and the remaining budget; timed-out children are killed and reaped. Snapshot usernames use a timed /usr/bin/id -un child to bound host name-service lookup. In-process sysctl MIB, statfs, uname, getuid, and Mach CPU counter calls use fixed-size requests or structures; file reads cap at 16 MiB. /proc directory and workspace ancestor walks check between readdir/stat operations. The default covers eight sequential 60-second commands plus the one-second CPU sample (481 seconds), with 119 seconds for bounded local work and cleanup. Captured subprocess output has no memory bound; item limits apply after collection. Shell is optional. Disk covers PATH only, not all mounts or I/O; network counters are cumulative, not connectivity; ports cover TCP LISTEN only. Metrics takes a one-second CPU sample. Unlike batch, this fixed read-only composition continues after unavailable sections."
      :args ((:name "path" :type "string" :description "Disk filesystem path; default workspace root. Info still describes the workspace filesystem.")
             (:name "--process-limit" :type "integer" :default 20 :description "Maximum process items, 1..1000.")
             (:name "--network-limit" :type "integer" :default 100 :description "Maximum interface items, 1..1000.")
-            (:name "--port-limit" :type "integer" :default 100 :description "Maximum listening socket items, 1..1000."))
+            (:name "--port-limit" :type "integer" :default 100 :description "Maximum listening socket items, 1..1000.")
+            (:name "--timeout" :type "duration" :default "600s" :description "Maximum overall monotonic collection duration; default 600 seconds."))
      :output-fields ((:name "scope" :description "host, not exhaustive system state.")
                      (:name "atomic" :description "Always false.")
                      (:name "started_at_epoch_ms" :description "Wall-clock Unix epoch milliseconds; not a monotonic duration.")
                      (:name "finished_at_epoch_ms" :description "Wall-clock Unix epoch milliseconds.")
                      (:name "sections" :description "Named info/metrics/network/disk/ports objects with status, data, reason, and epoch-ms observation times.")
                      (:name "limits" :description "Requested output item limits.")
-                     (:name "source_timeout_seconds" :description "Per external source command timeout, not overall timeout.")
-                     (:name "collection_bounds" :description "Acquisition and memory limitations."))
+                     (:name "source_timeout_seconds" :description "Per-external-command timeout in seconds (60).")
+                     (:name "overall_timeout_ms" :description "Configured overall monotonic budget in milliseconds; default 600000.")
+                     (:name "deadline_reached" :description "True when collection stopped at the overall deadline.")
+                     (:name "collection_bounds" :description "External commands are killed and reaped at the smaller of 60 seconds and remaining time; bounded local reads check around calls, and directory/ancestor walks check between entries. Captured subprocess output has no memory bound."))
      :error-codes ("argument.invalid" "environment.unavailable" "internal.unexpected"))
     (:name "sys.network"
      :summary "Read cumulative network interface counters, ordered by name."

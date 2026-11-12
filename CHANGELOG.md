@@ -41,8 +41,16 @@
   `net get`, `net head`, and `net resolve` to `30s`; see the [process reference](docs/src/reference/commands/process.md)
   and [net reference](docs/src/reference/commands/net.md) for options and values.
   System probe timeouts are source-specific; see the [env reference](docs/src/reference/commands/env.md).
-  `sys snapshot` has no overall deadline, and detached [`bg start`](docs/src/reference/commands/process.md#bg-start)
-  has no operation deadline.
+  `sys snapshot` defaults to a ten-minute overall deadline across all sections,
+  including socket-owner scans. External commands use the remaining budget and
+  process-kit kills and reaps timed-out children. Bounded local reads check around
+  each call; `/proc` and workspace ancestor walks check between entries. The
+  default covers eight sequential 60-second commands plus the one-second CPU
+  sample (481 seconds), with 119 seconds for bounded local work and cleanup. It
+  allows collection to use the full ten minutes when sources stall; `--timeout`
+  overrides it. Captured subprocess output has no memory bound.
+  Detached [`bg start`](docs/src/reference/commands/process.md#bg-start) has no
+  operation deadline.
 - Response envelopes use `schema_version: 2`; consumers must reject version 1
   and envelopes without a version. Success and error envelopes can carry
   optional `meta` and `recovered` fields. YAML and TOML values outside the
