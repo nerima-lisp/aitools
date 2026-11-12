@@ -152,8 +152,8 @@
          (expect (jget envelope "error" "code") :to-equal "environment.unavailable")
          (expect (nth-value 1 (gethash "load_average" envelope)) :to-be nil)))))
 
-  (it "returns unavailable when the process metrics probe exceeds its timeout"
-    (:timeout-ms 90000)
+  (it "returns unavailable when the process metrics probe exceeds its custom timeout"
+    (:timeout-ms 15000)
     (when (let ((directory (uiop:getenv "AITOOLS_E2E_BYTE_CAPTURE_DIR")))
             (and directory (plusp (length directory))))
       (cl-weave:skip "host-source specs require the delivered binary"))
@@ -163,7 +163,7 @@
        (let* ((marker (native (ws-path ws "ps-started")))
               (completed-marker (native (ws-path ws "ps-completed")))
               (script
-                (format nil "#!/bin/sh~%printf started > ~A~%/bin/sleep 62~%printf completed > ~A~%"
+                (format nil "#!/bin/sh~%printf started > ~A~%/bin/sleep 3~%printf completed > ~A~%"
                         (aitools.protocol.domain:shell-quote marker)
                         (aitools.protocol.domain:shell-quote completed-marker)))
               (ps (put ws "bin/ps" script :mode #o755))
@@ -171,7 +171,7 @@
                 #+linux (list (cons "PATH" (native (ws-path ws "bin/"))))
                 #+darwin (list (cons "AITOOLS_DARWIN_PS" (native ps)))
                 #-(or linux darwin) nil)
-              (result (aitools ws '("sys" "metrics") :env environment))
+              (result (aitools ws (quote ("sys" "metrics" "--timeout" "1s")) :env environment))
               (envelope (aitools-envelope result)))
          (expect (probe-file marker) :to-be-truthy)
          (expect (probe-file completed-marker) :to-be nil)
@@ -202,4 +202,4 @@
          (expect (length (jlist (jget envelope "items"))) :to-be 1)
          (expect (jget envelope "truncated") :to-be t)
          (expect (jlist (jget envelope "next_commands"))
-                 :to-equal (list "aitools sys metrics --limit 2")))))))
+                 :to-equal (list "aitools sys metrics --limit 2 --timeout 60s")))))))
