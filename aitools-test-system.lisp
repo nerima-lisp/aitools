@@ -110,6 +110,7 @@
                                                           (:file "coverage-exclusion-runner")
                                                           (:file "coverage-gap-report" :depends-on ("coverage-exclusion-runner"))
                                                           (:file "coverage-baseline-test" :depends-on ("coverage-exclusion-runner" "coverage-gap-report"))
+                                                          (:file "coverage-exclusion-artifact-test" :depends-on ("coverage-baseline-test"))
                                                           (:file "coverage-gap-report-test" :depends-on ("coverage-gap-report"))
                                                           (:file "structure-timeout-test")
                                                           (:file "coverage-artifact-validation")
