@@ -204,7 +204,7 @@
                     nil)
                 (edit-refusal (condition) condition)))))
       (expect (edit-refusal-code refusal) :to-equal "argument.invalid")))
-  (it "maps arithmetic reader errors to argument.invalid"
+  (it "rejects zero-denominator ratio tokens"
     (expect
      (edit-refusal-code
       (yaml-write-value-refusal (make-json-num "1/0")))

@@ -4,13 +4,13 @@
           :source
           :linux-ci
           :expression-covered
-          13960
+          13997
           :expression-total
-          13960
+          13997
           :branch-covered
-          1502
+          1500
           :branch-total
-          1502
+          1500
           :coverage-exclusions
           ((:kind :expression
                   :package
@@ -98,4 +98,5 @@
            (:kind :expression :package "AITOOLS.EDIT.DOMAIN" :symbol "TRANSFORM-LINES" :reason "SB-COVER does not attribute the columns keyword initializer; transform specs omit :COLUMNS and assert wrapping at the default 80-column width.")
            (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "EXTRACT-STEP" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; archive-path specs exercise rejection of an invalid kind.")
            (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "REPLACER" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; regex specs exercise rejection of an invalid seen count.")
-           (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "SPLIT-PIECE" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; split specs exercise invalid start and end values.")))
+           (:kind :branch :package "AITOOLS.EDIT.DOMAIN" :symbol "SPLIT-PIECE" :reason "SB-COVER does not attribute generated DEFSTRUCT slot type guards; split specs exercise invalid start and end values.")
+           (:kind :expression :package "AITOOLS.EDIT.DOMAIN" :symbol "EDIT-JSON-NUMBER" :reason "SBCL 2.6.8's reader signals READER-ERROR for out-of-range numbers and yields an infinity with traps masked; the clause covers readers that signal ARITHMETIC-ERROR directly" :expected-uncovered-count 4)))

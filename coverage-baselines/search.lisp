@@ -3,8 +3,8 @@
  :source :linux-ci
  :expression-covered 5358
  :expression-total 5358
- :branch-covered 537
- :branch-total 537
+ :branch-covered 536
+ :branch-total 536
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.SEARCH.APPLICATION" :symbol "CODE-OUTLINE/K"
    :reason "SB-COVER leaves DEFINE-FLOW lambda-list defaults uncovered when callers omit the keyword; specs omit :LIMIT and assert the 200-item cap.")

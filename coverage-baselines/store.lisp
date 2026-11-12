@@ -1,10 +1,10 @@
 (:context :store
  :state :measured
  :source :linux-ci
- :expression-covered 8712
- :expression-total 8712
- :branch-covered 858
- :branch-total 858
+ :expression-covered 8746
+ :expression-total 8746
+ :branch-covered 862
+ :branch-total 862
  :coverage-exclusions
  ((:kind :branch :package "AITOOLS.STORE.APPLICATION" :symbol "%ARCHIVE-PREFIX-CURSOR"
    :reason "SB-COVER cannot source-map compiler-generated DEFSTRUCT :TYPE slot guards; invalid slot values reach only these generated checks, which have no source expression." :expected-uncovered-count 4)
