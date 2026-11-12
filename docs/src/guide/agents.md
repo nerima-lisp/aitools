@@ -231,18 +231,21 @@ Inspect `status` and `reason` for each section. The snapshot is not atomic. See
 [the system command reference](../reference/commands/env.md#sys-snapshot) for
 partial results, limits, and acquisition bounds.
 
-The overall deadline defaults to ten minutes and covers all sections,
-including socket-owner scans. Use `--timeout` to change it. If the deadline
-expires, the active and uncollected sections are unavailable with
-`environment.timeout`, and `deadline_reached` is true. Potentially blocking
-host queries run in external commands; each command gets the smaller of 60
-seconds and the remaining overall budget, and process-kit kills and reaps a
-timed-out child. Bounded local reads check the deadline around each call, while
-`/proc` directory and workspace ancestor walks check between entries.
+Partial sections retain the data collected so far; unavailable sections have
+null data. A list cut off by a configured limit has `truncated: true` in its
+data. A file read larger than 16 MiB makes its section unavailable.
 
-The 600-second default covers eight sequential 60-second commands and the
-one-second CPU sample (481 seconds), with 119 seconds for bounded local work and
-cleanup. This lets collection use the full ten minutes when sources stall.
+The overall deadline defaults to ten minutes and covers all sections,
+including socket-owner scans. Use `--timeout` to change it. When a deadline
+check finds the budget exhausted, `deadline_reached` is true. Sections left
+uncollected by that check are unavailable with a reason object whose `code` is
+`environment.timeout`. A source failure recorded before the check keeps its own
+reason. Each external command is limited to 60 seconds or the remaining overall
+budget, whichever is less. A timed-out command is killed and reaped. Local
+operations are checked at their boundaries, not interrupted while running. A
+bounded call already in progress may finish after the budget; the post-call
+check then stops collection.
+Directory and ancestor walks check between entries.
 Captured subprocess output has no memory bound.
 
 Use `sys metrics` for a noninteractive, JSON alternative to `top`:

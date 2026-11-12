@@ -42,13 +42,12 @@
   and [net reference](docs/src/reference/commands/net.md) for options and values.
   System probe timeouts are source-specific; see the [env reference](docs/src/reference/commands/env.md).
   `sys snapshot` defaults to a ten-minute overall deadline across all sections,
-  including socket-owner scans. External commands use the remaining budget and
-  process-kit kills and reaps timed-out children. Bounded local reads check around
-  each call; `/proc` and workspace ancestor walks check between entries. The
-  default covers eight sequential 60-second commands plus the one-second CPU
-  sample (481 seconds), with 119 seconds for bounded local work and cleanup. It
-  allows collection to use the full ten minutes when sources stall; `--timeout`
-  overrides it. Captured subprocess output has no memory bound.
+  including socket-owner scans. Each external command is limited to 60 seconds
+  or the remaining budget, whichever is less; timed-out children are killed and
+  reaped. Local calls are checked at their boundaries; an active bounded call
+  may finish after the budget before collection stops. Directory and ancestor
+  walks check between entries. `--timeout` overrides the default.
+  Captured subprocess output has no memory bound.
   Detached [`bg start`](docs/src/reference/commands/process.md#bg-start) has no
   operation deadline.
 - Response envelopes use `schema_version: 2`; consumers must reject version 1
