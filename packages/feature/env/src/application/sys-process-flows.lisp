@@ -208,5 +208,10 @@ userspace tick (USER_HZ) at 100."
               (if (> count limit)
                   (aitools.kernel.domain:flow-continue
                    :on-partial
-                   (append fields (list (cons "truncated" t))))
+                   (append
+                    fields
+                    (list
+                     (cons "truncated" t)
+                     (cons "next_commands"
+                           (list (format nil "aitools sys metrics --limit ~D" count))))))
                   (aitools.kernel.domain:flow-continue :on-ok fields))))))))
