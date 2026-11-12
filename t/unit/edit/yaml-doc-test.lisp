@@ -188,5 +188,20 @@
         (expect status :to-be :error)
         (expect code :to-equal "input.not-found"))))))
 
-(describe "aitools.edit.domain JSON number reader conditions" (it "maps a reader error to argument.invalid" (expect (edit-refusal-code (yaml-write-value-refusal (make-json-num "#.(+ 1 2)"))) :to-equal "argument.invalid")))
+(describe "aitools.edit.domain JSON number reader conditions"
+  (it "maps a reader error to argument.invalid"
+    (expect
+     (edit-refusal-code
+      (yaml-write-value-refusal (make-json-num "#.(+ 1 2)")))
+     :to-equal "argument.invalid"))
+  (it "rejects overflow with float traps masked"
+    (let ((refusal
+            (sb-int:with-float-traps-masked (:overflow :invalid)
+              (handler-case
+                  (progn
+                    (aitools.edit.domain::edit-json-number
+                     (make-json-num "1e400"))
+                    nil)
+                (edit-refusal (condition) condition)))))
+      (expect (edit-refusal-code refusal) :to-equal "argument.invalid"))))
 
