@@ -16,8 +16,61 @@
 (defun format-warning-array-empty (envelope)
   (let ((warnings (jget envelope "warnings")))
     (expect (and (vectorp warnings) (zerop (length warnings))) :to-be t)))
+(defun yaml-toml-document-generator ()
+  (let ((scalar-generator
+          (cl-weave:gen-one-of
+           (cl-weave:gen-integer :min -100 :max 100)
+           (cl-weave:gen-string :min-length 0 :max-length 16 :alphabet "abcXYZ09 _-."))))
+    (cl-weave:gen-map
+     (lambda (values)
+       (json-kit:make-json-object
+        (loop for value in values
+              for index from 0
+              collect (cons (format nil "key-~D" index) value))))
+     (cl-weave:gen-list
+      (cl-weave:gen-recursive
+       scalar-generator
+       (lambda (nested-generator)
+         (cl-weave:gen-one-of
+          (cl-weave:gen-vector scalar-generator :min-length 0 :max-length 4)
+          (cl-weave:gen-map
+           (lambda (values)
+             (json-kit:make-json-object
+              (loop for value in values
+                    for index from 0
+                    collect (cons (format nil "key-~D" index) value))))
+           (cl-weave:gen-list nested-generator :min-length 1 :max-length 3))))
+       :max-depth 2)
+      :min-length 1
+      :max-length 3))))
+(defun assert-generated-format-idempotent (format value)
+  (aitools-binary)
+  (call-with-workspace
+   (lambda (ws)
+     (let ((path (format nil "generated.~A" format)))
+       (put ws
+            path
+            (aitools.edit.infrastructure:serialize-document
+             format
+             (aitools.edit.domain:parse-json-text
+              (json-kit:stringify value))))
+       (let* ((first (run-ok ws (list "doc" "fmt" path)))
+              (first-bytes (file-octets ws path))
+              (second (run-ok ws (list "doc" "fmt" path))))
+         (format-warning-array-empty first)
+         (format-warning-array-empty second)
+         (expect-canonical-format-bytes first-bytes)
+         (expect (file-octets ws path) :to-equalp first-bytes))))))
 
 (describe "YAML and TOML format bytes"
+  (cl-weave:it-property
+   "keeps generated YAML documents unchanged on a second format"
+   ((value (yaml-toml-document-generator)))
+   (assert-generated-format-idempotent "yaml" value))
+  (cl-weave:it-property
+   "keeps generated TOML documents unchanged on a second format"
+   ((value (yaml-toml-document-generator)))
+   (assert-generated-format-idempotent "toml" value))
   (it "is idempotent and emits UTF-8 without BOM using LF and a final newline"
     (aitools-binary)
     (call-with-workspace
