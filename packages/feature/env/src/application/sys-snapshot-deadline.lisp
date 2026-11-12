@@ -22,9 +22,7 @@
       (funcall thunk)
       (progn
         (%check-snapshot-deadline boundaries)
-        (unwind-protect
-             (funcall thunk)
-          (%check-snapshot-deadline boundaries)))))
+        (multiple-value-prog1 (funcall thunk) (%check-snapshot-deadline boundaries)))))
 
 (defun %call-with-env-operation-deadline (boundaries key operation arguments)
   (%call-with-snapshot-deadline
