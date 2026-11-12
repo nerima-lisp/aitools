@@ -164,34 +164,48 @@ outcome a removal wanted, so succeed."
         while slash
         do (setf start (1+ slash))))
 
+(defun %real-path-symlink-step (target pending resolved hops)
+  (let ((next-hops (1+ hops)))
+    (cond
+      ((> next-hops 40) (values pending resolved next-hops :symlink-loop))
+      ((zerop (length target)) (values pending resolved next-hops :empty-symlink-target))
+      (t
+       (values (append (%path-components target) pending)
+               (if (char= (char target 0) #\/) "" resolved)
+               next-hops nil)))))
+
 (defun %real-path (store absolute)
-  "ABSOLUTE with every symlink resolved and the missing tail kept as written.
-On failure, returns NIL and a second value of :SYMLINK-LOOP or
-:EMPTY-SYMLINK-TARGET."
+  "Resolve symlinks in ABSOLUTE while preserving a missing tail. On failure,
+returns NIL and a second value of :SYMLINK-LOOP or :EMPTY-SYMLINK-TARGET."
   (let ((pending (%path-components absolute))
         (resolved "")
         (hops 0))
     (loop while pending
           do (let ((component (pop pending)))
                (cond
-                ((string= component "."))
-                ((string= component "..")
-                 (setf resolved (subseq resolved 0 (or (position #\/ resolved :from-end t) 0))))
-                (t
-                 (let ((candidate (concatenate 'string resolved "/" component)))
-                   (multiple-value-bind (kind mode target) (%io store lstat candidate)
-                     (declare (ignore mode))
-                     (if (eq kind :symlink)
-                         (progn
-                           (when (> (incf hops) 40)
-                             (return-from %real-path (values nil :symlink-loop)))
-                           (if (plusp (length target))
-                               (progn
-                                 (when (char= (char target 0) #\/)
-                                   (setf resolved ""))
-                                 (setf pending (append (%path-components target) pending)))
-                             (return-from %real-path (values nil :empty-symlink-target))))
-                       (setf resolved candidate))))))))
+                 ((string= component "."))
+                 ((string= component "..")
+                  (setf resolved (subseq resolved
+                                         0
+                                         (or (position #\/ resolved :from-end t)
+                                             0))))
+                 (t
+                  (let ((candidate
+                          (concatenate 'string resolved "/" component)))
+                    (multiple-value-bind (kind mode target)
+                        (%io store lstat candidate)
+                      (declare (ignore mode))
+                      (if (eq kind :symlink)
+                          (multiple-value-bind (next-pending next-resolved
+                                                next-hops failure)
+                              (%real-path-symlink-step
+                               target pending resolved hops)
+                            (setf pending next-pending
+                                  resolved next-resolved
+                                  hops next-hops)
+                            (when failure
+                              (return-from %real-path (values nil failure))))
+                        (setf resolved candidate))))))))
     (if (zerop (length resolved)) "/" resolved)))
 
 (defun %absolute-inside-p (directory path)
