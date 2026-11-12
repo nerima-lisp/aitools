@@ -374,7 +374,7 @@ with `repairs` naming the aitools command to use instead:
 | `bc`, `expr` | `aitools util calc` | Evaluate an arithmetic expression. |
 | `uuidgen` | `aitools util uuid` | Generate a UUID. |
 | `uuid` | `aitools util uuid` | `uuid` is a group subcommand name; the group prefix is required. |
-| `openssl` | `aitools util random` | Generate cryptographically random bytes. |
+| `openssl` | `aitools util random` | Generate cryptographically random strings over hex, alnum, or base64url. |
 <!-- END GENERATED: correspondence -->
 
 A shell command with several rows (`sed`, `perl`) returns every row's repair,

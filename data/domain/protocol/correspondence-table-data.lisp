@@ -129,7 +129,7 @@
      :repairs ((:detail "`uuid` is a group subcommand name; the group prefix is required."
                 :command "aitools util uuid")))
     (:foreign-names ("openssl")
-     :repairs ((:detail "Generate cryptographically random bytes."
+     :repairs ((:detail "Generate cryptographically random strings over hex, alnum, or base64url."
                 :command "aitools util random")))
     (:foreign-names ("json.select" "yaml.select" "toml.select")
      :repairs ((:detail "Filter and project a document array."
