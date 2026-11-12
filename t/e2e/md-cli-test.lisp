@@ -200,11 +200,16 @@
                                         (expect (file-octets ws ".git/config") :to-equalp before))))
                                   :git
                                   t)))))
-          (define-org-case ("md replace applies the target byte limit before comparing hashes" ws)
+          (define-org-case ("md headings/read/replace reject documents above the byte limit" ws)
                            (let* ((replacement (format nil "# Revised~%~%replacement~%"))
                                   (large-content (make-string (1+ (* 16 1024 1024)) :initial-element #\Space))
                                   (hash (make-string 64 :initial-element #\0)))
                              (put ws "large.md" large-content)
+                             (dolist (entry '((("md" "headings" "large.md") "md headings")
+                                              (("md" "read" "large.md" "1") "md read")))
+                               (let ((envelope
+                                       (md-error ws (first entry) (second entry) "refusal.too-large")))
+                                 (expect (jget envelope "next_commands") :to-be nil)))
                              (md-error ws
                                        (list "md" "replace" "large.md" "1" "--expect-hash" hash "--stdin")
                                        "md replace"
