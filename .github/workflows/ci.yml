@@ -146,6 +146,7 @@ jobs:
 
   check-darwin-host:
     runs-on: macos-15
+    needs: check-darwin-nix
     # The host runner allows 30 minutes for specs after Nix builds the delivery.
     # Leave time for setup and the build before the runner starts.
     timeout-minutes: 40
