@@ -165,29 +165,33 @@ outcome a removal wanted, so succeed."
         do (setf start (1+ slash))))
 
 (defun %real-path (store absolute)
-  "ABSOLUTE with every symlink resolved through LSTAT, the missing tail kept
-as written; NIL for a symlink loop (more than 40 hops, Linux's MAXSYMLINKS)."
+  "ABSOLUTE with every symlink resolved and the missing tail kept as written.
+On failure, returns NIL and a second value of :SYMLINK-LOOP or
+:EMPTY-SYMLINK-TARGET."
   (let ((pending (%path-components absolute))
         (resolved "")
         (hops 0))
     (loop while pending
           do (let ((component (pop pending)))
                (cond
-                 ((string= component "."))
-                 ((string= component "..")
-                  (setf resolved (subseq resolved 0 (or (position #\/ resolved :from-end t) 0))))
-                 (t
-                  (let ((candidate (concatenate 'string resolved "/" component)))
-                    (multiple-value-bind (kind mode target) (%io store lstat candidate)
-                      (declare (ignore mode))
-                      (if (eq kind :symlink)
-                          (progn
-                            (when (> (incf hops) 40)
-                              (return-from %real-path nil))
-                            (when (char= (char target 0) #\/)
-                              (setf resolved ""))
-                            (setf pending (append (%path-components target) pending)))
-                          (setf resolved candidate))))))))
+                ((string= component "."))
+                ((string= component "..")
+                 (setf resolved (subseq resolved 0 (or (position #\/ resolved :from-end t) 0))))
+                (t
+                 (let ((candidate (concatenate 'string resolved "/" component)))
+                   (multiple-value-bind (kind mode target) (%io store lstat candidate)
+                     (declare (ignore mode))
+                     (if (eq kind :symlink)
+                         (progn
+                           (when (> (incf hops) 40)
+                             (return-from %real-path (values nil :symlink-loop)))
+                           (if (plusp (length target))
+                               (progn
+                                 (when (char= (char target 0) #\/)
+                                   (setf resolved ""))
+                                 (setf pending (append (%path-components target) pending)))
+                             (return-from %real-path (values nil :empty-symlink-target))))
+                       (setf resolved candidate))))))))
     (if (zerop (length resolved)) "/" resolved)))
 
 (defun %absolute-inside-p (directory path)
@@ -205,21 +209,28 @@ component, no symlinked parent leading out of the root or into `.git`, and
 nothing in the state directory unless this is the mktemp area's store."
   (if (not (valid-relative-path-p relative))
       "is not a workspace-relative path"
-      (let* ((root (or (%real-path store (store-root store)) (store-root store)))
-             (parent (%real-path store (%workspace-path store (parent-relative-path relative))))
-             (name (subseq relative (1+ (or (position #\/ relative :from-end t) -1))))
-             (target (and parent (join-path parent name))))
-        (cond
-          ((null parent) "cannot be resolved (symlink loop)")
-          ((not (%absolute-inside-p root target)) "leads outside the workspace through a symlink")
-          ((or (git-metadata-path-p relative)
-               (and (string/= root target)
-               (git-metadata-path-p
-                (subseq target (if (string= root "/") 1 (1+ (length root)))))))
-           "is inside a .git directory")
-          ((and (not (store-temporary store))
-                (let ((state-root (workspace-state-root (store-state-directory store))))
-                  (or (%absolute-inside-p state-root target)
-                      (let ((real (%real-path store state-root)))
-                        (and real (%absolute-inside-p real target))))))
-           "is inside the aitools state directory")))))
+    (let* ((root (or (%real-path store (store-root store)) (store-root store)))
+           (parent-status nil)
+           (parent (multiple-value-bind (resolved status)
+                       (%real-path store (%workspace-path store (parent-relative-path relative)))
+                     (setf parent-status status)
+                     resolved))
+           (name (subseq relative (1+ (or (position #\/ relative :from-end t) -1))))
+           (target (and parent (join-path parent name))))
+      (cond
+       ((null parent)
+        (if (eq parent-status :empty-symlink-target)
+            "cannot be resolved (empty symlink target)"
+          "cannot be resolved (symlink loop)"))
+       ((not (%absolute-inside-p root target)) "leads outside the workspace through a symlink")
+       ((or (git-metadata-path-p relative)
+            (and (string/= root target)
+                 (git-metadata-path-p
+                  (subseq target (if (string= root "/") 1 (1+ (length root)))))))
+        "is inside a .git directory")
+       ((and (not (store-temporary store))
+             (let ((state-root (workspace-state-root (store-state-directory store))))
+               (or (%absolute-inside-p state-root target)
+                   (let ((real (%real-path store state-root)))
+                     (and real (%absolute-inside-p real target))))))
+        "is inside the aitools state directory")))))

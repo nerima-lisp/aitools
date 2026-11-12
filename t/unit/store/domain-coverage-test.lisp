@@ -84,4 +84,30 @@
           (expect longest :to-be 3))
         (let ((fields (write-result-fields (list result) :op-id "op-x" :max-diff-lines 1)))
           (expect (cdr (assoc "next_commands" fields :test #'string=))
-                  :to-equal '("aitools diff --op op-x"))))))
+                  :to-equal '("aitools diff --op op-x")))))
+    (it "refuses an empty symlink target for a parent without signaling"
+      (call-with-temp-store
+       (lambda (store)
+         (let* ((io (store-boundaries store))
+                (native-lstat (store-operation io :lstat))
+                (parent-path (disk-path store "empty-link"))
+                (stub-io
+                  (cl-boundary-kit:boundary-context-with
+                   io :lstat
+                   (lambda (path)
+                     (if (string= path parent-path)
+                         (values :symlink nil "")
+                         (funcall native-lstat path)))))
+                (stub-store
+                  (make-store stub-io
+                              (store-root store)
+                              (store-state-directory store)))
+                (result
+                  (handler-case
+                      (list :returned
+                            (aitools.store.application::%path-violation
+                             stub-store "empty-link/child"))
+                    (error () (list :signaled nil)))))
+           (expect (first result) :to-be :returned)
+           (expect (second result) :to-equal "cannot be resolved (empty symlink target)")))
+       :io nil)))
