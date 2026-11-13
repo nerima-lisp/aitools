@@ -1,10 +1,10 @@
 (:context :env
  :state :measured
  :source :linux-ci
- :expression-covered 4973
- :expression-total 4973
- :branch-covered 478
- :branch-total 478
+ :expression-covered 5281
+ :expression-total 5281
+ :branch-covered 526
+ :branch-total 526
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.ENV.DOMAIN" :symbol "ASCII-DIGITS-P"
    :reason "SB-COVER does not attribute lambda-list initforms to calls omitting :START and :END; civil-time specs exercise the default range.")

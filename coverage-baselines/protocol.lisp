@@ -1,10 +1,10 @@
 (:context :protocol
  :state :measured
  :source :linux-ci
- :expression-covered 1708
- :expression-total 1795
- :branch-covered 212
- :branch-total 246
+ :expression-covered 1740
+ :expression-total 1740
+ :branch-covered 230
+ :branch-total 230
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.PROTOCOL.DOMAIN" :symbol "COMMAND-SCHEMA"
    :reason "SB-COVER does not mark keyword defaults in the generated DEFSTRUCT constructor; schema tests exercise the omitted defaults.")
@@ -16,4 +16,3 @@
    :reason "The kind slot MEMBER type is declarative metadata; the CPS adapter constructs only the three valid kinds.")
   (:kind :branch :package "AITOOLS.PROTOCOL.DOMAIN" :symbol "COMMAND-SCHEMA"
    :reason "SB-COVER attributes the generated DEFSTRUCT constructor slot type check for (OR NULL STRING) to declarative type metadata; schema tests cover NIL, string, and invalid values.")))
-

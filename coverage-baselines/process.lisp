@@ -1,6 +1,6 @@
 (:context :process :state :measured :source :linux-ci
- :expression-covered 4908 :expression-total 4908
- :branch-covered 426 :branch-total 426
+ :expression-covered 5018 :expression-total 5018
+ :branch-covered 438 :branch-total 438
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.PROCESS.APPLICATION" :symbol "BG-LOGS/K"
    :reason "SB-COVER does not mark omitted keyword defaults in the DEFINE-FLOW lambda list; flow tests invoke the command without those options and assert the resulting defaults.")

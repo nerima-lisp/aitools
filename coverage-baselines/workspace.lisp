@@ -1,6 +1,6 @@
 (:context :workspace :state :measured :source :linux-ci
- :expression-covered 3759 :expression-total 3963
- :branch-covered 500 :branch-total 578
+ :expression-covered 4840 :expression-total 4840
+ :branch-covered 688 :branch-total 688
  :coverage-exclusions
  ((:kind :expression
    :package "AITOOLS.WORKSPACE.APPLICATION"
@@ -38,4 +38,3 @@
    :package "AITOOLS.WORKSPACE.DOMAIN"
    :symbol "WORKSPACE-ROOT"
    :reason "The spec passes an invalid SOURCE and observes TYPE-ERROR, but SB-COVER does not mark generated DEFSTRUCT slot type-check branches.")))
-

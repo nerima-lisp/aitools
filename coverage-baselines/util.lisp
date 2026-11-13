@@ -1,8 +1,8 @@
 (:context :util
  :state :measured
  :source :linux-ci
- :expression-covered 2733
- :expression-total 2733
+ :expression-covered 2738
+ :expression-total 2738
  :branch-covered 242
  :branch-total 242
  :coverage-exclusions

@@ -1,7 +1,7 @@
 (:context :kernel
  :state :measured :source :linux-ci
- :expression-covered 3083 :expression-total 3094
- :branch-covered 394 :branch-total 418
+ :expression-covered 3084 :expression-total 3084
+ :branch-covered 394 :branch-total 394
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.KERNEL.DOMAIN" :symbol "*FLOW-SIGNATURES*"
    :reason "The DEFVAR initializer runs during initial system loading before counters reset; flow registration behavior is covered by flow specs.")
@@ -27,4 +27,3 @@
    :reason "The DEFSTRUCT-generated OP slot type-check branch has no source-mapped SB-COVER counter; diff-line constructor specs cover valid and invalid OP values.")
   (:kind :branch :package "AITOOLS.KERNEL.DOMAIN" :symbol "DIFF-HUNK"
    :reason "The DEFSTRUCT-generated OLD-COUNT slot type-check branch has no source-mapped SB-COVER counter; diff-hunk constructor specs cover valid and invalid OLD-COUNT values.")))
-

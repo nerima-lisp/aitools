@@ -1,10 +1,10 @@
 (:context :net
  :state :measured
  :source :linux-ci
- :expression-covered 2243
- :expression-total 2243
- :branch-covered 280
- :branch-total 280
+ :expression-covered 2216
+ :expression-total 2216
+ :branch-covered 274
+ :branch-total 274
  :coverage-exclusions
  ((:kind :expression :package "AITOOLS.NET.APPLICATION" :symbol "GET/K"
    :reason "SB-COVER does not attribute lambda-list initialization forms; the default GET timeout is exercised by returns a 5xx status and decodes UTF-8 lines after a GET, and default max-lines by uses the default 80-line window and parses open-ended ranges.")

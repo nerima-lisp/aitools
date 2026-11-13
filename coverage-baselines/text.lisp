@@ -1,10 +1,10 @@
 (:context :text
  :state :measured
  :source :linux-ci
- :expression-covered 4695
- :expression-total 4695
- :branch-covered 556
- :branch-total 556
+ :expression-covered 4867
+ :expression-total 4867
+ :branch-covered 568
+ :branch-total 568
  :coverage-exclusions
  ((:kind :branch
    :package "AITOOLS.TEXT.DOMAIN"
