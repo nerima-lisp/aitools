@@ -4,10 +4,11 @@
 
 ## v0.4.0
 
-- Add `net get`, `net head`, and `net resolve` for HTTP requests and OS DNS
-  address lookup. HTTPS requests require verified TLS; URLs with credentials
-  are refused, HTTPS-to-HTTP redirects are not followed, and response secrets
-  are redacted.
+- Add `net get`, `net head`, and `net resolve` for HTTP requests and OS-resolved
+  A and AAAA address lookup. `net resolve` does not return CNAME chains, other
+  DNS record types, or DNS response codes. HTTPS requests require verified TLS;
+  URLs with credentials are refused, HTTPS-to-HTTP redirects are not followed,
+  and response secrets are redacted.
   Redirect policy follows the initial DNS answers: if all initial addresses are
   non-public, redirects may use public or non-public addresses; if any initial
   address is public, only public addresses are used for the initial request and
@@ -38,7 +39,9 @@
   `environment.unavailable` when a CPU, load-average, memory, or process source
   is missing or malformed.
 - Add `sys metrics --timeout` with a 60-second default per subprocess source,
-  including process listing.
+  including process listing. When its process list is truncated,
+  `next_commands` includes a command that sets `--limit` to the observed count
+  and preserves `--timeout`.
 - Command timeouts are scoped: `run` defaults to `120s`, `wait` to `60s`, and
   `net get`, `net head`, and `net resolve` to `30s`; see the [process reference](docs/src/reference/commands/process.md)
   and [net reference](docs/src/reference/commands/net.md) for options and values.
@@ -52,10 +55,8 @@
   Captured subprocess output has no memory bound.
   Detached [`bg start`](docs/src/reference/commands/process.md#bg-start) has no
   operation deadline.
-- Response envelopes use `schema_version: 2`; consumers must reject version 1
-  and envelopes without a version. Success and error envelopes can carry
-  optional `meta` and `recovered` fields. YAML and TOML values outside the
-  shared JSON value model return `input.unsupported-value`.
+- YAML and TOML values outside the shared JSON value model return
+  `input.unsupported-value`.
 - Security: Linux `signal` uses a pidfd to verify and signal the same process;
   Darwin rechecks the process identity before signaling.
 - Security: workspace write boundaries reject paths into Git metadata,

@@ -76,6 +76,7 @@ Linux reads /proc; Darwin runs ps. Only reads: no process is signalled. More mat
 | `items` | [{pid, ppid, user, command, started}]; started is UTC ISO 8601. |
 | `total` | Matching processes before --limit. |
 | `truncated` | Present and true when items were cut at --limit. |
+| `next_commands` | Command to repeat with --limit set to the observed matching process count. |
 
 Errors: `environment.unavailable`, `internal.unexpected`.
 
@@ -100,6 +101,7 @@ CPU uses a one-second interval across all logical CPUs (0..100%; Linux excludes 
 | `items` | [{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU. |
 | `total` | Process count before --limit. |
 | `truncated` | Present and true when processes were cut at --limit. |
+| `next_commands` | Command to repeat with --limit set to the observed process count; preserves --timeout. |
 
 Errors: `argument.invalid`, `environment.unavailable`, `internal.unexpected`.
 

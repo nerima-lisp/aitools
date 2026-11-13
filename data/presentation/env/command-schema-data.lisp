@@ -98,7 +98,8 @@
             (:name "--limit" :type "integer" :default 50 :description "Maximum items (at least 1)."))
      :output-fields ((:name "items" :description "[{pid, ppid, user, command, started}]; started is UTC ISO 8601.")
                      (:name "total" :description "Matching processes before --limit.")
-                     (:name "truncated" :description "Present and true when items were cut at --limit."))
+                     (:name "truncated" :description "Present and true when items were cut at --limit.")
+                     (:name "next_commands" :description "Command to repeat with --limit set to the observed matching process count."))
      :error-codes ("environment.unavailable" "internal.unexpected"))
     (:name "sys.metrics"
      :summary "Sample CPU, memory, load average, and process metrics once without an interactive display."
@@ -112,7 +113,8 @@
                      (:name "process_cpu_basis" :description "lifetime_average (Linux) or decaying_average (Darwin); not the system CPU sampling interval.")
                      (:name "items" :description "[{pid, command, cpu_percent, rss_bytes}]; RSS in bytes, process CPU in percent of one logical CPU.")
                      (:name "total" :description "Process count before --limit.")
-                     (:name "truncated" :description "Present and true when processes were cut at --limit."))
+                     (:name "truncated" :description "Present and true when processes were cut at --limit.")
+                     (:name "next_commands" :description "Command to repeat with --limit set to the observed process count; preserves --timeout."))
      :error-codes ("argument.invalid" "environment.unavailable" "internal.unexpected"))
     (:name "sys.ports"
      :summary "List TCP sockets in LISTEN state with the owning process."
