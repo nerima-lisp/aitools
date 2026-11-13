@@ -157,7 +157,7 @@
       (expect kind :to-be :error)
       (expect (first error) :to-equal "environment.unavailable"))))
 (describe "aitools.env.application sys metrics timeout validation"
-  (it "rejects a zero timeout before reading host sources"
+  (it "rejects a zero timeout"
     (multiple-value-bind (kind error)
         (run-flow #'sys-metrics/k (make-fake-env-boundaries) :timeout "0ms")
       (expect kind :to-be :error)

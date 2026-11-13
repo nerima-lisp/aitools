@@ -161,9 +161,11 @@
     (call-with-workspace
      (lambda (ws)
        (let* ((marker (native (ws-path ws "ps-started")))
+              (completion-marker (native (ws-path ws "ps-completed")))
               (script
-                (format nil "#!/bin/sh~%printf started > ~A~%sleep 10~%printf '4242 0.0 4 worker\\n'~%"
-                        (aitools.protocol.domain:shell-quote marker)))
+                (format nil "#!/bin/sh~%printf started > ~A~%sleep 10~%printf completed > ~A~%printf '4242 0.0 4 worker\\n'~%"
+                        (aitools.protocol.domain:shell-quote marker)
+                        (aitools.protocol.domain:shell-quote completion-marker)))
               (ps (put ws "bin/ps" script :mode #o755))
               (environment
                 #+linux (list (cons "PATH"
@@ -175,6 +177,7 @@
               (result (aitools ws (quote ("sys" "metrics" "--timeout" "1s")) :env environment))
               (envelope (aitools-envelope result)))
          (expect (probe-file marker) :to-be-truthy)
+         (expect (probe-file completion-marker) :to-be nil)
          (expect
            (list (aitools-exit-code result)
                  (jget envelope "status")
