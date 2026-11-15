@@ -6,16 +6,6 @@
 ;;;; to a jj repository, both read directly; no git or jj process is started.
 (in-package #:aitools.workspace.application)
 
-(defun %directory-p (host path)
-  (let ((real (resolve-real-path host path)))
-    (and real
-         (let ((entry (host-stat host real)))
-           (and entry (eq (workspace-entry-kind entry) :directory))))))
-
-(defun %read-text (host path)
-  (let ((octets (host-read-octets host path)))
-    (and octets (decode-git-text octets))))
-
 (defun %repository-at (host directory)
   "The GIT-REPOSITORY whose top is DIRECTORY, or NIL when it has neither a
 usable `.git` entry nor a common Git directory layout."
@@ -87,55 +77,10 @@ or NIL. START is absolute and normalized."
 (defun %registered-linked-worktree-p (host worktree-top git-directory)
   ;; With worktree.useRelativePaths Git writes the back-pointer relative to
   ;; the worktrees/<name> directory instead of as an absolute path.
-  (let* ((text (%read-text host (join-path git-directory "gitdir")))
-         (back-pointer
-           (and text
-                (normalize-path
-                 (join-path git-directory
-                            (string-trim (list (code-char 32) (code-char 9)
-                                               (code-char 10) (code-char 13))
-                                         text)))))
-         (expected (join-path worktree-top ".git")))
+  (let ((back-pointer
+          (%read-relative-path host (join-path git-directory "gitdir") git-directory)))
     (and back-pointer
-         (%same-file-identity-p host back-pointer expected))))
-
-(defun %jj-repository-directory (host workspace-top)
-  "The jj repository directory WORKSPACE-TOP's `.jj/repo` leads to, or NIL
-unless it holds `store/`, `op_store/`, and `op_heads/`. `.jj/repo` is that
-directory in the workspace that created the repository; in a workspace added
-later it is a file naming it, absolute or relative to `.jj/`."
-  (let* ((jj-directory (join-path workspace-top ".jj"))
-         (repo (join-path jj-directory "repo"))
-         (entry (and (%directory-p host jj-directory) (host-stat host repo)))
-         (directory
-           (cond ((null entry) nil)
-                 ((%directory-p host repo) repo)
-                 ((eq (workspace-entry-kind entry) :file)
-                  (let ((text (%read-text host repo)))
-                    (and text
-                         (normalize-path
-                          (join-path jj-directory
-                                     (string-trim (list (code-char 32) (code-char 9)
-                                                        (code-char 10) (code-char 13))
-                                                  text)))))))))
-    (and directory
-         (every (lambda (name) (%directory-p host (join-path directory name)))
-                (list "store" "op_store" "op_heads"))
-         directory)))
-
-(defun %jj-git-target (host repository-directory)
-  "The Git directory REPOSITORY-DIRECTORY's `store/git_target` names, or NIL.
-jj writes it relative to `store/` (`../../..` for a repository initialized
-in a bare Git directory) or absolute."
-  (let* ((store (join-path repository-directory "store"))
-         (text (%read-text host (join-path store "git_target")))
-         (target (and text
-                      (string-trim (list (code-char 32) (code-char 9)
-                                         (code-char 10) (code-char 13))
-                                   text))))
-    (and target
-         (plusp (length target))
-         (normalize-path (join-path store target)))))
+         (%same-file-identity-p host back-pointer (join-path worktree-top ".git")))))
 
 (defun %find-workspace-top (host start)
   "The innermost directory at or above START that is a Git top level or a

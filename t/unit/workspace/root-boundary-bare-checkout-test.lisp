@@ -198,6 +198,29 @@
       (expect (boundary-verdict linked linked-root ".jj/x") :to-be :git-directory)
       (expect (boundary-verdict linked linked-root "state/x") :to-be :git-directory)
       (expect (boundary-verdict linked linked-root "src/new.txt") :to-be :inside)))
+  (it "roots discovery at the jj workspace that holds its repository"
+    (let* ((host
+             (make-fake-workspace-boundaries
+              :files (list (cons "/plain/.jj/repo/store/git_target" "git"))
+              :directories (list "/plain/.jj/repo/store/git" "/plain/.jj/repo/op_store"
+                                 "/plain/.jj/repo/op_heads" "/plain/src")
+              :cwd "/plain/src"))
+           (root (resolved-root host)))
+      (expect (workspace-root-path root) :to-equal "/plain")
+      (expect (aitools.workspace.domain::workspace-root-source root) :to-be :jj)
+      (expect (workspace-root-repository root) :to-be nil)
+      (expect (boundary-verdict host root "src/new.txt") :to-be :inside)
+      (expect (boundary-verdict host root ".jj/repo/store/git/HEAD") :to-be :git-directory)))
+  (it "protects a .jj directory or symlink but not a .jj file"
+    (let ((file-host (make-fake-workspace-boundaries
+                      :files (list (cons "/plain/.jj" "not a directory"))))
+          (loop-host (make-fake-workspace-boundaries
+                      :directories (list "/plain")
+                      :symlinks (list (cons "/plain/.jj" "/plain/.jj")))))
+      (expect (aitools.workspace.application::%jj-metadata-directory file-host "/plain")
+              :to-be nil)
+      (expect (aitools.workspace.application::%jj-metadata-directory loop-host "/plain")
+              :to-equal "/plain/.jj")))
   (it "leaves an ordinary repository unchanged"
     (let* ((host
              (make-fake-workspace-boundaries
