@@ -69,19 +69,31 @@
 ;;; Every metadata pointer kind against every pointer state. Only a pointer
 ;;; the kernel can follow to the bare repository grants the exception; one it
 ;;; cannot reach (a loop, a missing or non-directory component, even when a
-;;; later `..` would fold it onto the bare repository) grants nothing.
+;;; later `..` would fold it onto the bare repository) grants nothing. A
+;;; trailing `/` or `/.` requires a directory, so it keeps a directory target
+;;; valid and makes a file target (the back-pointer's `.git`) unreachable.
 (defparameter *metadata-pointer-kinds*
-  ;; kind, pointer file, workspace root, absolute and relative valid text
+  ;; kind, pointer file, workspace root, absolute and relative valid text,
+  ;; and whether the valid target is a directory
   '((:jj-repo "/bare/.worktrees/jw/.jj/repo" "/bare/.worktrees/jw"
-     "/bare/.jj/repo" "../../../.jj/repo")
+     "/bare/.jj/repo" "../../../.jj/repo" t)
     (:git-target "/bare/.jj/repo/store/git_target" "/bare/.worktrees/jw"
-     "/bare" "../../..")
+     "/bare" "../../.." t)
     (:gitdir "/bare/.worktrees/wt/.git" "/bare/.worktrees/wt"
-     "/bare/worktrees/wt" "../../worktrees/wt")
+     "/bare/worktrees/wt" "../../worktrees/wt" t)
     (:commondir "/bare/worktrees/wt/commondir" "/bare/.worktrees/wt"
-     "/bare" "../..")
+     "/bare" "../.." t)
     (:back-pointer "/bare/worktrees/wt/gitdir" "/bare/.worktrees/wt"
-     "/bare/.worktrees/wt/.git" "../../.worktrees/wt/.git")))
+     "/bare/.worktrees/wt/.git" "../../.worktrees/wt/.git" nil)))
+
+(defparameter *metadata-pointer-states*
+  '(:absolute :relative :loop-parent :dangling :dangling-parent :file-parent :empty
+    :unreadable :trailing-slash :trailing-dot :link-trailing-slash))
+
+(defun %pointer-state-allowed-p (state directory-target-p)
+  (or (member state '(:absolute :relative))
+      (and directory-target-p
+           (member state '(:trailing-slash :trailing-dot :link-trailing-slash)))))
 
 (defun %pointer-state-text (state absolute relative)
   "The pointer text for STATE; NIL content makes the pointer file unreadable."
@@ -93,7 +105,10 @@
     (:dangling-parent (concatenate 'string "/x/dangle/../.." absolute))
     (:file-parent (concatenate 'string "/x/plain/../.." absolute))
     (:empty "")
-    (:unreadable nil)))
+    (:unreadable nil)
+    (:trailing-slash (concatenate 'string absolute "/"))
+    (:trailing-dot (concatenate 'string absolute "/."))
+    (:link-trailing-slash "/x/slashlink")))
 
 (defun %metadata-pointer-host (kind text)
   (let ((files (append (%bare-jj-files)
@@ -103,36 +118,41 @@
                              (cons "/bare/worktrees/wt/gitdir" "../../.worktrees/wt/.git")
                              (cons "/bare/.worktrees/wt/.git" "gitdir: ../../worktrees/wt")
                              (cons "/x/plain" "not a directory"))))
-        (file (second (assoc kind *metadata-pointer-kinds*))))
-    (setf (cdr (assoc file files :test #'string=))
+        (row (assoc kind *metadata-pointer-kinds*)))
+    (setf (cdr (assoc (second row) files :test #'string=))
           (if (and text (eq kind :gitdir)) (concatenate 'string "gitdir: " text) text))
     (make-fake-workspace-boundaries
      :files files
      :directories (append (%bare-jj-directories)
                           (list "/bare/.worktrees/jw/.jj/working_copy" "/bare/.worktrees/jw/src"
                                 "/bare/.worktrees/wt/src"))
-     :symlinks (list (cons "/x/loop" "loop") (cons "/x/dangle" "/missing"))
+     :symlinks (list (cons "/x/loop" "loop") (cons "/x/dangle" "/missing")
+                     (cons "/x/slashlink" (concatenate 'string (fourth row) "/")))
      :cwd "/")))
 
 (describe "aitools.workspace.application metadata pointer states"
   (it "grants the exception only to a pointer the kernel can follow"
     (dolist (row *metadata-pointer-kinds*)
-      (destructuring-bind (kind file root absolute relative) row
+      (destructuring-bind (kind file root absolute relative directory-target-p) row
         (declare (ignore file))
-        (dolist (state '(:absolute :relative :loop-parent :dangling :dangling-parent
-                         :file-parent :empty :unreadable))
+        (dolist (state *metadata-pointer-states*)
           (let* ((host (%metadata-pointer-host
                         kind (%pointer-state-text state absolute relative)))
                  (verdict (boundary-verdict host (resolved-root host :root root) "src/new.txt")))
             (expect (list kind state verdict)
-                    :to-equal (list kind state (if (member state '(:absolute :relative))
-                                                   :inside
-                                                   :git-directory))))))))
+                    :to-equal (list kind state
+                                    (if (%pointer-state-allowed-p state directory-target-p)
+                                        :inside
+                                        :git-directory))))))))
   (it "resolves a metadata path only when every component before the last is a directory"
     (let ((host (%metadata-pointer-host :jj-repo "/bare/.jj/repo")))
       (flet ((strict (path) (aitools.workspace.application::resolve-existing-path host path)))
         (expect (strict "/x/plain") :to-equal "/x/plain")
         (expect (strict "/x/plain/..") :to-be nil)
+        (expect (strict "/x/plain/") :to-be nil)
+        (expect (strict "/x/plain/.") :to-be nil)
+        (expect (strict "/x/slashlink") :to-equal "/bare/.jj/repo")
+        (expect (strict "/bare/") :to-equal "/bare")
         (expect (strict "/x/dangle/../bare") :to-be nil)
         (expect (strict "/x/loop/../bare") :to-be nil)
         (expect (strict "/bare/./worktrees/../HEAD") :to-equal "/bare/HEAD")
