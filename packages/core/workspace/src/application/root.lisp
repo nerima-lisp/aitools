@@ -84,17 +84,20 @@ or NIL. START is absolute and normalized."
           (host-stat host left-real)
           (host-stat host right-real)))))
 (defun %registered-linked-worktree-p (host worktree-top git-directory)
+  ;; With worktree.useRelativePaths Git writes the back-pointer relative to
+  ;; the worktrees/<name> directory instead of as an absolute path.
   (let* ((text (%read-text host (join-path git-directory "gitdir")))
          (back-pointer
            (and text
                 (normalize-path
-                 (string-trim (list (code-char 32) (code-char 9)
-                                    (code-char 10) (code-char 13))
-                              text))))
+                 (join-path git-directory
+                            (string-trim (list (code-char 32) (code-char 9)
+                                               (code-char 10) (code-char 13))
+                                         text)))))
          (expected (join-path worktree-top ".git")))
     (and back-pointer
-         (absolute-path-p back-pointer)
          (%same-file-identity-p host back-pointer expected))))
+
 (defun %git-name-fold (name)
   (aitools.text.domain:casefold-text
    (aitools.text.domain:normalize-text name :nfd)))
