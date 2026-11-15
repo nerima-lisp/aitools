@@ -17,14 +17,14 @@ usable `.git` entry nor a common Git directory layout."
                (if (and (eq (workspace-entry-kind entry) :file))
                    (let* ((text (%read-text host dot-git))
                           (target (and text (parse-gitdir-file text))))
-                     (and target (normalize-path (join-path directory target))))
+                     (and target (%metadata-path host directory target)))
                    (and (%directory-p host dot-git) dot-git))))
          (when (and git-dir (host-stat host (join-path git-dir "HEAD")))
            (let* ((commondir-text (%read-text host (join-path git-dir "commondir")))
                   (common (if commondir-text
-                              (normalize-path
-                               (join-path git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
-                                                               commondir-text)))
+                              (%metadata-path
+                               host git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
+                                                         commondir-text))
                               git-dir)))
              (make-git-repository :top (coerce directory 'simple-string)
                                   :git-dir (coerce git-dir 'simple-string)

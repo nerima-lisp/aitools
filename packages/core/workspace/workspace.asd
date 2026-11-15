@@ -33,6 +33,7 @@
                (:file "unit/workspace/root-boundary-test")
                (:file "unit/workspace/root-boundary-linked-worktree-test")
                (:file "unit/workspace/root-boundary-bare-checkout-test")
+               (:file "unit/workspace/root-boundary-metadata-symlink-test")
                (:file "unit/workspace/boundary-verdict-coverage-test")
                (:file "unit/workspace/root-boundary-git-metadata-test")
                (:file "unit/workspace/root-boundary-casefold-test")
