@@ -17,12 +17,12 @@
     (and octets (decode-git-text octets))))
 
 (defun %metadata-path (host base text)
-  "TEXT, a path read from metadata, made absolute against BASE the way the
-kernel follows it: each symlink is resolved before a later `..` applies, so
-`link/../r.git` names the directory beside the link's target. NIL when the
-path cannot be resolved (a symlink loop): folding its `..` lexically would
-name a directory the kernel never reaches."
-  (resolve-real-path host (join-path base text)))
+  "TEXT, a path read from metadata, made absolute against BASE and resolved
+the way the kernel follows it (RESOLVE-EXISTING-PATH): `link/../r.git` names
+the directory beside the link's target, and NIL when the kernel could not
+reach it (a loop, a missing or non-directory component), so an unreachable
+pointer grants nothing."
+  (resolve-existing-path host (join-path base text)))
 
 (defun %read-relative-path (host file base)
   "FILE's text, trimmed of surrounding whitespace, as a path: itself when

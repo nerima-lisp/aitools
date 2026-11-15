@@ -47,12 +47,15 @@
        (%git-metadata-path-inside-p right left)))
 
 (defun %registered-linked-worktree-candidate-verdict (host common-directory real-root worktree)
-  (let* ((worktree-top (resolve-real-path host (git-repository-top worktree)))
+  ;; An unresolvable pointer never grants membership; it may still be used to
+  ;; refuse a write. So every path here resolves strictly: a git dir or
+  ;; common dir the kernel cannot reach never registers the worktree.
+  (let* ((worktree-top (resolve-existing-path host (git-repository-top worktree)))
          (worktree-git-directory
-          (resolve-real-path host (git-repository-git-dir worktree)))
+          (resolve-existing-path host (git-repository-git-dir worktree)))
          (common-path (git-repository-common-dir worktree))
          (worktree-common-directory
-          (and common-path (resolve-real-path host common-path)))
+          (and common-path (resolve-existing-path host common-path)))
          (worktree-git-parent
           (and worktree-git-directory (path-parent worktree-git-directory)))
          (registered-p

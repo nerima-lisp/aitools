@@ -79,3 +79,35 @@ identical to the uncached walk of one LSTAT per component."
                                 (setf (gethash lexical cache) resolved))))))))))
       (when cache (setf (gethash path cache) resolved))
       resolved)))
+
+(defun resolve-existing-path (host path)
+  "realpath(3) for paths read from metadata: the real path of the absolute
+PATH when every component exists and every component before the last is a
+directory once symlinks are followed, else NIL. Unlike RESOLVE-REAL-PATH,
+which keeps a nonexistent tail lexical for write targets, a missing or
+non-directory component is never cancelled by a later `..`, because the
+kernel stops there (ENOENT, ENOTDIR) instead."
+  (let ((pending (path-components path))
+        (resolved "/")
+        (hops 0))
+    (loop while pending
+          do (let ((component (pop pending)))
+               (cond
+                 ((string= component "."))
+                 ((string= component "..")
+                  (setf resolved (or (path-parent resolved) "/")))
+                 (t
+                  (let* ((candidate (join-path resolved component))
+                         (entry (host-stat host candidate))
+                         (kind (and entry (workspace-entry-kind entry))))
+                    (cond
+                      ((eq kind :symlink)
+                       (let ((target (host-read-link host candidate)))
+                         (when (or (null target) (> (incf hops) *symlink-hop-limit*))
+                           (return-from resolve-existing-path nil))
+                         (when (absolute-path-p target) (setf resolved "/"))
+                         (setf pending (append (path-components target) pending))))
+                      ((or (null kind) (and pending (not (eq kind :directory))))
+                       (return-from resolve-existing-path nil))
+                      (t (setf resolved candidate))))))))
+    resolved))
