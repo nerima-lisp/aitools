@@ -123,6 +123,20 @@ later it is a file naming it, absolute or relative to `.jj/`."
                 (list "store" "op_store" "op_heads"))
          directory)))
 
+(defun %jj-git-target (host repository-directory)
+  "The Git directory REPOSITORY-DIRECTORY's `store/git_target` names, or NIL.
+jj writes it relative to `store/` (`../../..` for a repository initialized
+in a bare Git directory) or absolute."
+  (let* ((store (join-path repository-directory "store"))
+         (text (%read-text host (join-path store "git_target")))
+         (target (and text
+                      (string-trim (list (code-char 32) (code-char 9)
+                                         (code-char 10) (code-char 13))
+                                   text))))
+    (and target
+         (plusp (length target))
+         (normalize-path (join-path store target)))))
+
 (defun %find-workspace-top (host start)
   "The innermost directory at or above START that is a Git top level or a
 jj workspace, as (VALUES directory repository); REPOSITORY is NIL for a jj

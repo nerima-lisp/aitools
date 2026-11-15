@@ -73,19 +73,31 @@
         (nthcdr (length (path-components directory)) (path-components path))))
 
 (defun %jj-metadata-directory (host workspace-top)
-  "The real `.jj` directory of WORKSPACE-TOP when it is a jj workspace."
-  (and (%jj-repository-directory host workspace-top)
-       (resolve-real-path host (join-path workspace-top ".jj"))))
+  "The `.jj` entry of WORKSPACE-TOP, real path when it resolves, when it is a
+directory or a symlink, whether or not its `.jj/repo` leads anywhere."
+  (let* ((path (join-path workspace-top ".jj"))
+         (entry (host-stat host path)))
+    (and entry
+         (member (workspace-entry-kind entry) (list :directory :symlink))
+         (or (resolve-real-path host path) path))))
+
+(defun %jj-workspace-of-common-directory-p (host workspace-top common-directory)
+  ;; Only a jj workspace whose repository stores into COMMON-DIRECTORY
+  ;; belongs to it; another jj repository's workspace gets no exception.
+  (let* ((repository (%jj-repository-directory host workspace-top))
+         (target (and repository (%jj-git-target host repository))))
+    (and target (%same-file-identity-p host target common-directory))))
 
 (defun %linked-worktree-exception-verdict (host common-directory real-root git-directory repositories)
   ;; A checkout below a bare common directory is a workspace of its own when
-  ;; its metadata says so: a registered linked worktree, or a jj workspace.
+  ;; its metadata says so: a registered linked worktree, or a jj workspace
+  ;; whose jj repository stores into this common directory.
   ;; Never inside a `.jj` directory, which holds jj repository state.
   (if (and (%same-git-path-p common-directory git-directory)
            (%git-metadata-path-inside-p common-directory real-root)
            (not (%git-metadata-path-inside-p real-root common-directory))
            (not (%path-below-has-jj-component-p common-directory real-root))
-           (or (%jj-repository-directory host real-root)
+           (or (%jj-workspace-of-common-directory-p host real-root common-directory)
                (some (lambda (worktree)
                        (eq (%registered-linked-worktree-candidate-verdict
                             host common-directory real-root worktree)
@@ -154,8 +166,8 @@
   The repository git directory and any common directory at or below ROOT are
   refused, except that a common directory above ROOT stays writable outside
   its metadata entries when ROOT is a registered linked worktree or a jj
-  workspace. ROOT inside a Git common-directory entry is also refused as
-  :GIT-DIRECTORY, as is the `.jj` directory of a jj workspace ROOT.
+  workspace of that repository. ROOT inside a Git common-directory entry is
+  also refused as :GIT-DIRECTORY, as is ROOT's own `.jj` entry.
 
   ON-INSIDE receives a kernel WORKSPACE-PATH and the verdict (:INSIDE or
   :TEMPORARY). For :TEMPORARY, the path RELATIVE slot holds the real path.

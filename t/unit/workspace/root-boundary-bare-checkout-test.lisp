@@ -5,7 +5,8 @@
 ;;; leave behind.
 (defun %bare-jj-files ()
   (list (cons "/bare/HEAD" "ref: refs/heads/main")
-        (cons "/bare/config" "[core]")))
+        (cons "/bare/config" "[core]")
+        (cons "/bare/.jj/repo/store/git_target" "../../..")))
 
 (defun %bare-jj-directories ()
   (list "/bare/objects" "/bare/refs" "/bare/worktrees"
@@ -130,7 +131,9 @@
       (expect (workspace-root-path root) :to-equal workspace)
       (expect (boundary-verdict host root "src/new.txt") :to-be :inside)))
   (it "keeps jj workspaces placed in bare metadata refused"
-    (dolist (workspace (list "/bare/worktrees/jw" "/bare/refs/jw" "/bare/.jj/jw"
+    (dolist (workspace (list "/bare/worktrees/jw" "/bare/refs/jw" "/bare/REFS/jw"
+                             "/bare/objects/jw" "/bare/hooks/jw" "/bare/info/jw"
+                             "/bare/logs/jw" "/bare/.jj/jw" "/bare/.JJ/jw"
                              "/bare/.jj/repo/store/jw"))
       (let* ((pointer (format nil "~{~A~^/~}/.jj/repo"
                               (make-list (length (path-components workspace))
@@ -140,22 +143,71 @@
         (expect (boundary-verdict host root "src/new.txt") :to-be :git-directory))))
   (it "keeps the bare root's metadata and .jj refused under --root"
     (let* ((host (%jj-workspace-host "/bare/.worktrees/jw" "../../../.jj/repo"))
-           (root (resolved-root host :root "/bare")))
+           (root (resolved-root host :root "/bare"))
+           (container (resolved-root host :root "/bare/.worktrees")))
       (dolist (target (list "HEAD" "config" "refs/x" "objects/x" "worktrees/wt/x"
                             ".jj/x" ".jj/repo/store/x" ".worktrees/jw/src/new.txt"))
-        (expect (boundary-verdict host root target) :to-be :git-directory))))
+        (expect (boundary-verdict host root target) :to-be :git-directory))
+      (dolist (target (list "new.txt" "jw/src/new.txt"))
+        (expect (boundary-verdict host container target) :to-be :git-directory))))
+  (it "grants the exception only to a jj workspace of the enclosing bare repository"
+    (let ((unrelated
+            (%jj-workspace-host
+             "/bare/.worktrees/jw" "/other/.jj/repo"
+             :extra-files (list (cons "/other/.jj/repo/store/git_target" "../../.."))
+             :extra-directories (list "/other/objects" "/other/refs"
+                                      "/other/.jj/repo/op_store" "/other/.jj/repo/op_heads")))
+          (untargeted
+            (%jj-workspace-host
+             "/bare/.worktrees/jw" "/plain/repo"
+             :extra-directories (list "/plain/repo/store" "/plain/repo/op_store"
+                                      "/plain/repo/op_heads")))
+          (absolute
+            (make-fake-workspace-boundaries
+             :files (list (cons "/bare/HEAD" "ref: refs/heads/main")
+                          (cons "/bare/.jj/repo/store/git_target" "/bare")
+                          (cons "/bare/.worktrees/jw/.jj/repo" "/bare/.jj/repo"))
+             :directories (append (%bare-jj-directories)
+                                  (list "/bare/.worktrees/jw/src"))
+             :cwd "/bare/.worktrees/jw/src")))
+      (expect (boundary-verdict unrelated (resolved-root unrelated :root "/bare/.worktrees/jw")
+                                "src/new.txt")
+              :to-be :git-directory)
+      (expect (boundary-verdict untargeted (resolved-root untargeted :root "/bare/.worktrees/jw")
+                                "src/new.txt")
+              :to-be :git-directory)
+      (expect (boundary-verdict absolute (resolved-root absolute) "src/new.txt")
+              :to-be :inside)))
+  (it "refuses the root's .jj whether or not its .jj/repo resolves"
+    (let* ((broken
+             (make-fake-workspace-boundaries
+              :files (list (cons "/plain/.jj/repo" "../nowhere"))
+              :directories (list "/plain/src")
+              :cwd "/plain"))
+           (linked
+             (make-fake-workspace-boundaries
+              :directories (list "/plain/state" "/plain/src")
+              :symlinks (list (cons "/plain/.jj" "state"))
+              :cwd "/plain"))
+           (broken-root (resolved-root broken))
+           (linked-root (resolved-root linked)))
+      (expect (aitools.workspace.domain::workspace-root-source broken-root) :to-be :cwd)
+      (expect (boundary-verdict broken broken-root "src/new.txt") :to-be :inside)
+      (expect (boundary-verdict broken broken-root ".jj/x") :to-be :git-directory)
+      (expect (boundary-verdict broken broken-root ".JJ/x") :to-be :git-directory)
+      (expect (boundary-verdict linked linked-root ".jj/x") :to-be :git-directory)
+      (expect (boundary-verdict linked linked-root "state/x") :to-be :git-directory)
+      (expect (boundary-verdict linked linked-root "src/new.txt") :to-be :inside)))
   (it "leaves an ordinary repository unchanged"
     (let* ((host
              (make-fake-workspace-boundaries
               :files (list (cons "/repo/.git/HEAD" "ref: refs/heads/main"))
-              :directories (list "/repo/.git/objects" "/repo/.git/refs" "/repo/.jj/notes"
-                                 "/repo/sub")
+              :directories (list "/repo/.git/objects" "/repo/.git/refs" "/repo/sub")
               :cwd "/repo/sub"))
            (root (resolved-root host)))
       (expect (workspace-root-path root) :to-equal "/repo")
       (expect (aitools.workspace.domain::workspace-root-source root) :to-be :git)
       (expect (boundary-verdict host root "sub/new.txt") :to-be :inside)
-      (expect (boundary-verdict host root ".jj/notes/x") :to-be :inside)
       (expect (boundary-verdict host root ".git/config") :to-be :git-directory)))
   (it "protects the .jj of a colocated repository that is also a jj workspace"
     (let* ((host
