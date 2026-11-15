@@ -1,9 +1,11 @@
 ;;;;
 ;;;; Checkouts below a bare repository on the real filesystem: linked
 ;;;; worktrees that git itself registers (absolute and relative paths) and a
-;;;; jj workspace laid out as `jj workspace add` leaves it. The jj metadata is
-;;;; written directly, since the boundary reads only its shape. Without git on
-;;;; PATH the tests skip.
+;;;; jj workspace. The jj files are the ones `jj git init --git-repo .` and
+;;;; `jj workspace add` (jj 0.47) write, created directly: the boundary reads
+;;;; only their shape, and a real `jj git init` in a bare directory snapshots
+;;;; that directory while writing objects/ into it, which fails at random.
+;;;; Without git on PATH the tests skip.
 (in-package #:aitools.workspace.integration-test)
 
 (defun %bare-checkout-host (scratch directory)
@@ -36,12 +38,14 @@
     (git scratch source "add" "a.txt")
     (git scratch source "commit" "-q" "-m" "init")
     (git scratch scratch "clone" "-q" "--bare" source bare)
-    (dolist (name '("store" "op_store" "op_heads"))
+    (dolist (name '("store" "op_store" "op_heads" "index"))
       (make-directories (format nil "~A/.jj/repo/~A" bare name)))
     (write-file (concatenate 'string bare "/.jj/repo/store/git_target") "../../..")
     bare))
 
-(defun %add-jj-workspace (bare name pointer)
+(defun %add-jj-workspace (bare name &optional (pointer "../../../.jj/repo"))
+  "A jj workspace at BARE/.worktrees/NAME whose `.jj/repo` holds POINTER,
+by default the relative path `jj workspace add` writes."
   (let ((workspace (format nil "~A/.worktrees/~A" bare name)))
     (make-directories (concatenate 'string workspace "/.jj/working_copy"))
     (write-file (concatenate 'string workspace "/.jj/repo") pointer)
@@ -53,36 +57,49 @@
     (expect (%bare-checkout-verdict host root (concatenate 'string bare "/" name))
             :to-be :outside-root)))
 
+(defun %expect-linked-worktree-allowed (scratch bare name)
+  (let* ((worktree (format nil "~A/.worktrees/~A" bare name))
+         (host (%bare-checkout-host scratch worktree))
+         (root (%bare-checkout-root host))
+         (option-root (%bare-checkout-root host worktree)))
+    (expect (aitools.workspace.application:workspace-root-path root) :to-equal worktree)
+    (dolist (value (list root option-root))
+      (expect (%bare-checkout-verdict host value "new.txt") :to-be :inside)
+      (expect (%bare-checkout-verdict host value ".git") :to-be :git-directory)
+      (expect (%bare-checkout-verdict
+               host value (format nil "../../worktrees/~A/index.lock" name))
+              :to-be :outside-root)
+      (%expect-bare-metadata-refused host value bare))
+    (make-symlink (format nil "../../worktrees/~A" name)
+                  (concatenate 'string worktree "/meta"))
+    (expect (%bare-checkout-verdict host root "meta/x") :to-be :symlink-escape)))
+
 (describe "aitools workspace checkouts below a bare repository"
-  (it "allows registered linked worktrees with absolute and relative paths"
+  (it "allows a registered linked worktree with absolute paths"
     (unless (program-path "git") (skip "git is not on PATH; linked worktrees not created"))
     (call-with-scratch-directory
      (lambda (scratch)
        (let ((bare (%build-bare-fixture scratch)))
          (git scratch bare "worktree" "add" "-q" "-b" "gw" ".worktrees/gw" "HEAD")
-         (git scratch bare "worktree" "add" "-q" "--relative-paths" "-b" "gwrel"
-              ".worktrees/gwrel" "HEAD")
+         (%expect-linked-worktree-allowed scratch bare "gw")))))
+  (it "allows a registered linked worktree with relative paths"
+    (unless (program-path "git") (skip "git is not on PATH; linked worktrees not created"))
+    (call-with-scratch-directory
+     (lambda (scratch)
+       (let ((bare (%build-bare-fixture scratch)))
+         (git scratch bare "worktree" "add" "-q" "-b" "gwrel" ".worktrees/gwrel" "HEAD")
+         ;; The pointers `git worktree add --relative-paths` (git 2.48) writes;
+         ;; older git, as on some CI hosts, rejects the flag.
+         (write-file (concatenate 'string bare "/.worktrees/gwrel/.git")
+                     (format nil "gitdir: ../../worktrees/gwrel~%"))
+         (write-file (concatenate 'string bare "/worktrees/gwrel/gitdir")
+                     (format nil "../../.worktrees/gwrel/.git~%"))
          (expect (sb-ext:octets-to-string
-                  (read-file (concatenate 'string bare "/worktrees/gwrel/gitdir"))
+                  (git scratch (concatenate 'string bare "/.worktrees/gwrel")
+                       "rev-parse" "--path-format=absolute" "--git-dir")
                   :external-format :utf-8)
-                 :to-equal (format nil "../../.worktrees/gwrel/.git~%"))
-         (dolist (name '("gw" "gwrel"))
-           (let* ((worktree (format nil "~A/.worktrees/~A" bare name))
-                  (host (%bare-checkout-host scratch worktree))
-                  (root (%bare-checkout-root host))
-                  (option-root (%bare-checkout-root host worktree)))
-             (expect (aitools.workspace.application:workspace-root-path root)
-                     :to-equal worktree)
-             (dolist (value (list root option-root))
-               (expect (%bare-checkout-verdict host value "new.txt") :to-be :inside)
-               (expect (%bare-checkout-verdict host value ".git") :to-be :git-directory)
-               (expect (%bare-checkout-verdict
-                        host value (format nil "../../worktrees/~A/index.lock" name))
-                       :to-be :outside-root)
-               (%expect-bare-metadata-refused host value bare))
-             (make-symlink (format nil "../../worktrees/~A" name)
-                           (concatenate 'string worktree "/meta"))
-             (expect (%bare-checkout-verdict host root "meta/x") :to-be :symlink-escape)))))))
+                 :to-equal (format nil "~A/worktrees/gwrel~%" bare))
+         (%expect-linked-worktree-allowed scratch bare "gwrel")))))
   (it "refuses a worktree whose registration was removed"
     (unless (program-path "git") (skip "git is not on PATH; linked worktrees not created"))
     (call-with-scratch-directory
@@ -106,7 +123,7 @@
     (call-with-scratch-directory
      (lambda (scratch)
        (let* ((bare (%build-bare-fixture scratch))
-              (workspace (%add-jj-workspace bare "jw" "../../../.jj/repo"))
+              (workspace (%add-jj-workspace bare "jw"))
               (host (%bare-checkout-host scratch workspace))
               (root (%bare-checkout-root host))
               (option-root (%bare-checkout-root host workspace)))
@@ -136,4 +153,21 @@
          (expect (aitools.workspace.application:workspace-root-path (%bare-checkout-root host))
                  :to-equal bare)
          (expect (%bare-checkout-verdict host (%bare-checkout-root host workspace) "new.txt")
-                 :to-be :git-directory))))))
+                 :to-be :git-directory)
+         (expect (%bare-checkout-verdict host (%bare-checkout-root host workspace) ".jj/x")
+                 :to-be :git-directory)))))
+  (it "refuses a jj workspace whose jj repository stores into another Git directory"
+    (unless (program-path "git") (skip "git is not on PATH; bare repository not created"))
+    (call-with-scratch-directory
+     (lambda (scratch)
+       (let* ((bare (%build-bare-fixture scratch))
+              (other (concatenate 'string scratch "/other")))
+         (dolist (name '("store" "op_store" "op_heads"))
+           (make-directories (format nil "~A/.jj/repo/~A" other name)))
+         (write-file (concatenate 'string other "/.jj/repo/store/git_target") "../../..")
+         (let* ((workspace (%add-jj-workspace bare "foreign" (concatenate 'string other "/.jj/repo")))
+                (host (%bare-checkout-host scratch workspace)))
+           (expect (aitools.workspace.application:workspace-root-path (%bare-checkout-root host))
+                   :to-equal workspace)
+           (expect (%bare-checkout-verdict host (%bare-checkout-root host) "new.txt")
+                   :to-be :git-directory)))))))
