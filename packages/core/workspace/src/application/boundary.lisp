@@ -68,15 +68,29 @@
                (%registered-linked-worktree-p host worktree-top worktree-git-directory))))
     (if registered-p :registered-linked-worktree :unregistered-linked-worktree)))
 
+(defun %path-below-has-jj-component-p (directory path)
+  (some (lambda (component) (string= (%git-name-fold component) ".jj"))
+        (nthcdr (length (path-components directory)) (path-components path))))
+
+(defun %jj-metadata-directory (host workspace-top)
+  "The real `.jj` directory of WORKSPACE-TOP when it is a jj workspace."
+  (and (%jj-repository-directory host workspace-top)
+       (resolve-real-path host (join-path workspace-top ".jj"))))
+
 (defun %linked-worktree-exception-verdict (host common-directory real-root git-directory repositories)
+  ;; A checkout below a bare common directory is a workspace of its own when
+  ;; its metadata says so: a registered linked worktree, or a jj workspace.
+  ;; Never inside a `.jj` directory, which holds jj repository state.
   (if (and (%same-git-path-p common-directory git-directory)
            (%git-metadata-path-inside-p common-directory real-root)
            (not (%git-metadata-path-inside-p real-root common-directory))
-           (some (lambda (worktree)
-                   (eq (%registered-linked-worktree-candidate-verdict
-                        host common-directory real-root worktree)
-                       :registered-linked-worktree))
-                 repositories))
+           (not (%path-below-has-jj-component-p common-directory real-root))
+           (or (%jj-repository-directory host real-root)
+               (some (lambda (worktree)
+                       (eq (%registered-linked-worktree-candidate-verdict
+                            host common-directory real-root worktree)
+                           :registered-linked-worktree))
+                     repositories)))
       :omit-common-directory
     :retain-common-directory))
 
@@ -101,8 +115,10 @@
 
 (defun %real-git-directories (host real-root repositories)
   (remove nil
-          (loop for candidate in repositories
-                append (%repository-git-directories host real-root repositories candidate))))
+          (append
+           (loop for candidate in repositories
+                 append (%repository-git-directories host real-root repositories candidate))
+           (list (%jj-metadata-directory host real-root)))))
 
 (defun %workspace-root-metadata-verdict (host root real-root real repositories temporary-root temporary-real)
   (or (and (or (%git-path-has-dot-git-component-p (workspace-root-path root))
@@ -136,8 +152,10 @@
   STATE-ROOT is the <state-home>/aitools path (WORKSPACE-STATE-ROOT), or NIL.
   Every target there except the mktemp area is refused as :STATE-DIRECTORY.
   The repository git directory and any common directory at or below ROOT are
-  refused. ROOT inside a Git common-directory entry is also refused as
-  :GIT-DIRECTORY.
+  refused, except that a common directory above ROOT stays writable outside
+  its metadata entries when ROOT is a registered linked worktree or a jj
+  workspace. ROOT inside a Git common-directory entry is also refused as
+  :GIT-DIRECTORY, as is the `.jj` directory of a jj workspace ROOT.
 
   ON-INSIDE receives a kernel WORKSPACE-PATH and the verdict (:INSIDE or
   :TEMPORARY). For :TEMPORARY, the path RELATIVE slot holds the real path.

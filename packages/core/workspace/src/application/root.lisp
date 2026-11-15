@@ -1,8 +1,9 @@
 ;;;;
-;;;; Root resolution: `--root`, else the git top level found by
-;;;; walking up from the working directory, else the working directory. The
-;;;; git top level is found by the presence of a `.git` directory or
-;;;; `gitdir:` file, read directly; no git process is started.
+;;;; Root resolution: `--root`, else the innermost git top level or jj
+;;;; workspace found by walking up from the working directory, else the
+;;;; working directory. The git top level is found by the presence of a `.git`
+;;;; directory or `gitdir:` file, and a jj workspace by a `.jj/repo` that leads
+;;;; to a jj repository, both read directly; no git or jj process is started.
 (in-package #:aitools.workspace.application)
 
 (defun %directory-p (host path)
@@ -98,6 +99,41 @@ or NIL. START is absolute and normalized."
     (and back-pointer
          (%same-file-identity-p host back-pointer expected))))
 
+(defun %jj-repository-directory (host workspace-top)
+  "The jj repository directory WORKSPACE-TOP's `.jj/repo` leads to, or NIL
+unless it holds `store/`, `op_store/`, and `op_heads/`. `.jj/repo` is that
+directory in the workspace that created the repository; in a workspace added
+later it is a file naming it, absolute or relative to `.jj/`."
+  (let* ((jj-directory (join-path workspace-top ".jj"))
+         (repo (join-path jj-directory "repo"))
+         (entry (and (%directory-p host jj-directory) (host-stat host repo)))
+         (directory
+           (cond ((null entry) nil)
+                 ((%directory-p host repo) repo)
+                 ((eq (workspace-entry-kind entry) :file)
+                  (let ((text (%read-text host repo)))
+                    (and text
+                         (normalize-path
+                          (join-path jj-directory
+                                     (string-trim (list (code-char 32) (code-char 9)
+                                                        (code-char 10) (code-char 13))
+                                                  text)))))))))
+    (and directory
+         (every (lambda (name) (%directory-p host (join-path directory name)))
+                (list "store" "op_store" "op_heads"))
+         directory)))
+
+(defun %find-workspace-top (host start)
+  "The innermost directory at or above START that is a Git top level or a
+jj workspace, as (VALUES directory repository); REPOSITORY is NIL for a jj
+workspace. NIL when there is neither. A directory that is both is a Git top."
+  (loop for directory = start then (path-parent directory)
+        while directory
+        do (let ((repository (%repository-at host directory)))
+             (cond (repository
+                    (return (values (git-repository-top repository) repository)))
+                   ((%jj-repository-directory host directory)
+                    (return (values directory nil)))))))
 (defun %git-name-fold (name)
   (aitools.text.domain:casefold-text
    (aitools.text.domain:normalize-text name :nfd)))
@@ -157,10 +193,10 @@ reason, :NOT-FOUND or :NOT-A-DIRECTORY, and the absolute path that failed."
         (if root
             (let ((path (normalize-path (join-path cwd root))))
               (values path :option nil))
-            (let ((repository (find-git-repository host cwd)))
-              (if repository
-                  (values (git-repository-top repository) :git repository)
-                  (values cwd :cwd nil))))
+            (multiple-value-bind (top repository) (%find-workspace-top host cwd)
+              (cond (repository (values top :git repository))
+                    (top (values top :jj nil))
+                    (t (values cwd :cwd nil)))))
       (let* ((real (resolve-real-path host path))
              (entry (and real (host-stat host real))))
         (cond

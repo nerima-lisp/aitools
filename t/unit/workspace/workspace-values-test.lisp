@@ -124,7 +124,7 @@
     (let ((invalid (make-hash-table :test (function eq))))
       (setf (gethash :callback invalid) "not a function"
             (gethash :stack invalid) "not a list")
-      (dolist (source '(:option :git :cwd))
+      (dolist (source '(:option :git :jj :cwd))
         (expect (aitools.workspace.domain::workspace-root-source
                  (make-workspace-root :source source))
                 :to-be source))
