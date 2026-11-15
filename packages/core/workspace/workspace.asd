@@ -14,7 +14,7 @@
                  (:file "repository") (:file "boundary")))
    (:module "application"
     :components ((:file "package") (:file "host") (:file "real-path")
-                 (:file "root") (:file "boundary")
+                 (:file "checkout-metadata") (:file "root") (:file "boundary")
                  (:file "ignore-context") (:file "scan-model")
                  (:file "scan-helpers") (:file "scan-walk")
                  (:file "scan") (:file "scan-options")))
@@ -32,6 +32,8 @@
                (:file "unit/workspace/gitignore-test")
                (:file "unit/workspace/root-boundary-test")
                (:file "unit/workspace/root-boundary-linked-worktree-test")
+               (:file "unit/workspace/root-boundary-bare-checkout-test")
+               (:file "unit/workspace/root-boundary-metadata-symlink-test")
                (:file "unit/workspace/boundary-verdict-coverage-test")
                (:file "unit/workspace/root-boundary-git-metadata-test")
                (:file "unit/workspace/root-boundary-casefold-test")
@@ -48,4 +50,5 @@
                (:file "unit/workspace/scan-worker-pool-test")
                (:file "unit/workspace/scan-git-config-test")
                (:file "integration/workspace-gitignore-parity-test")
+               (:file "integration/workspace-bare-checkout-boundary-test")
                (:file "integration/workspace-host-test")))

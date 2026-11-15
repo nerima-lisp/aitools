@@ -1,8 +1,8 @@
 ;;;;
 ;;;; Values describing where a workspace is rooted (`--root`, then
-;;;; the git top level, then the working directory) and the git repository
-;;;; it belongs to, plus the `gitdir: <path>` file format a linked worktree
-;;;; or submodule uses for its `.git` entry.
+;;;; the git top level or jj workspace, then the working directory) and the
+;;;; git repository it belongs to, plus the `gitdir: <path>` file format a
+;;;; linked worktree or submodule uses for its `.git` entry.
 (in-package #:aitools.workspace.domain)
 
 (defstruct (git-repository (:copier nil))
@@ -15,11 +15,12 @@ differ only for a linked worktree. All three are absolute, normalized."
 
 (defstruct (workspace-root (:copier nil))
   "PATH is the absolute, lexically normalized root; REAL has every symlink
-resolved. SOURCE is :OPTION (`--root`), :GIT, or :CWD. REPOSITORY is the
-GIT-REPOSITORY containing the root, or NIL."
+resolved. SOURCE is :OPTION (`--root`), :GIT, :JJ (a jj workspace without a
+`.git` entry), or :CWD. REPOSITORY is the GIT-REPOSITORY containing the root,
+or NIL."
   (path "" :type simple-string :read-only t)
   (real "" :type simple-string :read-only t)
-  (source :cwd :type (member :option :git :cwd) :read-only t)
+  (source :cwd :type (member :option :git :jj :cwd) :read-only t)
   (repository nil :type (or null git-repository) :read-only t))
 
 (defun parse-gitdir-file (text)

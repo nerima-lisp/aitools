@@ -1,23 +1,19 @@
 ;;;;
-;;;; Root resolution: `--root`, else the git top level found by
-;;;; walking up from the working directory, else the working directory. The
-;;;; git top level is found by the presence of a `.git` directory or
-;;;; `gitdir:` file, read directly; no git process is started.
+;;;; Root resolution: `--root`, else the innermost git top level or jj
+;;;; workspace found by walking up from the working directory, else the
+;;;; working directory. The git top level is found by the presence of a `.git`
+;;;; directory or `gitdir:` file, and a jj workspace by a `.jj/repo` that leads
+;;;; to a jj repository, both read directly; no git or jj process is started.
 (in-package #:aitools.workspace.application)
-
-(defun %directory-p (host path)
-  (let ((real (resolve-real-path host path)))
-    (and real
-         (let ((entry (host-stat host real)))
-           (and entry (eq (workspace-entry-kind entry) :directory))))))
-
-(defun %read-text (host path)
-  (let ((octets (host-read-octets host path)))
-    (and octets (decode-git-text octets))))
 
 (defun %repository-at (host directory)
   "The GIT-REPOSITORY whose top is DIRECTORY, or NIL when it has neither a
-usable `.git` entry nor a common Git directory layout."
+usable `.git` entry nor a common Git directory layout. An unresolvable
+pointer never grants membership; it may still be used to refuse a write. A
+`gitdir:` the kernel cannot follow makes the `.git` entry unusable. A
+`commondir` it cannot follow is kept as the joined path, `..` unfolded, so
+the boundary can still refuse writes aliasing it, while the registered
+worktree check, which resolves it strictly, never matches it."
   (let* ((dot-git (join-path directory ".git"))
          (entry (host-stat host dot-git)))
     (or
@@ -26,14 +22,16 @@ usable `.git` entry nor a common Git directory layout."
                (if (and (eq (workspace-entry-kind entry) :file))
                    (let* ((text (%read-text host dot-git))
                           (target (and text (parse-gitdir-file text))))
-                     (and target (normalize-path (join-path directory target))))
+                     (and target (%metadata-path host directory target)))
                    (and (%directory-p host dot-git) dot-git))))
          (when (and git-dir (host-stat host (join-path git-dir "HEAD")))
            (let* ((commondir-text (%read-text host (join-path git-dir "commondir")))
-                  (common (if commondir-text
-                              (normalize-path
-                               (join-path git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
-                                                               commondir-text)))
+                  (commondir (and commondir-text
+                                  (string-trim '(#\Space #\Tab #\Return #\Newline)
+                                               commondir-text)))
+                  (common (if commondir
+                              (or (%metadata-path host git-dir commondir)
+                                  (join-path git-dir commondir))
                               git-dir)))
              (make-git-repository :top (coerce directory 'simple-string)
                                   :git-dir (coerce git-dir 'simple-string)
@@ -84,17 +82,24 @@ or NIL. START is absolute and normalized."
           (host-stat host left-real)
           (host-stat host right-real)))))
 (defun %registered-linked-worktree-p (host worktree-top git-directory)
-  (let* ((text (%read-text host (join-path git-directory "gitdir")))
-         (back-pointer
-           (and text
-                (normalize-path
-                 (string-trim (list (code-char 32) (code-char 9)
-                                    (code-char 10) (code-char 13))
-                              text))))
-         (expected (join-path worktree-top ".git")))
+  ;; With worktree.useRelativePaths Git writes the back-pointer relative to
+  ;; the worktrees/<name> directory instead of as an absolute path.
+  (let ((back-pointer
+          (%read-relative-path host (join-path git-directory "gitdir") git-directory)))
     (and back-pointer
-         (absolute-path-p back-pointer)
-         (%same-file-identity-p host back-pointer expected))))
+         (%same-file-identity-p host back-pointer (join-path worktree-top ".git")))))
+
+(defun %find-workspace-top (host start)
+  "The innermost directory at or above START that is a Git top level or a
+jj workspace, as (VALUES directory repository); REPOSITORY is NIL for a jj
+workspace. NIL when there is neither. A directory that is both is a Git top."
+  (loop for directory = start then (path-parent directory)
+        while directory
+        do (let ((repository (%repository-at host directory)))
+             (cond (repository
+                    (return (values (git-repository-top repository) repository)))
+                   ((%jj-repository-directory host directory)
+                    (return (values directory nil)))))))
 (defun %git-name-fold (name)
   (aitools.text.domain:casefold-text
    (aitools.text.domain:normalize-text name :nfd)))
@@ -154,10 +159,10 @@ reason, :NOT-FOUND or :NOT-A-DIRECTORY, and the absolute path that failed."
         (if root
             (let ((path (normalize-path (join-path cwd root))))
               (values path :option nil))
-            (let ((repository (find-git-repository host cwd)))
-              (if repository
-                  (values (git-repository-top repository) :git repository)
-                  (values cwd :cwd nil))))
+            (multiple-value-bind (top repository) (%find-workspace-top host cwd)
+              (cond (repository (values top :git repository))
+                    (top (values top :jj nil))
+                    (t (values cwd :cwd nil)))))
       (let* ((real (resolve-real-path host path))
              (entry (and real (host-stat host real))))
         (cond
