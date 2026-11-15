@@ -19,16 +19,16 @@
 (defun %metadata-path (host base text)
   "TEXT, a path read from metadata, made absolute against BASE the way the
 kernel follows it: each symlink is resolved before a later `..` applies, so
-`link/../r.git` names the directory beside the link's target. Folding `..`
-lexically first would name a different directory. The lexical form is kept
-when resolution loops, so later checks still see an unresolvable path."
-  (let ((joined (join-path base text)))
-    (or (resolve-real-path host joined) (normalize-path joined))))
+`link/../r.git` names the directory beside the link's target. NIL when the
+path cannot be resolved (a symlink loop): folding its `..` lexically would
+name a directory the kernel never reaches."
+  (resolve-real-path host (join-path base text)))
 
 (defun %read-relative-path (host file base)
   "FILE's text, trimmed of surrounding whitespace, as a path: itself when
 absolute, else relative to BASE, resolved by %METADATA-PATH. NIL when FILE
-cannot be read."
+cannot be read or its path cannot be resolved, so the pointer grants
+nothing."
   (let ((text (%read-text host file)))
     (and text
          (%metadata-path host base

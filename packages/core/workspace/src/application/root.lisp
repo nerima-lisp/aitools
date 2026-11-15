@@ -6,6 +6,12 @@
 ;;;; to a jj repository, both read directly; no git or jj process is started.
 (in-package #:aitools.workspace.application)
 
+(defun %git-pointer-path (host base text)
+  ;; An unresolvable pointer stays joined but unnormalized: its loop makes
+  ;; every lookup through it fail, as the kernel's would, instead of `..`
+  ;; folding it onto a real directory.
+  (or (%metadata-path host base text) (join-path base text)))
+
 (defun %repository-at (host directory)
   "The GIT-REPOSITORY whose top is DIRECTORY, or NIL when it has neither a
 usable `.git` entry nor a common Git directory layout."
@@ -17,12 +23,12 @@ usable `.git` entry nor a common Git directory layout."
                (if (and (eq (workspace-entry-kind entry) :file))
                    (let* ((text (%read-text host dot-git))
                           (target (and text (parse-gitdir-file text))))
-                     (and target (%metadata-path host directory target)))
+                     (and target (%git-pointer-path host directory target)))
                    (and (%directory-p host dot-git) dot-git))))
          (when (and git-dir (host-stat host (join-path git-dir "HEAD")))
            (let* ((commondir-text (%read-text host (join-path git-dir "commondir")))
                   (common (if commondir-text
-                              (%metadata-path
+                              (%git-pointer-path
                                host git-dir (string-trim '(#\Space #\Tab #\Return #\Newline)
                                                          commondir-text))
                               git-dir)))

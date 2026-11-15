@@ -156,7 +156,7 @@ by default the relative path `jj workspace add` writes."
                  :to-be :git-directory)
          (expect (%bare-checkout-verdict host (%bare-checkout-root host workspace) ".jj/x")
                  :to-be :git-directory)))))
-  (it "follows git_target through a symlink before applying .."
+  (it "follows git_target through a symlink before applying .., and refuses a loop"
     (unless (program-path "git") (skip "git is not on PATH; bare repository not created"))
     (call-with-scratch-directory
      (lambda (scratch)
@@ -169,12 +169,14 @@ by default the relative path `jj workspace add` writes."
          (make-directories (concatenate 'string scratch "/b/sub"))
          (make-symlink (concatenate 'string scratch "/b/sub")
                        (concatenate 'string scratch "/link"))
+         (make-symlink "loop" (concatenate 'string scratch "/loop"))
          (flet ((verdict (target)
                   (write-file (concatenate 'string bare "/.jj/repo/store/git_target") target)
                   (let ((host (%bare-checkout-host scratch workspace)))
                     (%bare-checkout-verdict host (%bare-checkout-root host) "new.txt"))))
            (expect (verdict (concatenate 'string scratch "/link/../r.git")) :to-be :git-directory)
            (expect (verdict other) :to-be :git-directory)
+           (expect (verdict (concatenate 'string scratch "/loop/../r.git")) :to-be :git-directory)
            (expect (verdict "../../..") :to-be :inside))))))
   (it "refuses a jj workspace whose jj repository stores into another Git directory"
     (unless (program-path "git") (skip "git is not on PATH; bare repository not created"))
