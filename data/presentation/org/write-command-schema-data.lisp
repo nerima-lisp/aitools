@@ -312,7 +312,7 @@
               (list
                (list :name "org.dynamic-block.update"
                      :summary "Update one numbered Org dynamic block."
-                     :description "Select a block by its one-based document order. Agenda globs are relative to the workspace root; encrypted files are excluded. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
+                     :description "Select a block by its one-based document order. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
                      :args (append '((:name "path" :kind "positional" :type "string" :required t
                                       :description "Org file inside the selected workspace root.")
                                      (:name "--block" :type "integer" :required t :min 1

@@ -1,9 +1,7 @@
 (in-package #:aitools.org.infrastructure)
 
 (defun edit-org-dynamic-block (engine options)
-  (let* ((number (getf options :block)) (blocks nil)
-         (agenda-documents (getf options :agenda-documents))
-         (documents (cons engine agenda-documents)))
+  (let ((number (getf options :block)) (blocks nil) (agenda-documents nil) (agenda-failure nil))
     (org-kit:map-nodes (lambda (node)
                          (when (eq (org-kit:node-type node) :dynamic-block)
                            (push node blocks)))
@@ -16,26 +14,38 @@
           (%explicit-time-values (getf options :at) (getf options :tz) (getf options :dst-policy))
         (declare (ignore at reference))
         (when failure (return-from edit-org-dynamic-block (values nil nil failure)))
-        (handler-case
-            (multiple-value-bind (result warnings)
-                (%call-collecting-clock-warnings
-                 (lambda ()
-                   (org-kit:update-dynamic-block engine block
-                    :document-resolver (lambda (selector)
-                                         (when (eq selector :agenda) agenda-documents))
-                    :time-context context)))
-              (values (org-kit:edit-result-updated-document result)
-                      (list (cons "block" number)
-                            (cons "warnings" (%org-clock-warning-entries warnings documents)))
-                      nil))
-          (org-kit:org-clocktable-parameter-error ()
-            (values nil nil (%failure :argument "Invalid or unsupported clocktable parameter")))
-          (org-kit:org-dynamic-block-error ()
-            (values nil nil (%failure :argument "Invalid or unsupported dynamic block")))
-          (org-kit:org-resource-limit-error ()
-            (values nil nil (%failure :too-large "Dynamic block update exceeded a resource limit")))
-          (org-kit:org-kit-error ()
-            (values nil nil (%failure :internal "Dynamic block update failed"))))))))
+        (let ((outcome
+                (handler-case
+                    (multiple-value-bind (result warnings)
+                        (%call-collecting-clock-warnings
+                         (lambda ()
+                           (org-kit:update-dynamic-block engine block
+                            :document-resolver
+                            (lambda (selector)
+                              (when (eq selector :agenda)
+                                (multiple-value-setq (agenda-documents agenda-failure)
+                                  (funcall (getf options :agenda-loader)))
+                                agenda-documents))
+                            :time-context context)))
+                      (list :updated result warnings))
+                  (org-kit:org-clocktable-parameter-error ()
+                    (list :failed (%failure :argument "Invalid or unsupported clocktable parameter")))
+                  (org-kit:org-dynamic-block-error ()
+                    (list :failed (%failure :argument "Invalid or unsupported dynamic block")))
+                  (org-kit:org-resource-limit-error ()
+                    (list :failed (%failure :too-large "Dynamic block update exceeded a resource limit")))
+                  (org-kit:org-kit-error ()
+                    (list :failed (%failure :internal "Dynamic block update failed"))))))
+          (cond
+            (agenda-failure (values nil nil agenda-failure))
+            ((eq (first outcome) :failed) (values nil nil (second outcome)))
+            (t (destructuring-bind (result warnings) (rest outcome)
+                 (values (org-kit:edit-result-updated-document result)
+                         (list (cons "block" number)
+                               (cons "warnings"
+                                     (%org-clock-warning-entries
+                                      warnings (cons engine agenda-documents))))
+                         nil)))))))))
 
 ;;; A warning carries the CLOCK line number and text but not the document, so
 ;;; it is attributed to every aggregated document with that text on that line.

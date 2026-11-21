@@ -680,7 +680,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Update one numbered Org dynamic block.
 
-Select a block by its one-based document order. Agenda globs are relative to the workspace root; encrypted files are excluded. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
+Select a block by its one-based document order. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
