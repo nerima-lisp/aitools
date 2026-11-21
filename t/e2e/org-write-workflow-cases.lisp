@@ -126,7 +126,10 @@
     (put ws "source.org" (hp-text '("#+TODO: TODO | DONE" "* DONE Task")))
     (put ws "archive.org" (hp-text '("#+TODO: TODO | FINISHED" "* Archived")))
     (let ((source (file-octets ws "source.org")) (dest (file-octets ws "archive.org")))
-      (org-error ws (archive-args "source.org" "archive.org" '("--match" "/DONE")) "org archive" "input.unsupported-format")
+      (let ((envelope (org-error ws (archive-args "source.org" "archive.org" '("--match" "/DONE"))
+                                 "org archive" "input.unsupported-format")))
+        (expect (search "Target settings assign a different TODO meaning"
+                        (jget envelope "error" "message")) :to-be-truthy))
       (expect (file-octets ws "source.org") :to-equalp source)
       (expect (file-octets ws "archive.org") :to-equalp dest)))
   (define-org-case ("same file dry-run matches actual move" ws)

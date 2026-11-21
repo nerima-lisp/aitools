@@ -32,7 +32,7 @@
         (org-kit:org-edit-error (condition)
           (values nil nil
                   (if (eq (org-kit:org-edit-error-reason condition) :uneditable-structure)
-                      (%failure :unsupported "Org archive structure cannot be edited")
+                      (%failure :unsupported (org-kit:org-kit-error-message condition))
                       (%org-edit-condition-failure condition))))
         (org-kit:org-resource-limit-error () (values nil nil (%failure :too-large "archive exceeded a resource limit")))
         (org-kit:org-kit-error () (values nil nil (%failure :internal "archive edit failed")))))))
