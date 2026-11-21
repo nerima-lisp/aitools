@@ -91,6 +91,38 @@ Creates the destination file and heading when absent. Archive metadata records t
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
 
+### `org capture` {#org-capture}
+
+Add a heading under a selected heading or date.
+
+For a headline target, select exactly one heading. For a datetree target, --at supplies the date. Body text must not contain Org headings.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | For headline targets, an Org match expression selecting exactly one heading; give exactly one of --match and --heading-path. Omit for datetree targets. |
+| `--heading-path` | string |  | For headline targets, the heading_path JSON array returned by org query; give exactly one of --match and --heading-path. Omit for datetree targets. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--target`, required | enum: `headline`, `datetree` |  | Target kind. |
+| `--title`, required | string |  | New heading title. |
+| `--body` | string |  | Optional heading body. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the file changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
 ### `org todo set` {#org-todo-set}
 
 Change the TODO keyword on one matching heading.

@@ -291,7 +291,12 @@
                      :description "For a headline target, select exactly one heading. For a datetree target, --at supplies the date. Body text must not contain Org headings."
                      :args (append '((:name "path" :kind "positional" :type "string" :required t
                                       :description "Org file inside the selected workspace root."))
-                                   *org-selector-time-args*
+                                   (append
+                                    (quote ((:name "--match" :type "string"
+                                             :description "For headline targets, an Org match expression selecting exactly one heading; give exactly one of --match and --heading-path. Omit for datetree targets.")
+                                            (:name "--heading-path" :type "string"
+                                             :description "For headline targets, the heading_path JSON array returned by org query; give exactly one of --match and --heading-path. Omit for datetree targets.")))
+                                    *org-time-context-args*)
                                    '((:name "--target" :type "enum" :required t :choices ("headline" "datetree")
                                       :description "Target kind.")
                                      (:name "--title" :type "string" :required t :description "New heading title.")
