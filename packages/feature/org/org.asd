@@ -5,7 +5,7 @@
   :depends-on ("aitools/core/kernel" "aitools/core/protocol"
                "aitools/core/text" "aitools/core/workspace"
                "aitools/feature/edit" "cl-boundary-kit"
-               "cl-org-kit" "cl-date-kit")
+               "cl-org-kit" "cl-date-kit" "cl-json-kit")
   :pathname "src/"
   :components ((:module "domain"
                 :components ((:file "package")
@@ -83,6 +83,7 @@
        (:file "org-export-cases")
        (:file "org-write-cases")
        (:file "org-write-edge-cases")
+       (:file "org-heading-path-cases")
        (:file "org-agenda-cases")
        (:file "org-write-workflow-cases")
        (:file "org-write-table-cases")))))))

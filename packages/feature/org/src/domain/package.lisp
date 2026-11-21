@@ -22,6 +22,7 @@
    #:make-org-heading-path-entry
    #:org-heading-path-entry-title
    #:org-heading-path-entry-index
+   #:parse-org-heading-path
    #:make-org-query-match
    #:org-query-match-line
    #:org-query-match-level

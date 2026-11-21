@@ -51,9 +51,9 @@
 (defun %clock-report-row (row)
   (list :level (org-kit:clocktable-row-level row) :title (org-kit:clocktable-row-title row) :tags (org-kit:clocktable-row-tags row) :minutes (org-kit:clocktable-row-minutes row)))
 
-(defun clock-report-org-document (document match from through at tz dst-policy)
+(defun clock-report-org-document (document match from through at tz dst-policy &optional heading-path)
   (multiple-value-bind (heading at-value context failure)
-      (%org-selected-heading (aitools.org.domain:org-document-engine-value document) (list :match match :at at :tz tz :dst-policy dst-policy))
+      (%org-selected-heading (aitools.org.domain:org-document-engine-value document) (list :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy))
     (declare (ignore at-value))
     (when failure
       (return-from clock-report-org-document

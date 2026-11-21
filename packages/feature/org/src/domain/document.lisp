@@ -30,6 +30,29 @@
   (title "" :type string :read-only t)
   (index 1 :type integer :read-only t))
 
+(defun parse-org-heading-path (text)
+  "Parse TEXT, the JSON array that `org query` reports as `heading_path`, into
+a list of ORG-HEADING-PATH-ENTRY. Return (values entries nil), or (values nil
+reason) when TEXT is not exactly that shape."
+  (flet ((reject (reason) (return-from parse-org-heading-path (values nil reason))))
+    (let ((value (handler-case
+                     (json-kit:parse text :duplicate-key-policy :error
+                                          :max-input-length 65536 :max-depth 8)
+                   (json-kit:json-kit-error () (reject "it is not valid JSON")))))
+      (unless (and (vectorp value) (not (stringp value)) (plusp (length value)))
+        (reject "it must be a non-empty JSON array"))
+      (values
+       (map 'list
+            (lambda (segment)
+              (let ((title (and (hash-table-p segment) (= (hash-table-count segment) 2)
+                                (gethash "title" segment)))
+                    (index (and (hash-table-p segment) (gethash "index" segment))))
+                (unless (and (stringp title) (integerp index) (plusp index))
+                  (reject "each element must be an object with exactly a string title and a positive integer index"))
+                (make-org-heading-path-entry :title title :index index)))
+            value)
+       nil))))
+
 (defstruct (org-query-match (:constructor make-org-query-match
                                  (&key line level title todo tags heading-path))
                             (:copier nil) (:predicate nil))

@@ -9,11 +9,14 @@
      :default "compatible"
      :description "DST gap and overlap policy for local timestamps.")))
 
+(defparameter *org-heading-selector-args*
+  '((:name "--match" :type "string"
+     :description "Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path.")
+    (:name "--heading-path" :type "string"
+     :description "The heading_path of one `org query` match, passed as the JSON array it reports, for example [{\"title\":\"Project\",\"index\":1},{\"title\":\"Tasks\",\"index\":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does.")))
+
 (defparameter *org-selector-time-args*
-  (append
-   '((:name "--match" :type "string" :required t
-      :description "Org match expression selecting exactly one heading."))
-   *org-time-context-args*))
+  (append *org-heading-selector-args* *org-time-context-args*))
 
 (defparameter *org-write-control-args*
   '((:name "--dry-run" :type "flag"
@@ -182,12 +185,11 @@
               :description "The range is half-open: from is included and through is excluded. Running clocks are omitted."
               :args (append '((:name "path" :kind "positional" :type "string" :required t
                                :description "Org file to read.")
-                              (:name "--match" :type "string" :required t
-                               :description "Org match expression selecting one heading.")
                               (:name "--from" :type "string" :required t
                                :description "Inclusive start of the half-open local date-time range.")
                               (:name "--through" :type "string" :required t
                                :description "Exclusive end of the half-open local date-time range."))
+                            *org-heading-selector-args*
                             *org-time-context-args*)
               :output-fields '((:name "from" :description "Inclusive range start.")
                                (:name "through" :description "Exclusive range end.")
