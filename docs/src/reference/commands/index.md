@@ -187,6 +187,13 @@ groups to the fixed output order.
 | [`org todo set`](org.md#org-todo-set) | org | Change the TODO keyword on one matching heading. |
 | [`org property set`](org.md#org-property-set) | org | Set one property on one matching heading. |
 | [`org property delete`](org.md#org-property-delete) | org | Delete one property from one matching heading. |
+| [`org priority set`](org.md#org-priority-set) | org | Set the priority of one heading. |
+| [`org priority delete`](org.md#org-priority-delete) | org | Remove the priority of one heading. |
+| [`org tags add`](org.md#org-tags-add) | org | Add local tags to one heading. |
+| [`org tags remove`](org.md#org-tags-remove) | org | Remove local tags from one heading. |
+| [`org tags replace`](org.md#org-tags-replace) | org | Replace local tags on one heading. |
+| [`org heading rename`](org.md#org-heading-rename) | org | Change the text of one heading. |
+| [`org checkbox toggle`](org.md#org-checkbox-toggle) | org | Toggle one checkbox and update statistics cookies. |
 | [`org planning set`](org.md#org-planning-set) | org | Set one planning timestamp on one matching heading. |
 | [`org planning delete`](org.md#org-planning-delete) | org | Delete one planning timestamp from one matching heading. |
 | [`org clock in`](org.md#org-clock-in) | org | Start a clock on one matching heading. |

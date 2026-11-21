@@ -187,6 +187,204 @@ A missing property is a no-op. Duplicate same-name properties in the drawer are 
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
 
+### `org priority set` {#org-priority-set}
+
+Set the priority of one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--priority`, required | string |  | Priority value, for example A. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org priority delete` {#org-priority-delete}
+
+Remove the priority of one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org tags add` {#org-tags-add}
+
+Add local tags to one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--tags`, required | string |  | Comma-separated tag names. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org tags remove` {#org-tags-remove}
+
+Remove local tags from one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--tags`, required | string |  | Comma-separated tag names. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org tags replace` {#org-tags-replace}
+
+Replace local tags on one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--tags`, required | string |  | Comma-separated tag names; an empty value clears them. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org heading rename` {#org-heading-rename}
+
+Change the text of one heading.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--title`, required | string |  | New heading text; existing statistics cookies are retained. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
+### `org checkbox toggle` {#org-checkbox-toggle}
+
+Toggle one checkbox and update statistics cookies.
+
+Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are not changed.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--item`, required | integer |  | One-based checkbox number in document order, including nested items and inline tasks but excluding child headings. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `item` | One-based checkbox number. |
+| `changed` | True when the document changed. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
 ### `org planning set` {#org-planning-set}
 
 Set one planning timestamp on one matching heading.
