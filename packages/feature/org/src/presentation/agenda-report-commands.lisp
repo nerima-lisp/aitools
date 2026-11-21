@@ -3,7 +3,7 @@
 (defun %agenda-command (boundaries)
   (make-command
    :name "agenda" :description (%summary "org.agenda")
-   :positionals (list (%path-positional))
+   :positionals (list (%paths-positional))
    :options (append
              (list (%value-option "from" "DATE" "Inclusive start date in YYYY-MM-DD form."
                                   :required-p t)
@@ -16,7 +16,7 @@
    :handler (lambda (invocation)
               (apply #'%run-flow #'aitools.org.application:org-agenda/k boundaries
                      (append
-                      (list :path (positional-value invocation :path)
+                      (list :paths (positional-value invocation :paths)
                             :from (option-value invocation :from)
                             :through (option-value invocation :through)
                             :future-repeats (option-value invocation :future-repeats))

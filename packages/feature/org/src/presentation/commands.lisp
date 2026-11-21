@@ -26,6 +26,9 @@
 (defun %path-positional ()
   (make-positional :key :path :name "path" :required-p t))
 
+(defun %paths-positional ()
+  (make-positional :key :paths :name "path" :rest-p t :required-p t :min-count 1))
+
 (defun %value-option (name value-name description &rest options)
   (apply #'make-option :name name :kind :value
          :value-name value-name :description description options))
@@ -45,7 +48,7 @@
 (defun %query-command (boundaries)
   (make-command
    :name "query" :description (%summary "org.query")
-   :positionals (list (%path-positional))
+   :positionals (list (%paths-positional))
    :options (list (%value-option "match" "MATCH" "An Org match expression.")
                   (%value-option "at" "LOCAL-DATETIME" "The local reference time.")
                   (%value-option "tz" "ZONE" "IANA time zone name.")
@@ -54,7 +57,7 @@
                                  :default "compatible"))
    :handler (lambda (invocation)
               (%run-flow #'aitools.org.application:org-query/k boundaries
-                         :path (positional-value invocation :path)
+                         :paths (positional-value invocation :paths)
                          :match (option-value invocation :match)
                          :at (option-value invocation :at)
                          :tz (option-value invocation :tz)
