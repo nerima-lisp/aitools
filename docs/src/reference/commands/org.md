@@ -338,7 +338,7 @@ Change the text of one heading.
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
-| `--title`, required | string |  | New heading text; existing statistics cookies are retained. |
+| `--title`, required | string |  | New heading text. If it contains a statistics cookie, it replaces the existing cookies; otherwise existing cookies are appended. |
 | `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
 | `--tx` | string |  | Stage the write in this transaction. |
 
@@ -358,7 +358,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Toggle one checkbox and update statistics cookies.
 
-Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are updated from their direct children before statistics cookies are recalculated.
+Changes [X] to [ ], and [ ] or [-] to [X]. For an item without child checkboxes, repeating the command toggles it again; use --dry-run to inspect the change. An item with child checkboxes is recalculated from its children and may not flip. Parent item checkboxes are updated from their direct children, then every statistics cookie owned by the selected heading is recalculated.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -368,7 +368,7 @@ Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie 
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
-| `--item`, required | integer |  | One-based checkbox number in document order, including nested items and inline tasks but excluding child headings. |
+| `--item`, required | integer |  | One-based checkbox number in document order, including nested items but excluding child headings. The numbering of checkboxes in inline tasks is undefined. |
 | `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
 | `--tx` | string |  | Stage the write in this transaction. |
 
