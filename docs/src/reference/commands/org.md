@@ -69,7 +69,8 @@ The state must be defined in the document TODO workflow. The optional note follo
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -101,7 +102,8 @@ Adds an unregistered property when needed. The property value must be a single l
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -132,7 +134,8 @@ A missing property is a no-op. Duplicate same-name properties in the drawer are 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -162,7 +165,8 @@ Accepts one active timestamp for scheduled or deadline and one inactive timestam
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -194,7 +198,8 @@ A missing timestamp of the requested kind is a no-op.
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -224,7 +229,8 @@ Requires an explicit local time context. A heading with an existing running cloc
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -253,7 +259,8 @@ The selected heading must contain exactly one running clock.
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file inside the selected workspace root. |
-| `--match`, required | string |  | Org match expression selecting exactly one heading. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
@@ -307,9 +314,10 @@ The range is half-open: from is included and through is excluded. Running clocks
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `path` (positional, required) | string |  | Org file to read. |
-| `--match`, required | string |  | Org match expression selecting one heading. |
 | `--from`, required | string |  | Inclusive start of the half-open local date-time range. |
 | `--through`, required | string |  | Exclusive end of the half-open local date-time range. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
 | `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
 | `--tz`, required | string |  | Resolvable IANA time zone name. |
 | `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
