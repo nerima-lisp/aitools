@@ -8,63 +8,6 @@
                        (org-kit:document-root document))
     (nreverse headings)))
 
-(defun %capture-child (document parent title)
-  (find title (%child-headlines (or parent (org-kit:document-root document)))
-        :key (lambda (node) (org-kit:node-property node :raw-value ""))
-        :test #'string=))
-
-(defun %capture-path-node (document titles)
-  (loop with parent = nil
-        for title in titles
-        do (setf parent (%capture-child document parent title))
-        unless parent return nil
-        finally (return parent)))
-
-(defun %capture-date-titles (document result)
-  (let* ((offset (org-kit:capture-target-result-cursor-offset result))
-         (heading (find offset (%capture-headlines document)
-                        :key #'org-kit:node-post-affiliated)))
-    (loop for node = (and heading (org-kit:node-parent heading))
-          then (org-kit:node-parent node)
-          while (and node (eq (org-kit:node-type node) :headline))
-          collect (org-kit:node-property node :raw-value "") into titles
-          finally (return (nreverse titles)))))
-
-(defun %capture-date-key (heading length)
-  (let ((title (org-kit:node-property heading :raw-value "")))
-    (when (and (>= (length title) length)
-               (loop for i below length
-                     always (if (member i '(4 7))
-                                (char= (char title i) #\-)
-                                (char<= #\0 (char title i) #\9)))
-               (or (= (length title) length)
-                   (char= (char title length) #\Space)))
-      (subseq title 0 length))))
-
-(defun %capture-order-new-path (before after titles)
-  (loop for depth from 1 to 3
-        for path = (subseq titles 0 depth)
-        unless (%capture-path-node before path)
-          do (let* ((parent (and (> depth 1)
-                                 (%capture-path-node after (butlast path))))
-                    (heading (%capture-path-node after path))
-                    (siblings (%child-headlines (or parent (org-kit:document-root after))))
-                    (key (%capture-date-key heading (nth (1- depth) '(4 7 10))))
-                    (index (position heading siblings))
-                    (first-later
-                      (position-if (lambda (sibling)
-                                     (let ((other (%capture-date-key sibling (length key))))
-                                       (and other (string> other key))))
-                                   siblings :end index)))
-               (when first-later
-                 (dotimes (i (- index first-later))
-                   (declare (ignore i))
-                   (setf after
-                         (org-kit:edit-result-updated-document
-                          (org-kit:move-subtree after (%capture-path-node after path)
-                                                :direction :up)))))))
-  after)
-
 (defun %capture-body-invalid-p (engine title body)
   (or (not (and (stringp title) (plusp (length title))))
       (find #\Newline title)
@@ -116,11 +59,9 @@
                  (when (or (getf options :match) (getf options :heading-path))
                    (return-from %org-capture-edit
                      (values nil nil (%failure :argument "datetree does not accept a heading selector"))))
-                 (let* ((result (org-kit:capture-into-target engine (list :file+olp+datetree path)
-                                                             template :time-context context :limits *org-kit-limits*))
-                        (updated (org-kit:capture-target-result-target-document result))
-                        (titles (%capture-date-titles updated result)))
-                   (values (%capture-order-new-path engine updated titles) nil nil)))
+                 (let ((result (org-kit:capture-into-target engine (list :file+olp+datetree path)
+                                                            template :time-context context :limits *org-kit-limits*)))
+                   (values (org-kit:capture-target-result-target-document result) nil nil)))
                 (t (values nil nil (%failure :argument "--target must be headline or datetree")))))))
       (org-kit:org-resource-limit-error ()
         (values nil nil (%failure :too-large "Org capture exceeded a resource limit")))
