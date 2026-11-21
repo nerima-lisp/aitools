@@ -60,6 +60,23 @@
            root (list "org" "export" "missing.org" "--backend" "html"))
         (%expect-error-envelope code envelope stream "org export" "input.not-found"
                                 '("backend" "content")))))
+  (it "rejects single agenda and query paths outside the workspace without chdir"
+    (aitools.test.support:with-workspace (root state)
+      (let ((outside (concatenate 'string state "/outside.org")))
+        (expect (aitools.kernel.domain:path-inside-p root (sb-posix:getcwd)) :to-be nil)
+        (aitools.test.support:write-text outside (format nil "* TODO Outside~%"))
+        (dolist (path (list "missing.org" "../x.org" outside))
+          (dolist (spec '(("query" ("--match" "TODO") ("matches" "count"))
+                          ("agenda" ("--from" "2026-10-19" "--through" "2026-10-19")
+                           ("from" "through" "entries" "count"))))
+            (destructuring-bind (command options result-fields) spec
+              (multiple-value-bind (code envelope stream)
+                  (aitools.test.support:run-aitools
+                   root (append (list "org" command path) options
+                                '("--at" "2026-10-19T09:00:00" "--tz" "UTC")))
+                (%expect-error-envelope code envelope stream
+                                        (concatenate 'string "org " command)
+                                        "refusal.outside-workspace" result-fields))))))))
   (it "rejects an unknown query time zone without query result fields"
     (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
