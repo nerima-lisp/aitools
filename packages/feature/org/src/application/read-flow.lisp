@@ -64,7 +64,8 @@
         :repairs (%schema-repair command "Use an existing workspace root."))))))
 
 (aitools.kernel.domain:define-flow
-   (%org-read-file/k source max-input-bytes parser absolute path command &key on-document on-error)
+    (%org-read-file/k source max-input-bytes parser absolute path command
+                      &key report-parse-path on-document on-error)
   (aitools.text.application:call-with-text-file/k
    source absolute
    :max-bytes max-input-bytes
@@ -81,7 +82,8 @@
            (multiple-value-bind (code message diagnostics repairs)
                (%failure-response failure command)
              (aitools.kernel.domain:flow-continue
-              :on-error code message :diagnostics diagnostics :repairs repairs))
+              :on-error code (if report-parse-path (format nil "~A: ~A" path message) message)
+              :diagnostics diagnostics :repairs repairs))
            (aitools.kernel.domain:flow-continue :on-document document))))
    :on-binary
    (lambda (prefix size)
@@ -139,56 +141,41 @@
 
 (aitools.kernel.domain:define-flow
     (%org-collect-files/k host root paths command &key on-files on-error)
-  (let ((files (make-hash-table :test #'equal))
+  (let ((real-root (aitools.workspace.application:workspace-root-real root))
+        (files (make-hash-table :test #'equal))
         (directories nil))
-    (labels ((fail (code message)
-               (return-from %org-collect-files/k
-                 (aitools.kernel.domain:flow-continue
-                  :on-error code message
-                  :repairs (%schema-repair command "Pass readable paths inside the workspace."))))
-             (with-path (path display handle)
-               (aitools.workspace.application:call-with-workspace-boundary/k
-                host root path
-                :on-inside
-                (lambda (resolved verdict)
-                  (declare (ignore verdict))
-                  (funcall handle (aitools.kernel.domain:workspace-path-real resolved)
-                          (aitools.kernel.domain:workspace-path-relative resolved)))
-                :on-outside
-                (lambda (reason lexical real)
-                  (declare (ignore lexical real))
-                  (if (eq reason :unresolvable)
-                      (fail "input.not-found" (format nil "cannot resolve ~A" display))
-                      (fail "refusal.outside-workspace"
-                            (format nil "~A is outside the workspace" display))))))
-             (remember-file (absolute relative)
-               (unless (%org-encrypted-path-p absolute)
-                 (setf (gethash relative files) absolute))))
-      ;; Check every explicit path before expanding any directory, including
-      ;; paths nested under another argument.
+    (flet ((fail (code message)
+             (return-from %org-collect-files/k
+               (aitools.kernel.domain:flow-continue
+                :on-error code message
+                :repairs (%schema-repair command "Pass readable paths inside the workspace.")))))
+      ;; Validate explicitly named children even when their parent is also named.
       (dolist (path paths)
-        (with-path
-         (aitools.workspace.application:user-path-absolute host path) path
-         (lambda (absolute relative)
-           (case (%org-path-kind host absolute)
-             ((nil) (fail "input.not-found" (format nil "~A does not exist" path)))
-             (:directory (pushnew absolute directories :test #'string=))
-             (:file (unless (%org-encrypted-path-p path)
-                      (remember-file absolute relative)))
-             (otherwise (fail "refusal.not-a-file"
-                              (format nil "~A is not a regular file or directory" path)))))))
-      (dolist (directory directories)
+        (let* ((absolute (aitools.workspace.application:user-path-absolute host path))
+               (real (aitools.workspace.application:resolve-real-path host absolute)))
+          (unless real
+            (fail "input.not-found" (format nil "cannot resolve ~A" path)))
+          (unless (aitools.kernel.domain:path-inside-p real-root real)
+            (fail "refusal.outside-workspace"
+                  (format nil "~A is outside the workspace" path)))
+          (case (%org-path-kind host real)
+            ((nil) (fail "input.not-found" (format nil "~A does not exist" path)))
+            (:directory (push real directories))
+            (:file
+             (unless (or (%org-encrypted-path-p absolute) (%org-encrypted-path-p real))
+               (setf (gethash (aitools.kernel.domain:path-relative-to real-root real) files)
+                     real)))
+            (otherwise
+             (fail "refusal.not-a-file" (format nil "~A is not a regular file or directory" path))))))
+      (when directories
         (aitools.workspace.application:call-with-workspace-scan/k
-         host root :paths (list directory) :glob '("*.org")
-         :no-ignore t :skip-larger-than nil
+         host root :paths directories :glob '("*.org") :no-ignore t :skip-larger-than nil
          :emit
          (lambda (entry result)
            (declare (ignore result))
            (when (eq (aitools.workspace.application:scan-entry-kind entry) :file)
-             (with-path
-              (aitools.workspace.application:scan-entry-absolute entry)
-              (aitools.workspace.application:scan-entry-path entry)
-              #'remember-file))
+             (setf (gethash (aitools.workspace.application:scan-entry-path entry) files)
+                   (aitools.workspace.application:scan-entry-absolute entry)))
            nil)
          :on-skip
          (lambda (entry reason)
@@ -196,16 +183,16 @@
            (fail "environment.io"
                  (format nil "cannot read directory ~A"
                          (aitools.workspace.application:scan-entry-path entry))))
-         :on-complete (lambda (source stopped)
-                        (declare (ignore source stopped))
-                        nil)
+         :on-complete
+         (lambda (source stopped)
+           (declare (ignore source stopped))
+           nil)
          :on-error
          (lambda (reason path)
            (ecase reason
              (:not-found (fail "input.not-found" (format nil "~A does not exist" path)))
              (:outside-root
-              (fail "refusal.outside-workspace"
-                    (format nil "~A is outside the workspace" path)))))))
+              (fail "refusal.outside-workspace" (format nil "~A is outside the workspace" path)))))))
       (aitools.kernel.domain:flow-continue
        :on-files
        (sort (loop for relative being the hash-keys of files using (hash-value absolute)
@@ -223,48 +210,27 @@
    boundaries root command :on-error on-error
    :on-root
    (lambda (workspace-root host source max-input-bytes parser)
-     (let ((results nil))
-       (labels ((fail (path code message &key diagnostics repairs)
-                  (return-from %org-map-documents/k
-                    (aitools.kernel.domain:flow-continue
-                     :on-error code (if path (format nil "~A: ~A" path message) message)
-                     :diagnostics diagnostics :repairs repairs)))
-                (fail-result (path failure)
-                  (multiple-value-bind (code message diagnostics repairs)
-                      (%failure-response failure command)
-                    (fail path code message :diagnostics diagnostics :repairs repairs)))
-                (collect-result (document path)
-                  (multiple-value-bind (result failure) (funcall read-result document)
-                    (when failure
-                      (fail-result path failure))
-                    (push (cons path result) results)))
-                (read-file (absolute display path)
-                  (%org-read-file/k
-                   source max-input-bytes parser absolute display command
-                   :on-document (lambda (document) (collect-result document path))
-                   :on-error (lambda (code message &key diagnostics repairs)
-                               (fail path code message :diagnostics diagnostics :repairs repairs))))
-                (collect-files (files)
-                  (if files
-                      (loop for (relative . absolute) in files
-                            do (read-file absolute relative relative))
-                      ;; The adapters validate command options even for an empty selection.
-                      (multiple-value-bind (document failure)
-                          (funcall parser (make-array 0 :element-type '(unsigned-byte 8)))
-                        (when failure
-                          (fail-result nil failure))
-                        (collect-result document nil)))))
-         (let* ((single (null (rest paths)))
-                (path (first paths))
-                (absolute (aitools.workspace.application:user-path-absolute host path))
-                (real (and single (aitools.workspace.application:resolve-real-path host absolute)))
-                (kind (and real (%org-path-kind host real))))
-           (if (and single (not (eq kind :directory))
-                    (not (and kind (or (%org-encrypted-path-p path)
-                                       (%org-encrypted-path-p real)))))
-               (read-file absolute path nil)
-               (%org-collect-files/k
-                host workspace-root paths command :on-files #'collect-files
-                :on-error (lambda (code message &key repairs)
-                            (fail nil code message :repairs repairs)))))
-         (aitools.kernel.domain:flow-continue :on-results (nreverse results)))))))
+     (%org-collect-files/k
+      host workspace-root paths command :on-error on-error
+      :on-files
+      (lambda (files)
+        (let ((results nil))
+          (flet ((fail (code message &key diagnostics repairs)
+                   (return-from %org-map-documents/k
+                     (aitools.kernel.domain:flow-continue
+                      :on-error code message :diagnostics diagnostics :repairs repairs))))
+            (loop for (relative . absolute) in files
+                  do (%org-read-file/k
+                      source max-input-bytes parser absolute relative command
+                      :report-parse-path t
+                      :on-error #'fail
+                      :on-document
+                      (lambda (document)
+                        (multiple-value-bind (result failure) (funcall read-result document)
+                          (when failure
+                            (multiple-value-bind (code message diagnostics repairs)
+                                (%failure-response failure command)
+                              (fail code (format nil "~A: ~A" relative message)
+                                    :diagnostics diagnostics :repairs repairs)))
+                          (push (cons relative result) results)))))
+            (aitools.kernel.domain:flow-continue :on-results (nreverse results)))))))))

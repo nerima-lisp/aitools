@@ -86,18 +86,37 @@
      :tags (or (org-kit:node-property node :tags) '())
      :heading-path (%heading-path node))))
 
-(defun query-org-document (document match at tz dst-policy)
+(defun prepare-org-query (match at tz dst-policy)
   (multiple-value-bind (reference failure) (%query-reference-time at tz dst-policy)
-    (when failure (return-from query-org-document (values nil failure)))
+    (when failure
+      (return-from prepare-org-query (values nil failure)))
     (handler-case
-        (let* ((engine (aitools.org.domain:org-document-engine-value document))
-               (nodes (org-kit:query-match-at engine match reference)))
-          (values (mapcar (lambda (node) (%query-match-entry node)) nodes) nil))
+        ;; In cl-org-kit 0.3.1, QUERY-MATCH-AT compiles the expression per document.
+        (let* ((predicate (org-kit::query-parse-org-match match nil *org-kit-limits* reference))
+               (query (org-kit::%make-query-ir :headlines predicate nil)))
+          (values (cons query reference) nil))
       (org-kit:org-resource-limit-error (condition)
-        (values nil (%query-failure :too-large
-                                    (org-kit:org-kit-error-message condition))))
+        (values nil (%query-failure :too-large (org-kit:org-kit-error-message condition))))
       (org-kit:org-query-error (condition)
         (values nil (%query-syntax-failure match condition)))
       (org-kit:org-kit-error (condition)
-        (values nil (%query-failure :internal
-                                    (org-kit:org-kit-error-message condition)))))))
+        (values nil (%query-failure :internal (org-kit:org-kit-error-message condition)))))))
+
+(defun query-org-document (document match at tz dst-policy &key prepared)
+  (multiple-value-bind (reference failure)
+      (if prepared
+          (values (cdr prepared) nil)
+          (%query-reference-time at tz dst-policy))
+    (when failure (return-from query-org-document (values nil failure)))
+    (handler-case
+        (let* ((engine (aitools.org.domain:org-document-engine-value document))
+               (nodes (if prepared
+                          (org-kit::query-evaluate-ir engine (car prepared) :reference-time reference)
+                          (org-kit:query-match-at engine match reference))))
+          (values (mapcar #'%query-match-entry nodes) nil))
+      (org-kit:org-resource-limit-error (condition)
+        (values nil (%query-failure :too-large (org-kit:org-kit-error-message condition))))
+      (org-kit:org-query-error (condition)
+        (values nil (%query-syntax-failure match condition)))
+      (org-kit:org-kit-error (condition)
+        (values nil (%query-failure :internal (org-kit:org-kit-error-message condition)))))))

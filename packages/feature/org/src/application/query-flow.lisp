@@ -7,14 +7,13 @@
           path))
 
 (defun %query-match-json (match path)
-  (apply #'json-object
-         "line" (aitools.org.domain:org-query-match-line match)
-         "level" (aitools.org.domain:org-query-match-level match)
-         "title" (aitools.org.domain:org-query-match-title match)
-         "todo" (or (aitools.org.domain:org-query-match-todo match) (json-null))
-         "tags" (aitools.org.domain:org-query-match-tags match)
-         "heading_path" (%heading-path-json (aitools.org.domain:org-query-match-heading-path match))
-         (when path (list "path" path))))
+  (json-object "line" (aitools.org.domain:org-query-match-line match)
+               "level" (aitools.org.domain:org-query-match-level match)
+               "title" (aitools.org.domain:org-query-match-title match)
+               "todo" (or (aitools.org.domain:org-query-match-todo match) (json-null))
+               "tags" (aitools.org.domain:org-query-match-tags match)
+               "heading_path" (%heading-path-json (aitools.org.domain:org-query-match-heading-path match))
+               "path" path))
 
 (aitools.kernel.domain:define-flow
     (org-query/k boundaries &key path paths match at tz dst-policy root on-ok on-partial on-error)
@@ -26,23 +25,33 @@
       (aitools.kernel.domain:flow-continue
        :on-error "argument.invalid" "--match, --at, and --tz are required"
        :repairs (%schema-repair "org query" "Pass all required query options."))))
-  (let ((query (cl-boundary-kit:boundary-context-require boundaries :org-query)))
-    (unless query
+  (let* ((query (cl-boundary-kit:boundary-context-require boundaries :org-query))
+         (prepare (and query
+                       (cl-boundary-kit:boundary-context-require boundaries :org-prepare-query))))
+    (unless prepare
       (return-from org-query/k
         (aitools.kernel.domain:flow-continue
          :on-error "internal.unexpected" "the org context has no query boundary capability"
          :repairs (%schema-repair "org query" "Show this command's requirements."))))
-    (aitools.kernel.domain:flow-call
-        (%org-map-documents/k
-         boundaries (or paths (and path (list path))) root "org query"
-         (lambda (document) (funcall query document match at tz dst-policy)))
-      (:on-error (code message &key repairs diagnostics)
-        (aitools.kernel.domain:flow-continue
-         :on-error code message :repairs repairs :diagnostics diagnostics))
-      (:on-results (results)
-        (let ((matches (loop for (source . result) in results
-                             append (mapcar (lambda (item) (%query-match-json item source))
-                                            result))))
+    (multiple-value-bind (prepared failure) (funcall prepare match at tz dst-policy)
+      (when failure
+        (return-from org-query/k
+          (multiple-value-bind (code message diagnostics repairs)
+              (%failure-response failure "org query")
+            (aitools.kernel.domain:flow-continue
+             :on-error code message :repairs repairs :diagnostics diagnostics))))
+      (aitools.kernel.domain:flow-call
+          (%org-map-documents/k
+           boundaries (or paths (and path (list path))) root "org query"
+           (lambda (document)
+             (funcall query document match at tz dst-policy :prepared prepared)))
+        (:on-error (code message &key repairs diagnostics)
           (aitools.kernel.domain:flow-continue
-           :on-ok (list (cons "matches" matches)
-                        (cons "count" (length matches)))))))))
+           :on-error code message :repairs repairs :diagnostics diagnostics))
+        (:on-results (results)
+          (let ((matches (loop for (source . result) in results
+                               append (mapcar (lambda (item) (%query-match-json item source))
+                                              result))))
+            (aitools.kernel.domain:flow-continue
+             :on-ok (list (cons "matches" matches)
+                          (cons "count" (length matches))))))))))

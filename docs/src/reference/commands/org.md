@@ -25,7 +25,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Find Org headings that match an Org match expression.
 
-Match syntax errors appear in `error.diagnostics`. Source positions use one-based `line` and `col` fields and include a `message`. See [the error envelope](../errors.md#the-error-envelope) for error fields. The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. With a directory or multiple arguments, each explicit path must resolve inside the workspace. The command reads each resolved file path once and skips `*.gpg` files. Empty selections still validate command options and return zero results. A missing path or a file read or parse error fails the request. For a directory or multiple arguments, file read and parse errors identify the file.
+Match syntax errors appear in `error.diagnostics`. Source positions use one-based `line` and `col` fields and include a `message`. Every error includes at least one repair; see [the error envelope](../errors.md#the-error-envelope) for its fields and how to use the suggested command. The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. All explicit paths must resolve inside the workspace. Every result includes the resolved file `path` relative to the workspace root, including for a single file. The command reads each resolved file path once and skips `*.gpg` files. The command validates options before reading files. An empty selection returns zero results. A missing path or a file read or parse error fails the request. File read and parse errors identify the file.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -37,7 +37,7 @@ Match syntax errors appear in `error.diagnostics`. Source positions use one-base
 
 | Output field | Description |
 |---|---|
-| `matches` | [{line,level,title,todo,tags,heading_path}] in document order. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. heading_path is an array of `{title,index}` objects from root to match. Each index is the one-based ordinal among siblings with the same title and parent. A directory or multiple paths add `path` to each match, relative to the workspace root. Matches are grouped by path in lexicographic order. A single explicit file omits `path`. |
+| `matches` | [{line,level,title,todo,tags,heading_path,path}] in document order within each file. line is one-based; title omits its TODO keyword and tags; todo is a keyword or null; tags is a string array. heading_path is an array of `{title,index}` objects from root to match. Each index is the one-based ordinal among siblings with the same title and parent. Matches are grouped by path in lexicographic order. |
 | `count` | Number of matching headings. |
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `refusal.outside-workspace`, `refusal.not-a-file`, `environment.io`, `internal.unexpected`.
@@ -284,7 +284,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 List Org agenda entries in an inclusive date range.
 
-The explicit time context controls relative timestamps. The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. With a directory or multiple arguments, each explicit path must resolve inside the workspace. The command reads each resolved file path once and skips `*.gpg` files. Empty selections still validate command options and return zero results. A missing path or a file read or parse error fails the request. For a directory or multiple arguments, file read and parse errors identify the file.
+Both range endpoints are required. Future repeats default to all. The explicit time context controls relative timestamps. The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. All explicit paths must resolve inside the workspace. Every result includes the resolved file `path` relative to the workspace root, including for a single file. The command reads each resolved file path once and skips `*.gpg` files. The command validates options before reading files. An empty selection returns zero results. A missing path or a file read or parse error fails the request. File read and parse errors identify the file.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -300,7 +300,7 @@ The explicit time context controls relative timestamps. The command searches dir
 |---|---|
 | `from` | Inclusive start date. |
 | `through` | Inclusive end date. |
-| `entries` | Entries are [{date,kind,line,title,todo,tags}] in date order within each file. A directory or multiple paths add `path` to each entry, relative to the workspace root. Entries are grouped by path in lexicographic order. A single explicit file omits `path`. |
+| `entries` | Entries are [{date,kind,line,title,todo,tags,path}] in date order within each file. Entries are grouped by path in lexicographic order. |
 | `count` | Number of agenda entries. |
 
 Errors: `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`, `argument.invalid`, `refusal.outside-workspace`, `refusal.not-a-file`.

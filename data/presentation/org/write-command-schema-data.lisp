@@ -139,7 +139,7 @@
         (list :name "org.agenda"
               :summary "List Org agenda entries in an inclusive date range."
               :description (concatenate 'string
-                                        "The explicit time context controls relative timestamps. "
+                                        "Both range endpoints are required. Future repeats default to all. The explicit time context controls relative timestamps. "
                                         *org-paths-description*)
               :args (append (list *org-paths-arg*)
                             '((:name "--from" :type "string" :required t
@@ -152,7 +152,7 @@
                             *org-time-context-args*)
               :output-fields '((:name "from" :description "Inclusive start date.")
                                (:name "through" :description "Inclusive end date.")
-                               (:name "entries" :description "Entries are [{date,kind,line,title,todo,tags}] in date order within each file. A directory or multiple paths add `path` to each entry, relative to the workspace root. Entries are grouped by path in lexicographic order. A single explicit file omits `path`.")
+                               (:name "entries" :description "Entries are [{date,kind,line,title,todo,tags,path}] in date order within each file. Entries are grouped by path in lexicographic order.")
                                (:name "count" :description "Number of agenda entries."))
               :error-codes (append *org-common-read-error-codes* '("argument.invalid" "refusal.outside-workspace" "refusal.not-a-file")))
         (list :name "org.clock.in"

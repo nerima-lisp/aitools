@@ -10,10 +10,10 @@
 (defparameter *org-paths-description*
   (concatenate 'string
                "The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. "
-               "With a directory or multiple arguments, each explicit path must resolve inside the workspace. "
+               "All explicit paths must resolve inside the workspace. Every result includes the resolved file `path` relative to the workspace root, including for a single file. "
                "The command reads each resolved file path once and skips `*.gpg` files. "
-               "Empty selections still validate command options and return zero results. "
-               "A missing path or a file read or parse error fails the request. For a directory or multiple arguments, file read and parse errors identify the file."))
+               "The command validates options before reading files. An empty selection returns zero results. "
+               "A missing path or a file read or parse error fails the request. File read and parse errors identify the file."))
 
 (defparameter *org-command-schemas*
   `((:name "org.outline"
@@ -46,7 +46,9 @@
      :description ,(concatenate 'string
                                 "Match syntax errors appear in `error.diagnostics`. "
                                 "Source positions use one-based `line` and `col` fields and include a `message`. "
-                                "See [the error envelope](errors.md#the-error-envelope) for error fields. "
+                                "Every error includes at least one repair; see "
+                                "[the error envelope](errors.md#the-error-envelope) for its fields and "
+                                "how to use the suggested command. "
                                 *org-paths-description*)
      :args (,*org-paths-arg*
             (:name "--match" :type "string" :required t
@@ -74,13 +76,12 @@
                                         "`DEADLINE`, and `CLOSED` use local wall time in `--tz`.")))
      :output-fields ((:name "matches" :description
                       ,(concatenate 'string
-                                    "[{line,level,title,todo,tags,heading_path}] in document order. line is one-based; "
+                                    "[{line,level,title,todo,tags,heading_path,path}] in document order within each file. line is one-based; "
                                     "title omits its TODO keyword and tags; todo is a keyword or null; "
                                     "tags is a string array. "
                                     "heading_path is an array of `{title,index}` objects from root to match. "
                                     "Each index is the one-based ordinal among siblings with the same title and parent. "
-                                    "A directory or multiple paths add `path` to each match, relative to the workspace root. "
-                                    "Matches are grouped by path in lexicographic order. A single explicit file omits `path`."))
+                                    "Matches are grouped by path in lexicographic order."))
                      (:name "count" :description "Number of matching headings."))
      :error-codes ("argument.invalid" "input.not-found" "input.not-utf8"
                    "input.unsupported-format" "input.syntax-error" "refusal.too-large"
