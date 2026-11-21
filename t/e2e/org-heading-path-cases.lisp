@@ -264,4 +264,3 @@
           (expect (hp-removed-lines (jget dry-run "changes" 0 "diff"))
                   :to-equal (list (jget match "line")))
           (expect (file-octets ws "hp.org") :to-equalp before))))))
-
