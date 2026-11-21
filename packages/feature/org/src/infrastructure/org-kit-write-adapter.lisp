@@ -15,6 +15,7 @@
     (:heading-rename (%org-title-edit engine options))
     (:checkbox-toggle (%org-checkbox-edit engine options))
     (:todo-set (%org-todo-edit engine options))
+  (case operation (:capture (%org-capture-edit engine options)) (:todo-set (%org-todo-edit engine options))
     (:property-set (%org-property-edit engine options nil))
     (:property-delete (%org-property-edit engine options t))
     (:planning-set (%org-planning-edit engine options nil))

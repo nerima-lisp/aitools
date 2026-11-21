@@ -2,9 +2,7 @@
 
 (defun register-org-commands (registry boundaries)
   (let ((declarations
-         (append
-          (list
-           (aitools.protocol.application:define-command
+         (append (list (aitools.protocol.application:define-command
             "org.outline"
             (:group "org" :command-builder #'%outline-command
              :schema (%schema "org.outline")))
@@ -21,6 +19,7 @@
                                 :schema (%schema "org.archive"))))
           (%org-todo-property-declarations)
           (%org-planning-clock-declarations)
+             :schema (%schema "org.export"))) (aitools.protocol.application:define-command "org.capture" (:group "org" :command-builder (function %capture-command) :schema (%schema "org.capture")))) (%org-todo-property-declarations) (%org-planning-clock-declarations)
           (%org-agenda-report-declarations)
           (%org-table-declarations))))
     (aitools.protocol.application:register-command-declarations

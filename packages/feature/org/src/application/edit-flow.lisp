@@ -225,3 +225,11 @@
                           :at at :tz tz :dst-policy dst-policy)
                     :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx
                     :display-argv display-argv :expect-count expect-count :expect-hash expect-hash)))
+
+(aitools.kernel.domain:define-flow (org-capture/k boundaries &key path match heading-path target title body at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
+  (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
+  (%org-write-flow-call (%org-write-flow boundaries path "org.capture" :capture
+                                        (list :match match :heading-path heading-path :target target
+                                              :title title :body body :at at :tz tz :dst-policy dst-policy)
+                                        :root root :lock-timeout lock-timeout :dry-run dry-run
+                                        :tx tx :display-argv display-argv)))

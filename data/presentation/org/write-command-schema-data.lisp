@@ -282,3 +282,21 @@
                                         *org-write-control-args*)
                           :output-fields (append '((:name "changed" :description "True when the subtree was moved.")) *org-write-output-fields*)
                           :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*)))))
+
+(setf *org-command-schemas*
+      (append *org-command-schemas*
+              (list
+               (list :name "org.capture"
+                     :summary "Add a heading under a selected heading or date."
+                     :description "For a headline target, select exactly one heading. For a datetree target, --at supplies the date. Body text must not contain Org headings."
+                     :args (append '((:name "path" :kind "positional" :type "string" :required t
+                                      :description "Org file inside the selected workspace root."))
+                                   *org-selector-time-args*
+                                   '((:name "--target" :type "enum" :required t :choices ("headline" "datetree")
+                                      :description "Target kind.")
+                                     (:name "--title" :type "string" :required t :description "New heading title.")
+                                     (:name "--body" :type "string" :description "Optional heading body."))
+                                   *org-write-control-args*)
+                     :output-fields (append '((:name "changed" :description "True when the file changed."))
+                                            *org-write-output-fields*)
+                     :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*)))))
