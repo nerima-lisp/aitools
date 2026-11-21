@@ -92,7 +92,10 @@
        (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
        (:file "org-read-boundary-contract-test" :depends-on ("org-read-contract-test"))
-       (:file "org-boundary-contract-test")))
+       (:file "org-boundary-contract-test")
+       (:file "org-heading-edit-checkbox-coverage-test")
+       (:file "org-heading-edit-priority-tags-coverage-test")
+       (:file "org-heading-edit-rename-flow-coverage-test")))
      (:module "e2e" :pathname "e2e/" :serial t
       :components
       ((:file "org-cases")
