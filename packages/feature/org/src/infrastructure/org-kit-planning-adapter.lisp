@@ -26,24 +26,26 @@ a reason. Titles and one-based indices follow ORG-KIT:NODE-HEADING-PATH, so a
                                            index (length same-title) title)))))
         (setf parent (nth (1- index) same-title))))))
 
-(defun %selector-text (value)
-  (and (stringp value) (plusp (length value)) value))
-
 (defun %selector-failure (options)
-  "A failure unless OPTIONS carries exactly one of :MATCH and :HEADING-PATH."
-  (let ((match (%selector-text (getf options :match)))
-        (heading-path (%selector-text (getf options :heading-path))))
+  "A failure unless OPTIONS carries exactly one non-empty selector. An option
+counts as given when it was passed at all, so an empty value is not absent."
+  (let ((match (getf options :match))
+        (heading-path (getf options :heading-path)))
     (cond
       ((and match heading-path)
        (%failure :argument "--match and --heading-path are mutually exclusive"))
       ((not (or match heading-path))
-       (%failure :argument "exactly one of --match and --heading-path is required")))))
+       (%failure :argument "exactly one of --match and --heading-path is required"))
+      ((and match (not (and (stringp match) (plusp (length match)))))
+       (%failure :argument "--match must be a non-empty string"))
+      ((and heading-path (not (and (stringp heading-path) (plusp (length heading-path)))))
+       (%failure :argument "--heading-path must be a non-empty string")))))
 
 (defun %org-select-heading-node (engine options reference)
   "Resolve the single heading OPTIONS selects, by :HEADING-PATH or else :MATCH
 at REFERENCE time. Return (values heading nil), or (values nil failure)."
-  (let ((match (%selector-text (getf options :match)))
-        (heading-path (%selector-text (getf options :heading-path))))
+  (let ((match (getf options :match))
+        (heading-path (getf options :heading-path)))
     (cond
       (heading-path
        (multiple-value-bind (entries reason) (aitools.org.domain:parse-org-heading-path heading-path)
