@@ -55,6 +55,12 @@
 (aitools.kernel.domain:define-flow
  (org-archive/k boundaries &key path to target-heading match heading-path at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
  (declare (ignore expect-count expect-hash on-partial))
+ (when (or (zerop (length target-heading))
+           (find-if (lambda (character) (find character '(#\Newline #\Return))) target-heading))
+   (return-from org-archive/k
+     (aitools.kernel.domain:flow-continue
+      :on-error "argument.invalid" "--target-heading must be a nonempty single-line title"
+      :repairs (%schema-repair "org archive" "Pass a nonempty single-line heading title."))))
  (let* ((options (list :to to :target-heading target-heading :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy))
         (plan (aitools.edit.application:make-write-plan
                :command "org.archive"
