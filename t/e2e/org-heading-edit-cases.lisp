@@ -14,42 +14,32 @@
       (expect (jget preview "changes" 0 "diff") :to-be-truthy)
       (expect (jget result "changes" 0 "diff") :to-equal (jget preview "changes" 0 "diff"))
       (expect (file-octets ws "edit.org") :to-equalp (octets expected)))))
-(defun heading-checkbox-emacs-check (ws before target item)
+(defun heading-checkbox-emacs-check (ws before target item fixed)
   (put ws "emacs.org" before)
-  (put ws "edit.org" before)
-  (let* ((arguments (heading-edit-args '("checkbox" "toggle") "--match" "/TODO" "--item" item))
+  (let* ((expected
+           (oracle ws '("emacs")
+                   (format nil "emacs -Q --batch --eval '(progn (require (quote org)) (find-file \"emacs.org\") (org-mode) (goto-char (point-min)) (search-forward ~S) (beginning-of-line) (org-toggle-checkbox) (save-buffer))' && cat emacs.org"
+                           target)
+                   (octets fixed) :octets t))
+         (arguments (heading-edit-args '("checkbox" "toggle") "--match" "/TODO" "--item" item))
          (batch-input
            (with-output-to-string (stream)
              (json-kit:write-json
               (vector (coerce (append arguments '("--dry-run")) 'vector)
                       #("read" "edit.org")
                       (coerce arguments 'vector))
-              stream)))
-         (emacs
-           (uiop:launch-program
-            (list "emacs" "-Q" "--batch" "--eval"
-                  (format nil "(progn (require 'org) (find-file \"emacs.org\") (org-mode) (goto-char (point-min)) (search-forward ~S) (beginning-of-line) (org-toggle-checkbox) (save-buffer))"
-                          target))
-            :directory (workspace-root ws) :output nil :error-output nil))
-         (waited nil))
-    (unwind-protect
-         (let* ((batch (run-ok ws '("batch" "--stdin") :stdin batch-input))
-                (preview (jget batch "results" 0))
-                (middle (jget batch "results" 1))
-                (result (jget batch "results" 2))
-                (exit-code (uiop:wait-process emacs)))
-           (setf waited t)
-           (expect exit-code :to-be 0)
-           (expect (jget preview "dry_run") :to-be t)
-           (expect (octets (lines-text (jget middle "lines"))) :to-equalp (octets before))
-           (expect (jget result "changed") :to-equal (jget preview "changed"))
-           (expect (jget preview "changes" 0 "diff") :to-be-truthy)
-           (expect (jget result "changes" 0 "diff") :to-equal (jget preview "changes" 0 "diff"))
-           (expect (file-octets ws "edit.org") :to-equalp (file-octets ws "emacs.org")))
-      (unless waited
-        (when (uiop:process-alive-p emacs)
-          (uiop:terminate-process emacs))
-        (uiop:wait-process emacs)))))
+              stream))))
+    (put ws "edit.org" before)
+    (let* ((batch (run-ok ws '("batch" "--stdin") :stdin batch-input))
+           (preview (jget batch "results" 0))
+           (middle (jget batch "results" 1))
+           (result (jget batch "results" 2)))
+      (expect (jget preview "dry_run") :to-be t)
+      (expect (octets (lines-text (jget middle "lines"))) :to-equalp (octets before))
+      (expect (jget result "changed") :to-equal (jget preview "changed"))
+      (expect (jget preview "changes" 0 "diff") :to-be-truthy)
+      (expect (jget result "changes" 0 "diff") :to-equal (jget preview "changes" 0 "diff"))
+      (expect (file-octets ws "edit.org") :to-equalp expected))))
 
 (describe "aitools e2e org heading and checkbox edits"
   (define-org-case ("priority set and delete preserve other lines" ws)
@@ -91,6 +81,19 @@
       (heading-edit-check ws before
                           (heading-edit-args '("heading" "rename") "--match" "/TODO" "--title" "New")
                           after "org heading rename")))
+  (define-org-case ("renaming with a new cookie replaces the old cookie" ws)
+    (let ((before (format nil "#+TODO: TODO | DONE~%* TODO [#A] Old [1/3] :work:~%body~%* DONE Other~%"))
+          (after (format nil "#+TODO: TODO | DONE~%* TODO [#A] New [50%] :work:~%body~%* DONE Other~%")))
+      (heading-edit-check ws before
+                          (heading-edit-args '("heading" "rename") "--match" "/TODO" "--title" "New [50%]")
+                          after "org heading rename")))
+  (define-org-case ("checkbox heading path retains its selected heading" ws)
+    (let ((before (format nil "* TODO Target [0/1]~%  - [ ] Item~%* TODO Other~%"))
+          (after (format nil "* TODO Target [1/1]~%  - [X] Item~%* TODO Other~%")))
+      (heading-edit-check ws before
+                          (heading-edit-args '("checkbox" "toggle") "--heading-path"
+                                             (hp-json "Target [0/1]" 1) "--item" "1")
+                          after "org checkbox toggle")))
 
   (define-org-case ("checkbox toggle updates counts and nested items" ws)
     (let ((unchecked (format nil "* TODO Target [1/3]~%  - [ ] First~%  - [X] Second~%  - [-] Third~%* DONE Other~%"))
@@ -134,13 +137,17 @@
                           (heading-edit-args '("checkbox" "toggle") "--match" "/TODO" "--item" "1")
                           after "org checkbox toggle")))
   (define-org-case ("two-level parent matches Emacs" ws)
-  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Parent [0/1]~%    - [ ] Child~%") "Child" "2"))
+  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Parent [0/1]~%    - [ ] Child~%") "Child" "2"
+                               (format nil "* TODO Target [1/1]~%  - [X] Parent [1/1]~%    - [X] Child~%")))
   (define-org-case ("three-level parents match Emacs" ws)
-  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Outer [0/1]~%    - [ ] Inner [0/1]~%      - [ ] Child~%") "Child" "3"))
+  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Outer [0/1]~%    - [ ] Inner [0/1]~%      - [ ] Child~%") "Child" "3"
+                               (format nil "* TODO Target [1/1]~%  - [X] Outer [1/1]~%    - [X] Inner [1/1]~%      - [X] Child~%")))
   (define-org-case ("partially checked parents match Emacs" ws)
-  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Outer [0/1]~%    - [ ] Inner [0/2]~%      - [ ] One~%      - [ ] Two~%") "One" "3"))
+  (heading-checkbox-emacs-check ws (format nil "* TODO Target [0/1]~%  - [ ] Outer [0/1]~%    - [ ] Inner [0/2]~%      - [ ] One~%      - [ ] Two~%") "One" "3"
+                               (format nil "* TODO Target [0/1]~%  - [-] Outer [0/1]~%    - [-] Inner [1/2]~%      - [X] One~%      - [ ] Two~%")))
   (define-org-case ("unchecked parent matches Emacs" ws)
-  (heading-checkbox-emacs-check ws (format nil "* TODO Target [1/1]~%  - [X] Parent [1/1]~%    - [X] Child~%") "Child" "2"))
+  (heading-checkbox-emacs-check ws (format nil "* TODO Target [1/1]~%  - [X] Parent [1/1]~%    - [X] Child~%") "Child" "2"
+                               (format nil "* TODO Target [0/1]~%  - [ ] Parent [0/1]~%    - [ ] Child~%")))
   (define-org-case ("toggling an independent item refreshes stale cookies" ws)
     (let ((before (format nil "* TODO Target [0/2]~%  - [ ] One~%  - [ ] Other [9/9]~%    - [ ] Other child~%"))
           (after (format nil "* TODO Target [1/2]~%  - [X] One~%  - [ ] Other [0/1]~%    - [ ] Other child~%")))
