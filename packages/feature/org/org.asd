@@ -28,6 +28,7 @@
                              (:file "time-context-adapter")
                              (:file "planning-timestamp-adapter")
                              (:file "org-kit-planning-adapter")
+                             (:file "org-kit-heading-edit-adapter")
                              (:file "org-kit-table-adapter")
                              (:file "org-kit-clock-adapter")
                              (:file "org-kit-agenda-adapter")
