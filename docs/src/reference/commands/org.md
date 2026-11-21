@@ -358,7 +358,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Toggle one checkbox and update statistics cookies.
 
-Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are not changed.
+Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are updated from their direct children before statistics cookies are recalculated.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|

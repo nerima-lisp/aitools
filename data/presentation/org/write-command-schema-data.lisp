@@ -258,7 +258,7 @@
 (list :name "org.heading.rename" :summary "Change the text of one heading." :description "Change the text of one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--title" :type "string" :required t :description "New heading text; existing statistics cookies are retained.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
 (list :name "org.checkbox.toggle"
       :summary "Toggle one checkbox and update statistics cookies."
-      :description "Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are not changed."
+      :description "Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are updated from their direct children before statistics cookies are recalculated."
       :args (append '((:name "path" :kind "positional" :type "string" :required t
                        :description "Org file inside the selected workspace root."))
                     *org-selector-time-args*
