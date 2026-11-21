@@ -183,6 +183,7 @@ groups to the fixed output order.
 | [`org outline`](org.md#org-outline) | org | List Org headings and named or unnamed source and example blocks. |
 | [`org query`](org.md#org-query) | org | Find Org headings that match an Org match expression. |
 | [`org export`](org.md#org-export) | org | Export an Org file as HTML, GFM, or ASCII text. |
+| [`org archive`](org.md#org-archive) | org | Move one heading subtree to an archive file. |
 | [`org todo set`](org.md#org-todo-set) | org | Change the TODO keyword on one matching heading. |
 | [`org property set`](org.md#org-property-set) | org | Set one property on one matching heading. |
 | [`org property delete`](org.md#org-property-delete) | org | Delete one property from one matching heading. |

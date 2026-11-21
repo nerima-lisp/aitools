@@ -60,6 +60,37 @@ Unsupported syntax fails the whole command without content. HTTP, HTTPS, and mai
 
 Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`.
 
+### `org archive` {#org-archive}
+
+Move one heading subtree to an archive file.
+
+Creates the destination file and heading when absent. Archive metadata records the source path relative to the destination.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Source Org file. |
+| `--match` | string |  | Org match expression selecting exactly one heading. Give exactly one of --match and --heading-path. |
+| `--heading-path` | string |  | The heading_path of one `org query` match, passed as the JSON array it reports, for example [{"title":"Project","index":1},{"title":"Tasks","index":2}]. Selects the heading whose ancestor titles and same-title sibling indices (one-based) match; selection.no-match when none does. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--to`, required | string |  | Destination Org file. |
+| `--target-heading`, required | string |  | Destination heading title. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `changed` | True when the subtree was moved. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`.
+
 ### `org todo set` {#org-todo-set}
 
 Change the TODO keyword on one matching heading.
