@@ -14,7 +14,8 @@
            (envelope (org-ok ws arguments "org query"))
            (matches (jlist (jget envelope "matches"))))
       (expect (jget envelope "count") :to-be 3)
-      (expect (nth-value 1 (gethash "path" (first matches))) :to-be nil)
+      (expect (mapcar (lambda (match) (jget match "path")) matches)
+              :to-equal '("siblings.org" "siblings.org" "siblings.org"))
       (expect (mapcar (lambda (match) (jget match "title")) matches)
               :to-equal (list "Repeated" "Repeated" "Repeated"))
       (expect (mapcar (lambda (match) (jget match "line")) matches) :to-equal (list 2 3 5))
@@ -57,10 +58,12 @@
     (put ws "task/sub/a.org" (format nil "* TODO Second~%* TODO First~%"))
     (put ws "task/ignored.txt" (format nil "* TODO Ignored~%"))
     (put ws "task/ignored.org.gpg" #(#xFF))
+    (put ws "task/ignored-upper.org.GPG" #(#xFF))
     (put ws "inbox.org" (format nil "* TODO Inbox~%"))
     (let* ((envelope (org-ok ws
                              '("org" "query" "task/z.org" "--match" "LEVEL=1/TODO"
                                "task" "inbox.org" "task/sub" "task/z.org"
+                               "task/ignored.org.gpg" "task/ignored-upper.org.GPG"
                                "--at" "2026-10-19T09:00:00" "--tz" "UTC") "org query"))
            (matches (jlist (jget envelope "matches"))))
       (expect (jget envelope "count") :to-be 4)
@@ -86,15 +89,32 @@
   (define-org-case ("org query fails the whole request for a missing or malformed file" ws)
     (put ws "task/a.org" (format nil "* TODO Valid~%"))
     (put ws "z-broken.org" #(#xFF))
+    (put ws "z-binary.org" #(#x00 #xFF))
     (dolist (test '(("task/missing.org" "input.not-found")
-                    ("z-broken.org" "input.not-utf8")))
+                    ("z-broken.org" "input.not-utf8")
+                    ("z-binary.org" "input.unsupported-format")))
       (destructuring-bind (path code) test
-        (let ((envelope (org-error ws
-                                   (list "org" "query" "task" path "--match" "LEVEL=1/TODO"
-                                         "--at" "2026-10-19T09:00:00" "--tz" "UTC")
-                                   "org query" code)))
+        (let* ((envelope (org-error ws
+                                    (list "org" "query" "task" path "--match" "LEVEL=1/TODO"
+                                          "--at" "2026-10-19T09:00:00" "--tz" "UTC")
+                                    "org query" code))
+               (message (jget envelope "error" "message")))
           (expect (nth-value 1 (gethash "matches" envelope)) :to-be nil)
-          (expect (nth-value 1 (gethash "count" envelope)) :to-be nil)))))
+          (expect (nth-value 1 (gethash "count" envelope)) :to-be nil)
+          (expect (loop for offset = (search path message)
+                          then (search path message :start2 (1+ offset))
+                        while offset count offset)
+                  :to-be 1)))))
+  (define-org-case ("org query validates match syntax and reference time before reading files" ws)
+    (put ws "broken.org" #(#xFF))
+    (dolist (test '(("LEVEL=" "2026-10-19T09:00:00" "input.syntax-error")
+                    ("LEVEL=1/TODO" "2026-10-19T09:00:01" "argument.invalid")))
+      (destructuring-bind (match at code) test
+        (dolist (path '("broken.org" "missing.org"))
+          (let ((envelope (org-error ws (list "org" "query" path "--match" match
+                                              "--at" at "--tz" "UTC")
+                                     "org query" code)))
+            (expect (search path (jget envelope "error" "message")) :to-be nil))))))
   (define-org-case ("org query skips discovered links and resolves explicit links within the workspace" ws)
     (put ws "task/list/active.org" (format nil "* TODO Active~%"))
     (put ws "task/standalone.org" (format nil "* TODO Standalone~%"))

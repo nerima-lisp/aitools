@@ -36,6 +36,8 @@
      :org-outline
      (unless (eq missing :outline)
        (cl-boundary-kit:boundary-context-require production :org-outline))
+     :org-prepare-query
+     (cl-boundary-kit:boundary-context-require production :org-prepare-query)
      :org-query
      (unless (eq missing :query)
        (cl-boundary-kit:boundary-context-require production :org-query))

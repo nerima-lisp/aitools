@@ -47,7 +47,7 @@
                       :to-be-truthy)
               (expect (aitools.test.support:read-bytes path) :to-equalp bytes)))))))
   (it "maps missing source files to query and export error envelopes"
-    (aitools.test.support:with-workspace (root state)
+    (aitools.test.support:with-workspace (root state :chdir t)
       (declare (ignore state))
       (multiple-value-bind (code envelope stream)
           (aitools.test.support:run-aitools
