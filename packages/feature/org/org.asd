@@ -65,6 +65,8 @@
       :components
       ((:file "org-write-flow-test")
        (:file "org-read-flow-coverage-test")
+       (:file "org-multi-file-coverage-test")
+       (:file "org-multi-file-failure-coverage-test")
        (:file "org-infrastructure-coverage-test")
        (:file "org-planning-timestamp-coverage-test")
        (:file "org-planning-coverage-test")
