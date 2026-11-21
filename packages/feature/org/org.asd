@@ -9,7 +9,8 @@
   :pathname "src/"
   :components ((:module "domain"
                 :components ((:file "package")
-                             (:file "document")))
+                             (:file "document")
+                             (:file "archive-timestamp")))
                (:module "application"
                 :components ((:file "package")
                              (:file "read-flow")
@@ -67,6 +68,7 @@
        (:file "org-infrastructure-coverage-test")
        (:file "org-planning-timestamp-coverage-test")
        (:file "org-planning-coverage-test")
+       (:file "org-archive-timestamp-test")
        (:file "org-planning-edge-coverage-test")
        (:file "org-time-adapter-coverage-test")
        (:file "org-time-adapter-extra-coverage-test")

@@ -29,4 +29,5 @@
    #:org-query-match-title
    #:org-query-match-todo
    #:org-query-match-tags
-   #:org-query-match-heading-path))
+   #:org-query-match-heading-path
+   #:format-org-archive-timestamp))
