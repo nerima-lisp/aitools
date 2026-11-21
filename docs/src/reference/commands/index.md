@@ -204,6 +204,7 @@ groups to the fixed output order.
 | [`org table align`](org.md#org-table-align) | org | Align one numbered Org table. |
 | [`org table sort`](org.md#org-table-sort) | org | Sort the standard rows of one numbered Org table. |
 | [`org table recalculate`](org.md#org-table-recalculate) | org | Recalculate formulas for one numbered Org table. |
+| [`org dynamic-block update`](org.md#org-dynamic-block-update) | org | Update one numbered Org dynamic block. |
 | [`sys info`](env.md#sys-info) | env | Describe the host: OS, architecture, CPUs, user, uptime, memory, and the workspace's disk. |
 | [`sys env`](env.md#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](env.md#sys-tools) | env | Find commands on PATH and report the first line of their version output. |

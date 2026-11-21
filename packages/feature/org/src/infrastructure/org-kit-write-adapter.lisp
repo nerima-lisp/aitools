@@ -22,4 +22,5 @@
     (:planning-delete (%org-planning-edit engine options t))
     (:clock-in (%org-clock-edit engine options :in))
     (:clock-out (%org-clock-edit engine options :out))
+    (:dynamic-block-update (edit-org-dynamic-block engine options))
     ((:table-align :table-sort :table-recalculate) (edit-org-table-document engine operation options))))

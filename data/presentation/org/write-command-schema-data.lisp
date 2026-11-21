@@ -183,7 +183,7 @@
                                    *org-selection-error-codes*))
         (list :name "org.clock.report"
               :summary "Summarize clock time for one heading and its descendants."
-              :description "The range is half-open: from is included and through is excluded. Running clocks are omitted."
+              :description "The range is half-open: from is included and through is excluded. Running clocks are omitted. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
               :args (append '((:name "path" :kind "positional" :type "string" :required t
                                :description "Org file to read.")
                               (:name "--from" :type "string" :required t
@@ -195,7 +195,8 @@
               :output-fields '((:name "from" :description "Inclusive range start.")
                                (:name "through" :description "Exclusive range end.")
                                (:name "total_minutes" :description "Total minutes across selected rows.")
-                               (:name "rows" :description "[{level,title,tags,minutes}] by heading."))
+                               (:name "rows" :description "[{level,title,tags,minutes}] by heading.")
+                               (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none."))
               :error-codes (append *org-common-read-error-codes*
                                    *org-selection-error-codes*
                                    '("argument.invalid")))
@@ -305,3 +306,23 @@
                      :output-fields (append '((:name "changed" :description "True when the file changed."))
                                             *org-write-output-fields*)
                      :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*)))))
+
+(setf *org-command-schemas*
+      (append *org-command-schemas*
+              (list
+               (list :name "org.dynamic-block.update"
+                     :summary "Update one numbered Org dynamic block."
+                     :description "Select a block by its one-based document order. Agenda globs are relative to the workspace root; encrypted files are excluded. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
+                     :args (append '((:name "path" :kind "positional" :type "string" :required t
+                                      :description "Org file inside the selected workspace root.")
+                                     (:name "--block" :type "integer" :required t :min 1
+                                      :description "One-based dynamic block number in document order.")
+                                     (:name "--agenda-glob" :type "string, repeatable"
+                                      :description "Workspace-relative glob for agenda files."))
+                                   *org-time-context-args*
+                                   *org-write-control-args*)
+                     :output-fields (append '((:name "block" :description "One-based dynamic block number.")
+                                              (:name "changed" :description "True when the block changed.")
+                                              (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none."))
+                                            *org-write-output-fields*)
+                     :error-codes *org-common-write-error-codes*))))

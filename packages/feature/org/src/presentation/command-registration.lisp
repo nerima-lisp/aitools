@@ -26,7 +26,8 @@
           (%org-todo-property-declarations)
           (%org-planning-clock-declarations)
           (%org-agenda-report-declarations)
-          (%org-table-declarations))))
+          (%org-table-declarations)
+          (%org-dynamic-block-declarations))))
     (aitools.protocol.application:register-command-declarations
      registry declarations boundaries))
   registry)

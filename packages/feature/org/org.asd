@@ -19,6 +19,7 @@
                              (:file "write-flow")
                              (:file "archive-flow" :depends-on ("write-flow"))
                              (:file "edit-flow")
+                             (:file "dynamic-block-flow")
                              (:file "agenda-flow")
                              (:file "clock-report-flow")))
                (:module "infrastructure"
@@ -32,6 +33,7 @@
                              (:file "org-kit-table-adapter")
                              (:file "org-kit-clock-adapter")
                              (:file "org-kit-agenda-adapter")
+                             (:file "org-kit-dynamic-block-adapter")
                              (:file "org-kit-write-adapter")
                              (:file "org-kit-archive-adapter" :depends-on ("org-kit-planning-adapter"))
                              (:file "capabilities")
@@ -42,7 +44,7 @@
   :depends-on ("aitools/cli/foundation" "aitools/feature/org" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t :components ((:file "package") (:file "commands") (:file "command-support") (:file "todo-property-commands") (:file "planning-clock-commands") (:file "agenda-report-commands") (:file "table-commands")
+  ((:module "presentation" :serial t :components ((:file "package") (:file "commands") (:file "command-support") (:file "todo-property-commands") (:file "planning-clock-commands") (:file "agenda-report-commands") (:file "table-commands") (:file "dynamic-block-commands")
                                                    (:file "capture-command")
                                                    (:file "command-registration"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
@@ -94,4 +96,5 @@
        (:file "org-agenda-cases")
        (:file "org-write-workflow-cases")
        (:file "org-write-table-cases")
+       (:file "org-dynamic-block-cases")
        (:file "org-capture-cases")))))))

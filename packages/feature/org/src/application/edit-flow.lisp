@@ -13,9 +13,9 @@
                                            :conflicts conflicts
                                            :repairs repairs))))
 
-(aitools.kernel.domain:define-flow (%org-write-flow boundaries path command operation options &key root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
+(aitools.kernel.domain:define-flow (%org-write-flow boundaries path command operation options &key prepare-options root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
                                    (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-result boundaries path command operation options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
+                                   (%org-write-flow-call (%org-write-result boundaries path command operation options :prepare-options prepare-options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
 
 (aitools.kernel.domain:define-flow (org-todo-set/k boundaries &key path match heading-path state note at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries

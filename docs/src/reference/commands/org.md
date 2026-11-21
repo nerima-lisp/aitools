@@ -570,7 +570,7 @@ Errors: `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.
 
 Summarize clock time for one heading and its descendants.
 
-The range is half-open: from is included and through is excluded. Running clocks are omitted.
+The range is half-open: from is included and through is excluded. Running clocks are omitted. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -589,6 +589,7 @@ The range is half-open: from is included and through is excluded. Running clocks
 | `through` | Exclusive range end. |
 | `total_minutes` | Total minutes across selected rows. |
 | `rows` | [{level,title,tags,minutes}] by heading. |
+| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none. |
 
 Errors: `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`, `argument.invalid`.
 
@@ -666,6 +667,37 @@ Uses the first formula directive following the selected table. No directive is a
 |---|---|
 | `table` | One-based table number. |
 | `changed` | True when a formula changed cell values. |
+| `changes` | Standard write changes with path, action, hashes, and a diff when available. |
+| `op_id` | Journal operation id for undo; null when nothing changed. |
+| `tx` | Transaction receiving the staged write. |
+| `tx_op` | Staged operation number in the transaction. |
+| `dry_run` | True when the write was validated without being applied. |
+| `next_commands` | Command to read a full diff when changes.diff_truncated is true. |
+
+Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.not-a-file`, `refusal.outside-workspace`, `refusal.target-changed`, `refusal.redacted-input`, `refusal.too-large`, `environment.busy`, `environment.io`, `internal.unexpected`.
+
+### `org dynamic-block update` {#org-dynamic-block-update}
+
+Update one numbered Org dynamic block.
+
+Select a block by its one-based document order. Agenda globs are relative to the workspace root; encrypted files are excluded. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `path` (positional, required) | string |  | Org file inside the selected workspace root. |
+| `--block`, required | integer |  | One-based dynamic block number in document order. |
+| `--agenda-glob` | string, repeatable |  | Workspace-relative glob for agenda files. |
+| `--at`, required | string |  | Zone-less local date-time in YYYY-MM-DDTHH:MM:SS form; seconds must be 00. |
+| `--tz`, required | string |  | Resolvable IANA time zone name. |
+| `--dst-policy` | enum: `compatible`, `earlier`, `later`, `strict` | `compatible` | DST gap and overlap policy for local timestamps. |
+| `--dry-run` | flag |  | Validate and show the diff without changing disk or a transaction overlay. |
+| `--tx` | string |  | Stage the write in this transaction. |
+
+| Output field | Description |
+|---|---|
+| `block` | One-based dynamic block number. |
+| `changed` | True when the block changed. |
+| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none. |
 | `changes` | Standard write changes with path, action, hashes, and a diff when available. |
 | `op_id` | Journal operation id for undo; null when nothing changed. |
 | `tx` | Transaction receiving the staged write. |

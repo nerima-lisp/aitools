@@ -203,6 +203,20 @@
                                  (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%:END:~%")
                                  clock-out)))
 
+  (define-org-case ("org clock report returns unparseable CLOCK lines as warnings" ws)
+    (put ws "clock-warning.org"
+         (format nil "* TODO Work~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon]--[2026-10-20 Tue]~%"))
+    (let* ((report (org-ok ws
+                           '("org" "clock" "report" "clock-warning.org" "--match" "/!"
+                             "--from" "2026-10-19T09:00:00" "--through" "2026-10-19T10:00:00"
+                             "--at" "2026-10-19T10:00:00" "--tz" "UTC") "org clock report"))
+           (warning (jget report "warnings" 0)))
+      (expect (jget report "total_minutes") :to-be 30)
+      (expect (length (jget report "warnings")) :to-be 1)
+      (expect (jget warning "code") :to-equal "org.clock-ignored")
+      (expect (jget warning "path") :to-equal "clock-warning.org")
+      (expect (jget warning "line") :to-be 3)
+      (expect (jget warning "source") :to-equal "CLOCK: [2026-10-19 Mon]--[2026-10-20 Tue]")))
   (define-org-case ("org clock report aggregates closed clocks and omits running clocks" ws)
     (put ws "clock-report.org"
          (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] =>  0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
@@ -217,6 +231,7 @@
       (expect (jget row "title") :to-equal "Work")
       (expect (jget row "minutes") :to-be 30)
       (expect (file-octets ws "clock-report.org") :to-equalp before)
+      (expect (length (jget report "warnings")) :to-be 0)
       (org-error ws '("org" "clock" "report" "clock-report.org" "--match" "/!"
                       "--from" "2026-10-19T10:00:00" "--through" "2026-10-19T09:00:00"
                       "--at" "2026-10-19T10:00:00" "--tz" "UTC") "org clock report" "argument.invalid"))))
