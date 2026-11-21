@@ -20,4 +20,4 @@
                      #:org-clock-report/k
                      #:org-table-align/k
                      #:org-table-sort/k
-                     #:org-table-recalculate/k))
+                     #:org-table-recalculate/k #:org-archive/k))

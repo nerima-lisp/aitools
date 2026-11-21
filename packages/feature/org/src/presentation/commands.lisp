@@ -75,3 +75,17 @@
                          :path (positional-value invocation :path)
                          :backend (%backend (option-value invocation :backend))
                          :root (option-value invocation :root)))))
+
+(defun %archive-command (boundaries)
+  (make-command
+   :name "archive" :description (%summary "org.archive")
+   :positionals (list (%path-positional))
+   :options (append (%org-selector-time-options)
+                    (list (%value-option "to" "PATH" "Destination Org file." :required-p t)
+                          (%value-option "target-heading" "TITLE" "Destination heading title." :required-p t))
+                    (%org-write-options))
+   :handler (lambda (invocation)
+              (%org-run-selector-write
+               #'aitools.org.application:org-archive/k boundaries invocation
+               (list :to (option-value invocation :to)
+                     :target-heading (option-value invocation :target-heading))))))

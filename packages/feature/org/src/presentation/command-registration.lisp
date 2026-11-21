@@ -16,6 +16,9 @@
             "org.export"
             (:group "org" :command-builder #'%export-command
              :schema (%schema "org.export"))))
+          (list (aitools.protocol.application:define-command
+                 "org.archive" (:group "org" :command-builder (function %archive-command)
+                                :schema (%schema "org.archive"))))
           (%org-todo-property-declarations)
           (%org-planning-clock-declarations)
           (%org-agenda-report-declarations)

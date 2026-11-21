@@ -13,5 +13,6 @@
         (cons :org-export (function export-org-document))
         (cons :org-write (function write-org-octets))
         (cons :org-edit (function edit-org-document))
+        (cons :org-archive (function archive-org-documents))
         (cons :org-agenda (function agenda-org-document))
         (cons :org-clock-report (function clock-report-org-document))))

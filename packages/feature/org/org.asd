@@ -17,6 +17,7 @@
                              (:file "query-flow")
                              (:file "export-flow")
                              (:file "write-flow")
+                             (:file "archive-flow" :depends-on ("write-flow"))
                              (:file "edit-flow")
                              (:file "agenda-flow")
                              (:file "clock-report-flow")))
@@ -31,6 +32,7 @@
                              (:file "org-kit-clock-adapter")
                              (:file "org-kit-agenda-adapter")
                              (:file "org-kit-write-adapter")
+                             (:file "org-kit-archive-adapter" :depends-on ("org-kit-planning-adapter"))
                              (:file "capabilities")))))
 
 (defsystem "aitools/feature/org/presentation"

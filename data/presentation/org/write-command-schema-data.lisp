@@ -250,3 +250,16 @@
                                 (:name "changed" :description "True when a formula changed cell values."))
                               *org-write-output-fields*)
               :error-codes *org-common-write-error-codes*))))
+
+(setf *org-command-schemas*
+      (append *org-command-schemas*
+              (list (list :name "org.archive"
+                          :summary "Move one heading subtree to an archive file."
+                          :description "Creates the destination file and heading when absent. Archive metadata records the source path relative to the destination."
+                          :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Source Org file."))
+                                        *org-selector-time-args*
+                                        '((:name "--to" :type "string" :required t :description "Destination Org file.")
+                                          (:name "--target-heading" :type "string" :required t :description "Destination heading title."))
+                                        *org-write-control-args*)
+                          :output-fields (append '((:name "changed" :description "True when the subtree was moved.")) *org-write-output-fields*)
+                          :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*)))))
