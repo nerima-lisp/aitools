@@ -1,8 +1,15 @@
 (in-package #:aitools.org.application)
 
+(defun %archive-path-segments (path)
+  (when (plusp (length path))
+    (loop for start = 0 then (1+ end)
+          for end = (position #\/ path :start start)
+          collect (subseq path start end)
+          while end)))
+
 (defun %archive-relative-path (source destination)
-  (let ((directory (butlast (uiop:split-string destination :separator '(#\/))))
-        (parts (uiop:split-string source :separator '(#\/))))
+  (let ((directory (butlast (%archive-path-segments destination)))
+        (parts (%archive-path-segments source)))
     (loop while (and directory parts (string= (first directory) (first parts)))
           do (pop directory) (pop parts))
     (format nil "~{~A~^/~}" (append (make-list (length directory) :initial-element "..") parts))))
@@ -55,32 +62,31 @@
 (aitools.kernel.domain:define-flow
  (org-archive/k boundaries &key path to target-heading match heading-path at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
  (declare (ignore expect-count expect-hash on-partial))
- (when (or (zerop (length target-heading))
-           (find-if (lambda (character) (find character '(#\Newline #\Return))) target-heading))
-   (return-from org-archive/k
+ (if (or (zerop (length target-heading))
+         (find-if (lambda (character) (find character '(#\Newline #\Return))) target-heading))
      (aitools.kernel.domain:flow-continue
       :on-error "argument.invalid" "--target-heading must be a nonempty single-line title"
-      :repairs (%schema-repair "org archive" "Pass a nonempty single-line heading title."))))
- (let* ((options (list :to to :target-heading target-heading :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy))
-        (plan (aitools.edit.application:make-write-plan
-               :command "org.archive"
-               :targets (list (aitools.edit.application:make-write-target path) (aitools.edit.application:make-write-target to))
-               :inputs (%org-write-inputs options) :replayable nil
-               :record-options (lambda (paths) (let ((copy (copy-list options))) (setf (getf copy :to) (second paths)) copy))
-               :record-positionals (lambda (paths) (list (first paths)))
-               :plan (lambda (context &key on-committed on-rejected)
-                       (let ((result (%archive-plan boundaries context options)))
-                         (ecase (first result)
-                           (:committed (funcall on-committed (second result) (third result)))
-                           (:rejected (destructuring-bind (tag code message diagnostics repairs rejected-path) result
-                                        (declare (ignore tag))
-                                        (funcall on-rejected code message :diagnostics diagnostics :repairs repairs :path rejected-path))))))))
-        (outcome nil))
-   (aitools.edit.application:run-write-command/k
-    (aitools.edit.application:make-edit-write-boundaries (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host) (cl-boundary-kit:boundary-context-require boundaries :org-open-store))
-    plan :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv
-    :on-ok (lambda (fields) (setf outcome (list :ok fields)))
-    :on-error (lambda (code message &key candidates diagnostics conflicts repairs) (setf outcome (list :error code message candidates diagnostics conflicts repairs))))
-   (ecase (first outcome)
-     (:ok (aitools.kernel.domain:flow-continue :on-ok (second outcome)))
-     (:error (aitools.kernel.domain:flow-continue :on-error (second outcome) (third outcome) :candidates (fourth outcome) :diagnostics (fifth outcome) :conflicts (sixth outcome) :repairs (seventh outcome))))))
+      :repairs (%schema-repair "org archive" "Pass a nonempty single-line heading title."))
+     (let* ((options (list :to to :target-heading target-heading :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy))
+            (plan (aitools.edit.application:make-write-plan
+                   :command "org.archive"
+                   :targets (list (aitools.edit.application:make-write-target path) (aitools.edit.application:make-write-target to))
+                   :inputs (%org-write-inputs options) :replayable nil
+                   :record-options (lambda (paths) (let ((copy (copy-list options))) (setf (getf copy :to) (second paths)) copy))
+                   :record-positionals (lambda (paths) (list (first paths)))
+                   :plan (lambda (context &key on-committed on-rejected)
+                           (let ((result (%archive-plan boundaries context options)))
+                             (ecase (first result)
+                               (:committed (funcall on-committed (second result) (third result)))
+                               (:rejected (destructuring-bind (tag code message diagnostics repairs rejected-path) result
+                                            (declare (ignore tag))
+                                            (funcall on-rejected code message :diagnostics diagnostics :repairs repairs :path rejected-path))))))))
+            (outcome nil))
+       (aitools.edit.application:run-write-command/k
+        (aitools.edit.application:make-edit-write-boundaries (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host) (cl-boundary-kit:boundary-context-require boundaries :org-open-store))
+        plan :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv
+        :on-ok (lambda (fields) (setf outcome (list :ok fields)))
+        :on-error (lambda (code message &key candidates diagnostics conflicts repairs) (setf outcome (list :error code message candidates diagnostics conflicts repairs))))
+       (ecase (first outcome)
+         (:ok (aitools.kernel.domain:flow-continue :on-ok (second outcome)))
+         (:error (aitools.kernel.domain:flow-continue :on-error (second outcome) (third outcome) :candidates (fourth outcome) :diagnostics (fifth outcome) :conflicts (sixth outcome) :repairs (seventh outcome)))))))

@@ -1,6 +1,7 @@
 ;;;;
 ;;;; Base schema data for Org read commands. Extended schemas are appended by
-;;;; write-command-schema-data.lisp; CLI declarations live under the feature.
+;;;; write-command-schema-data.lisp and write-command-schema-more-data.lisp; CLI
+;;;; declarations live under the feature.
 (in-package #:aitools.data)
 
 (defparameter *org-paths-arg*

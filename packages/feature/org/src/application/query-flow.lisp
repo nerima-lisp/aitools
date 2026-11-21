@@ -18,30 +18,28 @@
 (aitools.kernel.domain:define-flow
     (org-query/k boundaries &key path paths match at tz dst-policy root on-ok on-partial on-error)
   (declare (ignore on-partial) (type function on-ok on-error))
-  (unless (and (stringp match) (plusp (length match))
-               (stringp at) (plusp (length at))
-               (stringp tz) (plusp (length tz)))
-    (return-from org-query/k
+  (if (and (stringp match) (plusp (length match))
+           (stringp at) (plusp (length at))
+           (stringp tz) (plusp (length tz)))
+      (let ((query (cl-boundary-kit:boundary-context-require boundaries :org-query)))
+        (if query
+            (aitools.kernel.domain:flow-call
+                (%org-map-documents/k
+                 boundaries (or paths (and path (list path))) root "org query"
+                 (lambda (document) (funcall query document match at tz dst-policy)))
+              (:on-error (code message &key repairs diagnostics)
+                (aitools.kernel.domain:flow-continue
+                 :on-error code message :repairs repairs :diagnostics diagnostics))
+              (:on-results (results)
+                (let ((matches (loop for (source . result) in results
+                                     append (mapcar (lambda (item) (%query-match-json item source))
+                                                    result))))
+                  (aitools.kernel.domain:flow-continue
+                   :on-ok (list (cons "matches" matches)
+                                (cons "count" (length matches)))))))
+            (aitools.kernel.domain:flow-continue
+             :on-error "internal.unexpected" "the org context has no query boundary capability"
+             :repairs (%schema-repair "org query" "Show this command's requirements."))))
       (aitools.kernel.domain:flow-continue
        :on-error "argument.invalid" "--match, --at, and --tz are required"
        :repairs (%schema-repair "org query" "Pass all required query options."))))
-  (let ((query (cl-boundary-kit:boundary-context-require boundaries :org-query)))
-    (unless query
-      (return-from org-query/k
-        (aitools.kernel.domain:flow-continue
-         :on-error "internal.unexpected" "the org context has no query boundary capability"
-         :repairs (%schema-repair "org query" "Show this command's requirements."))))
-    (aitools.kernel.domain:flow-call
-        (%org-map-documents/k
-         boundaries (or paths (and path (list path))) root "org query"
-         (lambda (document) (funcall query document match at tz dst-policy)))
-      (:on-error (code message &key repairs diagnostics)
-        (aitools.kernel.domain:flow-continue
-         :on-error code message :repairs repairs :diagnostics diagnostics))
-      (:on-results (results)
-        (let ((matches (loop for (source . result) in results
-                             append (mapcar (lambda (item) (%query-match-json item source))
-                                            result))))
-          (aitools.kernel.domain:flow-continue
-           :on-ok (list (cons "matches" matches)
-                        (cons "count" (length matches)))))))))
