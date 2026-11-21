@@ -67,16 +67,57 @@
 
 (defun %org-todo-property-declarations ()
   (list
-   (aitools.protocol.application:define-command "org.todo.set"
-    (:group "org.todo" :command-builder #'%todo-set-command :schema (%schema "org.todo.set")))
-   (aitools.protocol.application:define-command "org.property.set"
-    (:group "org.property" :command-builder #'%property-set-command :schema (%schema "org.property.set")))
-   (aitools.protocol.application:define-command "org.property.delete"
-    (:group "org.property" :command-builder #'%property-delete-command :schema (%schema "org.property.delete")))
-   (aitools.protocol.application:define-command "org.priority.set" (:group "org.priority" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.priority.set" "set" :priority-set)) :schema (%schema "org.priority.set")))
-   (aitools.protocol.application:define-command "org.priority.delete" (:group "org.priority" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.priority.delete" "delete" :priority-delete)) :schema (%schema "org.priority.delete")))
-   (aitools.protocol.application:define-command "org.tags.add" (:group "org.tags" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.tags.add" "add" :tags-add)) :schema (%schema "org.tags.add")))
-   (aitools.protocol.application:define-command "org.tags.remove" (:group "org.tags" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.tags.remove" "remove" :tags-remove)) :schema (%schema "org.tags.remove")))
-   (aitools.protocol.application:define-command "org.tags.replace" (:group "org.tags" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.tags.replace" "replace" :tags-replace)) :schema (%schema "org.tags.replace")))
-   (aitools.protocol.application:define-command "org.heading.rename" (:group "org.heading" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.heading.rename" "rename" :heading-rename)) :schema (%schema "org.heading.rename")))
-   (aitools.protocol.application:define-command "org.checkbox.toggle" (:group "org.checkbox" :command-builder (lambda (boundaries) (%heading-edit-command boundaries "org.checkbox.toggle" "toggle" :checkbox-toggle)) :schema (%schema "org.checkbox.toggle")))))
+   (aitools.protocol.application:define-command
+    "org.todo.set"
+    (:group "org.todo" :command-builder #'%todo-set-command
+     :schema (%schema "org.todo.set")))
+   (aitools.protocol.application:define-command
+    "org.property.set"
+    (:group "org.property" :command-builder #'%property-set-command
+     :schema (%schema "org.property.set")))
+   (aitools.protocol.application:define-command
+    "org.property.delete"
+    (:group "org.property" :command-builder #'%property-delete-command
+     :schema (%schema "org.property.delete")))
+   (aitools.protocol.application:define-command
+    "org.priority.set"
+    (:group "org.priority"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.priority.set" "set" :priority-set))
+     :schema (%schema "org.priority.set")))
+   (aitools.protocol.application:define-command
+    "org.priority.delete"
+    (:group "org.priority"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.priority.delete" "delete" :priority-delete))
+     :schema (%schema "org.priority.delete")))
+   (aitools.protocol.application:define-command
+    "org.tags.add"
+    (:group "org.tags"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.tags.add" "add" :tags-add))
+     :schema (%schema "org.tags.add")))
+   (aitools.protocol.application:define-command
+    "org.tags.remove"
+    (:group "org.tags"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.tags.remove" "remove" :tags-remove))
+     :schema (%schema "org.tags.remove")))
+   (aitools.protocol.application:define-command
+    "org.tags.replace"
+    (:group "org.tags"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.tags.replace" "replace" :tags-replace))
+     :schema (%schema "org.tags.replace")))
+   (aitools.protocol.application:define-command
+    "org.heading.rename"
+    (:group "org.heading"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.heading.rename" "rename" :heading-rename))
+     :schema (%schema "org.heading.rename")))
+   (aitools.protocol.application:define-command
+    "org.checkbox.toggle"
+    (:group "org.checkbox"
+     :command-builder (lambda (boundaries)
+                        (%heading-edit-command boundaries "org.checkbox.toggle" "toggle" :checkbox-toggle))
+     :schema (%schema "org.checkbox.toggle")))))
