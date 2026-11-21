@@ -97,6 +97,9 @@
                    (when failure (return-from %org-capture-edit (values nil nil failure))))
                  (multiple-value-bind (heading failure) (%org-select-heading-node engine options reference)
                    (when failure (return-from %org-capture-edit (values nil nil failure)))
+                   ;; Capture resolves the first matching title and cannot select
+                   ;; a later duplicate. Refile from a temporary document into the
+                   ;; exact node selected by --match or --heading-path.
                    (let* ((scratch (org-kit:parse-org (format nil "* Capture target~%") :source-name "capture-scratch"
                                                        :limits *org-kit-limits*
                                                        :settings (org-kit:document-settings engine)))

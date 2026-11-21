@@ -9,13 +9,13 @@
 
 (defun edit-org-document (engine operation options)
   (case operation
+    (:capture (%org-capture-edit engine options))
     (:priority-set (%org-priority-edit engine options nil))
     (:priority-delete (%org-priority-edit engine options t))
     ((:tags-add :tags-remove :tags-replace) (%org-tags-edit engine options operation))
     (:heading-rename (%org-title-edit engine options))
     (:checkbox-toggle (%org-checkbox-edit engine options))
     (:todo-set (%org-todo-edit engine options))
-  (case operation (:capture (%org-capture-edit engine options)) (:todo-set (%org-todo-edit engine options))
     (:property-set (%org-property-edit engine options nil))
     (:property-delete (%org-property-edit engine options t))
     (:planning-set (%org-planning-edit engine options nil))

@@ -6,7 +6,8 @@
                           #:json-object
                           #:json-null
                           #:repair)
-            (:export #:org-capture/k #:org-outline/k
+            (:export #:org-outline/k
+                     #:org-capture/k
                      #:org-query/k
                      #:org-export/k
                      #:org-todo-set/k

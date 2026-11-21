@@ -21,7 +21,8 @@
                              (:file "edit-flow")
                              (:file "agenda-flow")
                              (:file "clock-report-flow")))
-               (:module "infrastructure" :components ((:file "package")
+               (:module "infrastructure"
+                :components ((:file "package")
                              (:file "org-kit-adapter")
                              (:file "time-query-adapter")
                              (:file "time-context-adapter")
@@ -33,15 +34,17 @@
                              (:file "org-kit-agenda-adapter")
                              (:file "org-kit-write-adapter")
                              (:file "org-kit-archive-adapter" :depends-on ("org-kit-planning-adapter"))
-                             (:file "capabilities")))))
-                             (:file "capabilities") (:file "org-kit-capture-adapter")))))
+                             (:file "capabilities")
+                             (:file "org-kit-capture-adapter")))))
 
 (defsystem "aitools/feature/org/presentation"
   :description "Org document CLI commands."
   :depends-on ("aitools/cli/foundation" "aitools/feature/org" "cl-cli")
   :pathname "src/"
   :components
-  ((:module "presentation" :serial t :components ((:file "package") (:file "commands") (:file "command-support") (:file "todo-property-commands") (:file "planning-clock-commands") (:file "agenda-report-commands") (:file "table-commands") (:file "capture-command") (:file "command-registration"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
+  ((:module "presentation" :serial t :components ((:file "package") (:file "commands") (:file "command-support") (:file "todo-property-commands") (:file "planning-clock-commands") (:file "agenda-report-commands") (:file "table-commands")
+                                                   (:file "capture-command")
+                                                   (:file "command-registration"))) (:module "composition" :depends-on ("presentation") :serial t :components ((:file "package") (:file "context-registration")))))
 
 (defsystem "aitools/test/org"
   :description "Org context tests."
@@ -78,7 +81,9 @@
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
        (:file "org-read-boundary-contract-test" :depends-on ("org-read-contract-test"))
        (:file "org-boundary-contract-test")))
-     (:module "e2e" :pathname "e2e/" :serial t :components ((:file "org-cases")
+     (:module "e2e" :pathname "e2e/" :serial t
+      :components
+      ((:file "org-cases")
        (:file "org-read-error-cases")
        (:file "org-query-cases")
        (:file "org-export-cases")
@@ -88,4 +93,5 @@
        (:file "org-heading-edit-cases")
        (:file "org-agenda-cases")
        (:file "org-write-workflow-cases")
-       (:file "org-write-table-cases") (:file "org-capture-cases")))))))
+       (:file "org-write-table-cases")
+       (:file "org-capture-cases")))))))
