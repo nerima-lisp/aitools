@@ -19,7 +19,7 @@
                                        (aitools.kernel.domain:flow-call (org-read-document/k boundaries path root "org clock report")
                                                                         (:on-document (document)
                                                                                       (multiple-value-bind (result failure)
-                                                                                          (funcall (cl-boundary-kit:boundary-context-require boundaries :org-clock-report) document match from through at tz dst-policy heading-path path)
+                                                                                          (funcall (cl-boundary-kit:boundary-context-require boundaries :org-clock-report) document match from through at tz dst-policy heading-path (%org-workspace-path boundaries root path))
                                                                                         (if failure
                                                                                             (multiple-value-bind (code message diagnostics repairs) (%failure-response failure "org clock report")
                                                                                               (aitools.kernel.domain:flow-continue :on-error code message :diagnostics diagnostics :repairs repairs))

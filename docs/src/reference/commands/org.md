@@ -589,7 +589,7 @@ The range is half-open: from is included and through is excluded. Running clocks
 | `through` | Exclusive range end. |
 | `total_minutes` | Total minutes across selected rows. |
 | `rows` | [{level,title,tags,minutes}] by heading. |
-| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none. |
+| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path (workspace-relative), line, and source. Always present, empty when none. |
 
 Errors: `input.not-found`, `input.not-utf8`, `input.unsupported-format`, `input.syntax-error`, `refusal.too-large`, `environment.io`, `internal.unexpected`, `selection.no-match`, `selection.ambiguous`, `argument.invalid`.
 
@@ -680,7 +680,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Update one numbered Org dynamic block.
 
-Select a block by its one-based document order. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
+Select a block by its one-based document order. The clocktable :scope must be file or agenda; file-with-archives, agenda-with-archives, and a list of files are rejected as argument.invalid. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -697,7 +697,7 @@ Select a block by its one-based document order. Agenda globs are relative to the
 |---|---|
 | `block` | One-based dynamic block number. |
 | `changed` | True when the block changed. |
-| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none. |
+| `warnings` | CLOCK lines left out of the totals because they could not be parsed; each has code, message, path (workspace-relative), line, and source. Always present, empty when none. |
 | `changes` | Standard write changes with path, action, hashes, and a diff when available. |
 | `op_id` | Journal operation id for undo; null when nothing changed. |
 | `tx` | Transaction receiving the staged write. |

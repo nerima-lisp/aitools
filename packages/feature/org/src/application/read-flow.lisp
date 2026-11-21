@@ -131,6 +131,18 @@
       (aitools.workspace.application:user-path-absolute host path)
       path command :on-document on-document :on-error on-error))))
 
+(defun %org-workspace-path (boundaries root path)
+  "PATH as a workspace-relative path, or its absolute form when it lies outside the workspace."
+  (let* ((host (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host))
+         (absolute (aitools.workspace.application:user-path-absolute host path))
+         (relative nil))
+    (aitools.workspace.application:call-with-resolved-root/k
+     host :root root
+     :on-resolved (lambda (workspace-root)
+                    (setf relative (aitools.workspace.application:workspace-relative-path host workspace-root absolute)))
+     :on-error (lambda (reason root-path) (declare (ignore reason root-path)) nil))
+    (or relative absolute)))
+
 (defun %org-path-kind (host absolute)
   (let ((entry (aitools.workspace.application:host-stat host absolute)))
     (and entry (aitools.workspace.application:workspace-entry-kind entry))))

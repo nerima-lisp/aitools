@@ -122,6 +122,26 @@
     (org-ok ws (dynamic-args "same.org" 1 "--agenda-glob" "task/*.org") "org dynamic-block update")
     (expect (not (null (search "1:00" (file-text ws "same.org")))) :to-be t)))
 
+(describe "aitools e2e clocktable scopes"
+  (define-org-case ("rejects scopes other than file and agenda without writes" ws)
+    (put ws "task/a.org" +agenda-clock+)
+    (dolist (scope '("agenda-with-archives" "file-with-archives" "(\"task/a.org\")"))
+      (put ws "report.org" (format nil "#+BEGIN: clocktable :scope ~A~%old~%#+END:~%" scope))
+      (let ((before (file-octets ws "report.org")))
+        (org-error ws (dynamic-args "report.org" 1 "--agenda-glob" "task/*.org")
+                   "org dynamic-block update" "argument.invalid")
+        (expect (file-octets ws "report.org") :to-equalp before)))))
+
+(describe "aitools e2e warning paths"
+  (define-org-case ("reports workspace-relative paths when the target is typed with ./" ws)
+    (put ws "task/bad.org" (format nil "* A~%~A~%" +unparseable-clock+))
+    (put ws "report.org" (format nil "#+BEGIN: clocktable :scope file~%old~%#+END:~%* A~%~A~%" +unparseable-clock+))
+    (let ((agenda (org-ok ws (dynamic-args "./report.org" 1) "org dynamic-block update")))
+      (expect (jget agenda "warnings" 0 "path") :to-equal "report.org"))
+    (put ws "report.org" (format nil "#+BEGIN: clocktable :scope agenda~%old~%#+END:~%"))
+    (let ((result (org-ok ws (dynamic-args "./report.org" 1 "--agenda-glob" "task/*.org") "org dynamic-block update")))
+      (expect (jget result "warnings" 0 "path") :to-equal "task/bad.org"))))
+
 (describe "aitools e2e dynamic block transactions"
   (define-org-case ("stages the update in a transaction and writes it on commit" ws)
     (put ws "tx.org" (format nil "* Task~%CLOCK: [2026-10-01 Thu 10:00]--[2026-10-01 Thu 11:30] =>  1:30~%#+BEGIN: clocktable :scope file~%old~%#+END:~%"))

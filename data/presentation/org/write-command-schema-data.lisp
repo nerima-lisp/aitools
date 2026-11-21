@@ -196,7 +196,7 @@
                                (:name "through" :description "Exclusive range end.")
                                (:name "total_minutes" :description "Total minutes across selected rows.")
                                (:name "rows" :description "[{level,title,tags,minutes}] by heading.")
-                               (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none."))
+                               (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path (workspace-relative), line, and source. Always present, empty when none."))
               :error-codes (append *org-common-read-error-codes*
                                    *org-selection-error-codes*
                                    '("argument.invalid")))
@@ -312,7 +312,7 @@
               (list
                (list :name "org.dynamic-block.update"
                      :summary "Update one numbered Org dynamic block."
-                     :description "Select a block by its one-based document order. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
+                     :description "Select a block by its one-based document order. The clocktable :scope must be file or agenda; file-with-archives, agenda-with-archives, and a list of files are rejected as argument.invalid. Agenda globs are relative to the workspace root; only .org files are aggregated, and .git entries are skipped. The agenda files are read only when the block asks for the agenda scope, and the staged content applies under --tx. An agenda scope with no matching files is invalid. Clocktable :link headings are relative file links computed from the workspace-relative paths of the block document and each aggregated document. A CLOCK line that cannot be parsed is left out of the totals and reported in warnings."
                      :args (append '((:name "path" :kind "positional" :type "string" :required t
                                       :description "Org file inside the selected workspace root.")
                                      (:name "--block" :type "integer" :required t :min 1
@@ -323,6 +323,6 @@
                                    *org-write-control-args*)
                      :output-fields (append '((:name "block" :description "One-based dynamic block number.")
                                               (:name "changed" :description "True when the block changed.")
-                                              (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path, line, and source. Always present, empty when none."))
+                                              (:name "warnings" :description "CLOCK lines left out of the totals because they could not be parsed; each has code, message, path (workspace-relative), line, and source. Always present, empty when none."))
                                             *org-write-output-fields*)
                      :error-codes *org-common-write-error-codes*))))

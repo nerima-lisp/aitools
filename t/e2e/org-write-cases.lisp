@@ -217,6 +217,16 @@
       (expect (jget warning "path") :to-equal "clock-warning.org")
       (expect (jget warning "line") :to-be 3)
       (expect (jget warning "source") :to-equal "CLOCK: [2026-10-19 Mon]--[2026-10-20 Tue]")))
+  (define-org-case ("org clock report returns a workspace-relative warning path for ./ and absolute targets" ws)
+    (put ws "sub/clock-warning.org"
+         (format nil "* TODO Work~%CLOCK: [2026-10-19 Mon]--[2026-10-20 Tue]~%"))
+    (dolist (target (list "./sub/clock-warning.org" "sub/../sub/clock-warning.org"
+                          (namestring (ws-path ws "sub/clock-warning.org"))))
+      (let ((report (org-ok ws
+                            (list "org" "clock" "report" target "--match" "/!"
+                                  "--from" "2026-10-19T09:00:00" "--through" "2026-10-19T10:00:00"
+                                  "--at" "2026-10-19T10:00:00" "--tz" "UTC") "org clock report")))
+        (expect (jget report "warnings" 0 "path") :to-equal "sub/clock-warning.org"))))
   (define-org-case ("org clock report aggregates closed clocks and omits running clocks" ws)
     (put ws "clock-report.org"
          (format nil "* TODO Work~%:LOGBOOK:~%CLOCK: [2026-10-19 Mon 09:00]--[2026-10-19 Mon 09:30] =>  0:30~%CLOCK: [2026-10-19 Mon 10:00]--[2026-10-19 Mon 10:15] =>  0:15~%CLOCK: [2026-10-19 Mon 09:45]--~%:END:~%"))
