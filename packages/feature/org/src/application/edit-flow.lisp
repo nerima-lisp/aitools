@@ -214,3 +214,14 @@
                                                      tx
                                                      :display-argv
                                                      display-argv)))
+(aitools.kernel.domain:define-flow
+    (org-heading-edit/k boundaries &key path match heading-path command operation priority tags title item
+                        at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash
+                        on-ok on-error on-partial)
+  (declare (type function on-ok on-error on-partial))
+  (%org-write-flow-call
+   (%org-write-flow boundaries path command operation
+                    (list :match match :heading-path heading-path :priority priority :tags tags :title title :item item
+                          :at at :tz tz :dst-policy dst-policy)
+                    :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx
+                    :display-argv display-argv :expect-count expect-count :expect-hash expect-hash)))

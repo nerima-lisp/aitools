@@ -250,6 +250,25 @@
                                 (:name "changed" :description "True when a formula changed cell values."))
                               *org-write-output-fields*)
               :error-codes *org-common-write-error-codes*))))
+(setf *org-command-schemas* (append *org-command-schemas* (list (list :name "org.priority.set" :summary "Set the priority of one heading." :description "Set the priority of one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--priority" :type "string" :required t :description "Priority value, for example A.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.priority.delete" :summary "Remove the priority of one heading." :description "Remove the priority of one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* nil *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.tags.add" :summary "Add local tags to one heading." :description "Add local tags to one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--tags" :type "string" :required t :description "Comma-separated tag names.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.tags.remove" :summary "Remove local tags from one heading." :description "Remove local tags from one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--tags" :type "string" :required t :description "Comma-separated tag names.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.tags.replace" :summary "Replace local tags on one heading." :description "Replace local tags on one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--tags" :type "string" :required t :description "Comma-separated tag names; an empty value clears them.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.heading.rename" :summary "Change the text of one heading." :description "Change the text of one heading." :args (append '((:name "path" :kind "positional" :type "string" :required t :description "Org file inside the selected workspace root.")) *org-selector-time-args* '((:name "--title" :type "string" :required t :description "New heading text; existing statistics cookies are retained.")) *org-write-control-args*) :output-fields (append '((:name "changed" :description "True when the document changed.")) *org-write-output-fields*) :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*))
+(list :name "org.checkbox.toggle"
+      :summary "Toggle one checkbox and update statistics cookies."
+      :description "Changes [X] to [ ], and [ ] or [-] to [X]. Recalculates every statistics cookie owned by the selected heading. Parent item checkboxes are not changed."
+      :args (append '((:name "path" :kind "positional" :type "string" :required t
+                       :description "Org file inside the selected workspace root."))
+                    *org-selector-time-args*
+                    '((:name "--item" :type "integer" :required t :min 1
+                       :description "One-based checkbox number in document order, including nested items and inline tasks but excluding child headings."))
+                    *org-write-control-args*)
+      :output-fields (append '((:name "item" :description "One-based checkbox number.")
+                               (:name "changed" :description "True when the document changed."))
+                             *org-write-output-fields*)
+      :error-codes (append *org-common-write-error-codes* *org-selection-error-codes*)))))
 
 (setf *org-command-schemas*
       (append *org-command-schemas*

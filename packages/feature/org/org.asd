@@ -86,6 +86,7 @@
        (:file "org-write-cases")
        (:file "org-write-edge-cases")
        (:file "org-heading-path-cases")
+       (:file "org-heading-edit-cases")
        (:file "org-agenda-cases")
        (:file "org-write-workflow-cases")
        (:file "org-write-table-cases")))))))
