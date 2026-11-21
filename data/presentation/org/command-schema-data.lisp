@@ -12,7 +12,8 @@
                "The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. "
                "All explicit paths must resolve inside the workspace. Every result includes the resolved file `path` relative to the workspace root, including for a single file. "
                "The command reads each resolved file path once and skips `*.gpg` files. "
-               "The command validates options before reading files. An empty selection returns zero results. "
+               "The command validates options before reading files. Errors that first arise when evaluating a selected document report the file's path. "
+               "An empty selection returns zero results. "
                "A missing path or a file read or parse error fails the request. File read and parse errors identify the file."))
 
 (defparameter *org-command-schemas*

@@ -210,15 +210,31 @@
    boundaries root command :on-error on-error
    :on-root
    (lambda (workspace-root host source max-input-bytes parser)
-     (%org-collect-files/k
-      host workspace-root paths command :on-error on-error
-      :on-files
-      (lambda (files)
-        (let ((results nil))
-          (flet ((fail (code message &key diagnostics repairs)
-                   (return-from %org-map-documents/k
-                     (aitools.kernel.domain:flow-continue
-                      :on-error code message :diagnostics diagnostics :repairs repairs))))
+     (labels ((fail (code message &key diagnostics repairs)
+                (return-from %org-map-documents/k
+                  (aitools.kernel.domain:flow-continue
+                   :on-error code message :diagnostics diagnostics :repairs repairs)))
+              (report-failure (failure path)
+                (multiple-value-bind (code message diagnostics repairs)
+                    (%failure-response failure command)
+                  (fail code (if path (format nil "~A: ~A" path message) message)
+                        :diagnostics diagnostics :repairs repairs)))
+              (evaluate (document path)
+                (multiple-value-bind (result failure) (funcall read-result document)
+                  (when failure
+                    (report-failure failure path))
+                  result)))
+       ;; Evaluate an empty document to validate options before collecting files.
+       (multiple-value-bind (document failure)
+           (funcall parser (make-array 0 :element-type '(unsigned-byte 8)))
+         (when failure
+           (report-failure failure nil))
+         (evaluate document nil))
+       (%org-collect-files/k
+        host workspace-root paths command :on-error on-error
+        :on-files
+        (lambda (files)
+          (let ((results nil))
             (loop for (relative . absolute) in files
                   do (%org-read-file/k
                       source max-input-bytes parser absolute relative command
@@ -226,11 +242,5 @@
                       :on-error #'fail
                       :on-document
                       (lambda (document)
-                        (multiple-value-bind (result failure) (funcall read-result document)
-                          (when failure
-                            (multiple-value-bind (code message diagnostics repairs)
-                                (%failure-response failure command)
-                              (fail code (format nil "~A: ~A" relative message)
-                                    :diagnostics diagnostics :repairs repairs)))
-                          (push (cons relative result) results)))))
+                        (push (cons relative (evaluate document relative)) results))))
             (aitools.kernel.domain:flow-continue :on-results (nreverse results)))))))))

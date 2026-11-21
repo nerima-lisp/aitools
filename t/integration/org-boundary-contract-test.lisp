@@ -64,8 +64,8 @@
     (let* ((required-keys (%org-required-boundary-keys))
            (expected-keys
              (list :org-workspace-host :org-text-source :org-max-input-bytes
-                   :org-parse :org-outline :org-prepare-query :org-query :org-export
-                   :org-open-store :org-write :org-edit :org-prepare-agenda :org-agenda
+                   :org-parse :org-outline :org-query :org-export
+                   :org-open-store :org-write :org-edit :org-agenda
                    :org-clock-report))
            (workspace-host
              (aitools.workspace.infrastructure:make-host-workspace-boundaries))
@@ -103,8 +103,8 @@
                 boundaries :org-max-input-bytes))
               :to-be t)
       (dolist (key
-               (list :org-open-store :org-parse :org-outline :org-prepare-query :org-query
-                     :org-export :org-write :org-edit :org-prepare-agenda :org-agenda
+               (list :org-open-store :org-parse :org-outline :org-query
+                     :org-export :org-write :org-edit :org-agenda
                      :org-clock-report))
         (expect
          (functionp
