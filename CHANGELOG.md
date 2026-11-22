@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `org dynamic-block update` now reports cl-org-kit's own message for a refused
+  dynamic block or clocktable parameter, such as the parameter name and the
+  reason, instead of a fixed sentence. Error codes are unchanged.
+
 - Make `org planning set` store the timestamp with the weekday, as Emacs does:
   `<2026-10-20>` is written and reported as `<2026-10-20 Tue>`. Input that
   already carries a weekday is still rejected.
