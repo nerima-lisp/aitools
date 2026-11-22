@@ -96,6 +96,7 @@
        (:file "org-archive-adapter-coverage-test")
        (:file "org-planning-weekday-test")
        (:file "org-planning-closed-test")
+       (:file "org-planning-order-test")
        (:file "org-read-errors-test" :depends-on ("org-dispatch-test"))
        (:file "org-read-contract-test" :depends-on ("org-read-errors-test"))
        (:file "org-read-boundary-contract-test" :depends-on ("org-read-contract-test"))

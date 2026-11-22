@@ -9,6 +9,15 @@
   planning line starts with `CLOSED:`. Completing a heading that has `SCHEDULED:`
   now writes `CLOSED:` before it, and deleting the last planning keyword keeps
   the blank line after it. Both follow Emacs and come from cl-org-kit v0.3.3.
+- Change the keyword order that `org planning set` writes. With cl-org-kit
+  v0.3.3 the keyword being set goes first on the planning line, as in Emacs, and
+  a keyword that is set again moves to the front. For example, setting a
+  deadline on `SCHEDULED: <2026-11-18 Wed>` now gives
+  `DEADLINE: <2026-11-30 Mon> SCHEDULED: <2026-11-18 Wed>` instead of
+  `SCHEDULED: <2026-11-18 Wed> DEADLINE: <2026-11-30>`. `org planning set` keeps
+  an existing `CLOSED:` keyword, unlike Emacs `org-schedule` and `org-deadline`,
+  which remove it: setting a deadline on `CLOSED: [2026-11-20 Fri 10:00]` gives
+  `DEADLINE: <2026-11-30 Mon> CLOSED: [2026-11-20 Fri 10:00]`.
 
 ## v0.4.0
 
