@@ -8,7 +8,7 @@
 - Fix `org archive` failing with `internal.unexpected` on a DONE heading whose
   planning line starts with `CLOSED:`. Completing a heading that has `SCHEDULED:`
   now writes `CLOSED:` before it, and deleting the last planning keyword keeps
-  the blank line after it. Both follow Emacs and come from the cl-org-kit update.
+  the blank line after it. Both follow Emacs and come from cl-org-kit v0.3.3.
 
 ## v0.4.0
 
