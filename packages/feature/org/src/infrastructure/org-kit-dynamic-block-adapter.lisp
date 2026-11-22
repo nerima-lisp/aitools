@@ -22,16 +22,25 @@
                            (org-kit:update-dynamic-block engine block
                             :document-resolver
                             (lambda (selector)
-                              (when (eq selector :agenda)
-                                (multiple-value-setq (agenda-documents agenda-failure)
-                                  (funcall (getf options :agenda-loader)))
-                                (unless (or agenda-failure agenda-documents)
-                                  (setf agenda-failure
-                                        (%failure :argument
-                                                  (if (getf options :agenda-glob)
-                                                      "--agenda-glob matched no Org files for :scope agenda"
-                                                      "--agenda-glob is required for :scope agenda"))))
-                                agenda-documents))
+                              (cond
+                                ((eq selector :agenda)
+                                 (multiple-value-setq (agenda-documents agenda-failure)
+                                   (funcall (getf options :agenda-loader)))
+                                 (unless (or agenda-failure agenda-documents)
+                                   (setf agenda-failure
+                                         (%failure :argument
+                                                   (if (getf options :agenda-glob)
+                                                       "--agenda-glob matched no Org files for :scope agenda"
+                                                       "--agenda-glob is required for :scope agenda"))))
+                                 agenda-documents)
+                                (t
+                                 (setf agenda-failure
+                                       (%failure :argument
+                                                 (format nil "Unsupported clocktable scope ~A; use file or agenda"
+                                                         (if (stringp selector)
+                                                             selector
+                                                             (string-downcase (symbol-name selector))))))
+                                 nil)))
                             :time-context context)))
                       (list :updated result warnings))
                   (org-kit:org-clocktable-parameter-error (condition)
