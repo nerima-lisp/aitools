@@ -30,4 +30,5 @@
    #:org-query-match-todo
    #:org-query-match-tags
    #:org-query-match-heading-path
+   #:org-weekday-abbreviation
    #:format-org-archive-timestamp))

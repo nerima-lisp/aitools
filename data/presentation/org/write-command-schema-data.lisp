@@ -103,7 +103,7 @@
                                    *org-selection-error-codes*))
         (list :name "org.planning.set"
               :summary "Set one planning timestamp on one matching heading."
-              :description "Accepts one active timestamp for scheduled or deadline and one inactive timestamp for closed. Weekday tokens, diary expressions, date ranges, multiple repeater or warning tokens, and multiline values are rejected."
+              :description "Accepts one active timestamp for scheduled or deadline and one inactive timestamp for closed. Weekday tokens, diary expressions, date ranges, multiple repeater or warning tokens, and multiline values are rejected. The heading stores the timestamp with the weekday Org writes after the date, so `<2026-10-20>` becomes `<2026-10-20 Tue>`."
               :args (append '((:name "path" :kind "positional" :type "string" :required t
                                :description "Org file inside the selected workspace root."))
                             *org-selector-time-args*

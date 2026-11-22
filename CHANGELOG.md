@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Make `org planning set` store the timestamp with the weekday, as Emacs does:
+  `<2026-10-20>` is written and reported as `<2026-10-20 Tue>`. Input that
+  already carries a weekday is still rejected.
+- Fix `org archive` failing with `internal.unexpected` on a DONE heading whose
+  planning line starts with `CLOSED:`. Completing a heading that has `SCHEDULED:`
+  now writes `CLOSED:` before it, and deleting the last planning keyword keeps
+  the blank line after it. Both follow Emacs and come from the cl-org-kit update.
+
 ## v0.4.0
 
 - Add `net get`, `net head`, and `net resolve` for HTTP requests and OS-resolved

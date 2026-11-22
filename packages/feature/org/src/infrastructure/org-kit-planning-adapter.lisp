@@ -196,10 +196,10 @@ at REFERENCE time. Return (values heading nil), or (values nil failure)."
         (unless delete-p
           (multiple-value-bind (view timestamp-failure)
               (validate-planning-timestamp (getf options :kind) timestamp)
-            (declare (ignore view))
             (when timestamp-failure
               (return-from %org-planning-edit
-                (values nil nil timestamp-failure)))))
+                (values nil nil timestamp-failure)))
+            (setf timestamp (canonical-planning-timestamp timestamp view))))
         (let ((duplicate (%planning-duplicate-failure engine heading kind)))
           (when duplicate
             (return-from %org-planning-edit

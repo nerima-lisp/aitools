@@ -105,9 +105,9 @@
     (let* ((set (org-ok ws (org-write-time-args
                             '("org" "planning" "set" "planning.org" "--match" "/TODO"
                               "--kind" "scheduled" "--timestamp" "<2026-10-20>")) "org planning set"))
-           (expected (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%")))
+           (expected (format nil "* TODO Release~%SCHEDULED: <2026-10-20 Tue>~%")))
       (expect (jget set "kind") :to-equal "scheduled")
-      (expect (jget set "timestamp") :to-equal "<2026-10-20>")
+      (expect (jget set "timestamp") :to-equal "<2026-10-20 Tue>")
       (expect (jget set "changed") :to-be t)
       (expect-org-write-and-undo ws "planning.org"
                                  (octets (format nil "* TODO Release~%")) expected set))
@@ -118,7 +118,7 @@
       (expect (jget updated "changed") :to-be t)
       (expect-org-write-and-undo ws "update.org"
                                  (octets (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
-                                 (format nil "* TODO Release~%SCHEDULED: <2026-10-22>~%") updated))
+                                 (format nil "* TODO Release~%SCHEDULED: <2026-10-22 Thu>~%") updated))
     (put ws "planning.org" (format nil "* TODO Release~%SCHEDULED: <2026-10-20>~%"))
     (let ((deleted (org-ok ws (org-write-time-args
                                '("org" "planning" "delete" "planning.org" "--match" "/TODO"

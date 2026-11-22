@@ -107,3 +107,19 @@
         (org-kit:org-time-error (condition)
           (declare (ignore condition))
           (values nil (%planning-timestamp-failure "--timestamp is not a valid timestamp for this command")))))))
+
+(defun canonical-planning-timestamp (timestamp view)
+  "TIMESTAMP with the weekday Org writes after its date, so the stored text
+matches what Emacs produces. VIEW is the validated view of TIMESTAMP, whose
+grammar admits no weekday token, so none is replaced."
+  (let* ((start (org-kit:org-timestamp-view-start view))
+         (date (first (%timestamp-content-tokens timestamp)))
+         (date-end (+ (search date timestamp) (length date))))
+    (concatenate 'string
+                 (subseq timestamp 0 date-end)
+                 " "
+                 (aitools.org.domain:org-weekday-abbreviation
+                  (org-kit:org-time-value-year start)
+                  (org-kit:org-time-value-month start)
+                  (org-kit:org-time-value-day start))
+                 (subseq timestamp date-end))))
