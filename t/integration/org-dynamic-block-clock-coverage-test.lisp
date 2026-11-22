@@ -21,7 +21,7 @@
                  :to-equal (list (list "tasks/bad.org" 3 +dyn-bad-clock+)
                                  (list "tasks/shifted.org" 4 +dyn-bad-clock+)
                                  (list "tasks/twin.org" 3 +dyn-bad-clock+)))
-         (expect (search "File: tasks/bad.org" (text "report.org")) :to-be-truthy)
+         (expect (search "| bad.org " (text "report.org")) :to-be-truthy)
          (expect (list (octets-of "tasks/bad.org") (octets-of "tasks/shifted.org"))
                  :to-equalp before)))))
   (it "attributes a file-scope warning to the target document"

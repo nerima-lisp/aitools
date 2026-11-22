@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `org dynamic-block update` writes clocktables in Emacs's layout: a
+  `#+CAPTION: Clock summary at [<--at time>]` line, and for `:scope agenda` one
+  table with a File column (base names), an `ALL` total, and a `*File time*`
+  row per file, instead of one `File: <path>` table per file. A block without a
+  range no longer fails with `internal.unexpected` in a non-UTC `--tz`.
+
 - `org dynamic-block update` now reports cl-org-kit's own message for a refused
   dynamic block or clocktable parameter, such as the parameter name and the
   reason, instead of a fixed sentence. Error codes are unchanged.

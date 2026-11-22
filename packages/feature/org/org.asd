@@ -89,6 +89,7 @@
        (:file "org-dynamic-block-coverage-test")
        (:file "org-dynamic-block-agenda-coverage-test")
        (:file "org-dynamic-block-clock-coverage-test")
+       (:file "org-dynamic-block-emacs-layout-test")
        (:file "org-write-edge-test")
        (:file "org-capture-coverage-failure-test")
        (:file "org-archive-coverage-test")
