@@ -183,9 +183,18 @@ groups to the fixed output order.
 | [`org outline`](org.md#org-outline) | org | List Org headings and named or unnamed source and example blocks. |
 | [`org query`](org.md#org-query) | org | Find Org headings that match an Org match expression. |
 | [`org export`](org.md#org-export) | org | Export an Org file as HTML, GFM, or ASCII text. |
+| [`org capture`](org.md#org-capture) | org | Add a heading under a selected heading or date. |
+| [`org archive`](org.md#org-archive) | org | Move one heading subtree to an archive file. |
 | [`org todo set`](org.md#org-todo-set) | org | Change the TODO keyword on one matching heading. |
 | [`org property set`](org.md#org-property-set) | org | Set one property on one matching heading. |
 | [`org property delete`](org.md#org-property-delete) | org | Delete one property from one matching heading. |
+| [`org priority set`](org.md#org-priority-set) | org | Set the priority of one heading. |
+| [`org priority delete`](org.md#org-priority-delete) | org | Remove the priority of one heading. |
+| [`org tags add`](org.md#org-tags-add) | org | Add local tags to one heading. |
+| [`org tags remove`](org.md#org-tags-remove) | org | Remove local tags from one heading. |
+| [`org tags replace`](org.md#org-tags-replace) | org | Replace local tags on one heading. |
+| [`org heading rename`](org.md#org-heading-rename) | org | Change the text of one heading. |
+| [`org checkbox toggle`](org.md#org-checkbox-toggle) | org | Toggle one checkbox and update statistics cookies. |
 | [`org planning set`](org.md#org-planning-set) | org | Set one planning timestamp on one matching heading. |
 | [`org planning delete`](org.md#org-planning-delete) | org | Delete one planning timestamp from one matching heading. |
 | [`org clock in`](org.md#org-clock-in) | org | Start a clock on one matching heading. |
@@ -195,6 +204,7 @@ groups to the fixed output order.
 | [`org table align`](org.md#org-table-align) | org | Align one numbered Org table. |
 | [`org table sort`](org.md#org-table-sort) | org | Sort the standard rows of one numbered Org table. |
 | [`org table recalculate`](org.md#org-table-recalculate) | org | Recalculate formulas for one numbered Org table. |
+| [`org dynamic-block update`](org.md#org-dynamic-block-update) | org | Update one numbered Org dynamic block. |
 | [`sys info`](env.md#sys-info) | env | Describe the host: OS, architecture, CPUs, user, uptime, memory, and the workspace's disk. |
 | [`sys env`](env.md#sys-env) | env | List environment variables, optionally those whose name starts with PREFIX. |
 | [`sys tools`](env.md#sys-tools) | env | Find commands on PATH and report the first line of their version output. |

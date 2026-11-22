@@ -1,7 +1,21 @@
 ;;;;
 ;;;; Base schema data for Org read commands. Extended schemas are appended by
-;;;; write-command-schema-data.lisp; CLI declarations live under the feature.
+;;;; write-command-schema-data.lisp and write-command-schema-more-data.lisp; CLI
+;;;; declarations live under the feature.
 (in-package #:aitools.data)
+
+(defparameter *org-paths-arg*
+  '(:name "path" :kind "positional" :type "string" :required t :repeatable t
+    :description "One or more files or directories, relative to the working directory."))
+
+(defparameter *org-paths-description*
+  (concatenate 'string
+               "The command searches directories recursively for `*.org`, including ignored files, and skips symlinks found during traversal. "
+               "All explicit paths must resolve inside the workspace. Every result includes the resolved file `path` relative to the workspace root, including for a single file. "
+               "The command reads each resolved file path once and skips `*.gpg` files. "
+               "The command validates options before reading files. Errors that first arise when evaluating a selected document report the file's path. "
+               "An empty selection returns zero results. "
+               "A missing path or a file read or parse error fails the request. File read and parse errors identify the file."))
 
 (defparameter *org-command-schemas*
   `((:name "org.outline"
@@ -36,9 +50,9 @@
                                 "Source positions use one-based `line` and `col` fields and include a `message`. "
                                 "Every error includes at least one repair; see "
                                 "[the error envelope](errors.md#the-error-envelope) for its fields and "
-                                "how to use the suggested command.")
-     :args ((:name "path" :kind "positional" :type "string" :required t
-             :description "Org file, relative to the working directory.")
+                                "how to use the suggested command. "
+                                *org-paths-description*)
+     :args (,*org-paths-arg*
             (:name "--match" :type "string" :required t
              :description ,(concatenate 'string
                                         "Org match syntax covers tag, TODO, level, property, and planning predicates. "
@@ -64,15 +78,16 @@
                                         "`DEADLINE`, and `CLOSED` use local wall time in `--tz`.")))
      :output-fields ((:name "matches" :description
                       ,(concatenate 'string
-                                    "[{line,level,title,todo,tags,heading_path}] in document order. line is one-based; "
+                                    "[{line,level,title,todo,tags,heading_path,path}] in document order within each file. line is one-based; "
                                     "title omits its TODO keyword and tags; todo is a keyword or null; "
                                     "tags is a string array. "
                                     "heading_path is an array of `{title,index}` objects from root to match. "
-                                    "Each index is the one-based ordinal among siblings with the same title and parent."))
+                                    "Each index is the one-based ordinal among siblings with the same title and parent. "
+                                    "Matches are grouped by path in lexicographic order."))
                      (:name "count" :description "Number of matching headings."))
      :error-codes ("argument.invalid" "input.not-found" "input.not-utf8"
                    "input.unsupported-format" "input.syntax-error" "refusal.too-large"
-                   "environment.io" "internal.unexpected"))
+                   "refusal.outside-workspace" "refusal.not-a-file" "environment.io" "internal.unexpected"))
     (:name "org.export"
      :summary "Export an Org file as HTML, GFM, or ASCII text."
      :description ,(concatenate 'string

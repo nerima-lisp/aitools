@@ -8,8 +8,9 @@
                        :default "compatible")))
 
 (defun %org-selector-time-options ()
-  (append (list (%value-option "match" "MATCH" "An Org match expression."
-                               :required-p t))
+  (append (list (%value-option "match" "MATCH" "An Org match expression.")
+                (%value-option "heading-path" "JSON"
+                               "The heading_path of one `org query` match, as a JSON array."))
           (%org-time-options)))
 
 (defun %org-write-options ()
@@ -43,7 +44,8 @@
 (defun %org-run-selector-write (flow boundaries invocation arguments)
   (apply #'%run-flow flow boundaries
          (append (list :path (positional-value invocation :path)
-                       :match (option-value invocation :match))
+                       :match (option-value invocation :match)
+                       :heading-path (option-value invocation :heading-path))
                  arguments
                  (%org-time-arguments invocation)
                  (%org-write-arguments invocation))))
@@ -51,7 +53,8 @@
 (defun %org-run-selector-read (flow boundaries invocation arguments)
   (apply #'%run-flow flow boundaries
          (append (list :path (positional-value invocation :path)
-                       :match (option-value invocation :match))
+                       :match (option-value invocation :match)
+                       :heading-path (option-value invocation :heading-path))
                  arguments
                  (%org-time-arguments invocation)
                  (%org-read-arguments invocation))))

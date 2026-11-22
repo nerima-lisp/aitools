@@ -3,26 +3,84 @@
 (defun %org-selection-failure (kind message)
   (%failure kind message))
 
+(defun %child-headlines (node)
+  (loop for child in (org-kit:node-children node)
+        if (eq (org-kit:node-type child) :headline) collect child
+        else append (%child-headlines child)))
+
+(defun %heading-at-path (engine entries)
+  "The headline that ENTRIES (ORG-HEADING-PATH-ENTRY list) names, or NIL with
+a reason. Titles and one-based indices follow ORG-KIT:NODE-HEADING-PATH, so a
+`heading_path` reported by `org query` resolves to the headline it came from."
+  (let ((parent (org-kit:document-root engine)))
+    (dolist (entry entries parent)
+      (let* ((title (aitools.org.domain:org-heading-path-entry-title entry))
+             (index (aitools.org.domain:org-heading-path-entry-index entry))
+             (same-title (remove-if-not
+                          (lambda (child) (string= (org-kit:node-property child :raw-value "") title))
+                          (%child-headlines parent))))
+        (cond ((null same-title)
+               (return (values nil (format nil "no heading titled ~S at this level of --heading-path" title))))
+              ((> index (length same-title))
+               (return (values nil (format nil "--heading-path index ~D is out of range: ~D heading~:P titled ~S at this level"
+                                           index (length same-title) title)))))
+        (setf parent (nth (1- index) same-title))))))
+
+(defun %selector-failure (options)
+  "A failure unless OPTIONS carries exactly one non-empty selector. An option
+counts as given when it was passed at all, so an empty value is not absent."
+  (let ((match (getf options :match))
+        (heading-path (getf options :heading-path)))
+    (cond
+      ((and match heading-path)
+       (%failure :argument "--match and --heading-path are mutually exclusive"))
+      ((not (or match heading-path))
+       (%failure :argument "exactly one of --match and --heading-path is required"))
+      ((and match (not (and (stringp match) (plusp (length match)))))
+       (%failure :argument "--match must be a non-empty string"))
+      ((and heading-path (not (and (stringp heading-path) (plusp (length heading-path)))))
+       (%failure :argument "--heading-path must be a non-empty string")))))
+
+(defun %org-select-heading-node (engine options reference)
+  "Resolve the single heading OPTIONS selects, by :HEADING-PATH or else :MATCH
+at REFERENCE time. Return (values heading nil), or (values nil failure)."
+  (let ((match (getf options :match))
+        (heading-path (getf options :heading-path)))
+    (cond
+      (heading-path
+       (multiple-value-bind (entries reason) (aitools.org.domain:parse-org-heading-path heading-path)
+         (if reason
+             (values nil (%failure :argument (format nil "--heading-path is invalid: ~A" reason)))
+             (multiple-value-bind (heading missing) (%heading-at-path engine entries)
+               (if heading
+                   (values heading nil)
+                   (values nil (%org-selection-failure :selection-no-match missing)))))))
+      (t
+       (handler-case (let ((matches (org-kit:query-match-at engine match reference)))
+                       (cond
+                         ((null matches) (values nil (%org-selection-failure :selection-no-match "no heading matches --match")))
+                         ((cdr matches) (values nil (%org-selection-failure :selection-ambiguous "more than one heading matches --match")))
+                         (t (values (first matches) nil))))
+         (org-kit:org-resource-limit-error ()
+           (values nil (%failure :too-large "Org selection exceeded a resource limit")))
+         (org-kit:org-query-error (condition)
+           (values nil (%query-syntax-failure match condition)))
+         (org-kit:org-kit-error ()
+           (values nil (%failure :internal "Org selection failed"))))))))
+
 (defun %org-selected-heading (engine options)
-  (let ((match (getf options :match)))
-    (unless (and (stringp match) (plusp (length match)))
-      (return-from %org-selected-heading
-        (values nil nil nil (%failure :argument "--match is required"))))
-    (multiple-value-bind (at context reference failure) (%explicit-time-values (getf options :at) (getf options :tz) (getf options :dst-policy))
-      (when failure
-        (return-from %org-selected-heading
-          (values nil nil nil failure)))
-      (handler-case (let ((matches (org-kit:query-match-at engine match reference)))
-                      (cond
-                        ((null matches) (values nil nil nil (%org-selection-failure :selection-no-match "no heading matches --match")))
-                        ((cdr matches) (values nil nil nil (%org-selection-failure :selection-ambiguous "more than one heading matches --match")))
-                        (t (values (first matches) at context nil))))
-        (org-kit:org-resource-limit-error ()
-          (values nil nil nil (%failure :too-large "Org selection exceeded a resource limit")))
-        (org-kit:org-query-error (condition)
-          (values nil nil nil (%query-syntax-failure match condition)))
-        (org-kit:org-kit-error ()
-          (values nil nil nil (%failure :internal "Org selection failed")))))))
+  (let ((failure (%selector-failure options)))
+    (when failure
+      (return-from %org-selected-heading (values nil nil nil failure))))
+  (multiple-value-bind (at context reference failure)
+      (%explicit-time-values (getf options :at) (getf options :tz) (getf options :dst-policy))
+    (when failure
+      (return-from %org-selected-heading (values nil nil nil failure)))
+    (multiple-value-bind (heading failure)
+        (%org-select-heading-node engine options reference)
+      (if failure
+          (values nil nil nil failure)
+          (values heading at context nil)))))
 
 (defun %org-edit-condition-failure (condition)
   (case (org-kit:org-edit-error-reason condition)

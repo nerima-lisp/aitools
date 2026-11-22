@@ -51,6 +51,7 @@
    (:file "domain/search/build-files-data")
    (:file "presentation/org/command-schema-data")
    (:file "presentation/org/write-command-schema-data")
+   (:file "presentation/org/write-command-schema-more-data")
    (:file "presentation/search/command-schema-data")
    (:file "presentation/inspect/command-schema-data")
    (:file "presentation/inspect/format-command-schema-data")

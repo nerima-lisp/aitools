@@ -7,6 +7,7 @@
                           #:json-null
                           #:repair)
             (:export #:org-outline/k
+                     #:org-capture/k
                      #:org-query/k
                      #:org-export/k
                      #:org-todo-set/k
@@ -20,4 +21,5 @@
                      #:org-clock-report/k
                      #:org-table-align/k
                      #:org-table-sort/k
-                     #:org-table-recalculate/k))
+                     #:org-table-recalculate/k #:org-archive/k #:org-heading-edit/k
+                     #:org-dynamic-block-update/k))

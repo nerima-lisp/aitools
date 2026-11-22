@@ -9,6 +9,22 @@
     (:unsupported-option (%failure :argument "clock options are invalid"))
     (otherwise (%failure :internal "Org clock operation failed"))))
 
+(defun %call-collecting-clock-warnings (function)
+  "Call FUNCTION with org-clock-warning muffled; return its value and the warnings in signal order."
+  (let ((warnings nil))
+    (values (handler-bind ((org-kit:org-clock-warning
+                             (lambda (warning)
+                               (push warning warnings)
+                               (muffle-warning warning))))
+              (funcall function))
+            (nreverse warnings))))
+
+(defun %org-clock-warning-object (path line source)
+  (aitools.protocol.domain:json-object
+   "code" "org.clock-ignored"
+   "message" "A CLOCK line that could not be parsed was left out of the totals."
+   "path" path "line" line "source" source))
+
 (defun %org-clock-edit (engine options direction)
   (multiple-value-bind (heading at context failure) (%org-selected-heading engine options)
     (when failure
@@ -51,9 +67,9 @@
 (defun %clock-report-row (row)
   (list :level (org-kit:clocktable-row-level row) :title (org-kit:clocktable-row-title row) :tags (org-kit:clocktable-row-tags row) :minutes (org-kit:clocktable-row-minutes row)))
 
-(defun clock-report-org-document (document match from through at tz dst-policy)
+(defun clock-report-org-document (document match from through at tz dst-policy &optional heading-path path)
   (multiple-value-bind (heading at-value context failure)
-      (%org-selected-heading (aitools.org.domain:org-document-engine-value document) (list :match match :at at :tz tz :dst-policy dst-policy))
+      (%org-selected-heading (aitools.org.domain:org-document-engine-value document) (list :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy))
     (declare (ignore at-value))
     (when failure
       (return-from clock-report-org-document
@@ -62,8 +78,11 @@
       (when range-failure
         (return-from clock-report-org-document
           (values nil range-failure)))
-      (handler-case (let* ((engine (aitools.org.domain:org-document-engine-value document))
-                           (result (org-kit:clocktable-data engine heading :range range :time-context context :match nil :max-depth 30)))
+      (handler-case (multiple-value-bind (result warnings)
+                        (%call-collecting-clock-warnings
+                         (lambda ()
+                           (org-kit:clocktable-data (aitools.org.domain:org-document-engine-value document) heading
+                                                    :range range :time-context context :match nil :max-depth 30)))
                       (values
                        (list :from
                              from
@@ -72,7 +91,13 @@
                              :total-minutes
                              (org-kit:clocktable-result-total-minutes result)
                              :rows
-                             (mapcar #'%clock-report-row (org-kit:clocktable-result-rows result)))
+                             (mapcar #'%clock-report-row (org-kit:clocktable-result-rows result))
+                             :warnings
+                             (map 'vector
+                                  (lambda (warning)
+                                    (%org-clock-warning-object path (org-kit:org-clock-warning-line warning)
+                                                               (org-kit:org-clock-warning-source warning)))
+                                  warnings))
                        nil))
         (org-kit:org-clock-error (condition)
           (values nil (%org-clock-error-failure condition)))

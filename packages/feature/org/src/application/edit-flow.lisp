@@ -13,16 +13,16 @@
                                            :conflicts conflicts
                                            :repairs repairs))))
 
-(aitools.kernel.domain:define-flow (%org-write-flow boundaries path command operation options &key root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
+(aitools.kernel.domain:define-flow (%org-write-flow boundaries path command operation options &key prepare-options root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
                                    (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
-                                   (%org-write-flow-call (%org-write-result boundaries path command operation options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
+                                   (%org-write-flow-call (%org-write-result boundaries path command operation options :prepare-options prepare-options :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx :display-argv display-argv)))
 
-(aitools.kernel.domain:define-flow (org-todo-set/k boundaries &key path match state note at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-todo-set/k boundaries &key path match heading-path state note at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.todo.set"
                                                      :todo-set
-                                                     (list :match match :state state :note note :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :state state :note note :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -38,12 +38,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-property-set/k boundaries &key path match name value at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-property-set/k boundaries &key path match heading-path name value at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.property.set"
                                                      :property-set
-                                                     (list :match match :name name :value value :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :name name :value value :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -59,12 +59,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-property-delete/k boundaries &key path match name at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-property-delete/k boundaries &key path match heading-path name at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.property.delete"
                                                      :property-delete
-                                                     (list :match match :name name :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :name name :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -80,12 +80,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-planning-set/k boundaries &key path match kind timestamp at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-planning-set/k boundaries &key path match heading-path kind timestamp at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.planning.set"
                                                      :planning-set
-                                                     (list :match match :kind kind :timestamp timestamp :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :kind kind :timestamp timestamp :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -101,12 +101,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-planning-delete/k boundaries &key path match kind at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-planning-delete/k boundaries &key path match heading-path kind at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.planning.delete"
                                                      :planning-delete
-                                                     (list :match match :kind kind :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :kind kind :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -122,12 +122,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-clock-in/k boundaries &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-clock-in/k boundaries &key path match heading-path at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.clock.in"
                                                      :clock-in
-                                                     (list :match match :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -143,12 +143,12 @@
                                                      :expect-hash
                                                      expect-hash)))
 
-(aitools.kernel.domain:define-flow (org-clock-out/k boundaries &key path match at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
+(aitools.kernel.domain:define-flow (org-clock-out/k boundaries &key path match heading-path at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial) (declare (type function on-ok on-error on-partial))
                                    (%org-write-flow-call (%org-write-flow boundaries
                                                      path
                                                      "org.clock.out"
                                                      :clock-out
-                                                     (list :match match :at at :tz tz :dst-policy dst-policy)
+                                                     (list :match match :heading-path heading-path :at at :tz tz :dst-policy dst-policy)
                                                      :root
                                                      root
                                                      :lock-timeout
@@ -214,3 +214,22 @@
                                                      tx
                                                      :display-argv
                                                      display-argv)))
+(aitools.kernel.domain:define-flow
+    (org-heading-edit/k boundaries &key path match heading-path command operation priority tags title item
+                        at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash
+                        on-ok on-error on-partial)
+  (declare (type function on-ok on-error on-partial))
+  (%org-write-flow-call
+   (%org-write-flow boundaries path command operation
+                    (list :match match :heading-path heading-path :priority priority :tags tags :title title :item item
+                          :at at :tz tz :dst-policy dst-policy)
+                    :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx
+                    :display-argv display-argv :expect-count expect-count :expect-hash expect-hash)))
+
+(aitools.kernel.domain:define-flow (org-capture/k boundaries &key path match heading-path target title body at tz dst-policy root lock-timeout dry-run tx display-argv expect-count expect-hash on-ok on-error on-partial)
+  (declare (ignore expect-count expect-hash) (type function on-ok on-error on-partial))
+  (%org-write-flow-call (%org-write-flow boundaries path "org.capture" :capture
+                                        (list :match match :heading-path heading-path :target target
+                                              :title title :body body :at at :tz tz :dst-policy dst-policy)
+                                        :root root :lock-timeout lock-timeout :dry-run dry-run
+                                        :tx tx :display-argv display-argv)))

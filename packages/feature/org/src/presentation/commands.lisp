@@ -26,6 +26,9 @@
 (defun %path-positional ()
   (make-positional :key :path :name "path" :required-p t))
 
+(defun %paths-positional ()
+  (make-positional :key :paths :name "path" :rest-p t :required-p t :min-count 1))
+
 (defun %value-option (name value-name description &rest options)
   (apply #'make-option :name name :kind :value
          :value-name value-name :description description options))
@@ -45,7 +48,7 @@
 (defun %query-command (boundaries)
   (make-command
    :name "query" :description (%summary "org.query")
-   :positionals (list (%path-positional))
+   :positionals (list (%paths-positional))
    :options (list (%value-option "match" "MATCH" "An Org match expression.")
                   (%value-option "at" "LOCAL-DATETIME" "The local reference time.")
                   (%value-option "tz" "ZONE" "IANA time zone name.")
@@ -54,7 +57,7 @@
                                  :default "compatible"))
    :handler (lambda (invocation)
               (%run-flow #'aitools.org.application:org-query/k boundaries
-                         :path (positional-value invocation :path)
+                         :paths (positional-value invocation :paths)
                          :match (option-value invocation :match)
                          :at (option-value invocation :at)
                          :tz (option-value invocation :tz)
@@ -72,3 +75,17 @@
                          :path (positional-value invocation :path)
                          :backend (%backend (option-value invocation :backend))
                          :root (option-value invocation :root)))))
+
+(defun %archive-command (boundaries)
+  (make-command
+   :name "archive" :description (%summary "org.archive")
+   :positionals (list (%path-positional))
+   :options (append (%org-selector-time-options)
+                    (list (%value-option "to" "PATH" "Destination Org file." :required-p t)
+                          (%value-option "target-heading" "TITLE" "Destination heading title." :required-p t))
+                    (%org-write-options))
+   :handler (lambda (invocation)
+              (%org-run-selector-write
+               #'aitools.org.application:org-archive/k boundaries invocation
+               (list :to (option-value invocation :to)
+                     :target-heading (option-value invocation :target-heading))))))

@@ -65,7 +65,7 @@
            (expected-keys
              (list :org-workspace-host :org-text-source :org-max-input-bytes
                    :org-parse :org-outline :org-query :org-export
-                   :org-open-store :org-write :org-edit :org-agenda
+                   :org-open-store :org-write :org-edit :org-archive :org-agenda
                    :org-clock-report))
            (workspace-host
              (aitools.workspace.infrastructure:make-host-workspace-boundaries))
@@ -104,7 +104,7 @@
               :to-be t)
       (dolist (key
                (list :org-open-store :org-parse :org-outline :org-query
-                     :org-export :org-write :org-edit :org-agenda
+                     :org-export :org-write :org-edit :org-archive :org-agenda
                      :org-clock-report))
         (expect
          (functionp

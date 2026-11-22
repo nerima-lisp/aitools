@@ -34,94 +34,104 @@
       ((and (>= length 2) (equalp (subseq octets 0 2) #(254 255)))
        "UTF-16 big-endian"))))
 
+(defun %org-path-p (path)
+  (and (stringp path) (plusp (length path))))
+
 (aitools.kernel.domain:define-flow
- (org-read-document/k boundaries path root command &key on-document on-error)
- (declare (type function on-document on-error))
- (let ((host (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host))
-       (source (cl-boundary-kit:boundary-context-require boundaries :org-text-source))
-       (max-input-bytes (cl-boundary-kit:boundary-context-require boundaries :org-max-input-bytes))
-       (parser (cl-boundary-kit:boundary-context-require boundaries :org-parse)))
-   (cond
-    ((or (not (stringp path)) (zerop (length path)))
-     (aitools.kernel.domain:flow-continue
-      :on-error "argument.invalid" "an Org file path is required"
-      :repairs (%schema-repair command "Pass an Org file path.")))
-    ((or (null host) (null source) (not (integerp max-input-bytes)) (null parser))
-     (aitools.kernel.domain:flow-continue
-      :on-error "internal.unexpected" "the org context is missing a required boundary capability"
-      :repairs (%schema-repair command "Show this command's requirements.")))
-    (t
-     (aitools.workspace.application:call-with-resolved-root/k
-      host :root root
-      :on-error
-      (lambda (reason root-path)
+    (%org-read-root/k boundaries root command &key on-root on-error)
+  (let ((host (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host))
+        (source (cl-boundary-kit:boundary-context-require boundaries :org-text-source))
+        (max-input-bytes (cl-boundary-kit:boundary-context-require boundaries :org-max-input-bytes))
+        (parser (cl-boundary-kit:boundary-context-require boundaries :org-parse)))
+    (if (and host source (integerp max-input-bytes) parser)
+        (aitools.workspace.application:call-with-resolved-root/k
+         host :root root
+         :on-resolved
+         (lambda (workspace-root)
+           (aitools.kernel.domain:flow-continue
+            :on-root workspace-root host source max-input-bytes parser))
+         :on-error
+         (lambda (reason root-path)
+           (aitools.kernel.domain:flow-continue
+            :on-error "input.not-found"
+            (format nil "workspace root ~A ~A" root-path
+                    (if (eq reason :not-a-directory)
+                        "is not a directory" "does not exist"))
+            :repairs (%schema-repair command "Use an existing workspace root."))))
         (aitools.kernel.domain:flow-continue
-         :on-error "input.not-found"
-         (format nil "workspace root ~A ~A" root-path
-                 (if (eq reason :not-a-directory)
-                     "is not a directory" "does not exist"))
-         :repairs (%schema-repair command "Use an existing workspace root.")))
-      :on-resolved
-      (lambda (workspace-root)
-        (declare (ignore workspace-root))
-        (let ((absolute (aitools.workspace.application:user-path-absolute host path))
-              (outcome nil))
-          (aitools.text.application:call-with-text-file/k
-           source absolute
-           :max-bytes max-input-bytes
-           :on-text (lambda (octets layout)
-                      (declare (ignore layout))
-                      (setf outcome (list :octets octets)))
-           :on-binary (lambda (prefix size)
-                        (declare (ignore size))
-                        (setf outcome (list :binary prefix)))
-           :on-missing (lambda (missing)
-                         (declare (ignore missing))
-                         (setf outcome (list :missing)))
-           :on-unreadable (lambda (unreadable)
-                            (declare (ignore unreadable))
-                            (setf outcome (list :unreadable)))
-           :on-too-large (lambda (size)
-                           (setf outcome (list :too-large size))))
-          (case (first outcome)
-            (:octets
-             (labels ((report (failure)
-                              (multiple-value-bind (code message diagnostics repairs)
-                                  (%failure-response failure command)
-                                (aitools.kernel.domain:flow-continue
-                                 :on-error code message
-                                 :diagnostics diagnostics :repairs repairs))))
-               (let ((octets (second outcome)))
-                 (if (find 0 octets)
-                     (report
-                      (aitools.org.domain:make-org-failure
-                       :kind :unsupported
-                       :message "Org input contains a NUL byte"))
-                   (multiple-value-bind (document failure)
-                       (funcall parser octets :source-name absolute)
-                     (if failure
-                         (report failure)
-                       (aitools.kernel.domain:flow-continue
-                        :on-document document)))))))
-            (:binary
-             (let ((encoding (%utf16-or-32-bom (second outcome))))
-               (aitools.kernel.domain:flow-continue
-                :on-error "input.unsupported-format"
-                (if encoding
-                    (format nil "~A uses unsupported ~A encoding" path encoding)
-                  (format nil "~A is a binary file, not a UTF-8 Org document" path))
-                :repairs (%schema-repair command "Use a UTF-8 Org document."))))
-            (:missing
+         :on-error "internal.unexpected" "the org context is missing a required boundary capability"
+         :repairs (%schema-repair command "Show this command's requirements.")))))
+
+(aitools.kernel.domain:define-flow
+    (%org-read-file/k source max-input-bytes parser absolute path command
+                      &key report-parse-path on-document on-error)
+  (aitools.text.application:call-with-text-file/k
+   source absolute
+   :max-bytes max-input-bytes
+   :on-text
+   (lambda (octets layout)
+     (declare (ignore layout))
+     (multiple-value-bind (document failure)
+         (if (find 0 octets)
+             (values nil
+                     (aitools.org.domain:make-org-failure
+                      :kind :unsupported :message "Org input contains a NUL byte"))
+             (funcall parser octets :source-name absolute))
+       (if failure
+           (multiple-value-bind (code message diagnostics repairs)
+               (%failure-response failure command)
              (aitools.kernel.domain:flow-continue
-              :on-error "input.not-found" (format nil "file ~A does not exist" path)
-              :repairs (%schema-repair command "Pass an existing Org file.")))
-            (:unreadable
-             (aitools.kernel.domain:flow-continue
-              :on-error "environment.io" (format nil "file ~A cannot be read" path)
-              :repairs (%schema-repair command "Check file permissions.")))
-            (:too-large
-             (aitools.kernel.domain:flow-continue
-              :on-error "refusal.too-large"
-              (format nil "file ~A exceeds the Org input limit of ~D bytes"
-                      path (second outcome))
-              :repairs (%schema-repair command "Use a smaller Org file.")))))))))))
+              :on-error code (if report-parse-path (format nil "~A: ~A" path message) message)
+              :diagnostics diagnostics :repairs repairs))
+           (aitools.kernel.domain:flow-continue :on-document document))))
+   :on-binary
+   (lambda (prefix size)
+     (declare (ignore size))
+     (let ((encoding (%utf16-or-32-bom prefix)))
+       (aitools.kernel.domain:flow-continue
+        :on-error "input.unsupported-format"
+        (if encoding
+            (format nil "~A uses unsupported ~A encoding" path encoding)
+            (format nil "~A is a binary file, not a UTF-8 Org document" path))
+        :repairs (%schema-repair command "Use a UTF-8 Org document."))))
+   :on-missing
+   (lambda (missing)
+     (declare (ignore missing))
+     (aitools.kernel.domain:flow-continue
+      :on-error "input.not-found" (format nil "file ~A does not exist" path)
+      :repairs (%schema-repair command "Pass an existing Org file.")))
+   :on-unreadable
+   (lambda (unreadable)
+     (declare (ignore unreadable))
+     (aitools.kernel.domain:flow-continue
+      :on-error "environment.io" (format nil "file ~A cannot be read" path)
+      :repairs (%schema-repair command "Check file permissions.")))
+   :on-too-large
+   (lambda (size)
+     (aitools.kernel.domain:flow-continue
+      :on-error "refusal.too-large"
+      (format nil "file ~A exceeds the Org input limit of ~D bytes" path size)
+      :repairs (%schema-repair command "Use a smaller Org file.")))))
+
+(aitools.kernel.domain:define-flow
+    (org-read-document/k boundaries path root command &key on-document on-error)
+  (if (%org-path-p path)
+      (aitools.kernel.domain:flow-call
+          (%org-read-root/k boundaries root command)
+        (:on-error (code message &key repairs)
+          (aitools.kernel.domain:flow-continue :on-error code message :repairs repairs))
+        (:on-root (workspace-root host source max-input-bytes parser)
+          (declare (ignore workspace-root))
+          (aitools.kernel.domain:flow-call
+              (%org-read-file/k
+               source max-input-bytes parser
+               (aitools.workspace.application:user-path-absolute host path)
+               path command)
+            (:on-document (document)
+              (aitools.kernel.domain:flow-continue :on-document document))
+            (:on-error (code message &key diagnostics repairs)
+              (aitools.kernel.domain:flow-continue
+               :on-error code message :diagnostics diagnostics :repairs repairs)))))
+      (aitools.kernel.domain:flow-continue
+       :on-error "argument.invalid" "an Org file path is required"
+       :repairs (%schema-repair command "Pass an Org file path."))))

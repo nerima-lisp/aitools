@@ -31,7 +31,7 @@
                                     (list (cons "changed"
                                                 (aitools.protocol.domain:json-boolean
                                                  changed)))))))))))))
-(defun %org-plan-write (boundaries context operation options command)
+(defun %org-plan-write (boundaries context operation options command prepare-options)
   (let* ((view (aitools.edit.application:write-context-view context))
          (path (aitools.edit.application:context-path context))
          (state (aitools.store.application:view-path-state view path)))
@@ -51,10 +51,15 @@
                    :kind :unsupported
                    :message "Org input contains a NUL byte")
                   command path)
-                 (%org-apply-write-edit boundaries path octets operation options command))
+                 (multiple-value-bind (extra-options failure)
+                     (if prepare-options (funcall prepare-options view) (values nil nil))
+                   (if failure
+                       (%org-reject-write-failure failure command path)
+                       (%org-apply-write-edit boundaries path octets operation
+                                              (append options extra-options) command))))
              (list :rejected "input.not-found" "Org file does not exist"
                    nil nil path)))))))
-(defun %org-write-plan (boundaries path command operation options)
+(defun %org-write-plan (boundaries path command operation options prepare-options)
   (aitools.edit.application:make-write-plan
    :command command
    :targets (list (aitools.edit.application:make-write-target path))
@@ -65,7 +70,7 @@
                      options)
    :record-positionals (lambda (paths) (list (first paths)))
    :plan (lambda (context &key on-committed on-rejected)
-           (let ((result (%org-plan-write boundaries context operation options command)))
+           (let ((result (%org-plan-write boundaries context operation options command prepare-options)))
              (ecase (first result)
                (:committed
                 (funcall on-committed (second result) (third result)))
@@ -78,7 +83,7 @@
                            :repairs repairs
                            :path path))))))))
 (aitools.kernel.domain:define-flow
-    (%org-write-result boundaries path command operation options &key root lock-timeout dry-run tx display-argv expect-count expect-hash
+    (%org-write-result boundaries path command operation options &key prepare-options root lock-timeout dry-run tx display-argv expect-count expect-hash
        on-ok on-error on-partial)
   (declare (ignore expect-count expect-hash on-partial))
   (cond
@@ -96,7 +101,7 @@
      (let ((outcome nil))
        (aitools.edit.application:run-write-command/k
         (aitools.edit.application:make-edit-write-boundaries (cl-boundary-kit:boundary-context-require boundaries :org-workspace-host) (cl-boundary-kit:boundary-context-require boundaries :org-open-store))
-        (%org-write-plan boundaries path command operation options)
+        (%org-write-plan boundaries path command operation options prepare-options)
         :root root :lock-timeout lock-timeout :dry-run dry-run :tx tx
         :display-argv display-argv
         :on-ok (lambda (fields) (setf outcome (list :ok fields)))

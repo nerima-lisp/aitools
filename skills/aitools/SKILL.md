@@ -178,8 +178,10 @@ writes use the journal and can be reverted with `aitools undo <op_id>`.
 
 Use `org outline`, `org query`, and `org export` to inspect structure, find matching headings, or export HTML,
 GFM, and ASCII. Use `org agenda` and `org clock report` to summarize scheduled work and recorded time.
-`org todo set`, `org property set` and `org property delete`, `org planning set` and `org planning delete`,
-`org clock in` and `org clock out`, and `org table align`, `org table sort`, and `org table recalculate`
+`org todo set`, `org property set` and `org property delete`, `org priority set` and `org priority delete`,
+`org tags add`, `org tags remove`, `org tags replace`, `org heading rename`, `org checkbox toggle`,
+`org planning set` and `org planning delete`, `org clock in` and `org clock out`, and `org table align`,
+`org table sort`, and `org table recalculate`
 update a matching heading or table. These writes use the journal and can be reverted with
 `aitools undo <op_id>`.
 
