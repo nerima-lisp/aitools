@@ -127,7 +127,7 @@
     };
 
     cl-org-kit = {
-      url = "github:nerima-lisp/cl-org-kit/de32bf21c7e4346e63f45261279cc1b0fd9fdb7b";
+      url = "github:nerima-lisp/cl-org-kit/bf0afb36f19bd4ab77855e73a2c08825512cca1f";
       flake = false;
     };
 
