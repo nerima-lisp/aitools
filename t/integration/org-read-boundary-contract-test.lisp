@@ -192,3 +192,19 @@
                                                                  :to-equal command)))
                                                      (expect (aitools.test.support:read-bytes path)
                                                              :to-equalp (sb-ext:string-to-octets source :external-format :utf-8))))))
+
+(describe "Org clock report flow guards"
+  (it "reports a missing clock report capability before checking arguments"
+    (%expect-org-flow-error
+     (%org-flow-result (function aitools.org.application:org-clock-report/k)
+                       (%empty-org-boundaries) :path "clock.org" :match nil :heading-path nil)
+     "internal.unexpected" "the org context has no clock report boundary capability"))
+  (it "requires a non-empty --match or --heading-path once the capability is present"
+    (let ((boundaries (cl-boundary-kit:make-boundary-context
+                       :org-clock-report (function identity))))
+      (loop for (match heading-path) in '((nil nil) ("" nil) (nil "") ("" ""))
+            do (%expect-org-flow-error
+                (%org-flow-result (function aitools.org.application:org-clock-report/k)
+                                  boundaries :path "clock.org" :match match
+                                  :heading-path heading-path)
+                "argument.invalid" "--match or --heading-path is required")))))

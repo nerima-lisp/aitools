@@ -95,6 +95,28 @@
            (expect (scan-failing-with :outside-root)
                    :to-equal '("refusal.outside-workspace"
                                "dir is outside the workspace")))))))
+  (it "stops a directory scan once an earlier entry has recorded a failure"
+    (call-with-edit-workspace
+     (lambda ()
+       (let ((boundaries (make-org-write-flow-boundaries)) (emitted nil))
+         (put "dir/a.org" (%multi-scheduled "Alpha"))
+         (flet ((entry (name kind)
+                  (aitools.workspace.application::%make-scan-entry
+                   (format nil "dir/~A" name) (disk (format nil "dir/~A" name))
+                   (aitools.workspace.domain:make-workspace-entry :name name :kind kind))))
+           (cl-weave:with-mocked-functions
+               (((symbol-function (quote aitools.workspace.application:call-with-workspace-scan/k))
+                 (lambda (host root &key emit on-skip on-complete &allow-other-keys)
+                   (declare (ignore host root))
+                   (push (funcall emit (entry "a.org" :file) nil) emitted)
+                   (funcall on-skip (entry "locked" :directory) :permission-denied)
+                   (push (funcall emit (entry "b.org" :file) nil) emitted)
+                   (funcall on-complete nil t))))
+             (multiple-value-bind (code message)
+                 (%multi-agenda-error boundaries :paths '("dir"))
+               (expect code :to-equal "environment.io")
+               (expect message :to-equal "cannot read directory dir/locked"))))
+         (expect (reverse emitted) :to-equal (list nil :stop))))))
   (it "prefixes a file's parse failure with its path and stops at it"
     (call-with-edit-workspace
      (lambda ()
