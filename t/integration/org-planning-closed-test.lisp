@@ -66,6 +66,18 @@
        (%closed-run "org" "todo" "set" "todo.org" "--match" "/TODO" "--state" "DONE")
        (expect (text "todo.org")
                :to-equal (format nil "#+TODO: TODO | DONE~%#+STARTUP: logdone~%* DONE Rel~%CLOSED: [2026-11-22 Sun 10:00] SCHEDULED: <2026-10-20 Tue>~%")))))
+  (it "writes CLOSED on an indented planning line and keeps its indentation"
+    ;; Both expected lines match Org 9.8.10 `org-todo` with `org-log-done` set to `time`.
+    (call-with-edit-workspace
+     (lambda ()
+       (dolist (case '(("  SCHEDULED: <2026-11-20 Fri>" "" "  CLOSED: [2026-11-22 Sun 10:00] SCHEDULED: <2026-11-20 Fri>")
+                       ("   SCHEDULED: <2026-11-20 Fri>" "body" "   CLOSED: [2026-11-22 Sun 10:00] SCHEDULED: <2026-11-20 Fri>")))
+         (destructuring-bind (planning body expected) case
+           (put "indent.org" (format nil "#+TODO: TODO | DONE~%#+STARTUP: logdone~%* TODO H~%~A~%~A" planning (if (string= body "") "" (format nil "~A~%" body))))
+           (%closed-run "org" "todo" "set" "indent.org" "--match" "/TODO" "--state" "DONE")
+           (expect (text "indent.org")
+                   :to-equal (format nil "#+TODO: TODO | DONE~%#+STARTUP: logdone~%* DONE H~%~A~%~A"
+                                     expected (if (string= body "") "" (format nil "~A~%" body)))))))))
   (it "keeps the blank line after a planning line that planning delete empties"
     (call-with-edit-workspace
      (lambda ()
