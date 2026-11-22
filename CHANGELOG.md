@@ -18,6 +18,15 @@
   an existing `CLOSED:` keyword, unlike Emacs `org-schedule` and `org-deadline`,
   which remove it: setting a deadline on `CLOSED: [2026-11-20 Fri 10:00]` gives
   `DEADLINE: <2026-11-30 Mon> CLOSED: [2026-11-20 Fri 10:00]`.
+- Treat a line directly under a heading that starts with `CLOSED:`, `DEADLINE:`,
+  or `SCHEDULED:` as a planning line even when it is malformed, as Org does.
+  `org export` no longer prints such a line as body text: for
+  `* TODO A`, `SCHEDULED: <2026-10-11 Sun> trailing`, `body`, the GFM export
+  ended with `SCHEDULED\: \<2026\-10\-11 Sun\>  trailing body` and now ends with
+  `body`. `org planning set` writes into the existing line, so setting a
+  scheduled timestamp on `SCHEDULED: junk` gives
+  `SCHEDULED: <2026-11-30 Mon> SCHEDULED: junk`, and `org planning delete`
+  removes only the field and leaves the rest of the line.
 
 ## v0.4.0
 
