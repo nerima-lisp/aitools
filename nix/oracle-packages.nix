@@ -24,6 +24,7 @@ with pkgs;
   netcat
   bc
   python3
+  emacs-nox
 ]
 ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.nettools ]
 ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ pkgs.unixtools.netstat ]
