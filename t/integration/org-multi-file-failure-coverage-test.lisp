@@ -109,6 +109,7 @@
                  (lambda (host root &key emit on-skip on-complete &allow-other-keys)
                    (declare (ignore host root))
                    (push (funcall emit (entry "a.org" :file) nil) emitted)
+                   (push (funcall emit (entry "sub" :directory) nil) emitted)
                    (funcall on-skip (entry "locked" :directory) :permission-denied)
                    (push (funcall emit (entry "b.org" :file) nil) emitted)
                    (funcall on-complete nil t))))
@@ -116,7 +117,7 @@
                  (%multi-agenda-error boundaries :paths '("dir"))
                (expect code :to-equal "environment.io")
                (expect message :to-equal "cannot read directory dir/locked"))))
-         (expect (reverse emitted) :to-equal (list nil :stop))))))
+         (expect (reverse emitted) :to-equal (list nil nil :stop))))))
   (it "prefixes a file's parse failure with its path and stops at it"
     (call-with-edit-workspace
      (lambda ()
