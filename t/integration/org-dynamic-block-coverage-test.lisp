@@ -108,29 +108,38 @@
              (expect (aitools.test.support:envelope-value envelope "error" "message")
                      :to-equal "--block does not select a dynamic block")))
          (expect (octets-of "blocks.org") :to-equalp before)))))
-  (it "maps unsupported blocks and clocktable parameters to argument errors"
+  (it "reports the exact message for each argument error"
     (call-with-edit-workspace
      (lambda ()
        (put "task/a.org" (format nil "* Work~%~A~%" +dyn-clock+))
        (dolist (case-row
                 (list
+                 (list :id :unsupported-parameter
+                       :source "#+BEGIN: clocktable :bogus 1"
+                       :message "Unsupported clocktable parameter (unsupported-parameter) for :bogus with 1")
                  (list :id :archive-scope
-                       :source (format nil "#+BEGIN: clocktable :scope agenda-with-archives~%old~%#+END:~%")
-                       :message "Invalid or unsupported clocktable parameter")
+                       :source "#+BEGIN: clocktable :scope agenda-with-archives"
+                       :message "Unsupported clocktable scope agenda-with-archives; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
+                 (list :id :file-with-archives-scope
+                       :source "#+BEGIN: clocktable :scope file-with-archives"
+                       :message "Unsupported clocktable scope file-with-archives; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
+                 (list :id :file-name-scope
+                       :source "#+BEGIN: clocktable :scope \"task/a.org\""
+                       :message "Unsupported clocktable scope task/a.org; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
                  (list :id :partial-range
-                       :source (format nil "#+BEGIN: clocktable :tstart \"2026-10-01\"~%old~%#+END:~%")
-                       :message "Invalid or unsupported clocktable parameter")
+                       :source "#+BEGIN: clocktable :tstart \"2026-10-01\""
+                       :message "Invalid clocktable parameter value (invalid-value) for :tstart with requires both :tstart and :tend")
                  (list :id :agenda-without-glob
-                       :source (format nil "#+BEGIN: clocktable :scope agenda~%old~%#+END:~%")
-                       :message "Invalid or unsupported clocktable parameter")
+                       :source "#+BEGIN: clocktable :scope agenda"
+                       :message "--agenda-glob is required for :scope agenda")
                  (list :id :agenda-glob-matches-nothing
-                       :source (format nil "#+BEGIN: clocktable :scope agenda~%old~%#+END:~%")
+                       :source "#+BEGIN: clocktable :scope agenda"
                        :options '("--agenda-glob" "missing/*.org")
-                       :message "Invalid or unsupported clocktable parameter")
+                       :message "--agenda-glob matched no Org files for :scope agenda")
                  (list :id :unregistered-name
-                       :source (format nil "#+BEGIN: no-such-handler~%old~%#+END:~%")
-                       :message "Invalid or unsupported dynamic block")))
-         (put "report.org" (getf case-row :source))
+                       :source "#+BEGIN: no-such-handler"
+                       :message "No handler is registered for this dynamic block (unregistered-name) for no-such-handler")))
+         (put "report.org" (format nil "~A~%old~%#+END:~%" (getf case-row :source)))
          (let* ((before (octets-of "report.org"))
                 (envelope (%dyn-error
                            (apply #'%dyn-update-arguments "report.org" 1
@@ -160,13 +169,23 @@
         (expect (aitools.org.domain:org-failure-kind failure) :to-be :argument))
       (dolist (case-row
                (list
+                (list :id :clocktable-parameter :kind :argument
+                      :message "Unsupported clocktable parameter (unsupported-parameter) for :bogus with 1"
+                      :condition (make-condition 'org-kit:org-clocktable-parameter-error
+                                                 :message "Unsupported clocktable parameter"
+                                                 :reason :unsupported-parameter
+                                                 :parameter "bogus" :value "1"))
+                (list :id :dynamic-block :kind :argument
+                      :message "No handler is registered for this dynamic block (unregistered-name) for demo"
+                      :condition (make-condition 'org-kit:org-dynamic-block-error
+                                                 :message "No handler is registered for this dynamic block"
+                                                 :reason :unregistered-name :name "demo"))
                 (list :id :resource-limit :kind :too-large
-                      :message "Dynamic block update exceeded a resource limit"
+                      :message "limit: max-output-length is 2, above the limit of 1"
                       :condition (make-condition 'org-kit:org-resource-limit-error
                                                  :message "limit" :limit-name :max-output-length
                                                  :limit 1 :actual 2))
-                (list :id :generic :kind :internal
-                      :message "Dynamic block update failed"
+                (list :id :generic :kind :internal :message "failed"
                       :condition (make-condition 'org-kit:org-kit-error :message "failed"))))
         (%with-dyn-kit-condition (getf case-row :condition)
           (multiple-value-bind (updated fields failure)
@@ -178,6 +197,19 @@
                           (aitools.org.domain:org-failure-message failure))
                     :to-equal (list (getf case-row :id) (getf case-row :kind)
                                     (getf case-row :message))))))))
+  (it "names --agenda-glob when the agenda selects no documents"
+    (let ((engine (%dyn-engine (format nil "#+BEGIN: clocktable :scope agenda~%old~%#+END:~%"))))
+      (dolist (case-row '((nil "--agenda-glob is required for :scope agenda")
+                          (("*.org") "--agenda-glob matched no Org files for :scope agenda")))
+        (multiple-value-bind (updated fields failure)
+            (aitools.org.infrastructure::edit-org-dynamic-block
+             engine (list :block 1 :at "2026-10-15T12:00:00" :tz "UTC" :dst-policy "compatible"
+                          :agenda-glob (first case-row)
+                          :agenda-loader (lambda () (values nil nil))))
+          (expect (list updated fields) :to-equal '(nil nil))
+          (expect (list (aitools.org.domain:org-failure-kind failure)
+                        (aitools.org.domain:org-failure-message failure))
+                  :to-equal (list :argument (second case-row)))))))
   (it "uses the agenda loader failure over the update outcome"
     (let ((engine (%dyn-engine (format nil "#+BEGIN: clocktable :scope agenda~%old~%#+END:~%")))
           (failure (aitools.org.domain:make-org-failure :kind :too-large :message "agenda too large")))

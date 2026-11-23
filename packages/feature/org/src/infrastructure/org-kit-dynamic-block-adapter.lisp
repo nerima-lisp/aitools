@@ -1,5 +1,18 @@
 (in-package #:aitools.org.infrastructure)
 
+;;; The echoed name is cut at the same length cl-org-kit uses for the values
+;;; in its own condition messages.
+(defparameter *clocktable-scope-name-limit* 80)
+
+(defun %unsupported-clocktable-scope-message (selector)
+  (let ((name (if (stringp selector)
+                  selector
+                  (string-downcase (symbol-name selector)))))
+    (format nil "Unsupported clocktable scope ~A; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)"
+            (if (> (length name) *clocktable-scope-name-limit*)
+                (concatenate 'string (subseq name 0 *clocktable-scope-name-limit*) "...")
+                name))))
+
 (defun edit-org-dynamic-block (engine options)
   (let ((number (getf options :block)) (blocks nil) (agenda-documents nil) (agenda-failure nil))
     (org-kit:map-nodes (lambda (node)
@@ -22,20 +35,32 @@
                            (org-kit:update-dynamic-block engine block
                             :document-resolver
                             (lambda (selector)
-                              (when (eq selector :agenda)
-                                (multiple-value-setq (agenda-documents agenda-failure)
-                                  (funcall (getf options :agenda-loader)))
-                                agenda-documents))
+                              (cond
+                                ((eq selector :agenda)
+                                 (multiple-value-setq (agenda-documents agenda-failure)
+                                   (funcall (getf options :agenda-loader)))
+                                 (unless (or agenda-failure agenda-documents)
+                                   (setf agenda-failure
+                                         (%failure :argument
+                                                   (if (getf options :agenda-glob)
+                                                       "--agenda-glob matched no Org files for :scope agenda"
+                                                       "--agenda-glob is required for :scope agenda"))))
+                                 agenda-documents)
+                                (t
+                                 (setf agenda-failure
+                                       (%failure :argument
+                                                 (%unsupported-clocktable-scope-message selector)))
+                                 nil)))
                             :time-context context)))
                       (list :updated result warnings))
-                  (org-kit:org-clocktable-parameter-error ()
-                    (list :failed (%failure :argument "Invalid or unsupported clocktable parameter")))
-                  (org-kit:org-dynamic-block-error ()
-                    (list :failed (%failure :argument "Invalid or unsupported dynamic block")))
-                  (org-kit:org-resource-limit-error ()
-                    (list :failed (%failure :too-large "Dynamic block update exceeded a resource limit")))
-                  (org-kit:org-kit-error ()
-                    (list :failed (%failure :internal "Dynamic block update failed"))))))
+                  (org-kit:org-clocktable-parameter-error (condition)
+                    (list :failed (%failure :argument (princ-to-string condition))))
+                  (org-kit:org-dynamic-block-error (condition)
+                    (list :failed (%failure :argument (princ-to-string condition))))
+                  (org-kit:org-resource-limit-error (condition)
+                    (list :failed (%failure :too-large (princ-to-string condition))))
+                  (org-kit:org-kit-error (condition)
+                    (list :failed (%failure :internal (princ-to-string condition)))))))
           (cond
             (agenda-failure (values nil nil agenda-failure))
             ((eq (first outcome) :failed) (values nil nil (second outcome)))
