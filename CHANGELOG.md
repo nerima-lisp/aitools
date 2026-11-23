@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- Make `org planning set` store the timestamp with the weekday, as Emacs does:
+  `<2026-10-20>` is written and reported as `<2026-10-20 Tue>`. Input that
+  already carries a weekday is still rejected.
+- Fix `org archive` failing with `internal.unexpected` on a DONE heading whose
+  planning line starts with `CLOSED:`. Completing a heading that has `SCHEDULED:`
+  now writes `CLOSED:` before it, and deleting the last planning keyword keeps
+  the blank line after it. Both follow Emacs and come from cl-org-kit v0.3.3.
+- Change the keyword order that `org planning set` writes. With cl-org-kit
+  v0.3.3 the keyword being set goes first on the planning line, as in Emacs, and
+  a keyword that is set again moves to the front. For example, setting a
+  deadline on `SCHEDULED: <2026-11-18 Wed>` now gives
+  `DEADLINE: <2026-11-30 Mon> SCHEDULED: <2026-11-18 Wed>` instead of
+  `SCHEDULED: <2026-11-18 Wed> DEADLINE: <2026-11-30>`. `org planning set` keeps
+  an existing `CLOSED:` keyword, unlike Emacs `org-schedule` and `org-deadline`,
+  which remove it: setting a deadline on `CLOSED: [2026-11-20 Fri 10:00]` gives
+  `DEADLINE: <2026-11-30 Mon> CLOSED: [2026-11-20 Fri 10:00]`.
+- Treat a line directly under a heading that starts with `CLOSED:`, `DEADLINE:`,
+  or `SCHEDULED:` as a planning line even when it is malformed, as Org does.
+  `org export` no longer prints such a line as body text: for
+  `* TODO A`, `SCHEDULED: <2026-10-11 Sun> trailing`, `body`, the GFM export
+  ended with `SCHEDULED\: \<2026\-10\-11 Sun\>  trailing body` and now ends with
+  `body`. `org planning set` writes into the existing line, so setting a
+  scheduled timestamp on `SCHEDULED: junk` gives
+  `SCHEDULED: <2026-11-30 Mon> SCHEDULED: junk`, and `org planning delete`
+  removes only the field and leaves the rest of the line.
+
 ## v0.4.0
 
 - Add `net get`, `net head`, and `net resolve` for HTTP requests and OS-resolved

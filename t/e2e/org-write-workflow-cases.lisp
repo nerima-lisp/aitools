@@ -171,3 +171,24 @@
       (org-error ws (archive-args "source.org" "archive.org" '("--match" "/DONE")) "org archive" "selection.ambiguous")
       (expect (file-octets ws "source.org") :to-equalp source)
       (expect (file-octets ws "archive.org") :to-equalp dest))))
+
+(describe "aitools e2e org CLOSED planning lines"
+  (define-org-case ("archives DONE headings whose planning line starts with CLOSED" ws)
+    (dolist (planning '("CLOSED: [2026-10-18 Sun 10:00]"
+                        "CLOSED: [2026-10-18 Sun 10:00] SCHEDULED: <2026-10-16 Fri>"))
+      (put ws "source.org" (hp-text (list "#+TODO: TODO | DONE" "* Cat" "** DONE one" planning)))
+      (put ws "archive.org" (hp-text '("* Archived")))
+      (org-ok ws (archive-args "source.org" "archive.org" '("--match" "ITEM=\"one\"")) "org archive")
+      (expect (file-text ws "source.org") :to-equal (hp-text '("#+TODO: TODO | DONE" "* Cat")))
+      (dolist (line (list "** DONE one" planning ":ARCHIVE_TIME: 2026-10-19 Mon 09:00"))
+        (archive-expect-line (file-text ws "archive.org") line))))
+  (define-org-case ("org todo set writes CLOSED before an existing SCHEDULED" ws)
+    (put ws "done.org" (hp-text '("#+TODO: TODO | DONE" "#+STARTUP: logdone" "* TODO Release" "SCHEDULED: <2026-10-20 Tue>")))
+    (org-ok ws (org-write-time-args '("org" "todo" "set" "done.org" "--match" "/TODO" "--state" "DONE")) "org todo set")
+    (expect (file-text ws "done.org")
+            :to-equal (hp-text '("#+TODO: TODO | DONE" "#+STARTUP: logdone" "* DONE Release"
+                                 "CLOSED: [2026-10-19 Mon 09:00] SCHEDULED: <2026-10-20 Tue>"))))
+  (define-org-case ("org planning delete keeps the blank line after the removed planning line" ws)
+    (put ws "blank.org" (hp-text '("* TODO Release" "SCHEDULED: <2026-10-20 Tue>" "" "body")))
+    (org-ok ws (org-write-time-args '("org" "planning" "delete" "blank.org" "--match" "/TODO" "--kind" "scheduled")) "org planning delete")
+    (expect (file-text ws "blank.org") :to-equal (hp-text '("* TODO Release" "" "body")))))

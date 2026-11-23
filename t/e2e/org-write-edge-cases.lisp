@@ -3,15 +3,16 @@
   (define-org-case ("org planning accepts a time range with repeater and warning" ws)
     (put ws "planning-range.org" (format nil "* TODO Release~%"))
     (let* ((timestamp "<2026-10-20 09:00-10:00 +1w -2d>")
+           (canonical "<2026-10-20 Tue 09:00-10:00 +1w -2d>")
            (result
              (org-ok ws
                      (org-write-time-args
                       (list "org" "planning" "set" "planning-range.org" "--match" "/TODO"
                             "--kind" "scheduled" "--timestamp" timestamp)) "org planning set")))
-      (expect (jget result "timestamp") :to-equal timestamp)
+      (expect (jget result "timestamp") :to-equal canonical)
       (expect (jget result "changed") :to-be t)
       (expect (file-text ws "planning-range.org")
-              :to-equal (format nil "* TODO Release~%SCHEDULED: ~A~%" timestamp))))
+              :to-equal (format nil "* TODO Release~%SCHEDULED: ~A~%" canonical))))
   (define-org-case
     ("org property set adds an unregistered property and preserves surrounding bytes" ws)
     (let* ((source

@@ -74,9 +74,9 @@
                        :path "planning.org" :match "/TODO" :kind "scheduled"
                        :timestamp "<2026-10-20>" (org-write-time-arguments))))
           (expect (field fields "kind") :to-equal "scheduled")
-          (expect (field fields "timestamp") :to-equal "<2026-10-20>")
+          (expect (field fields "timestamp") :to-equal "<2026-10-20 Tue>")
           (expect (field fields "changed") :to-be t)
-          (expect (search "SCHEDULED: <2026-10-20>" (text "planning.org"))
+          (expect (search "SCHEDULED: <2026-10-20 Tue>" (text "planning.org"))
                   :to-be-truthy))
         (let ((fields
                 (apply #'org-flow-ok #'aitools.org.application:org-planning-delete/k boundaries

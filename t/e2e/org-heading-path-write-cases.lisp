@@ -29,7 +29,7 @@
                          "org planning set")))
         (expect (jget set "changed") :to-be t)
         (expect (file-octets ws "hp.org")
-                :to-equalp (octets (hp-edit 6 "** TODO 要件を確認する" "SCHEDULED: <2026-10-20>")))
+                :to-equalp (octets (hp-edit 6 "** TODO 要件を確認する" "SCHEDULED: <2026-10-20 Tue>")))
         (let ((deleted (org-ok ws (org-write-time-args
                                    (append (list "org" "planning" "delete" "hp.org")
                                            (hp-heading-path first-requirement)

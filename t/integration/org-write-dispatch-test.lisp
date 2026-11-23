@@ -232,7 +232,7 @@
                                 "--kind" "closed" "--timestamp" "[2026-10-19 09:00]"))
                              "org planning set")))
         (expect (aitools.test.support:envelope-value result "kind") :to-equal "closed")
-        (expect (search "CLOSED: [2026-10-19 09:00]" (%org-text root "closed.org")) :to-be-truthy))
+        (expect (search "CLOSED: [2026-10-19 Mon 09:00]" (%org-text root "closed.org")) :to-be-truthy))
       (%put-org root "table.org" (format nil "| A |~%|---|~%| x |~%"))
       (let ((before (%org-text root "table.org")))
         (%org-error root

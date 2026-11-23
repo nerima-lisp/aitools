@@ -421,7 +421,7 @@ Errors: `argument.invalid`, `input.not-found`, `input.not-utf8`, `input.unsuppor
 
 Set one planning timestamp on one matching heading.
 
-Accepts one active timestamp for scheduled or deadline and one inactive timestamp for closed. Weekday tokens, diary expressions, date ranges, multiple repeater or warning tokens, and multiline values are rejected.
+Accepts one active timestamp for scheduled or deadline and one inactive timestamp for closed. Weekday tokens, diary expressions, date ranges, multiple repeater or warning tokens, and multiline values are rejected. The heading stores the timestamp with the weekday Org writes after the date, so `<2026-10-20>` becomes `<2026-10-20 Tue>`.
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
