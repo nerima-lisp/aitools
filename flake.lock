@@ -280,17 +280,17 @@
     "cl-org-kit": {
       "flake": false,
       "locked": {
-        "lastModified": 1795352148,
-        "narHash": "sha256-DRorWjmhwcMmk5XxxYW/GacvEEY1wr3WTK9cnCUXBRA=",
+        "lastModified": 1795403894,
+        "narHash": "sha256-z+bDrtaGWa03Lx42b4Cj7kt9ZrKjhs9Gtp9T4IiKbt4=",
         "owner": "nerima-lisp",
         "repo": "cl-org-kit",
-        "rev": "bf0afb36f19bd4ab77855e73a2c08825512cca1f",
+        "rev": "6767bf31b8a28cffc4ab3a172212f2ea89d67055",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
+        "ref": "v0.3.4",
         "repo": "cl-org-kit",
-        "rev": "bf0afb36f19bd4ab77855e73a2c08825512cca1f",
         "type": "github"
       }
     },
