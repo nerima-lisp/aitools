@@ -119,13 +119,13 @@
                        :message "Unsupported clocktable parameter (unsupported-parameter) for :bogus with 1")
                  (list :id :archive-scope
                        :source "#+BEGIN: clocktable :scope agenda-with-archives"
-                       :message "Unsupported clocktable scope agenda-with-archives; use file or agenda")
+                       :message "Unsupported clocktable scope agenda-with-archives; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
                  (list :id :file-with-archives-scope
                        :source "#+BEGIN: clocktable :scope file-with-archives"
-                       :message "Unsupported clocktable scope file-with-archives; use file or agenda")
+                       :message "Unsupported clocktable scope file-with-archives; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
                  (list :id :file-name-scope
                        :source "#+BEGIN: clocktable :scope \"task/a.org\""
-                       :message "Unsupported clocktable scope task/a.org; use file or agenda")
+                       :message "Unsupported clocktable scope task/a.org; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)")
                  (list :id :partial-range
                        :source "#+BEGIN: clocktable :tstart \"2026-10-01\""
                        :message "Invalid clocktable parameter value (invalid-value) for :tstart with requires both :tstart and :tend")

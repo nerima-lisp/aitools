@@ -4,7 +4,7 @@
   (it "still updates the scopes that need no agenda files"
     (call-with-edit-workspace
      (lambda ()
-       (dolist (scope '("file" "subtree" "tree1"))
+       (dolist (scope '("file" "nil" "subtree" "tree" "tree1"))
          (put "report.org"
               (format nil "* Task~%~A~%#+BEGIN: clocktable :scope ~A~%old~%#+END:~%"
                       +dyn-clock+ scope))

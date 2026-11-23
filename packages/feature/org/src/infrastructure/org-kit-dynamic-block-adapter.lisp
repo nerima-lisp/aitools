@@ -1,5 +1,18 @@
 (in-package #:aitools.org.infrastructure)
 
+;;; The echoed name is cut at the same length cl-org-kit uses for the values
+;;; in its own condition messages.
+(defparameter *clocktable-scope-name-limit* 80)
+
+(defun %unsupported-clocktable-scope-message (selector)
+  (let ((name (if (stringp selector)
+                  selector
+                  (string-downcase (symbol-name selector)))))
+    (format nil "Unsupported clocktable scope ~A; use file, agenda, subtree, tree, treeN (N is 1 or more), or nil (the default)"
+            (if (> (length name) *clocktable-scope-name-limit*)
+                (concatenate 'string (subseq name 0 *clocktable-scope-name-limit*) "...")
+                name))))
+
 (defun edit-org-dynamic-block (engine options)
   (let ((number (getf options :block)) (blocks nil) (agenda-documents nil) (agenda-failure nil))
     (org-kit:map-nodes (lambda (node)
@@ -36,10 +49,7 @@
                                 (t
                                  (setf agenda-failure
                                        (%failure :argument
-                                                 (format nil "Unsupported clocktable scope ~A; use file or agenda"
-                                                         (if (stringp selector)
-                                                             selector
-                                                             (string-downcase (symbol-name selector))))))
+                                                 (%unsupported-clocktable-scope-message selector)))
                                  nil)))
                             :time-context context)))
                       (list :updated result warnings))
