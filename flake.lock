@@ -289,8 +289,8 @@
       },
       "original": {
         "owner": "nerima-lisp",
+        "ref": "v0.3.3",
         "repo": "cl-org-kit",
-        "rev": "bad76420930ef95904e0619e3a835f3213290e16",
         "type": "github"
       }
     },
