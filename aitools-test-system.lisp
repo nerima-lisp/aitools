@@ -33,7 +33,8 @@
             (error "No context test systems are registered."))
           (dolist (system contexts)
             (asdf:load-system system))
-          (asdf:load-system shared)))))
+          (asdf:load-system shared)))
+      (uiop:symbol-call :aitools/test :%validate-test-file-registration)))
   (defsystem "aitools/test/shared"
              :description "Shared, structural, integration, and end-to-end tests."
              :depends-on ("aitools/test/base" "aitools" "aitools/cli" "cl-weave")
@@ -75,6 +76,7 @@
                                                           (:file "cli-schema-drift-test")
                                                           (:file "skill-contract-test")
                                                           (:file "runner-failure-report-test")
+                                                          (:file "test-file-registration-test")
                                                           (:file "structure-test")
                                                           (:file "structure-context-allowances" :depends-on ("structure-test"))
                                                           ;; Keep dynamically loaded allowances in filtered source trees.
