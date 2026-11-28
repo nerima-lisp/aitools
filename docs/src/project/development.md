@@ -199,7 +199,8 @@ step and check the next run's `recovered` result.
 ## The component lists
 
 Each context's ASD (ASDF system definition) under `packages/` owns its library
-and test systems.
+and test systems. Context ASDs define `aitools/test-support/<context>` systems
+for helpers shared across test contexts.
 `aitools.asd` loads those ASD files and
 composes the root systems; it also owns the shared data system and CLI
 composition root. The production components, test components, and count-floor

@@ -52,14 +52,12 @@
 
 (defsystem "aitools/test/org"
   :description "Org context tests."
-  :depends-on ("aitools/test/base" "aitools/feature/org" "aitools/cli")
+  :depends-on ("aitools/test/base" "aitools/test-support/edit" "aitools/feature/org" "aitools/cli")
   :pathname "../../../"
   :components
   ((:module "t" :pathname "t/" :serial t
     :components
-    ((:file "unit/edit/package")
-     (:file "unit/edit/boundaries")
-     (:file "unit/org/package")
+    ((:file "unit/org/package")
      (:file "unit/org/parser-property-test")
      (:module "integration" :pathname "integration/" :serial t
       :components

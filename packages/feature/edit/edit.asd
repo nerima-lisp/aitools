@@ -109,14 +109,22 @@
     :components ((:file "package")
                  (:file "context-registration")))))
 
+(defsystem "aitools/test-support/edit"
+  :description "Edit test helpers shared by the edit and org contexts."
+  :depends-on ("aitools/test/base" "aitools/feature/edit")
+  :pathname "../../../"
+  :components ((:module "t" :pathname "t/"
+                :components ((:module "unit/edit" :pathname "unit/edit/" :serial t
+                              :components ((:file "package") (:file "boundaries")))))))
+
 (defsystem "aitools/test/edit"
   :description "Edit context tests."
-  :depends-on ("aitools/test/base" "aitools/feature/edit" "aitools/cli")
+  :depends-on ("aitools/test/base" "aitools/test-support/edit" "aitools/feature/edit" "aitools/cli")
   :pathname "../../../"
   :components
   ((:module "t" :pathname "t/" :serial t
     :components
-    ((:file "unit/edit/package") (:file "unit/edit/boundaries") (:file "unit/edit/domain-test")
+    ((:file "unit/edit/domain-test")
      (:file "unit/edit/command-spec-test")
      (:file "unit/edit/domain-edge-test")
      (:file "unit/edit/pipeline-edge-test")
