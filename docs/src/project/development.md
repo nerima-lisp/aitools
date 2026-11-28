@@ -217,7 +217,10 @@ files are:
   in their context ASDs. Shared package and support files live in
   `aitools/test/base`; shared, structural, integration, and end-to-end tests
   live in `aitools/test/shared`. The root `aitools/test` system discovers
-  registered context systems dynamically.
+  registered context systems dynamically. `aitools/test/base` depends on
+  both `cl-weave` and `cl-weave/spec`, so every context can write
+  specification checks (`defspec`, `it-spec`) without declaring either
+  system.
 - **spec-count floors** live in `t/spec-count-baselines/<context>.lisp` and
   are checked by the shared `t/spec-count-baselines/loader.lisp`.
 

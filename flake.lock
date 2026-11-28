@@ -399,16 +399,16 @@
     "cl-weave": {
       "flake": false,
       "locked": {
-        "lastModified": 1792531085,
-        "narHash": "sha256-V37Ibk6zQGxviBJXeO4F492XH93l+jEww0WBPkBeTII=",
+        "lastModified": 1795448431,
+        "narHash": "sha256-B9/5v0RL4lHPqDrhVoYJDqckqbqKx/CZsoZyQnRF2uU=",
         "owner": "nerima-lisp",
         "repo": "cl-weave",
-        "rev": "c530c56c1df948e2665009f6acad26c2c8f66dbb",
+        "rev": "f42778b2e3c0757cd67c44b2d8a1302078de0f2e",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v1.5.0",
+        "ref": "v1.6.0",
         "repo": "cl-weave",
         "type": "github"
       }

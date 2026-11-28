@@ -10,7 +10,7 @@
            :homepage "https://github.com/nerima-lisp/aitools"
            :bug-tracker "https://github.com/nerima-lisp/aitools/issues"
            :source-control (:git "https://github.com/nerima-lisp/aitools.git")
-           :depends-on ("aitools" "aitools/cli" "cl-weave")
+           :depends-on ("aitools" "aitools/cli" "cl-weave" "cl-weave/spec")
            :pathname "."
            :components ((:module "t"
                                  :pathname "t/"
