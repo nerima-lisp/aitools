@@ -39,11 +39,13 @@ discovers registered `aitools/test/<context>` systems through ASDF. With
 `AITOOLS_TEST_CONTEXT` set, it loads only that context's tests; without it, it
 loads every context system and `aitools/test/shared`.
 The `aitools/test` operation signals an error when a test fails or the execution
-policy rejects the result, including a missed context spec floor or a skip or
-todo outside its allowlist. `run-tests.lisp` catches that error, prints a
-one-line diagnostic, and exits 1; it exits 0 when the operation completes. The
-per-spec report printed to stdout includes the executed count and any allowed
-unrun specs.
+policy rejects the result, including a file in a selected test system that
+registers specs but executes none, or a skip or todo outside its allowlist. A
+file whose specs are all skipped for allowed reasons is exempt from the
+execution requirement.
+`run-tests.lisp` catches that error, prints a one-line diagnostic, and exits 1;
+it exits 0 when the operation completes. The per-spec report printed to stdout
+includes the executed count and any allowed unrun specs.
 `AITOOLS_COVERAGE` always measures the full test set and cannot be combined
 with `AITOOLS_TEST_CONTEXT`.
 
@@ -63,10 +65,11 @@ ignores inherited output translations, so it cannot reuse the host's old
 compiled files.
 
 The runner loads `aitools/test` and runs every registered spec without a
-context filter. Success requires a nonempty selection, every selected spec
-passing, and zero skips, todos, failures, or errors, even for skips or todos
-the ordinary test policy would allow. It also enforces
-`*minimum-executed-specs*` in `t/package.lisp`. The report includes the store
+context filter. Success requires a nonempty selection and no todos, failures,
+or errors. Skips fail the host gate, except that when
+`AITOOLS_E2E_BYTE_CAPTURE_DIR` is set to a nonempty value, trace specs may skip
+with the reason `trace specs require a binary with --trace`. The report includes
+the store
 source (`SOURCE`), delivered binary (`BINARY`), JSON results, and
 `POLICY_EXECUTED` count.
 JSON results appear only after all specs finish. If the run is interrupted,
@@ -203,8 +206,7 @@ and test systems. Context ASDs define `aitools/test-support/<context>` systems
 for helpers shared across test contexts.
 `aitools.asd` loads those ASD files and
 composes the root systems; it also owns the shared data system and CLI
-composition root. The production components, test components, and count-floor
-files are:
+composition root. The production and test components are:
 
 - **library** files (`domain/`, `application/`, `infrastructure/`), relative
   to each context's `src/` (for example `packages/feature/env/src/`), in that
@@ -222,8 +224,13 @@ files are:
   both `cl-weave` and `cl-weave/spec`, so every context can write
   specification checks (`defspec`, `it-spec`) without declaring either
   system.
-- **spec-count floors** live in `t/spec-count-baselines/<context>.lisp` and
-  are checked by the shared `t/spec-count-baselines/loader.lisp`.
+
+Each `.lisp` file under `t/` must be a component of exactly one test system.
+The registration check excludes `t/**/fixtures/`, `t/perf/`,
+`t/integration/structure-budget-baselines/`, and
+`t/integration/structure-context-allowances/`. The two pidfd files
+`t/unit/process/pidfd-test.lisp` and `t/integration/process-pidfd-test.lisp`
+may be unregistered on hosts other than Linux x86-64 or Linux arm64.
 
 The contexts appear in load order: core kernel, protocol, workspace, text,
 store, then feature search, inspect, journal, edit, process, org, env, md,

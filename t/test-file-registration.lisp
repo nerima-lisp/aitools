@@ -3,8 +3,7 @@
 (defparameter *test-file-excluded-directories*
   '(("perf/" . "Performance tests use a separate runner.")
     ("integration/structure-budget-baselines/" . "Structure budget data is loaded by the structure tests.")
-    ("integration/structure-context-allowances/" . "Structure allowance data is loaded by the structure tests.")
-    ("spec-count-baselines/" . "Spec-count data is loaded by the baseline loader.")))
+    ("integration/structure-context-allowances/" . "Structure allowance data is loaded by the structure tests.")))
 
 (defparameter *conditional-test-files*
   '(("unit/process/pidfd-test.lisp" (:and :linux (:or :x86-64 :arm64))
@@ -51,17 +50,19 @@
      (mapcan (lambda (child) (%test-system-component-paths child system root))
              (asdf:component-children component)))))
 
-(defun %validate-test-file-registration ()
+(defun %test-file-registrations ()
   (let* ((root (merge-pathnames "t/" (asdf:system-source-directory "aitools/test/base")))
          (systems (append (uiop:symbol-call :asdf-user :%registered-aitools-test-systems)
                           (remove-if-not (lambda (name)
                                            (uiop:string-prefix-p "aitools/test-support/" name))
-                                         (asdf:registered-systems))))
-         (registrations
-           (loop for system in systems
-                 append (%test-system-component-paths (asdf:find-system system) system root)))
+                                         (asdf:registered-systems)))))
+    (loop for system in systems
+          append (%test-system-component-paths (asdf:find-system system) system root))))
+
+(defun %validate-test-file-registration ()
+  (let* ((root (merge-pathnames "t/" (asdf:system-source-directory "aitools/test/base")))
          (problems (%test-file-registration-problems
-                    (%test-file-paths root root) registrations *features*)))
+                    (%test-file-paths root root) (%test-file-registrations) *features*)))
     (when problems
       (error "Test file registration failed: ~{~A~^; ~}" problems))
     t))

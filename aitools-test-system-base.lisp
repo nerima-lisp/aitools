@@ -16,8 +16,8 @@
                                  :pathname "t/"
                                  :components ((:file "package")
                                               (:file "test-file-registration" :depends-on ("package"))
-                                              (:file "spec-count-baselines/loader" :depends-on ("package"))
-                                              (:file "test-runner" :depends-on ("package" "spec-count-baselines/loader"))
+                                              (:file "spec-execution-policy" :depends-on ("package" "test-file-registration"))
+                                              (:file "test-runner" :depends-on ("package" "spec-execution-policy"))
                                               (:module "support"
                                                        :pathname "support/"
                                                        :components ((:file "package")

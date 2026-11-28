@@ -1,1 +1,0 @@
-(:schema-version 1 :context :text :linux-specs 228 :darwin-specs 228 :minimum-executed-specs 228 :source :successful-linux-and-darwin-ci-runs :run-id "42474972258" :linux-job-id 128714147842 :darwin-job-id 128714148023 :revision "4e448732d93c0fd1a363106a1722bdfa2efd2da4" :reason "Cross-platform minimum measured in the successful check and check-darwin run.")

@@ -16,7 +16,6 @@
   ../t/integration/fixtures/net-https-server.py
   ../packages/feature/md/md.asd
   ../t/e2e/md-fixture.md
-  ../t/spec-count-baselines/md.lisp
   ../coverage-baselines/md.lisp
   ../packages/feature/process/process.asd
   ../packages/feature/search/search.asd

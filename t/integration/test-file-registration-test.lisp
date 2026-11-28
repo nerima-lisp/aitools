@@ -26,8 +26,7 @@
     (expect (%test-file-registration-problems
              '("e2e/fixtures/example.lisp" "integration/a/fixtures/example.lisp"
                "perf/example.lisp" "integration/structure-budget-baselines/example.lisp"
-               "integration/structure-context-allowances/example.lisp"
-               "spec-count-baselines/example.lisp")
+               "integration/structure-context-allowances/example.lisp")
              nil nil)
             :to-equal nil)
     (expect (length (%test-file-registration-problems

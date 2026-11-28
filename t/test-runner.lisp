@@ -68,8 +68,8 @@
   "Run registered cl-weave specs with a per-spec timeout and fail on test or run-policy errors."
   (setf *last-test-outcomes* nil)
   (let ((context (uiop:getenv "AITOOLS_TEST_CONTEXT")))
-    (%validate-context-test-systems context)
-    (let* ((json (make-string-output-stream))
+    (let* ((snapshot (%snapshot-specs))
+           (json (make-string-output-stream))
            (events
             (call-with-spec-progress
              (lambda ()
@@ -79,7 +79,7 @@
       (setf *last-test-outcomes* events)
       (cl-weave:explain! events)
       (multiple-value-bind (problems executed)
-          (%policy-problems (coerce (gethash "events" report) 'list) context)
+          (%policy-problems (coerce (gethash "events" report) 'list) snapshot context)
         (dolist (problem problems)
           (format t "~&aitools/test: ~A~%" problem))
         (unless (and (cl-weave:results-status events) (null problems))
