@@ -229,12 +229,17 @@
       lispDependencies = import ./nix/lisp-dependencies.nix inputs;
 
       # Test-only: cl-weave, the framework used by this project's specs.
+      # cl-weave/spec shares cl-weave.asd; building both systems here keeps
+      # the specification checker precompiled instead of compiled per check.
       lispCheckDependencies = ctx: [
         (ctx.cl.lispDerivation {
           pname = "cl-weave";
           version = ctx.cl.fromAsdSystem "${cl-weave}/cl-weave.asd";
           src = cl-weave;
-          lispSystem = "cl-weave";
+          lispSystems = [
+            "cl-weave"
+            "cl-weave/spec"
+          ];
         })
       ];
 

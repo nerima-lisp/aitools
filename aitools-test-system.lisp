@@ -36,10 +36,11 @@
           (asdf:load-system shared)))))
   (defsystem "aitools/test/shared"
              :description "Shared, structural, integration, and end-to-end tests."
-             :depends-on ("aitools/test/base" "aitools" "aitools/cli" "cl-weave")
+             :depends-on ("aitools/test/base" "aitools" "aitools/cli" "cl-weave" "cl-weave/spec")
              :pathname "."
              :components ((:module "t" :pathname "t/" :components
-                                   ((:file "unit/trace-context-test")
+                                   ((:file "unit/cl-weave-spec-smoke-test")
+                                    (:file "unit/trace-context-test")
                                     (:file "unit/trace-store-io-test" :depends-on ("unit/trace-context-test"))
                                     (:module "structure" :pathname "structure/" :serial t
                                              :components ((:file "cps-contract-reader")
