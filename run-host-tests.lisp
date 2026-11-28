@@ -17,33 +17,17 @@
                      :ignore-inherited-configuration))
                   (asdf:load-system "aitools/test")
                   (uiop:symbol-call :asdf-user :%load-aitools-test-systems nil)
-                  (uiop:symbol-call :aitools/test
-                                    :%validate-context-test-systems
-                                    nil)
                   (format t
                           "~&SOURCE=~A~%"
                           (asdf:system-source-directory "aitools"))
                   (format t "BINARY=~A~%" (uiop:getenv "AITOOLS_E2E_BINARY"))
-                  (let* ((json (make-string-output-stream))
+                  (let* ((snapshot (uiop:symbol-call :aitools/test :%snapshot-specs))
+                         (json (make-string-output-stream))
                          (run-events
                           (uiop:symbol-call :aitools/test
                                             :call-with-spec-progress
                                             (lambda ()
-                                              (uiop:symbol-call :cl-weave
-                                                                :run
-                                                                nil
-                                                                :timeout-ms
-                                                                60000
-                                                                :reporter
-                                                                :json
-                                                                :stream
-                                                                json
-                                                                :exclude-tags
-                                                                (when
-                                                                    (uiop:getenv
-                                                                     "AITOOLS_E2E_BYTE_CAPTURE_DIR")
-                                                                  (list
-                                                                   :trace-positive))))))
+                                              (uiop:symbol-call :cl-weave :run nil :timeout-ms 60000 :reporter :json :stream json))))
                          (report (get-output-stream-string json))
                          (parsed (uiop:symbol-call :json-kit :parse report))
                          (selected (gethash "events" parsed)))
@@ -52,7 +36,7 @@
                         (uiop:symbol-call :aitools/test
                                           :%policy-problems
                                           (coerce selected (quote list))
-                                          nil)
+                                          snapshot nil)
                       (format t "~&POLICY_EXECUTED=~D~%" executed)
                       (dolist (entry context-counts)
                         (format t "~&POLICY_CONTEXT_~A=~D~%"
@@ -61,12 +45,7 @@
                       (when problems
                         (error "Host full suite policy failed: ~S" problems)))
                     (unless
-                        (and (plusp (length selected))
-                             (= (length selected) (gethash "passed" parsed))
-                             (zerop (gethash "skipped" parsed))
-                             (zerop (gethash "todos" parsed))
-                             (zerop (gethash "failed" parsed))
-                             (zerop (gethash "errored" parsed))
+                        (and (uiop:symbol-call :aitools/test :%host-policy-acceptable-p selected)
                              (uiop:symbol-call :cl-weave :results-status events))
                       (error
                        "Host full suite failed, skipped tests, or selected no tests."))

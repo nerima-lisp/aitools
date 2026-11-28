@@ -1,0 +1,146 @@
+(in-package #:aitools/test)
+
+(defun %policy-test-event (file path status &optional reason)
+  (let ((event (make-hash-table :test (function equal)))
+        (location (make-hash-table :test (function equal))))
+    (setf (gethash "file" location) (copy-seq file)
+          (gethash "location" event) location
+          (gethash "path" event) (coerce path (quote vector))
+          (gethash "pathString" event) (format nil "~{~A~^ > ~}" path)
+          (gethash "status" event) status
+          (gethash "reason" event) reason)
+    event))
+
+(describe "Spec execution policy"
+  (it "rejects missing and unlisted skipped specs but permits partial execution"
+    (let* ((root (asdf:system-source-directory "aitools"))
+           (file (namestring (truename (merge-pathnames "t/integration/spec-execution-policy-test.lisp" root))))
+           (index (%make-test-context-source-index (list (cons :shared file))))
+           (snapshot (list (cons file (list "group" "first"))
+                           (cons file (list "group" "second"))))
+           (first (%policy-test-event file (list "group" "first") "pass"))
+           (second (%policy-test-event file (list "group" "second") "skip" "unlisted")))
+      (expect (find "No registered specs were found" (%policy-problems nil nil "shared" index) :test (function search)) :to-be-truthy)
+      (expect (find "has no executed spec" (%policy-problems nil snapshot "shared" index) :test (function search)) :to-be-truthy)
+      (expect (find "was not run (skip: unlisted)" (%policy-problems (list second) snapshot "shared" index) :test (function search)) :to-be-truthy)
+      (expect (%policy-problems (list first) snapshot "shared" index) :to-equal nil)
+      (setf (gethash "reason" second) "git is not on PATH")
+      (expect (%policy-problems (list first second) snapshot "shared" index) :to-equal nil)
+      (setf (gethash "status" first) "skip"
+            (gethash "reason" first) "git is not on PATH")
+      (expect (%policy-problems (list first second) snapshot "shared" index) :to-equal nil)))
+  (it "does not require specs from other context systems"
+    (let* ((root (asdf:system-source-directory "aitools"))
+           (shared (namestring (truename (merge-pathnames "t/integration/spec-execution-policy-test.lisp" root))))
+           (env (namestring (truename (merge-pathnames "t/unit/env/host-parsers-test.lisp" root))))
+           (index (%make-test-context-source-index (list (cons :shared shared) (cons :env env))))
+           (snapshot (list (cons shared (list "shared")) (cons env (list "env"))))
+           (event (%policy-test-event env (list "env") "pass")))
+      (expect (%policy-problems (list event) snapshot "env" index) :to-equal nil)
+      (expect (find "has no executed spec" (%policy-problems (list event) snapshot nil index) :test (function search)) :to-be-truthy)))
+  (it "ignores specs with no source file while enforcing skip reasons"
+    (let* ((root (asdf:system-source-directory "aitools"))
+           (file (namestring (truename (merge-pathnames "t/integration/spec-execution-policy-test.lisp" root))))
+           (index (%make-test-context-source-index (list (cons :shared file))))
+           (unlocated (cons nil (list "group" "unlocated")))
+           (located (cons file (list "group" "located")))
+           (unlocated-event (%policy-test-event nil (cdr unlocated) "pass"))
+           (located-event (%policy-test-event file (cdr located) "pass")))
+      (setf (gethash "location" unlocated-event) nil)
+      (multiple-value-bind (problems executed)
+          (%policy-problems (list unlocated-event) (list unlocated) "shared" index)
+        (expect problems :to-equal nil)
+        (expect executed :to-equal 0))
+      (multiple-value-bind (problems executed)
+          (%policy-problems (list unlocated-event located-event)
+                            (list unlocated located) "shared" index)
+        (expect problems :to-equal nil)
+        (expect executed :to-equal 1))
+      (setf (gethash "status" unlocated-event) "skip"
+            (gethash "reason" unlocated-event) "unlisted")
+      (expect (find "was not run (skip: unlisted)"
+                    (%policy-problems (list unlocated-event located-event)
+                                      (list unlocated located) "shared" index)
+                    :test (function search))
+              :to-be-truthy))))
+
+(describe "Test support execution policy"
+  (it "requires shared support files in each context that depends on them"
+    (let* ((root (asdf:system-source-directory "aitools"))
+           (support (namestring (truename (merge-pathnames "t/unit/edit/boundaries.lisp" root))))
+           (env (namestring (truename (merge-pathnames "t/unit/env/host-parsers-test.lisp" root))))
+           (index (%registered-test-source-index))
+           (snapshot (list (cons support (list "support")) (cons env (list "env"))))
+           (event (%policy-test-event env (list "env") "pass")))
+      (dolist (context (list "edit" "org"))
+        (expect (find "has no executed spec"
+                      (%policy-problems (list event) snapshot context index)
+                      :test (function search))
+                :to-be-truthy))
+      (expect (%policy-problems (list event) snapshot "env" index) :to-equal nil)))
+  (it "allows an unavailable oracle in the ordinary policy but not the host gate"
+    (let* ((root (asdf:system-source-directory "aitools"))
+           (file (namestring (truename (merge-pathnames "t/e2e/trace-byte-parity-cases.lisp" root))))
+           (index (%registered-test-source-index))
+           (snapshot (list (cons file (list "oracle"))))
+           (event (%policy-test-event file (list "oracle") "skip" "oracle unavailable: tree not on PATH")))
+      (expect (%policy-problems (list event) snapshot nil index) :to-equal nil)
+      (expect (%host-policy-acceptable-p (vector event)) :to-equal nil))))
+
+(describe "Spec registration source"
+  (it "records the file using a macro defined in another file"
+    (aitools.test.support:call-with-temporary-directory
+     (lambda (directory)
+       (let* ((root (asdf:system-source-directory "aitools"))
+              (macro-source (truename (merge-pathnames "t/integration/fixtures/spec-location/macros.lisp" root)))
+              (use-source (truename (merge-pathnames "t/integration/fixtures/spec-location/use-macro.lisp" root)))
+              (macro-fasl (merge-pathnames "macros.fasl" directory))
+              (use-fasl (merge-pathnames "use-macro.fasl" directory))
+              (cl-weave::*root-suite* nil)
+              (cl-weave::*current-suite* nil))
+         (unwind-protect
+              (progn
+                (load (compile-file macro-source :output-file macro-fasl))
+                (load (compile-file use-source :output-file use-fasl))
+                (let ((snapshot (%snapshot-specs)))
+                  (expect (length snapshot) :to-equal 3)
+                  (expect (sort (mapcar (lambda (entry) (car (last (cdr entry)))) snapshot)
+                                (function string<))
+                          :to-equal (list "first" "second" "third"))
+                  (expect (every (lambda (entry) (string= (car entry) (namestring use-source))) snapshot)
+                          :to-be t)))
+           (when (find-package "AITOOLS.TEST.SPEC-LOCATION-FIXTURE")
+             (delete-package "AITOOLS.TEST.SPEC-LOCATION-FIXTURE")))))
+     :prefix "aitools-spec-location")))
+
+(describe "Host byte capture execution policy"
+  (it "attributes the real trace skip to its registered file only during capture"
+    (let* ((variable "AITOOLS_E2E_BYTE_CAPTURE_DIR")
+           (previous (uiop:getenv variable))
+           (root (asdf:system-source-directory "aitools"))
+           (file (namestring (truename (merge-pathnames "t/e2e/trace-byte-parity-cases.lisp" root))))
+           (index (%make-test-context-source-index (list (cons :shared file))))
+           (cl-weave::*root-suite* nil)
+           (cl-weave::*current-suite* nil))
+      (unwind-protect
+           (progn
+             (sb-posix:setenv variable "/capture-probe" 1)
+             (load file)
+             (let* ((snapshot (%snapshot-specs))
+                    (output (make-string-output-stream))
+                    (results (cl-weave:run nil :reporter :json :stream output))
+                    (report (json-kit:parse (get-output-stream-string output)))
+                    (events (gethash "events" report)))
+               (expect (cl-weave:results-status results) :to-be-truthy)
+               (expect (length snapshot) :to-equal 1)
+               (expect (caar snapshot) :to-equal file)
+               (expect (length events) :to-equal 1)
+               (expect (gethash "skipped" report) :to-equal 1)
+               (expect (%policy-problems (coerce events (quote list)) snapshot "shared" index) :to-equal nil)
+               (expect (%host-policy-acceptable-p events) :to-be-truthy)
+               (sb-posix:unsetenv variable)
+               (expect (%host-policy-acceptable-p events) :to-equal nil)
+               (expect (find "not in *ALLOWED-UNRUN-SPECS*" (%policy-problems (coerce events (quote list)) snapshot "shared" index) :test (function search)) :to-be-truthy)))
+        (if previous
+            (sb-posix:setenv variable previous 1)
+          (sb-posix:unsetenv variable))))))

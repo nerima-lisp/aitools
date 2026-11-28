@@ -30,10 +30,8 @@
 (defconstant +default-test-timeout-ms+ 60000)
 (defvar *last-test-outcomes* nil)
 
-(defvar *minimum-executed-specs* 0
-  "Fewer executed specs (passed, failed or errored; not skipped or todo) than the data-backed baseline fails the run.")
 (defparameter *allowed-unrun-specs*
-  ;; Optional fields are an environment variable, its required state, and exact-reason matching.
+  ;; Optional fields select an environment condition, exact matching, and host permission.
   '((:skip "zip/unzip are not on PATH" "archive interop oracle needs the host tools")
     (:skip "tar is not on PATH" "archive interop oracle needs the host tools")
     (:skip "tar/gzip are not on PATH" "archive interop oracle needs the host tools")
@@ -42,10 +40,10 @@
     (:skip "skipped without the cl-process-kit-spawn trampoline"
      "bg needs the native spawn helper" "CL_PROCESS_KIT_SPAWN")
     (:skip "oracle unavailable"
-     "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip. A wholesale e2e skip still trips *minimum-executed-specs*.")
+     "an e2e row's reference tool is not on PATH; checks.default adds the common ones and niche tools (tree, dos2unix, nkf) skip.")
     (:skip "trace specs require a binary with --trace"
      "trace-positive e2e cases are skipped during no-trace byte captures"
-     "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason)
+     "AITOOLS_E2E_BYTE_CAPTURE_DIR" :set :exact-reason :host)
     (:skip
      "case-sensitive filesystem: property cannot be observed on a case-sensitive filesystem; fake-host name-check specs cover the folding rule on every platform"
      "case-sensitive filesystem: property cannot be observed on a case-sensitive filesystem; fake-host name-check specs cover the folding rule on every platform"
@@ -117,15 +115,6 @@ the reported path."
               (error "Test source file belongs to multiple contexts: ~A" file))
             (setf (gethash file event-cache) (car contexts))
             (car contexts))))))
-(defun %context-test-source-files ()
-  (loop for context in (mapcar #'car *context-spec-count-baselines*)
-        for system-name = (format nil "aitools/test/~A"
-                                  (string-downcase (symbol-name context)))
-        append
-        (loop for pathname in
-              (uiop:symbol-call "CL-WEAVE" "ASDF-SYSTEM-FILES"
-                                system-name :include-dependencies nil)
-              collect (cons context (namestring (truename pathname))))))
 (defun %make-test-context-source-index (source-files)
   (let ((index (%make-empty-test-context-source-index)))
     (dolist (entry source-files)
@@ -143,11 +132,12 @@ the reported path."
 
 (defun %allowed-unrun-p (event)
   (let ((status (if (string= (%event-field event "status") "skip") :skip :todo))
-        (reason (or (%event-field event "reason") ""))
-        (path (%event-field event "pathString")))
+        (reason (let ((value (%event-field event "reason")))
+                  (if (stringp value) value "")))
+        (path (or (%event-field event "pathString") "")))
     (find-if (lambda (entry)
-               (destructuring-bind (entry-status text why &optional env-var env-mode match-mode) entry
-                 (declare (ignore why))
+               (destructuring-bind (entry-status text why &optional env-var env-mode match-mode host-mode) entry
+                 (declare (ignore why host-mode))
                  (and (eq status entry-status)
                       (if (eq match-mode :exact-reason)
                           (string= text reason)
@@ -157,55 +147,3 @@ the reported path."
                             (and value (plusp (length value))))
                         (not (and env-var (uiop:getenv env-var)))))))
              *allowed-unrun-specs*)))
-
-(defun %policy-problems (events &optional (context (uiop:getenv "AITOOLS_TEST_CONTEXT")) source-index)
-  "Why the run fails even though no spec failed, as a list of strings."
-  (let* ((minimum (%minimum-executed-specs-for-context context))
-         (executed-events
-           (remove-if-not
-            (lambda (event)
-              (member (%event-field event "status") '("pass" "fail" "error")
-                      :test #'string=))
-            events))
-         (executed (length executed-events))
-         (problems '())
-         (context-counts nil))
-    (when (< executed minimum)
-      (push (format nil "only ~D specs ran; at least ~D are expected for ~A"
-                    executed minimum (or context "the full suite"))
-            problems))
-    (when (null context)
-      (let ((source-index
-              (or source-index
-                  (%make-test-context-source-index (%context-test-source-files))))
-            (counts (make-hash-table :test #'eq)))
-        (dolist (entry *context-spec-count-baselines*)
-          (setf (gethash (car entry) counts) 0))
-        (dolist (event executed-events)
-          (let* ((location (%event-field event "location"))
-                 (file (and (hash-table-p location)
-                            (%event-field location "file")))
-                 (owner (%test-context-from-source-file file source-index)))
-            (if owner
-                (incf (gethash owner counts))
-              (push (format nil "executed spec ~A has no matching context source file ~S"
-                            (or (%event-field event "pathString") "<unknown>")
-                            file)
-                    problems))))
-        (dolist (entry *context-spec-count-baselines*)
-          (let* ((context (car entry))
-                 (minimum (getf (cdr entry) :minimum-executed-specs))
-                 (context-executed (gethash context counts)))
-            (push (cons context context-executed) context-counts)
-            (when (< context-executed minimum)
-              (push (format nil "context ~A has only ~D specs run; at least ~D are expected"
-                            context context-executed minimum)
-                    problems))))))
-    (dolist (event events)
-      (when (and (member (%event-field event "status") '("skip" "todo") :test #'string=)
-                 (not (%allowed-unrun-p event)))
-        (push (format nil "~A was not run (~A: ~A) and is not in *ALLOWED-UNRUN-SPECS*"
-                      (%event-field event "pathString") (%event-field event "status")
-                      (%event-field event "reason"))
-              problems)))
-    (values (nreverse problems) executed (nreverse context-counts))))

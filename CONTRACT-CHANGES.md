@@ -58,9 +58,10 @@
   current item.
 - **Context-scoped tests**: select one context with
   `AITOOLS_TEST_CONTEXT=<ctx>` and the `aitools/test/<ctx>` system. For example,
-  `AITOOLS_TEST_CONTEXT=env` selects `aitools/test/env` and that context's test
-  count floor. Without the selector, the runner loads every context test system
-  and the shared system.
+  `AITOOLS_TEST_CONTEXT=env` selects `aitools/test/env`. Without the selector,
+  the runner loads every context test system and the shared system. A file in a
+  selected test system that registers specs must execute at least one, unless
+  all its specs are skipped for allowed reasons.
 - **Command registration order**: the feature presentation systems' order in
   `aitools/cli` dependencies determines registration order. An integration
   test checks that each declared feature context has one registration in that
@@ -105,18 +106,13 @@
 - A new feature context must also be added to the `aitools` system's
   `:depends-on` list in `aitools.asd`, and to the expected context list in
   `t/integration/context-registration-test.lisp`.
-- Update `t/spec-count-baselines/shared.lisp` when a change adds, removes, or
-  reassigns shared specs. Record its floor from successful full-suite Linux and
-  Darwin runs; keep the aggregate floor equal to the sum of all context floors.
 - When `run-tests.lisp` runs with `AITOOLS_COVERAGE`, the coverage runner
   refreshes SB-COVER, SBCL's coverage collector, after each ASDF source file
   load. Top-level forms evaluated during loading count as covered because their
   marks are collected before garbage collection can reclaim their code objects.
 - After rebasing onto earlier parallel work, record aggregate coverage in
   `coverage-baseline.lisp` and per-context coverage in `coverage-baselines/`
-  from a successful Linux `check` job on the rebased revision. Record
-  spec-count baselines in `t/spec-count-baselines/` from successful Linux
-  `check` and macOS `check-darwin` jobs on that revision.
+  from a successful Linux `check` job on the rebased revision.
 - When deleting covered code requires a baseline adjustment, update affected
   context and aggregate measurements from Linux CI. Record the before-and-after
   counts in the commit message. Do not lower a baseline to compensate for

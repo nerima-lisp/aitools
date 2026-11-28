@@ -126,6 +126,7 @@
     (multiple-value-bind (groups exclusions)
         (classify-coverage-inputs include root)
       (let* ((selected (loop for group in groups append (copy-list (cdr group))))
+             (snapshot (uiop:symbol-call :aitools/test :%snapshot-specs))
              (passed (uiop:symbol-call
                       "CL-WEAVE" "RUN-ALL"
                       :timeout-ms 60000 :reporter :json :stream json :coverage t
@@ -141,7 +142,7 @@
         (setf (symbol-value (find-symbol "*LAST-TEST-OUTCOMES*" "AITOOLS/TEST"))
               (cons :json events))
         (multiple-value-bind (problems executed context-counts)
-            (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events nil)
+            (uiop:symbol-call "AITOOLS/TEST" "%POLICY-PROBLEMS" events snapshot nil)
           (let* ((measured (measure-context-coverage root groups))
                  (statistics (aggregate-context-coverage-statistics measured))
                  (aggregate

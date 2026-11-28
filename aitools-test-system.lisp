@@ -119,6 +119,7 @@
                                                           (:file "coverage-artifact-validation")
                                                           (:file "run-policy-and-coverage-artifact-validation-test"
                                                                  :depends-on ("coverage-artifact-validation"))
+                                                          (:file "spec-execution-policy-test")
                                                           (:file "structure-budget-baseline")
                                                           ;; Keep dynamically loaded per-context budgets in filtered source trees.
                                                           (:module "structure-budget-baseline-data"

@@ -126,4 +126,6 @@
                 (expect stdout :to-contain
                         "[fail] runner timeout fixture > exceeds its configured timeout")
                 (expect stdout :to-contain "Test exceeded its 25 ms timeout.")
-                (expect stdout :to-contain "only 1 specs ran; at least"))))
+                (expect stdout :to-contain "has no matching test source file")
+                (expect stdout :to-contain "t/integration/fixtures/runner-timeout.lisp")
+                (expect stdout :to-contain "aitools tests failed: SIMPLE-ERROR: aitools test suite failed"))))
